@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TCC Member</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Roboto:wght@300;400;500;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════
+   ROOT & CSS VARIABLES
+════════════════════════════════════════ */
+:root{
+  /* member.html originals */
+  --bg:#0b0e11;--bg2:#161a1e;--bg3:#1c2127;--bg4:#252930;--bgh:#2a2f38;
+  --t1:#eaecef;--t2:#848e9c;--t3:#5e6673;
+  --g:#0ecb81;--gbg:#0d2c1e;--r:#f6465d;--rbg:#2d1117;
+  --y:#f0b90b;--ybg:#2c2205;--border:#2b3139;--bl:#363c46;
+  --mono:'Roboto Mono',monospace;--sans:'IBM Plex Sans Thai','Roboto',sans-serif;
+  /* aliases for tcS5 compatibility */
+  --gold:#f0b90b;--gold-dim:#c99a00;--gold-soft:rgba(240,185,11,0.11);
+  --text:#eaecef;--text-dim:#848e9c;--muted:#5e6673;
+  --green:#0ecb81;--red:#f6465d;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;min-height:100vh;overflow-x:hidden}
+body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px;max-width:480px;margin:0 auto}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:var(--bl);border-radius:3px}
+a{color:inherit;text-decoration:none}
+input,select,button{font-family:inherit}
+
+/* ════ PAGE SYSTEM ════ */
+.view{display:none;min-height:100vh;flex-direction:column;background:var(--bg)}
+.view.active{display:flex}
+
+/* ════ TOP BAR ════ */
+.mem-topbar{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 16px;border-bottom:1px solid var(--border);
+  background:var(--bg);position:sticky;top:0;z-index:100;
+}
+.mem-back{
+  width:36px;height:36px;border-radius:50%;background:var(--bg3);
+  border:1px solid var(--border);display:flex;align-items:center;
+  justify-content:center;cursor:pointer;font-size:16px;flex-shrink:0;
+}
+.mem-topbar-title{flex:1;font-size:16px;font-weight:700;color:var(--t1)}
+.mem-topbar-sub{font-size:11px;color:var(--t2)}
+
+/* ════ FORM COMMON ════ */
+.mem-body{flex:1;overflow-y:auto;padding:16px 16px 40px;-webkit-overflow-scrolling:touch}
+.field{margin-bottom:14px}
+.field label{font-size:11px;color:var(--t2);font-weight:600;display:block;margin-bottom:5px;letter-spacing:.3px;text-transform:uppercase}
+.field label .req{color:var(--r);margin-left:2px}
+.inp{
+  width:100%;background:var(--bg3);border:1.5px solid var(--border);
+  border-radius:10px;padding:12px 14px;font-size:14px;color:var(--t1);
+  outline:none;transition:border .15s;
+}
+.inp:focus{border-color:var(--y)}
+.inp::placeholder{color:var(--t3)}
+.inp[readonly]{color:var(--t2);cursor:default;background:var(--bg4)}
+.sel{
+  width:100%;background:var(--bg3);border:1.5px solid var(--border);
+  border-radius:10px;padding:12px 14px;font-size:14px;color:var(--t1);
+  outline:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23848e9c' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;
+}
+.sel:focus{border-color:var(--y);outline:none}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ════ PROGRESS BAR ════ */
+.prog-wrap{display:flex;gap:6px;margin-bottom:20px}
+.prog-bar{flex:1;height:4px;border-radius:2px;background:var(--border);transition:background .3s}
+.prog-bar.done{background:var(--y)}
+.prog-bar.active{background:rgba(240,185,11,.4)}
+
+/* ════ STEP CARD ════ */
+.step-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px}
+.step-title{
+  font-size:13px;font-weight:700;color:var(--y);
+  display:flex;align-items:center;gap:7px;margin-bottom:16px;
+}
+.step-num{
+  width:22px;height:22px;border-radius:50%;background:var(--ybg);
+  border:1px solid var(--y);display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;color:var(--y);flex-shrink:0;
+}
+
+/* ════ REFERRAL BADGE (in register step 3) ════ */
+.ref-badge{
+  display:flex;align-items:center;gap:10px;
+  background:var(--gbg);border:1px solid rgba(14,203,129,.3);
+  border-radius:10px;padding:12px 14px;margin-bottom:14px;
+}
+.ref-badge-ico{font-size:20px}
+.ref-badge-lbl{font-size:10px;color:var(--t2);margin-bottom:2px}
+.ref-badge-code{font-family:var(--mono);font-weight:700;color:var(--g);font-size:14px}
+
+/* ════ COMMISSION TABLE ════ */
+.comm-table{width:100%;border-collapse:collapse;margin-top:4px}
+.comm-table th,.comm-table td{
+  padding:8px 10px;font-size:11px;text-align:left;
+  border-bottom:1px solid var(--border);
+}
+.comm-table th{color:var(--t2);font-weight:600;background:var(--bg3)}
+.comm-table td{color:var(--t1)}
+.comm-table td.y{color:var(--y);font-weight:700}
+.comm-table td.g{color:var(--g);font-weight:700}
+.comm-note{font-size:10px;color:var(--t3);line-height:1.6;margin-top:8px}
+
+/* ════ BUTTONS ════ */
+.btn-row{display:flex;gap:10px;margin-top:18px}
+.btn{
+  flex:1;padding:13px;border:none;border-radius:10px;
+  font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;
+  transition:opacity .15s;
+}
+.btn:active{opacity:.75}
+.btn-primary{background:var(--y);color:#000}
+.btn-secondary{background:var(--bg3);color:var(--t2);border:1px solid var(--border)}
+.btn-full{
+  width:100%;padding:14px;border:none;border-radius:10px;
+  font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;
+  background:var(--y);color:#000;margin-top:12px;
+}
+.btn-full.outline{background:var(--bg3);color:var(--t2);border:1px solid var(--border);margin-top:8px}
+
+/* ════ SUCCESS SCREEN ════ */
+.success-wrap{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:32px 24px;text-align:center;
+}
+.success-ico{font-size:64px;margin-bottom:16px}
+.success-title{font-size:22px;font-weight:800;color:var(--g);margin-bottom:8px}
+.success-sub{font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:20px}
+.success-ref-box{
+  background:var(--bg3);border:1px solid var(--border);border-radius:12px;
+  padding:14px 16px;width:100%;margin-bottom:16px;
+}
+.success-ref-lbl{font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.success-ref-link{
+  font-size:11px;font-family:var(--mono);color:var(--t2);
+  word-break:break-all;line-height:1.5;
+}
+.success-ref-uid{font-size:18px;font-weight:800;font-family:var(--mono);color:var(--y);margin-top:4px}
+
+/* ════ LOADING / ERROR ════ */
+.loading-wrap{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:12px;padding:40px;text-align:center;
+}
+.spin{
+  width:36px;height:36px;border:3px solid var(--border);
+  border-top-color:var(--y);border-radius:50%;
+  animation:spin 0.7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-lbl{font-size:13px;color:var(--t2)}
+
+/* ════ TOAST ════ */
+#mem-toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+  padding:10px 18px;font-size:13px;color:var(--t1);font-weight:600;
+  opacity:0;transition:all .25s;z-index:100000;white-space:nowrap;
+  pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.4);
+}
+#mem-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ════ REGISTER ONLY : step indicator ════ */
+.steps-indicator{display:flex;align-items:center;gap:6px}
+.si-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--border);
+  transition:background .25s;
+}
+.si-dot.active{background:var(--y);width:20px;border-radius:4px}
+.si-dot.done{background:var(--g)}
+
+/* ════ DASHBOARD VIEW ════ */
+#dash-root{flex:1;overflow-y:auto;padding:14px 14px 48px;-webkit-overflow-scrolling:touch}
+
+/* ════ TERMS VIEW ════ */
+.terms-body{flex:1;overflow-y:auto;padding:14px 14px 48px;-webkit-overflow-scrolling:touch}
+
+/* ════ INFO CARDS (for Terms) ════ */
+.info-wrap{padding:0 0 16px}
+.info-card{
+  background:linear-gradient(135deg,rgba(17,21,27,.96),rgba(11,14,17,.99));
+  border:1px solid var(--border);border-radius:12px;padding:14px 16px;
+  margin-bottom:10px;box-shadow:0 4px 18px rgba(0,0,0,.4);
+  transition:transform .22s,box-shadow .22s,border-color .22s;
+  cursor:default;
+}
+.info-card:last-child{margin-bottom:0}
+.info-card:hover{transform:translateY(-3px) scale(1.008);
+  box-shadow:0 8px 28px rgba(240,185,11,.16);border-color:rgba(240,185,11,.4)}
+.info-card h3{color:var(--gold);font-size:.9rem;margin-bottom:8px;font-weight:600}
+.info-card p,.info-card li{color:#ccc;font-size:.8rem;line-height:1.72;margin-bottom:4px}
+.info-card ul{list-style:none;padding:0}
+.lvl{display:flex;align-items:flex-start;gap:10px;
+  background:rgba(240,185,11,.06);border:1px solid rgba(240,185,11,.18);
+  border-radius:9px;padding:11px;margin-bottom:8px;
+  transition:background .2s,border-color .2s,transform .18s}
+.lvl:hover{background:rgba(240,185,11,.12);border-color:rgba(240,185,11,.38);transform:translateX(5px)}
+.lvl-no{background:var(--gold);color:#000;font-weight:700;font-size:.75rem;
+  min-width:24px;height:24px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.lvl-txt{font-size:.79rem;color:#ccc;line-height:1.68}
+.lvl-txt b{color:var(--gold)}
+
+/* ════ TC DASHBOARD STYLES (ported from index) ════ */
+.tc-flow-wrap{padding:0 0 32px}
+.tc-card{background:linear-gradient(135deg,rgba(17,21,27,.98),rgba(11,14,17,.99));border:1px solid var(--border);border-radius:13px;padding:20px 18px;margin-bottom:14px}
+.tc-card-ttl{display:flex;align-items:center;gap:9px;font-size:.92rem;font-weight:700;color:var(--gold);margin-bottom:16px;font-family:'Rajdhani',sans-serif;letter-spacing:.5px;border-bottom:1px solid rgba(240,185,11,.12);padding-bottom:10px}
+.tc-grp{margin-bottom:13px}
+.tc-lbl{font-size:.76rem;color:var(--text-dim);margin-bottom:5px;display:block}
+.tc-lbl b{color:var(--gold)}
+.tc-inp{width:100%;padding:10px 13px;background:#0b0e11;border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:var(--sans);font-size:.86rem;outline:none;transition:border-color .2s,box-shadow .2s}
+.tc-inp:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(240,185,11,.1)}
+.tc-inp::placeholder{color:var(--text-dim);opacity:.6}
+select.tc-inp{cursor:pointer;background:#0b0e11;-webkit-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23f0b90b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+select.tc-inp option{background:#0b0e11;color:var(--text)}
+textarea.tc-inp{resize:vertical;min-height:72px}
+input[type=number].tc-inp{-moz-appearance:textfield}
+input[type=number].tc-inp::-webkit-outer-spin-button,
+input[type=number].tc-inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.tc-inp-row{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+@media(max-width:500px){.tc-inp-row{grid-template-columns:1fr}}
+.tc-err{color:#f87171;font-size:.76rem;margin-top:5px;display:none}
+.tc-err.on{display:block}
+.tc-mem-banner{display:flex;align-items:center;gap:12px;background:rgba(240,185,11,.06);border:1px solid rgba(240,185,11,.22);border-radius:10px;padding:11px 13px;margin-bottom:14px}
+.tc-mem-av{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dim));display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:#000;flex-shrink:0}
+.tc-mem-name{font-size:.88rem;font-weight:600;color:var(--text)}
+.tc-mem-sub{font-size:.73rem;color:var(--text-dim);margin-top:1px}
+.tc-btn{width:100%;padding:11px;font-weight:700;font-size:.87rem;border:none;border-radius:9px;cursor:pointer;font-family:var(--sans);transition:all .2s;letter-spacing:.3px}
+.tc-btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold-dim));color:#000}
+.tc-btn-gold:hover{opacity:.88;transform:translateY(-1px)}
+.tc-btn-gold:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.tc-btn-out{background:transparent;color:var(--gold);border:1px solid rgba(240,185,11,.35);margin-top:7px}
+.tc-btn-out:hover{background:rgba(240,185,11,.07)}
+.tc-stat{display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:20px;font-size:.72rem;font-weight:600}
+.tc-st-pend{background:rgba(240,185,11,.1);color:var(--gold);border:1px solid rgba(240,185,11,.28)}
+.tc-st-appr{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.28)}
+.tc-st-rejt{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.28)}
+.tc-st-edit{background:rgba(96,165,250,.1);color:#60a5fa;border:1px solid rgba(96,165,250,.28)}
+.tc-action-bar{display:flex;align-items:center;gap:10px;padding:11px 15px;border-radius:11px;
+  margin-bottom:12px;font-size:.8rem;font-weight:600;
+  animation:tc-bar-in .2s cubic-bezier(.2,.8,.3,1) both;
+  box-shadow:0 2px 12px rgba(0,0,0,.3)}
+@keyframes tc-bar-in{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}
+.tc-bar-loading{background:linear-gradient(135deg,rgba(240,185,11,.1),rgba(240,185,11,.05));border:1px solid rgba(240,185,11,.3);color:var(--gold)}
+.tc-bar-success{background:linear-gradient(135deg,rgba(34,197,94,.1),rgba(34,197,94,.04));border:1px solid rgba(34,197,94,.35);color:#4ade80}
+.tc-bar-error{background:linear-gradient(135deg,rgba(239,68,68,.1),rgba(239,68,68,.04));border:1px solid rgba(239,68,68,.3);color:#f87171}
+.tc-bar-warn{background:linear-gradient(135deg,rgba(251,191,36,.1),rgba(251,191,36,.04));border:1px solid rgba(251,191,36,.3);color:#fbbf24}
+.tc-bar-spin{width:16px;height:16px;border:2px solid rgba(240,185,11,.25);border-top-color:var(--gold);border-radius:50%;animation:tc-spin .7s linear infinite;flex-shrink:0}
+.tc-bar-icon{font-size:1rem;flex-shrink:0;line-height:1}
+.tc-bar-body{flex:1;min-width:0}
+.tc-bar-title{font-weight:700;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-bar-sub{font-size:.68rem;opacity:.75;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-bar-close{background:none;border:none;color:inherit;opacity:.5;cursor:pointer;padding:0 2px;font-size:.85rem;flex-shrink:0;line-height:1}
+.tc-bar-close:hover{opacity:1}
+@keyframes tc-spin{to{transform:rotate(360deg)}}
+@media(max-width:600px){
+  .tc-dash-tabbar-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap!important}
+  .tc-dash-tabbar-wrap button{white-space:nowrap;flex-shrink:0}
+  .ref-stat-grid-2x2{grid-template-columns:1fr 1fr!important}
+  .ref-wd-btn-wrap{flex-direction:column!important;align-items:stretch!important}
+  .ref-wd-btn-wrap button{width:100%}
+}
+
+/* bottom padding */
+.bottom-spacer{height:60px}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════
+     VIEW 2: MY DASHBOARD
+════════════════════════════════════════════ -->
+<div class="view" id="view-dashboard">
+  <div class="mem-topbar">
+    <div class="mem-back" onclick="goBack()">←</div>
+    <div style="flex:1">
+      <div class="mem-topbar-title">📊 My Dashboard</div>
+      <div class="mem-topbar-sub" id="dashUidLabel">กำลังโหลด...</div>
+    </div>
+    <button onclick="showView('terms')"
+      style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+             padding:6px 12px;font-size:11px;font-weight:700;color:var(--t2);cursor:pointer;">
+      📋 T&amp;C
+    </button>
+  </div>
+  <div id="dash-root">
+    <div class="loading-wrap">
+      <div class="spin"></div>
+      <div class="loading-lbl">กำลังโหลดข้อมูล...</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════
+     VIEW 3: TERMS & CONDITIONS
+════════════════════════════════════════════ -->
+<div class="view" id="view-terms">
+  <div class="mem-topbar">
+    <div class="mem-back" onclick="showView('dashboard')">←</div>
+    <div style="flex:1">
+      <div class="mem-topbar-title">📋 เงื่อนไขและข้อตกลง</div>
+      <div class="mem-topbar-sub">Trader Cafe Club</div>
+    </div>
+  </div>
+  <div class="terms-body">
+    <div class="info-wrap">
+      <div class="info-card"><h3>🛡️ ข้อตกลงหลัก</h3><p>เทรดในพอร์ตของตัวเองบน <b style="color:var(--gold)">Binance</b> อันดับ 1 ของโลก — ไม่มีการเชื่อมต่อภายนอก</p></div>
+      <div class="info-card"><h3>✅ คุณสมบัติที่ต้องมี</h3>
+        <div class="lvl"><div class="lvl-no">1</div><div class="lvl-txt">บัญชีไบแนนซ์ KYC + Pass Key</div></div>
+        <div class="lvl"><div class="lvl-no">2</div><div class="lvl-txt">มีทีม/ร้านกาแฟต้นสังกัด</div></div>
+        <div class="lvl"><div class="lvl-no">3</div><div class="lvl-txt">เงินทุนใน USDT สำหรับการเทรด</div></div>
+      </div>
+      <div class="info-card"><h3>💵 สัดส่วนรายได้</h3>
+        <div class="lvl"><div class="lvl-no">1</div><div class="lvl-txt">คอมมิชชั่นทีม <b>10%</b></div></div>
+        <div class="lvl"><div class="lvl-no">2</div><div class="lvl-txt">ประกันรายได้ <b>10%</b></div></div>
+        <div class="lvl"><div class="lvl-no">3</div><div class="lvl-txt">รายได้ผู้เทรด <b>40%</b></div></div>
+        <div class="lvl"><div class="lvl-no">4</div><div class="lvl-txt">บริหารระบบ <b>40%</b></div></div>
+      </div>
+      <div class="info-card"><h3>📌 ข้อห้าม</h3>
+        <div class="lvl"><div class="lvl-no">1</div><div class="lvl-txt">ห้ามปิด/เปิดออเดอร์เองโดยไม่ได้รับอนุมัติจากเลขา</div></div>
+        <div class="lvl"><div class="lvl-no">2</div><div class="lvl-txt">ห้ามบ่ายเบี่ยงหรือปฏิเสธการเข้าออเดอร์</div></div>
+      </div>
+    </div>
+    <div class="bottom-spacer"></div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════
+     VIEW 4: LOADING / NOT FOUND
+════════════════════════════════════════════ -->
+<div class="view active" id="view-loading">
+  <div class="loading-wrap">
+    <div class="spin"></div>
+    <div class="loading-lbl" id="loadingMsg">กำลังโหลด...</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="mem-toast"></div>
+
+<script>
+// ════════════════════════════════
+//  CONFIG
+// ════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+//  CONFIG  [v2-NEW] เปลี่ยนจาก WORKER_URL/DB1 → GAS Backend
+//  ──────────────────────────────────────────────────────────────
+//  ⚠️ ระบบนี้ (member2.html) เป็น "ฐานข้อมูลใหม่" คู่ขนานกับ member.html
+//     เดิม (DB1/Worker) — ห้ามแก้ member.html, ห้ามผูกกับ WORKER_URL เดิม
+//     ข้อมูลทั้งหมดมาจาก GAS Web App เดียวกับ index.html (SCRIPT_URL)
+//     ไม่มีหน้าสมัครสมาชิกใหม่ — เฉพาะ Dashboard เท่านั้น (ฐานข้อมูลมีสมาชิกอยู่แล้ว)
+// ════════════════════════════════════════════════════════════════
+const CFG = {
+  BASE_URL: (function(){
+    const u = window.location.href.split('?')[0].split('#')[0];
+    return u;
+  })(),
+  INDEX_FILE: 'index.html',
+};
+
+// ════════════════════════════════════════════════════════════════
+//  DATA LAYER [v2-NEW] — GAS Backend (เดียวกับ index.html)
+//  ──────────────────────────────────────────────────────────────
+//  Action ที่ใช้ (ดู GAS_TCC_TH_v2_23.js → MODULE [NEW] COMMISSION DASHBOARD):
+//    getMemberDashboard(uid)             → แท็บ "ส่วนตัว" + commission/main balance
+//    getTeamCommissionSummary(teamName)  → แท็บ "ทีมของฉัน"
+//    getTeamMembersList(teamName)        → แท็บ "ดูสมาชิก"
+//    getReferralDashboard(uid)           → แท็บ "แนะนำสมาชิก"
+//    logCommissionTransfer(data)         → โอน commission_balance ↔ main_balance
+// ════════════════════════════════════════════════════════════════
+
+// ⚠️ แทนที่ด้วย GAS Web App URL เดียวกับที่ index.html ใช้ (SCRIPT_URL)
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwocCEr-mQu6esBJBRRElo68Y2GLPJryhAShi9FSm__G9mD0TV5oa9IAa8cFxBn_GlILw/exec';
+
+async function dbCallRaw(action, data = {}) {
+  const res = await fetch(SCRIPT_URL, {
+    method:   'POST',
+    headers:  { 'Content-Type': 'text/plain' },
+    body:     JSON.stringify({ action, data }),
+    redirect: 'follow',
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'GAS error: ' + action);
+  return json.data;
+}
+
+// Session cache — เก็บ response ดิบจาก GAS ต่อ uid/teamName เพื่อลด round-trip
+const SS_TTL = 5 * 60 * 1000; // 5 นาที — ข้อมูลคอมมิชชั่นเปลี่ยนได้บ่อยกว่า team/member profile
+function ssSet(k,d){try{sessionStorage.setItem(k,JSON.stringify({d,t:Date.now()}));}catch(e){}}
+function ssGet(k){try{const r=sessionStorage.getItem(k);if(!r)return null;const o=JSON.parse(r);if(Date.now()-o.t>SS_TTL){sessionStorage.removeItem(k);return null;}return o.d;}catch(e){return null;}}
+function ssClear(k){try{if(k)sessionStorage.removeItem(k);else Object.keys(sessionStorage).filter(x=>x.startsWith('tcc2_')).forEach(x=>sessionStorage.removeItem(x));}catch(e){}}
+
+// ── State ที่ tcS5* ใช้ ──────────────────────────────────────────
+// MEMBER_DASH  = ผลจาก getMemberDashboard      (แท็บ personal — มี commissionBalance/mainBalance)
+// TEAM_SUMMARY = ผลจาก getTeamCommissionSummary (แท็บ team)
+// TEAM_MEMBERS = ผลจาก getTeamMembersList       (แท็บ members)
+// REFERRAL_DASH= ผลจาก getReferralDashboard     (แท็บ referral)
+let MEMBER_DASH = null, TEAM_SUMMARY = null, TEAM_MEMBERS = null, REFERRAL_DASH = null;
+
+async function loadMemberDashboard(uid, force=false){
+  const key = 'tcc2_dash_' + uid;
+  if(!force){const c=ssGet(key);if(c){MEMBER_DASH=c;return;}}
+  MEMBER_DASH = await dbCallRaw('getMemberDashboard', { uid });
+  ssSet(key, MEMBER_DASH);
+}
+async function loadTeamSummary(teamName, force=false){
+  const key = 'tcc2_teamsum_' + teamName;
+  if(!force){const c=ssGet(key);if(c){TEAM_SUMMARY=c;return;}}
+  TEAM_SUMMARY = await dbCallRaw('getTeamCommissionSummary', { teamName });
+  ssSet(key, TEAM_SUMMARY);
+}
+async function loadTeamMembers(teamName, force=false){
+  const key = 'tcc2_teammem_' + teamName;
+  if(!force){const c=ssGet(key);if(c){TEAM_MEMBERS=c;return;}}
+  TEAM_MEMBERS = await dbCallRaw('getTeamMembersList', { teamName });
+  ssSet(key, TEAM_MEMBERS);
+}
+async function loadReferralDashboard(uid, force=false){
+  const key = 'tcc2_ref_' + uid;
+  if(!force){const c=ssGet(key);if(c){REFERRAL_DASH=c;return;}}
+  REFERRAL_DASH = await dbCallRaw('getReferralDashboard', { uid });
+  ssSet(key, REFERRAL_DASH);
+}
+
+// ── Utilities (คงไว้จากเดิม — ใช้ทั่วไป ไม่เกี่ยวกับ DB1/Worker) ──
+function fmt(n){return n.toLocaleString("en",{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtUSD(n){return "$"+fmt(n);}
+function _escHtml(str){return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function getThaiMonth(m){
+  return ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][m]||'';
+}
+
+// ════════════════════════════════════════════════════════════════
+//  TC ACTION BAR (minimal stubs — คงไว้จากเดิม)
+// ════════════════════════════════════════════════════════════════
+function tcBarShow(type,title,sub=''){
+  const root=document.getElementById('dash-root');
+  if(!root)return;
+  const existing=root.querySelector('.tc-action-bar');
+  if(existing)existing.remove();
+  const icons={loading:'⏳',success:'✅',error:'❌',warn:'⚠️'};
+  const bar=document.createElement('div');
+  bar.className=`tc-action-bar tc-bar-${type}`;
+  bar.innerHTML=`<span class="tc-bar-icon">${icons[type]||'ℹ️'}</span><div class="tc-bar-body"><div class="tc-bar-title">${_escHtml(title)}</div>${sub?`<div class="tc-bar-sub">${_escHtml(sub)}</div>`:''}</div><button class="tc-bar-close" onclick="this.parentElement.remove()">✕</button>`;
+  root.prepend(bar);
+}
+function tcBarRemove(){const b=document.querySelector('#dash-root .tc-action-bar');if(b)b.remove();}
+
+// ════════════════════════════════════════════════════════════════
+//  DASHBOARD RENDER
+// ════════════════════════════════════════════════════════════════
+// TC object — เก็บ profile ของสมาชิกที่ login อยู่ (set จริงใน initDashboard ด้านล่าง)
+const TC = { member: null };
+
+// tcBar stub (ไม่มี step bar ใน member2 — เฉพาะ dashboard ไม่มีหน้าสมัครสมาชิก)
+function tcBar(cur){ return ''; }
+
+
+// ── Step 5 — Dashboard 3 แท็บ ────────────────────────────────
+let _tcDashTab = 'personal'; // 'personal' | 'team' | 'members'
+let _tcDashMonth = '';        // '' = ทั้งหมด
+
+function tcS5(){
+  const m = TC.member;
+  if(!m){
+    return `<div class="loading-wrap"><div class="spin"></div><div class="loading-lbl">กำลังโหลดข้อมูลสมาชิก...</div></div>`;
+  }
+  const myId   = m.uid;
+  const myTeam = m.team;
+  // [v2-NEW] isLeader มาจาก GAS ตรงๆ (เทียบ leader_uid ใน Team sheet ฝั่ง backend แล้ว) — ไม่ต้อง TEAMS.find() เอง
+  const isOwner = !!m.isLeader;
+  const ownedTeamName = isOwner ? myTeam : '';
+
+  const tabBar=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;padding:2px 0;">
+      <button onclick="_tcDashTab='personal';tcRender();"
+        style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;cursor:pointer;border:1px solid;
+        background:${_tcDashTab==='personal'?'rgba(240,185,11,.12)':'rgba(255,255,255,.02)'};
+        border-color:${_tcDashTab==='personal'?'rgba(240,185,11,.4)':'rgba(255,255,255,.07)'};
+        box-shadow:${_tcDashTab==='personal'?'inset 0 0 0 1px rgba(240,185,11,.2)':'none'};">
+        <div style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;
+          background:${_tcDashTab==='personal'?'rgba(240,185,11,.2)':'rgba(255,255,255,.04)'};">👤</div>
+        <div style="text-align:left;">
+          <div style="font-size:.75rem;font-weight:700;color:${_tcDashTab==='personal'?'var(--gold)':'var(--text-dim)'};">ส่วนตัว</div>
+          <div style="font-size:.62rem;color:${_tcDashTab==='personal'?'rgba(240,185,11,.55)':'var(--muted)'};">ผลเทรด / คอม</div>
+        </div>
+      </button>
+      <button onclick="${`_tcDashTab='team';tcRender();`}"
+        style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;cursor:${isOwner?'pointer':'not-allowed'};border:1px solid;
+        background:${_tcDashTab==='team'?'rgba(96,165,250,.1)':'rgba(255,255,255,.02)'};
+        border-color:${_tcDashTab==='team'?'rgba(96,165,250,.35)':'rgba(255,255,255,.07)'};">
+        <div style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;
+          background:${_tcDashTab==='team'?'rgba(96,165,250,.18)':'rgba(255,255,255,.04)'};">🏠</div>
+        <div style="text-align:left;">
+          <div style="font-size:.75rem;font-weight:700;color:${_tcDashTab==='team'?'rgba(96,165,250,.95)':'var(--text-dim)'};">ทีมของฉัน${!isOwner?' 🔒':''}</div>
+          <div style="font-size:.62rem;color:${_tcDashTab==='team'?'rgba(96,165,250,.45)':'var(--muted)'};">คอมทีม</div>
+        </div>
+      </button>
+      <button onclick="${isOwner?`_tcDashTab='members';tcRender();`:'void(0)'}"
+        style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;border:1px solid;
+        cursor:${isOwner?'pointer':'not-allowed'};
+        background:${_tcDashTab==='members'?'rgba(167,139,250,.1)':'rgba(255,255,255,.02)'};
+        border-color:${_tcDashTab==='members'?'rgba(167,139,250,.35)':'rgba(255,255,255,.07)'};">
+        <div style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;
+          background:${_tcDashTab==='members'?'rgba(167,139,250,.18)':'rgba(255,255,255,.04)'};">👥</div>
+        <div style="text-align:left;">
+          <div style="font-size:.75rem;font-weight:700;color:${_tcDashTab==='members'?'rgba(167,139,250,.95)':(isOwner?'var(--text-dim)':'var(--muted)')};
+          ">ดูสมาชิก${!isOwner?' 🔒':''}</div>
+          <div style="font-size:.62rem;color:${_tcDashTab==='members'?'rgba(167,139,250,.45)':'var(--muted)'};">เฉพาะหัวหน้าทีม</div>
+        </div>
+      </button>
+      <button onclick="_tcDashTab='referral';tcRender();"
+        style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;cursor:pointer;border:1px solid;
+        background:${_tcDashTab==='referral'?'rgba(34,197,94,.1)':'rgba(255,255,255,.02)'};
+        border-color:${_tcDashTab==='referral'?'rgba(34,197,94,.35)':'rgba(255,255,255,.07)'};
+        box-shadow:${_tcDashTab==='referral'?'inset 0 0 0 1px rgba(34,197,94,.15)':'none'};">
+        <div style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;
+          background:${_tcDashTab==='referral'?'rgba(34,197,94,.18)':'rgba(255,255,255,.04)'};">🔗</div>
+        <div style="text-align:left;">
+          <div style="font-size:.75rem;font-weight:700;color:${_tcDashTab==='referral'?'var(--green)':'var(--text-dim)'};">แนะนำสมาชิก</div>
+          <div style="font-size:.62rem;color:${_tcDashTab==='referral'?'rgba(34,197,94,.5)':'var(--muted)'};">โบนัส USDT</div>
+        </div>
+      </button>
+    </div>`;
+
+  let content = '';
+  if(_tcDashTab==='personal'){
+    content = tcS5Personal(myId);
+  } else if(_tcDashTab==='members'){
+    content = isOwner ? tcS5Members(ownedTeamName) :
+      `<div style="text-align:center;padding:32px 16px;color:var(--muted);">
+        <div style="font-size:2.5rem;margin-bottom:10px;">🔒</div>
+        <div style="font-size:.9rem;">คุณไม่ได้เป็นเจ้าของทีม</div>
+        <div style="font-size:.78rem;margin-top:6px;color:var(--text-dim);">แท็บนี้แสดงเฉพาะสำหรับหัวหน้าทีมเท่านั้น</div>
+      </div>`;
+  } else if(_tcDashTab==='referral'){
+    content = tcS5Referral(myId);
+  } else {
+    content = isOwner ? tcS5Team(ownedTeamName) :
+      `<div style="text-align:center;padding:32px 16px;color:var(--muted);">
+        <div style="font-size:2.5rem;margin-bottom:10px;">🔒</div>
+        <div style="font-size:.9rem;">คุณไม่ได้เป็นเจ้าของทีม</div>
+        <div style="font-size:.78rem;margin-top:6px;color:var(--text-dim);">แท็บนี้แสดงเฉพาะสำหรับหัวหน้าทีมเท่านั้น</div>
+      </div>`;
+  }
+
+  return `<div class="tc-flow-wrap">${tcBar(5)}
+    <div class="tc-card" style="padding-bottom:8px;">
+      <div class="tc-card-ttl">📊 แดชบอร์ดของฉัน</div>
+      ${tabBar}
+      ${content}
+    </div>
+    <button class="tc-btn tc-btn-out" onclick="goBack();" style="margin-top:4px;">← กลับ</button>
+  </div>`;
+}
+
+// ── แท็บ 1: ส่วนตัว [v2-NEW] ─────────────────────────────────────
+// ⚠️ เขียนใหม่ทั้งหมดให้ตรงกับโครงสร้าง GAS ใหม่:
+//    user 40% (Realized PNL) / team 10% (ProfitShareTeam) /
+//    Level A 15%-of-10% / Level B 10%-of-10% / Referral (Flat+Tier)
+//    ไม่ใช้ field เก่า (ส่วนแบ่งสมาชิก 50% / ประกันกำไร 10% / parse เหรียญจาก note)
+let _tcCoinSearch = ''; // คงไว้เผื่ออ้างถึงที่อื่น (ไม่ใช้ในแท็บนี้แล้ว)
+let _tcCoinFilter = ''; // '' = ทั้งหมด, หรือ ledger type ที่เลือกดู (ProfitShareTeam/...)
+let _tcPersonPage = 0;  // pagination ตารางรายการ personal (10/หน้า)
+
+// ── แท็บ 3: ดูสมาชิก — state ────────────────────────────────────
+let _tcMembMonth  = ''; // '' = ทั้งหมด
+let _tcMembSearch = ''; // ค้นหาชื่อสมาชิก
+let _tcMembPage   = 0;  // หน้าปัจจุบัน (0-based, 10 คน/หน้า)
+
+// ── แท็บ referral — state ────────────────────────────────────────
+let _tcRefMemberPage = 0;  // pagination รายชื่อสมาชิกที่แนะนำ (5/หน้า)
+let _tcRefPayPage    = 0;  // pagination รายการจ่ายเงินทีม (10/หน้า)
+let _tcRefPaySearch  = ''; // ค้นหาชื่อสมาชิกทีม
+let _tcRefPayMonth   = ''; // กรองเดือน
+
+// label + สี ของแต่ละ ledger type (ใช้ร่วมกันทั้ง chart และตาราง)
+const LEDGER_TYPE_META = {
+  'Realized PNL':       { label: '💰 กำไรของฉัน (40%)',      color: '#f0b90b' },
+  'ProfitShareTeam':    { label: '🏠 Your Team (10%)',        color: '#0ecb81' },
+  'ProfitShareLevelA':  { label: '🅰️ Level A (15%)',          color: '#22c55e' },
+  'ProfitShareLevelB':  { label: '🅱️ Level B (10%)',          color: '#60a5fa' },
+  'ReferralFlat':       { label: '🔗 ค่าแนะนำ Flat',          color: '#a855f7' },
+  'ReferralTier':       { label: '🔗 ค่าแนะนำ Tier',          color: '#c084fc' },
+};
+
+function tcS5Personal(myId){
+  const TPER=10; // รายการต่อหน้า
+  const fmtD=v=>'$'+(parseFloat(v)||0).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  // ── โหลดข้อมูลครั้งแรกที่เปิดแท็บนี้ (async, render ซ้ำเมื่อเสร็จ) ──
+  if(!window._personalLoadedFor || window._personalLoadedFor !== myId){
+    window._personalLoadedFor = myId;
+    loadMemberDashboard(myId, true).then(()=>{ if(_tcDashTab === 'personal') tcRender(); }).catch(e=>{
+      tccNotif && tccNotif('error','โหลดข้อมูลไม่สำเร็จ', e.message);
+    });
+  }
+
+  if(!MEMBER_DASH){
+    return `<div class="loading-wrap"><div class="spin"></div><div class="loading-lbl">กำลังโหลดข้อมูล...</div></div>`;
+  }
+
+  // ── รวม ledger (commission) + realizedPnl (กำไรส่วนตัว) เป็นรายการเดียว ──
+  const allRows = [
+    ...MEMBER_DASH.realizedPnl.map(r => ({ date: r.date, type: 'Realized PNL', amount: r.amount, note: r.note })),
+    ...MEMBER_DASH.ledger.map(r => ({ date: r.date, type: r.type, amount: r.amount, note: r.note })),
+  ];
+
+  if(!allRows.length) return `<div style="text-align:center;padding:24px;color:var(--muted);">📭 ยังไม่มีรายการในระบบ</div>`;
+
+  // ── เดือน dropdown ────────────────────────────────────────────
+  const months={};
+  allRows.forEach(p=>{const d=new Date(p.date);if(!isNaN(d.getTime())){const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;months[k]=true;}});
+  const sortedM=Object.keys(months).sort().reverse();
+  const monthSel=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+    <span style="font-size:.78rem;color:var(--text-dim);white-space:nowrap;">📅 เดือน:</span>
+    <select onchange="_tcDashMonth=this.value;_tcCoinFilter='';_tcPersonPage=0;tcRender();"
+      style="background:#1a1d21;border:1px solid rgba(240,185,11,.38);border-radius:8px;color:var(--gold);
+             font-family:'Prompt',sans-serif;font-size:.82rem;padding:5px 10px;outline:none;cursor:pointer;flex:1;max-width:180px;">
+      <option value="" ${!_tcDashMonth?'selected':''}>ทั้งหมด</option>
+      ${sortedM.map(k=>{const[y,mo]=k.split('-');return`<option value="${k}" ${_tcDashMonth===k?'selected':''}>${getThaiMonth(parseInt(mo))} ${parseInt(y)+543}</option>`;}).join('')}
+    </select>
+  </div>`;
+
+  const filtered = _tcDashMonth ? allRows.filter(p=>{
+    const d=new Date(p.date);
+    if(isNaN(d.getTime())) return false;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`===_tcDashMonth;
+  }) : allRows;
+
+  // ── สรุปยอดแยกตาม type ──────────────────────────────────────────
+  const sumByType = {};
+  filtered.forEach(p=>{ sumByType[p.type] = (sumByType[p.type]||0) + p.amount; });
+  const totalAll = filtered.reduce((s,p)=>s+p.amount,0);
+
+  // ── 4 Summary cards: กำไรของฉัน / Your Team / Level A+B / ค่าแนะนำ ──
+  const myProfit   = sumByType['Realized PNL'] || 0;
+  const teamComm    = sumByType['ProfitShareTeam'] || 0;
+  const levelComm   = (sumByType['ProfitShareLevelA']||0) + (sumByType['ProfitShareLevelB']||0);
+  const referralComm= (sumByType['ReferralFlat']||0) + (sumByType['ReferralTier']||0);
+
+  const summCards=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+    <div style="background:rgba(240,185,11,.07);border:1px solid rgba(240,185,11,.2);border-radius:10px;padding:11px;">
+      <div style="font-size:.65rem;color:var(--muted);font-weight:600;">💰 กำไรของฉัน (40%)</div>
+      <div style="font-family:'Orbitron',monospace;font-size:.88rem;font-weight:900;color:var(--gold);margin-top:4px;">${fmtD(myProfit)}</div>
+    </div>
+    <div style="background:rgba(14,203,129,.07);border:1px solid rgba(14,203,129,.2);border-radius:10px;padding:11px;">
+      <div style="font-size:.65rem;color:var(--muted);font-weight:600;">🏠 Your Team (10%)</div>
+      <div style="font-family:'Orbitron',monospace;font-size:.88rem;font-weight:900;color:var(--green);margin-top:4px;">${fmtD(teamComm)}</div>
+    </div>
+    <div style="background:rgba(96,165,250,.07);border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:11px;">
+      <div style="font-size:.65rem;color:var(--muted);font-weight:600;">🅰️🅱️ Level A+B</div>
+      <div style="font-family:'Orbitron',monospace;font-size:.88rem;font-weight:900;color:rgba(96,165,250,.9);margin-top:4px;">${fmtD(levelComm)}</div>
+    </div>
+    <div style="background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.2);border-radius:10px;padding:11px;">
+      <div style="font-size:.65rem;color:var(--muted);font-weight:600;">🔗 ค่าแนะนำ</div>
+      <div style="font-family:'Orbitron',monospace;font-size:.88rem;font-weight:900;color:#c084fc;margin-top:4px;">${fmtD(referralComm)}</div>
+    </div>
+    <div style="background:linear-gradient(135deg,rgba(240,185,11,.1),rgba(14,203,129,.05));border:1px solid rgba(240,185,11,.3);border-radius:10px;padding:11px;grid-column:1/-1;">
+      <div style="font-size:.65rem;color:var(--muted);font-weight:600;">⭐ รายได้รวมทั้งหมด</div>
+      <div style="font-family:'Orbitron',monospace;font-size:1rem;font-weight:900;color:var(--gold);margin-top:4px;">${fmtD(totalAll)}</div>
+      <div style="font-size:.68rem;color:var(--text-dim);margin-top:3px;">${filtered.length} รายการ${MEMBER_DASH.member.isLeader?' · 👑 หัวหน้าทีม':''}</div>
+    </div>
+  </div>`;
+
+  // ── Donut chart: สัดส่วนรายได้แต่ละประเภท ───────────────────────
+  const typeEntries = Object.entries(sumByType).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  let chartHtml = '';
+  if(typeEntries.length){
+    const donutR=48,cx=70,cy=70;
+    const totalPos = typeEntries.reduce((s,[,v])=>s+v,0) || 1;
+    let acc=0;
+    const arc=(pct,offset,col)=>{
+      if(pct<=0) return '';
+      if(pct>=1) return `<circle cx="${cx}" cy="${cy}" r="${donutR}" fill="none" stroke="${col}" stroke-width="18"/>`;
+      const a=pct*2*Math.PI;
+      const x1=cx+donutR*Math.sin(offset*2*Math.PI);
+      const y1=cy-donutR*Math.cos(offset*2*Math.PI);
+      const x2=cx+donutR*Math.sin((offset+pct)*2*Math.PI);
+      const y2=cy-donutR*Math.cos((offset+pct)*2*Math.PI);
+      return`<path d="M ${x1} ${y1} A ${donutR} ${donutR} 0 ${a>Math.PI?1:0} 1 ${x2} ${y2}" fill="none" stroke="${col}" stroke-width="18" stroke-linecap="round"/>`;
+    };
+    const arcs = typeEntries.map(([type,val])=>{
+      const pct = val/totalPos;
+      const meta = LEDGER_TYPE_META[type] || { color:'#888' };
+      const svg = arc(pct, acc, meta.color);
+      acc += pct;
+      return svg;
+    }).join('');
+
+    const legend = typeEntries.map(([type,val])=>{
+      const meta = LEDGER_TYPE_META[type] || { label:type, color:'#888' };
+      return `<div style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:5px;"
+        onclick="_tcCoinFilter='${type}';tcRender();">
+        <span style="width:9px;height:9px;border-radius:50%;background:${meta.color};flex-shrink:0;"></span>
+        <span style="font-size:.7rem;color:var(--text-dim);flex:1;">${meta.label}</span>
+        <span style="font-size:.7rem;font-weight:700;color:${meta.color};">${fmtD(val)}</span>
+      </div>`;
+    }).join('');
+
+    chartHtml = `<details open style="margin-bottom:14px;">
+      <summary style="font-size:.78rem;font-weight:700;color:var(--gold);cursor:pointer;list-style:none;
+        display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07);user-select:none;">
+        📊 สัดส่วนรายได้ <span style="font-size:.65rem;color:var(--muted);font-weight:400;">(กดเพื่อซ่อน/แสดง)</span>
+      </summary>
+      <div style="display:flex;gap:16px;align-items:center;padding:14px 4px;flex-wrap:wrap;">
+        <svg viewBox="0 0 140 140" style="width:140px;flex-shrink:0;">
+          <circle cx="${cx}" cy="${cy}" r="${donutR}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="18"/>
+          ${arcs}
+        </svg>
+        <div style="flex:1;min-width:140px;">${legend}</div>
+      </div>
+    </details>`;
+  }
+
+  // ── filter แสดงรายการเฉพาะ type ที่เลือก (จาก legend) ────────────
+  let filterBar = '';
+  if(_tcCoinFilter){
+    const meta = LEDGER_TYPE_META[_tcCoinFilter] || { label:_tcCoinFilter, color:'#888' };
+    filterBar = `<div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 13px;margin-bottom:10px;">
+      <span style="font-size:.78rem;color:${meta.color};font-weight:700;flex:1;">${meta.label}</span>
+      <button onclick="_tcCoinFilter='';tcRender();" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.75rem;">✕ ล้าง</button>
+    </div>`;
+  }
+
+  const tableRows0 = _tcCoinFilter ? filtered.filter(p=>p.type===_tcCoinFilter) : filtered;
+
+  // ══ TABLE — 10 รายการ/หน้า ════════════════════════════════════
+  const tableData=tableRows0.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const totalTPages=Math.max(1,Math.ceil(tableData.length/TPER));
+  const tPage=Math.min(_tcPersonPage,Math.max(0,totalTPages-1));
+  const pageData=tableData.slice(tPage*TPER,(tPage+1)*TPER);
+
+  const tPagBtn=(p,lbl,dis)=>`<button onclick="${dis?'':'`_tcPersonPage='+p+';tcRender();`'}"
+    style="padding:5px 10px;border-radius:7px;font-size:.75rem;font-weight:700;cursor:${dis?'not-allowed':'pointer'};
+           border:1px solid ${dis?'rgba(255,255,255,.1)':'rgba(240,185,11,.4)'};
+           background:${dis?'rgba(255,255,255,.03)':'rgba(240,185,11,.1)'};
+           color:${dis?'var(--muted)':'var(--gold)'};">${lbl}</button>`;
+  const tablePag=totalTPages>1?`
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;flex-wrap:wrap;">
+      ${tPagBtn(0,'«',tPage===0)}
+      ${tPagBtn(Math.max(0,tPage-1),'‹',tPage===0)}
+      <span style="font-size:.78rem;color:var(--text-dim);padding:0 6px;">หน้า ${tPage+1}/${totalTPages}</span>
+      ${tPagBtn(Math.min(totalTPages-1,tPage+1),'›',tPage===totalTPages-1)}
+      ${tPagBtn(totalTPages-1,'»',tPage===totalTPages-1)}
+    </div>`:'';
+
+  const tableRows=pageData.map(p=>{
+    const meta = LEDGER_TYPE_META[p.type] || { label:p.type, color:'#888' };
+    return`<tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+      <td style="padding:7px 4px;font-size:.73rem;color:var(--text-dim);">${String(p.date).slice(0,10)}</td>
+      <td style="padding:7px 4px;font-size:.73rem;color:${meta.color};">${meta.label}</td>
+      <td style="padding:7px 4px;font-family:'Orbitron',monospace;font-size:.76rem;color:${meta.color};">+${fmtD(p.amount)}</td>
+    </tr>`;
+  }).join('');
+
+  return monthSel+summCards+chartHtml+filterBar+`
+    <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:8px;font-weight:600;">
+      📋 รายการ${_tcDashMonth?'ประจำเดือน':''} (แสดง ${pageData.length}/${tableData.length})
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.78rem;">
+        <thead><tr style="border-bottom:1px solid var(--border2);">
+          <th style="text-align:left;padding:6px 4px;color:var(--muted);font-weight:600;">วันที่</th>
+          <th style="text-align:left;padding:6px 4px;color:var(--muted);font-weight:600;">ประเภท</th>
+          <th style="text-align:left;padding:6px 4px;color:var(--muted);font-weight:600;">ยอด</th>
+        </tr></thead>
+        <tbody>${tableRows||`<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--muted);">ไม่มีข้อมูล</td></tr>`}</tbody>
+      </table>
+    </div>
+    ${tablePag}`;
+}
+
+// ── แท็บ 2: ทีมของฉัน — Embedded Commission Dashboard ───────────
+let _tcTeamMonth = null; // null = ทั้งหมด
+
+function tcS5Team(teamName){
+  const fmtD=v=>'$'+(parseFloat(v)||0).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  // ── โหลดข้อมูลครั้งแรกที่เปิดแท็บนี้ ────────────────────────────
+  if(!window._teamLoadedFor || window._teamLoadedFor !== teamName){
+    window._teamLoadedFor = teamName;
+    loadTeamSummary(teamName, true).then(()=>{ if(_tcDashTab === 'team') tcRender(); }).catch(e=>{
+      tccNotif && tccNotif('error','โหลดข้อมูลทีมไม่สำเร็จ', e.message);
+    });
+  }
+
+  if(!TEAM_SUMMARY){
+    return `<div class="loading-wrap"><div class="spin"></div><div class="loading-lbl">กำลังโหลดข้อมูลทีม...</div></div>`;
+  }
+
+  const { breakdown, memberCount, topContributors } = TEAM_SUMMARY;
+
+  if(breakdown.total <= 0 && !memberCount){
+    return `<div style="text-align:center;padding:24px;color:var(--muted);">📭 ยังไม่มีรายการของทีม <b>${teamName}</b></div>`;
+  }
+
+  // ── Team Info Header ──────────────────────────────────────────
+  const teamHeader=`<div style="background:linear-gradient(135deg,rgba(240,185,11,.12),rgba(240,185,11,.04));
+      border:1px solid rgba(240,185,11,.3);border-radius:12px;padding:14px 16px;margin-bottom:14px;
+      display:flex;align-items:center;gap:12px;">
+    <div style="font-size:2rem;">🏆</div>
+    <div style="flex:1;">
+      <div style="font-size:.95rem;font-weight:800;color:var(--gold);">${teamName}</div>
+      <div style="font-size:.72rem;color:var(--text-dim);margin-top:3px;">YT: ${fmtD(breakdown.yourTeam.amount)} · LA: ${fmtD(breakdown.levelA.amount)} · LB: ${fmtD(breakdown.levelB.amount)}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:.65rem;color:var(--muted);">สมาชิก</div>
+      <div style="font-size:1.1rem;font-weight:900;color:var(--gold);">${memberCount} คน</div>
+    </div>
+  </div>`;
+
+  // ── 4 Summary Cards ───────────────────────────────────────────
+  const summCards=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+    <div style="background:rgba(240,185,11,.07);border:1px solid rgba(240,185,11,.25);border-radius:10px;padding:12px;">
+      <div style="font-size:.65rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🏠 YOUR TEAM (10%)</div>
+      <div style="font-family:'Orbitron',monospace;font-size:.88rem;font-weight:900;color:var(--gold);margin-top:5px;">${fmtD(breakdown.yourTeam.amount)}</div>
+      <div style="font-size:.68rem;color:var(--text-dim);margin-top:3px;">${breakdown.yourTeam.count} รายการ</div>
+    </div>
+    <div style="background:rgba(3,192,117,.07);border:1px solid rgba(3,192,117,.25);border-radius:10px;padding:12px;">
+      <div style="font-size:.65rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🅰️ LEVEL A (15%)</div>
+      <div style="font-family:'Orbitron',monospace;font-size:.88rem;font-weight:900;color:var(--green);margin-top:5px;">${fmtD(breakdown.levelA.amount)}</div>
+      <div style="font-size:.68rem;color:var(--text-dim);margin-top:3px;">${breakdown.levelA.count} รายการ</div>
+    </div>
+    <div style="background:rgba(24,144,255,.07);border:1px solid rgba(24,144,255,.25);border-radius:10px;padding:12px;">
+      <div style="font-size:.65rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🅱️ LEVEL B (10%)</div>
+      <div style="font-family:'Orbitron',monospace;font-size:.88rem;font-weight:900;color:var(--blue);margin-top:5px;">${fmtD(breakdown.levelB.amount)}</div>
+      <div style="font-size:.68rem;color:var(--text-dim);margin-top:3px;">${breakdown.levelB.count} รายการ</div>
+    </div>
+    <div style="background:linear-gradient(135deg,rgba(240,185,11,.1),rgba(3,192,117,.05));border:1px solid rgba(240,185,11,.3);border-radius:10px;padding:12px;">
+      <div style="font-size:.65rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">⭐ รวมทั้งหมด</div>
+      <div style="font-family:'Orbitron',monospace;font-size:.88rem;font-weight:900;color:var(--gold);margin-top:5px;">${fmtD(breakdown.total)}</div>
+      <div style="font-size:.68rem;color:var(--text-dim);margin-top:3px;">ทุกเลเวล</div>
+    </div>
+  </div>`;
+
+  // ── Top Contributors (สมาชิกที่สร้างกำไรให้ Your Team มากที่สุด) ──
+  const medals=['🥇','🥈','🥉'];
+  const rankRows=(topContributors||[]).map((r,i)=>`<tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+    <td style="padding:8px 4px;text-align:center;font-size:${i<3?'1.1rem':'.8rem'};">${i<3?medals[i]:i+1}</td>
+    <td style="padding:8px 4px;font-weight:700;font-size:.82rem;${i<3?'color:var(--gold);':''}">${r.name}</td>
+    <td style="padding:8px 4px;font-family:'Orbitron',monospace;font-size:.75rem;color:var(--gold);">${fmtD(r.profit)}</td>
+    <td style="padding:8px 4px;font-family:'Orbitron',monospace;font-size:.75rem;color:var(--green);">${r.count} ครั้ง</td>
+  </tr>`).join('');
+
+  return teamHeader+summCards+`
+    <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:8px;font-weight:600;">🏆 อันดับสมาชิก Your Team</div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.78rem;">
+        <thead><tr style="border-bottom:1px solid var(--border2);">
+          <th style="text-align:center;padding:7px 4px;color:var(--muted);font-weight:600;">#</th>
+          <th style="text-align:left;padding:7px 4px;color:var(--muted);font-weight:600;">ชื่อ</th>
+          <th style="text-align:left;padding:7px 4px;color:var(--muted);font-weight:600;">สร้างคอม</th>
+          <th style="text-align:left;padding:7px 4px;color:var(--muted);font-weight:600;">จำนวน</th>
+        </tr></thead>
+        <tbody>${rankRows||`<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--muted);">ไม่มีข้อมูล</td></tr>`}</tbody>
+      </table>
+    </div>`;
+}
+// ── แท็บ 3: ดูสมาชิก ─────────────────────────────────────────────
+
+function tcS5Members(teamName){
+  const fmtD=v=>'$'+(parseFloat(v)||0).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const PER_PAGE=10;
+
+  // ── โหลดข้อมูลครั้งแรกที่เปิดแท็บนี้ ────────────────────────────
+  if(!window._membersLoadedFor || window._membersLoadedFor !== teamName){
+    window._membersLoadedFor = teamName;
+    loadTeamMembers(teamName, true).then(()=>{ if(_tcDashTab === 'members') tcRender(); }).catch(e=>{
+      tccNotif && tccNotif('error','โหลดรายชื่อสมาชิกไม่สำเร็จ', e.message);
+    });
+  }
+
+  if(!TEAM_MEMBERS){
+    return `<div class="loading-wrap"><div class="spin"></div><div class="loading-lbl">กำลังโหลดรายชื่อสมาชิก...</div></div>`;
+  }
+
+  const { commissionByLevel: cb, members: allMembers } = TEAM_MEMBERS;
+
+  // ── 4 Commission summary cards (ยอดรวมทั้งหมด — ไม่มี filter เดือนในระบบใหม่) ──
+  const commCards=`
+    <div style="margin-bottom:14px;">
+      <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:8px;font-weight:600;">💰 สรุปค่าคอมมิชชั่นของทีม</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="background:rgba(240,185,11,.07);border:1px solid rgba(240,185,11,.25);border-radius:10px;padding:11px;">
+          <div style="font-size:.63rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🏠 YOUR TEAM (10%)</div>
+          <div style="font-family:'Orbitron',monospace;font-size:.85rem;font-weight:900;color:var(--gold);margin-top:4px;">${fmtD(cb.yourTeam.amount)}</div>
+          <div style="font-size:.67rem;color:var(--text-dim);margin-top:2px;">${cb.yourTeam.count} รายการ</div>
+        </div>
+        <div style="background:rgba(3,192,117,.07);border:1px solid rgba(3,192,117,.25);border-radius:10px;padding:11px;">
+          <div style="font-size:.63rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🅰️ LEVEL A (15%)</div>
+          <div style="font-family:'Orbitron',monospace;font-size:.85rem;font-weight:900;color:var(--green);margin-top:4px;">${fmtD(cb.levelA.amount)}</div>
+          <div style="font-size:.67rem;color:var(--text-dim);margin-top:2px;">${cb.levelA.count} รายการ</div>
+        </div>
+        <div style="background:rgba(24,144,255,.07);border:1px solid rgba(24,144,255,.25);border-radius:10px;padding:11px;">
+          <div style="font-size:.63rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🅱️ LEVEL B (10%)</div>
+          <div style="font-family:'Orbitron',monospace;font-size:.85rem;font-weight:900;color:rgba(96,165,250,.9);margin-top:4px;">${fmtD(cb.levelB.amount)}</div>
+          <div style="font-size:.67rem;color:var(--text-dim);margin-top:2px;">${cb.levelB.count} รายการ</div>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(240,185,11,.1),rgba(3,192,117,.05));border:1px solid rgba(240,185,11,.3);border-radius:10px;padding:11px;">
+          <div style="font-size:.63rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">⭐ รวมทั้งหมด</div>
+          <div style="font-family:'Orbitron',monospace;font-size:.85rem;font-weight:900;color:var(--gold);margin-top:4px;">${fmtD(cb.total)}</div>
+          <div style="font-size:.67rem;color:var(--text-dim);margin-top:2px;">ทุกเลเวล</div>
+        </div>
+      </div>
+    </div>`;
+
+  // ── Team header ───────────────────────────────────────────────
+  const teamHeader=`
+    <div style="background:linear-gradient(135deg,rgba(96,165,250,.1),rgba(96,165,250,.03));
+        border:1px solid rgba(96,165,250,.25);border-radius:12px;padding:13px 16px;margin-bottom:12px;
+        display:flex;align-items:center;gap:12px;">
+      <div style="font-size:1.8rem;">👥</div>
+      <div style="flex:1;">
+        <div style="font-size:.92rem;font-weight:800;color:rgba(96,165,250,.95);">${teamName}</div>
+        <div style="font-size:.7rem;color:var(--text-dim);margin-top:2px;">รายชื่อสมาชิกทั้งหมดในทีม</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:.65rem;color:var(--muted);">สมาชิกทั้งหมด</div>
+        <div style="font-size:1.1rem;font-weight:900;color:rgba(96,165,250,.95);">${allMembers.length} คน</div>
+      </div>
+    </div>`;
+
+  if(!allMembers.length){
+    return commCards+teamHeader+
+      `<div style="text-align:center;padding:20px;color:var(--muted);font-size:.82rem;">📭 ยังไม่มีสมาชิกในทีม</div>`;
+  }
+
+  // ── Search box ────────────────────────────────────────────────
+  const sq=(_tcMembSearch||'').toLowerCase().trim();
+  const searchBox=`<div style="position:relative;margin-bottom:12px;">
+    <input value="${_escHtml(_tcMembSearch)}" placeholder="🔍 ค้นหาชื่อสมาชิก หรือ UID..."
+      oninput="_tcMembSearch=this.value;_tcMembPage=0;tcRender();"
+      style="width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(96,165,250,.3);border-radius:8px;
+             color:var(--text);font-size:.82rem;padding:7px 12px;outline:none;box-sizing:border-box;font-family:'Prompt',sans-serif;">
+    ${sq?`<button onclick="_tcMembSearch='';_tcMembPage=0;tcRender();"
+      style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(246,70,93,.1);
+             border:none;border-radius:6px;color:#f6465d;font-size:.7rem;padding:2px 7px;cursor:pointer;">✕</button>`:''}
+  </div>`;
+
+  // ── กรองตาม search ─────────────────────────────────────────────
+  const filtMembers = sq
+    ? allMembers.filter(m=>
+        (m.name||'').toLowerCase().includes(sq) ||
+        (m.uid||'').toLowerCase().includes(sq))
+    : allMembers;
+
+  // ── Pagination ────────────────────────────────────────────────
+  const totalPages=Math.max(1,Math.ceil(filtMembers.length/PER_PAGE));
+  const page=Math.min(_tcMembPage, Math.max(0,totalPages-1));
+  const pageMembers=filtMembers.slice(page*PER_PAGE,(page+1)*PER_PAGE);
+
+  const pagBtn=(p,lbl,dis)=>`<button onclick="${dis?'':'`_tcMembPage='+p+';tcRender();`'}"
+    style="padding:5px 10px;border-radius:7px;font-size:.75rem;font-weight:700;cursor:${dis?'not-allowed':'pointer'};
+           border:1px solid ${dis?'rgba(255,255,255,.1)':'rgba(96,165,250,.4)'};
+           background:${dis?'rgba(255,255,255,.03)':'rgba(96,165,250,.1)'};
+           color:${dis?'var(--muted)':'rgba(96,165,250,.9)'};">${lbl}</button>`;
+
+  const paginationBar = totalPages>1 ? `
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin:12px 0 4px;flex-wrap:wrap;">
+      ${pagBtn(0,'«',page===0)}
+      ${pagBtn(Math.max(0,page-1),'‹',page===0)}
+      <span style="font-size:.78rem;color:var(--text-dim);padding:0 6px;">หน้า ${page+1} / ${totalPages}
+        <span style="color:var(--muted);">(${filtMembers.length} คน)</span></span>
+      ${pagBtn(Math.min(totalPages-1,page+1),'›',page===totalPages-1)}
+      ${pagBtn(totalPages-1,'»',page===totalPages-1)}
+    </div>` : (filtMembers.length!==allMembers.length?
+      `<div style="font-size:.72rem;color:var(--muted);margin-bottom:8px;">พบ ${filtMembers.length} จาก ${allMembers.length} คน</div>`:'');
+
+  // ── Member cards ──────────────────────────────────────────────
+  const memberRows=pageMembers.map((m,i)=>{
+    const isApprove = String(m.status||'').toLowerCase() !== 'pending';
+    const globalIdx=page*PER_PAGE+i+1;
+    return`<div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);
+        border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:36px;height:36px;background:${isApprove?'rgba(34,197,94,.15)':'rgba(240,185,11,.12)'};
+            border-radius:50%;display:flex;align-items:center;justify-content:center;
+            font-size:.85rem;font-weight:900;color:${isApprove?'var(--green)':'var(--gold)'};flex-shrink:0;">${globalIdx}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.85rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.name||'—'}</div>
+          <div style="font-size:.68rem;color:var(--muted);margin-top:1px;font-family:monospace;">UID: ${m.uid}</div>
+        </div>
+        <span style="font-size:.65rem;padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;
+            background:${isApprove?'rgba(34,197,94,.12)':'rgba(240,185,11,.1)'};
+            color:${isApprove?'var(--green)':'var(--gold)'};
+            border:1px solid ${isApprove?'rgba(34,197,94,.3)':'rgba(240,185,11,.25)'};">
+          ${isApprove?'✅ Active':'⏳ Pending'}
+        </span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;background:rgba(240,185,11,.05);border-radius:7px;padding:8px 10px;">
+        <span style="font-size:.68rem;color:var(--muted);flex:1;">💰 คอมมิชชั่นที่สร้างให้ Your Team (สะสม)</span>
+        <span style="font-family:'Orbitron',monospace;font-size:.78rem;font-weight:700;color:var(--gold);">${fmtD(m.commissionGenerated)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  return commCards+teamHeader+searchBox+
+    `<div style="font-size:.75rem;color:var(--text-dim);margin-bottom:8px;font-weight:600;">
+      👤 รายชื่อสมาชิก (แสดง ${pageMembers.length} จาก ${filtMembers.length} คน / หน้า ${page+1})
+    </div>`+
+    (pageMembers.length?memberRows:`<div style="text-align:center;padding:20px;color:var(--muted);font-size:.82rem;">ไม่พบสมาชิกที่ตรงกับ "${_tcMembSearch}"</div>`)+
+    paginationBar;
+}
+
+// ── แท็บ 4: แนะนำสมาชิก ─────────────────────────────────────────
+// โบนัสขั้นบันได: $10/คน Approved, เพิ่ม bonus 10% ค่าคอมมิชชั่น ≥10 คน, 20% ≥20 คน
+
+// ── [REF-FIX] helper ตรวจสถานะ Approved ─────────────────────────
+// DB เก็บค่าจริง: 'Trading&payments' | 'Trading' | 'Pending'
+// ฟังก์ชันนี้ใช้เฉพาะส่วน Referral เท่านั้น — ไม่กระทบ logic อื่น
+
+// ── [FIX2] Modal แจ้งถอนโบนัส (สมาชิก) ──────────────────────────
+function tcS5Referral(myId){
+  const fmtU = v=>'$'+parseFloat(v||0).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  // ── โหลดข้อมูลครั้งแรกที่เปิดแท็บนี้ ────────────────────────────
+  // [FIX v6] เดิม loadReferralDashboard(...).then(()=>tcRender()) ทำให้ tcS5Referral() รันซ้ำ
+  // ทุกครั้งที่โหลดเสร็จ — ถ้า REFERRAL_DASH มีอยู่แล้วตั้งแต่ก่อนเปิดแท็บ (cache) re-render
+  // รอบนี้จะไปสร้าง #ref-commbal-amt element ใหม่ทับของเดิม ขณะที่ setTimeout(_tcLoadCommissionBalance)
+  // ของรอบแรกอาจกำลัง await fetch อยู่พอดี → เขียนยอดลง element เก่าที่หลุดอ้างอิงไปแล้ว
+  // (ยอดไม่อัปเดตจน user ต้องกดรีเฟรชเอง หรือเจอ cache ค้างค่าเก่าตอนเปิด modal โอนเงิน)
+  // แก้: re-render เฉพาะกรณีที่ตอน initial call REFERRAL_DASH ยังเป็น null จริงๆ (ต้องรอข้อมูล
+  // ก่อนแสดงผล) — ถ้ามี REFERRAL_DASH (cache) อยู่แล้วตั้งแต่ต้น ไม่ต้อง re-render ซ้ำ
+  const _refDashWasNullOnEnter = !REFERRAL_DASH;
+  if(!window._refTabLoadedFor || window._refTabLoadedFor !== myId){
+    window._refTabLoadedFor = myId;
+    loadReferralDashboard(myId, true).then(()=>{
+      if(_refDashWasNullOnEnter && _tcDashTab === 'referral') tcRender();
+    }).catch(e=>{
+      tccNotif && tccNotif('error','โหลดข้อมูลแนะนำสมาชิกไม่สำเร็จ', e.message);
+    });
+  }
+
+  if(!REFERRAL_DASH){
+    return `<div class="loading-wrap"><div class="spin"></div><div class="loading-lbl">กำลังโหลดข้อมูล...</div></div>`;
+  }
+
+  const { referrer, totals, referredMembers, referralLink } = REFERRAL_DASH;
+  const approvedCount = referrer.approvedCount;
+
+  // ── คัดลอกลิงค์ ─────────────────────────────────────────────────
+  const copyRefLink=()=>{
+    if(navigator.clipboard){
+      navigator.clipboard.writeText(referralLink).then(()=>tccNotif('success','คัดลอกแล้ว!','ลิงค์แนะนำถูกคัดลอกไปยัง clipboard'));
+    } else {
+      const el=document.createElement('textarea');
+      el.value=referralLink; document.body.appendChild(el); el.select();
+      document.execCommand('copy'); document.body.removeChild(el);
+      tccNotif('success','คัดลอกแล้ว!','ลิงค์แนะนำถูกคัดลอกไปยัง clipboard');
+    }
+  };
+  window._tcCopyRefLink = copyRefLink;
+
+  // ── สรุป stats cards ────────────────────────────────────────────
+  const pendingCount = (referredMembers||[]).filter(m=>m.status==='pending').length;
+  const statsHtml=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+      <div style="background:rgba(240,185,11,.07);border:1px solid rgba(240,185,11,.2);border-radius:10px;padding:11px;">
+        <div style="font-size:.63rem;color:var(--muted);font-weight:600;">👥 สมาชิกที่แนะนำทั้งหมด</div>
+        <div style="font-size:1.3rem;font-weight:900;color:var(--gold);margin-top:4px;">${referredMembers.length} <span style="font-size:.7rem;font-weight:400;">คน</span></div>
+      </div>
+      <div style="background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:11px;">
+        <div style="font-size:.63rem;color:var(--muted);font-weight:600;">✅ Approved แล้ว</div>
+        <div style="font-size:1.3rem;font-weight:900;color:var(--green);margin-top:4px;">${approvedCount} <span style="font-size:.7rem;font-weight:400;">คน</span></div>
+      </div>
+      <div style="background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(240,185,11,.05));border:1px solid rgba(34,197,94,.3);border-radius:10px;padding:11px;">
+        <div style="font-size:.63rem;color:var(--muted);font-weight:600;">💰 ค่าแนะนำ Flat</div>
+        <div style="font-family:'Orbitron',monospace;font-size:.95rem;font-weight:900;color:var(--green);margin-top:4px;">${fmtU(totals.flatBonusTotal)} <span style="font-size:.6rem;color:var(--muted);">USDT</span></div>
+        <div style="font-size:.6rem;color:var(--muted);margin-top:3px;">รวมทุก Approved</div>
+      </div>
+      <div style="background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.2);border-radius:10px;padding:11px;">
+        <div style="font-size:.63rem;color:var(--muted);font-weight:600;">🎁 ค่าแนะนำ Tier ${(referrer.tierPct*100).toFixed(0)}%</div>
+        <div style="font-family:'Orbitron',monospace;font-size:.95rem;font-weight:900;color:#c084fc;margin-top:4px;">${fmtU(totals.tierBonusTotal)} <span style="font-size:.6rem;color:var(--muted);">USDT</span></div>
+        <div style="font-size:.6rem;color:var(--muted);margin-top:3px;">${referrer.eligible?'ได้รับสิทธิ์แล้ว':'ยังไม่ถึงเงื่อนไข'}</div>
+      </div>
+    </div>
+    <div style="background:linear-gradient(135deg,rgba(240,185,11,.15),rgba(34,197,94,.08));border:1px solid rgba(240,185,11,.4);border-radius:12px;padding:13px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:.68rem;color:var(--muted);font-weight:600;">🏆 รวมค่าแนะนำทั้งหมด</div>
+        <div style="font-size:.62rem;color:var(--muted);margin-top:3px;">
+          ${fmtU(totals.flatBonusTotal)} (Flat) + ${fmtU(totals.tierBonusTotal)} (Tier ${(referrer.tierPct*100).toFixed(0)}%)
+        </div>
+      </div>
+      <div style="font-family:'Orbitron',monospace;font-size:1.2rem;font-weight:900;color:var(--gold);">${fmtU(totals.totalPayout)}<span style="font-size:.6rem;font-weight:400;color:var(--muted);"> USDT</span></div>
+    </div>`;
+
+  // ── โบนัสค่าคอมมิชชั่นขั้นบันได (Tier progress) ───────────────
+  const tierHtml=`
+    <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:.75rem;color:var(--text-dim);font-weight:700;margin-bottom:12px;">📊 ระดับค่าคอมมิชชั่นแนะนำสมาชิก</div>
+      <div style="margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--muted);margin-bottom:5px;">
+          <span>ความคืบหน้า: <b style="color:var(--gold);">${approvedCount} คน</b></span>
+          ${referrer.nextTier?`<span>ถัดไป: <b style="color:var(--gold);">${referrer.nextTier.minCount} คน</b> (${(referrer.nextTier.pct*100).toFixed(0)}%)</span>`:'<span style="color:var(--green);">🏆 ระดับสูงสุดแล้ว!</span>'}
+        </div>
+        <div style="background:rgba(255,255,255,.06);border-radius:8px;height:10px;overflow:hidden;">
+          <div style="height:100%;border-radius:8px;background:linear-gradient(90deg,var(--gold),var(--green));
+            width:${Math.min(100, referrer.nextTier ? approvedCount/referrer.nextTier.minCount*100 : 100)}%;transition:width .5s;"></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:.68rem;color:var(--muted);line-height:1.6;padding:8px 10px;background:rgba(255,255,255,.02);border-radius:7px;">
+        📌 <b>เงื่อนไขถอน/โอนค่าแนะนำ:</b> ต้องมีสมาชิก Approved ≥ ${referrer.minApprovedToWithdraw} คน
+        และยอดคงเหลือ ≥ $${referrer.minAmountToWithdraw} USDT
+      </div>
+    </div>`;
+
+  // ── ลิงค์แนะนำ ──────────────────────────────────────────────────
+  const linkHtml=`
+    <div style="background:linear-gradient(135deg,rgba(240,185,11,.1),rgba(240,185,11,.03));border:1px solid rgba(240,185,11,.3);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:.75rem;color:var(--text-dim);font-weight:700;margin-bottom:8px;">🔗 ลิงค์แนะนำของคุณ</div>
+      <div style="display:flex;gap:8px;align-items:stretch;">
+        <div style="flex:1;background:rgba(0,0,0,.3);border:1px solid rgba(240,185,11,.25);border-radius:8px;padding:9px 12px;
+          font-size:.72rem;color:var(--gold);font-family:monospace;word-break:break-all;line-height:1.5;">${referralLink}</div>
+        <button onclick="_tcCopyRefLink()"
+          style="flex-shrink:0;padding:9px 14px;background:var(--gold);color:#000;border:none;border-radius:8px;
+            font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;
+            touch-action:manipulation;-webkit-tap-highlight-color:transparent;">
+          📋 คัดลอก
+        </button>
+      </div>
+      <div style="font-size:.68rem;color:var(--muted);margin-top:7px;">
+        แชร์ลิงค์นี้ให้เพื่อน — เมื่อสมัครสำเร็จและได้รับการ Approve คุณจะได้รับค่าแนะนำอัตโนมัติ
+      </div>
+    </div>`;
+
+  // ── รายชื่อสมาชิกที่แนะนำ (pagination 5/หน้า) ────────────────────
+  const REF_MEM_PER_PAGE = 5;
+  const refMemPage = Math.max(0, Math.min(_tcRefMemberPage, Math.max(0, Math.ceil(referredMembers.length/REF_MEM_PER_PAGE)-1)));
+  const refMemStart = refMemPage * REF_MEM_PER_PAGE;
+  const pageReferred = referredMembers.slice(refMemStart, refMemStart + REF_MEM_PER_PAGE);
+  const refMemTotalPages = Math.max(1, Math.ceil(referredMembers.length / REF_MEM_PER_PAGE));
+  const refPagBtn = (p, lbl, dis) => `<button onclick="${dis ? '' : `_tcRefMemberPage=${p};tcRender();`}"
+    style="min-width:30px;height:28px;border-radius:6px;border:1px solid;font-size:.7rem;font-weight:700;cursor:${dis ? 'default' : 'pointer'};
+    background:${dis ? 'rgba(255,255,255,.03)' : 'rgba(255,255,255,.06)'};
+    border-color:${dis ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.12)'};
+    color:${dis ? 'var(--muted)' : 'var(--text)'};padding:0 8px;">${lbl}</button>`;
+
+  const refMemberCards = !referredMembers.length
+    ? `<div style="text-align:center;padding:20px;color:var(--muted);font-size:.82rem;">
+        📭 ยังไม่มีสมาชิกที่คุณแนะนำ<br>
+        <span style="font-size:.72rem;">แชร์ลิงค์ด้านบนให้เพื่อนสมัครได้เลย!</span>
+      </div>`
+    : pageReferred.map((m, i) => {
+        const globalIdx = refMemStart + i;
+        const isOk   = m.status === 'approved';
+        const isPend = m.status === 'pending';
+        const leftColor = isOk?'#22c55e':isPend?'rgba(240,185,11,.6)':'#f6465d';
+        const numBg     = isOk?'rgba(34,197,94,.15)':isPend?'rgba(240,185,11,.12)':'rgba(246,70,93,.1)';
+        const numColor  = isOk?'var(--green)':isPend?'var(--gold)':'#f6465d';
+        const stLabel = isOk
+          ? `<span style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:var(--green);font-size:.6rem;padding:2px 7px;border-radius:8px;font-weight:700;">✅ Approved</span>`
+          : isPend
+          ? `<span style="background:rgba(240,185,11,.1);border:1px solid rgba(240,185,11,.25);color:var(--gold);font-size:.6rem;padding:2px 7px;border-radius:8px;font-weight:700;">⏳ Pending</span>`
+          : `<span style="background:rgba(246,70,93,.1);border:1px solid rgba(246,70,93,.25);color:#f6465d;font-size:.6rem;padding:2px 7px;border-radius:8px;font-weight:700;">❌ ${m.status}</span>`;
+        const bonusTxt = isOk
+          ? `<span style="font-family:'Orbitron',monospace;font-size:.7rem;font-weight:700;color:var(--green);">+${fmtU(m.flatBonusPaid)}</span>`
+          : isPend
+          ? `<span style="font-size:.62rem;color:var(--gold);">⏳ รออนุมัติ</span>`
+          : '';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 13px;
+          border-bottom:1px solid rgba(255,255,255,.04);border-left:3px solid ${leftColor};background:rgba(255,255,255,.01);">
+          <div style="width:28px;height:28px;border-radius:50%;background:${numBg};display:flex;align-items:center;justify-content:center;
+            font-size:.73rem;font-weight:900;color:${numColor};flex-shrink:0;">${globalIdx+1}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.82rem;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.name||'—'}</div>
+            <div style="font-size:.63rem;color:var(--muted);font-family:monospace;margin-top:1px;">${m.uid}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
+            ${stLabel}
+            ${bonusTxt}
+          </div>
+        </div>`;
+      }).join('');
+
+  const refMemPagHtml = refMemTotalPages > 1 ? `
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.05);">
+      ${refPagBtn(0,'«', refMemPage===0)}
+      ${refPagBtn(refMemPage-1,'‹', refMemPage===0)}
+      <span style="font-size:.7rem;color:var(--muted);padding:0 6px;">หน้า ${refMemPage+1} / ${refMemTotalPages}</span>
+      ${refPagBtn(refMemPage+1,'›', refMemPage>=refMemTotalPages-1)}
+      ${refPagBtn(refMemTotalPages-1,'»', refMemPage>=refMemTotalPages-1)}
+    </div>` : '';
+
+  const memberListHtml = `
+    <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden;margin-bottom:14px;">
+      <div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div style="font-size:.75rem;font-weight:700;color:var(--text-dim);">👥 รายชื่อสมาชิกที่แนะนำ</div>
+        <span style="font-size:.63rem;background:rgba(255,255,255,.06);border-radius:20px;padding:2px 8px;color:var(--muted);">${referredMembers.length} คน</span>
+        <button onclick="window._refTabLoadedFor=null;_tcRefMemberPage=0;tcRender();"
+          style="margin-left:auto;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+          border-radius:7px;padding:4px 10px;font-size:.67rem;color:var(--text-dim);cursor:pointer;font-weight:600;">
+          🔄 รีเฟรช</button>
+      </div>
+      ${refMemberCards}
+      ${refMemPagHtml}
+    </div>`;
+
+  // ── เงื่อนไขค่าแนะนำ ─────────────────────────────────────────────
+  const condHtml=`
+    <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:.75rem;font-weight:700;color:var(--gold);margin-bottom:10px;">📋 เงื่อนไขค่าแนะนำสมาชิก</div>
+      ${[
+        ['ค่าแนะนำ Flat','จ่ายเมื่อสมาชิกที่แนะนำเปิดสัญญาแรกสำเร็จและได้รับการ Approve'],
+        ['ค่าแนะนำ Tier','% เพิ่มเติมจากค่าคอมมิชชั่นของสมาชิกที่แนะนำ ตามจำนวน Approved สะสม'],
+        ['เงื่อนไขโอน','ต้องมีสมาชิก Approved ≥ '+referrer.minApprovedToWithdraw+' คน และยอดคงเหลือ ≥ $'+referrer.minAmountToWithdraw+' USDT'],
+        ['โอนเข้า','โอนจาก Commission Balance เข้า Spot Wallet (main_balance) ภายในระบบทันที ไม่มีระยะรออนุมัติ'],
+      ].map(([title,desc],i)=>`
+        <div style="display:flex;gap:10px;margin-bottom:9px;align-items:flex-start;">
+          <div style="width:22px;height:22px;border-radius:50%;background:rgba(240,185,11,.15);border:1px solid rgba(240,185,11,.3);
+            display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:900;color:var(--gold);flex-shrink:0;margin-top:1px;">${i+1}</div>
+          <div style="flex:1;">
+            <span style="font-size:.75rem;font-weight:700;color:var(--gold);">${title}</span>
+            <span style="font-size:.72rem;color:var(--text-dim);"> — ${desc}</span>
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+  // ── [NEW] โอน Commission ↔ Spot (แทนระบบถอนโบนัสเดิมที่มี approval queue) ──
+  // ใช้ logCommissionTransfer (GAS) — โอนทันที ไม่มี queue
+  const minWd = referrer.minAmountToWithdraw;
+  const canTransfer = approvedCount >= referrer.minApprovedToWithdraw;
+  const transferHtml = `
+    <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:.75rem;color:var(--text-dim);font-weight:700;margin-bottom:10px;">💸 โอนเงินค่าคอมมิชชั่น</div>
+      <div id="ref-commbal-wrap" style="display:flex;align-items:center;justify-content:space-between;background:rgba(240,185,11,.06);border:1px solid rgba(240,185,11,.2);border-radius:10px;padding:11px 13px;margin-bottom:10px;">
+        <div>
+          <div style="font-size:.65rem;color:var(--muted);">💰 ยอด Commission Balance</div>
+          <div id="ref-commbal-amt" style="font-family:'Orbitron',monospace;font-size:1rem;font-weight:900;color:var(--gold);margin-top:3px;">⏳ กำลังโหลด...</div>
+        </div>
+        <button id="ref-commtf-btn" data-can-transfer="${canTransfer ? '1' : '0'}" onclick="_tcOpenCommissionTransferModal('${myId}',${minWd},${canTransfer ? 'true' : 'false'})" disabled
+          style="flex-shrink:0;padding:9px 16px;background:var(--gold);color:#000;border:none;border-radius:8px;
+            font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;opacity:.5;">
+          📤 โอนไป Spot
+        </button>
+      </div>
+      ${!canTransfer ? `<div style="font-size:.68rem;color:var(--gold);">⚠️ ต้องมีสมาชิก Approved ≥ ${referrer.minApprovedToWithdraw} คน จึงจะโอนได้ (ปัจจุบัน ${approvedCount} คน)</div>` : ''}
+      <div id="ref-commtf-hist" style="margin-top:10px;"></div>
+    </div>`;
+
+  // โหลด commission_balance จริงจาก getMemberDashboard (มี member.uid อยู่แล้ว) — async หลัง render
+  setTimeout(()=>_tcLoadCommissionBalance(myId), 0);
+
+  return statsHtml + tierHtml + linkHtml + memberListHtml + transferHtml + condHtml;
+}
+
+// ── [NEW] โหลดยอด Commission Balance จริง (ใช้ getMemberDashboard ที่มีอยู่แล้ว — ไม่เพิ่ม action ใหม่) ──
+// [FIX] เดิมเช็ค "ถ้า MEMBER_DASH มีอยู่แล้วสำหรับ uid นี้ → ไม่โหลดใหม่" ทำให้ใช้ยอดเก่าค้าง
+// (snapshot ตอนเปิดหน้าแรกสุด) ถ้าคอมมิชชั่นเข้าใหม่ระหว่าง session แต่ผู้ใช้ไม่ได้กดแท็บ "ส่วนตัว"
+// ซ้ำ → ป๊อปอัพโอนเงินแสดง $0.00 ทั้งที่มียอดจริง และบล็อกการโอนตั้งแต่ฝั่ง client
+// เนื่องจากค่านี้ใช้ยืนยันการโอนเงินจริง ต้อง force โหลดสดทุกครั้งที่เปิดป๊อปอัพนี้
+//
+// [FIX2] ROOT CAUSE จริง: ปุ่ม "โอนไป Spot" กดได้ทันทีตั้งแต่แท็บแสดงผล (synchronous) แต่ค่า
+// window._tcCommissionBalanceCache ถูกตั้งโดยฟังก์ชันนี้ผ่าน setTimeout+await fetch (async, ใช้เวลาจริง)
+// ถ้าผู้ใช้กดปุ่มก่อนโหลดเสร็จ → cache ยังเป็น undefined → modal fallback เป็น $0.00 ค้างตลอดไป
+// (modal ไม่ re-render ค่าใหม่หลังเปิดไปแล้ว) แก้โดย disable ปุ่มไว้ก่อน (ใส่ไว้ใน HTML ฝั่ง tcS5Referral)
+// แล้วเปิดใช้งานปุ่มที่นี่ "หลังจาก" โหลดยอดจริงเสร็จเท่านั้น — ปิดช่อง race condition แทนการเดา
+// [FIX v6] เพิ่ม generation counter กัน race ตอน _tcLoadCommissionBalance ถูกเรียกซ้อนกัน
+// (เช่น tcS5Referral() re-render ระหว่างที่ call ก่อนหน้ายัง await fetch ไม่เสร็จ) — ถ้าไม่กัน
+// call เก่าที่ resolve ทีหลัง (เพราะ network ช้ากว่า) อาจเขียนค่าเก่าทับค่าที่ใหม่กว่าที่เพิ่งเขียนไป
+// (last-resolve-wins แทนที่จะเป็น last-call-wins) ทำให้ยอดกระพริบกลับไปเป็นค่าเก่าได้
+window._tcCommBalGen = 0;
+async function _tcLoadCommissionBalance(myId){
+  const myGen = ++window._tcCommBalGen;
+  const btn = document.getElementById('ref-commtf-btn');
+  try {
+    // [FIX v4] โหลดทั้ง getMemberDashboard (มี commissionBalance จาก Users sheet)
+    // และ getReferralDashboard (มี totals.totalPayout จาก CommissionLedger) พร้อมกัน
+    // เพื่อแก้กรณีที่ Users sheet ยัง sync ไม่ทัน หรือ column commission_balance ว่างเปล่า
+    await Promise.all([
+      loadMemberDashboard(myId, true),   // force=true เสมอ — ยอดสดจาก Users sheet
+      loadReferralDashboard(myId, true), // force=true — ยอดสดจาก CommissionLedger
+    ]);
+
+    // [FIX v6] ถ้ามี call ใหม่กว่าเริ่มไปแล้วระหว่างที่ call นี้กำลัง await อยู่ ให้ทิ้งผลลัพธ์
+    // ของ call นี้ไปเลย ไม่เขียนทับ DOM/cache — ปล่อยให้ call ล่าสุดเป็นผู้เขียนค่าสุดท้ายเสมอ
+    if(myGen !== window._tcCommBalGen) return;
+
+    // [FIX v5] เดิม fallback ไป CommissionLedger (totalPayout) ทุกครั้งที่ amtFromUsers <= 0
+    // ทำให้หลังโอนออกจน commission_balance เหลือ 0 ถูกต้องแล้ว กลับไปโชว์ยอดสะสมเก่าจาก
+    // Ledger แทน (เพราะ Ledger เดิมไม่เคยมี entry ลบเวลาโอนออก) — backend v2.28 แก้ไปแล้วโดย
+    // เพิ่ม CommissionWithdraw entry ลบเข้า Ledger ทุกครั้งที่โอน ทำให้ totalPayout สะท้อน
+    // ยอดคงเหลือสุทธิถูกต้องแล้วเช่นกัน แต่ฝั่งนี้ยังต้องแก้เงื่อนไข fallback ให้ไม่ override
+    // ค่า 0 ที่ถูกต้องจาก Users sheet ด้วย — ใช้ amtFromUsers เป็นหลักเสมอเมื่อ MEMBER_DASH
+    // โหลดสำเร็จ (มี object จริง) fallback ไป Ledger เฉพาะกรณีโหลด MEMBER_DASH ไม่สำเร็จเลย
+    const hasUserDash = !!(MEMBER_DASH && MEMBER_DASH.member);
+    const amtFromUsers   = hasUserDash ? (parseFloat(MEMBER_DASH.member.commissionBalance) || 0) : 0;
+    const amtFromLedger  = REFERRAL_DASH ? (parseFloat(REFERRAL_DASH.totals.totalPayout) || 0) : 0;
+    const amt = hasUserDash ? amtFromUsers : amtFromLedger;
+
+    const el = document.getElementById('ref-commbal-amt');
+    if(el){
+      el.textContent = '$' + amt.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+      // [FIX v5] warning แสดงเฉพาะตอน fallback จริง (ไม่มี MEMBER_DASH เลย) ไม่ใช่ตอนยอด Users sheet = 0 ถูกต้อง
+      if(!hasUserDash && amtFromLedger > 0){
+        el.title = '⚠️ ยอดจาก CommissionLedger — Users sheet อาจยัง sync ไม่ทัน';
+        el.style.color = 'var(--gold)';
+      } else {
+        el.title = '';
+        el.style.color = '';
+      }
+    }
+    window._tcCommissionBalanceCache = amt;
+    // เปิดปุ่มเฉพาะตอนยอดพร้อมจริงแล้ว "และ" ผ่านเงื่อนไขจำนวน Approved ด้วย
+    if(btn){
+      btn.disabled = false;
+      btn.style.opacity = (btn.dataset.canTransfer === '1') ? '1' : '.5';
+    }
+  } catch(e){
+    // [FIX v6] ถ้ามี call ใหม่กว่าเริ่มไปแล้ว ไม่ต้องโชว์ error ของ call เก่าทับผลลัพธ์ที่ใหม่กว่า
+    if(myGen !== window._tcCommBalGen) return;
+    const el = document.getElementById('ref-commbal-amt');
+    if(el) el.textContent = '—';
+    // โหลดไม่สำเร็จ — ปล่อยปุ่ม disabled ไว้ ป้องกันเปิด modal ด้วยยอดที่ไม่น่าเชื่อถือ
+  }
+}
+
+
+// ── [NEW] Modal โอน Commission → Spot (แทน withdraw modal เดิม) ──────
+function _tcOpenCommissionTransferModal(myId, minAmount, canTransfer){
+  if(!canTransfer){
+    tccNotif('warn','ยังไม่ถึงเงื่อนไข', 'ต้องมีสมาชิก Approved ครบตามเงื่อนไขก่อนจึงโอนได้');
+    return;
+  }
+  const curBal = window._tcCommissionBalanceCache || 0;
+  let overlay = document.getElementById('_comm-tf-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = '_comm-tf-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'flex';
+  overlay.innerHTML = `
+    <div style="background:#0d1117;border:1px solid rgba(240,185,11,.3);border-radius:14px;width:100%;max-width:380px;padding:22px;position:relative;">
+      <button onclick="document.getElementById('_comm-tf-overlay').style.display='none'"
+        style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,.07);border:none;color:var(--text);
+        width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:.9rem;">✕</button>
+      <div style="font-size:.95rem;font-weight:800;color:var(--gold);margin-bottom:4px;">💸 โอน Commission → Spot</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:16px;">ยอดคงเหลือ: <b style="color:var(--gold);">$${curBal.toFixed(2)}</b> USDT</div>
+      <input id="_comm-tf-amount" type="number" placeholder="จำนวน USDT (ขั้นต่ำ $${minAmount})" min="${minAmount}" max="${curBal}" step="0.01"
+        style="width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(240,185,11,.3);border-radius:8px;
+        color:var(--text);font-size:.9rem;padding:10px 12px;outline:none;box-sizing:border-box;font-family:'Prompt',sans-serif;margin-bottom:14px;">
+      <button onclick="_tcSubmitCommissionTransfer('${myId}',${minAmount},${curBal})"
+        style="width:100%;padding:11px;background:var(--gold);color:#000;border:none;border-radius:8px;
+        font-size:.85rem;font-weight:700;cursor:pointer;">ยืนยันโอน</button>
+    </div>`;
+}
+
+function _tcSubmitCommissionTransfer(myId, minAmount, curBal){
+  const input = document.getElementById('_comm-tf-amount');
+  const amt = parseFloat(input ? input.value : 0) || 0;
+  if(amt < minAmount){
+    tccNotif('warn','ยอดไม่ถึงขั้นต่ำ', `ต้องโอนอย่างน้อย $${minAmount} USDT`);
+    return;
+  }
+  if(amt > curBal){
+    tccNotif('warn','ยอดไม่พอ', 'ยอด Commission Balance ของคุณไม่พอสำหรับจำนวนนี้');
+    return;
+  }
+  dbCallRaw('logCommissionTransfer', { uid: myId, direction: 'toMain', amount: amt })
+    .then(()=>{
+      tccNotif('success','โอนสำเร็จ!', `โอน $${amt.toFixed(2)} USDT ไปยัง Spot Wallet แล้ว`);
+      const ov = document.getElementById('_comm-tf-overlay');
+      if(ov) ov.style.display='none';
+      ssClear('tcc2_dash_' + myId); // bust cache เพื่อให้แท็บส่วนตัวเห็นยอดใหม่
+      _tcLoadCommissionBalance(myId);
+    })
+    .catch(e=>{
+      tccNotif('error','โอนไม่สำเร็จ', e.message);
+    });
+}
+
+
+async function initDashboard(uid) {
+  document.getElementById('dashUidLabel').textContent = 'UID: ' + uid;
+  const root = document.getElementById('dash-root');
+  root.innerHTML = '<div class="loading-wrap"><div class="spin"></div><div class="loading-lbl">กำลังโหลดข้อมูล...</div></div>';
+
+  try {
+    // [v2-NEW] โหลด profile + balance จาก GAS โดยตรง (ไม่ใช่ MEMBERS.find จาก DB1/Worker)
+    await loadMemberDashboard(uid, true);
+
+    if (!MEMBER_DASH || !MEMBER_DASH.member || !MEMBER_DASH.member.uid) {
+      root.innerHTML = `<div class="loading-wrap">
+        <div style="font-size:40px;margin-bottom:12px">🔍</div>
+        <div style="font-size:14px;color:var(--t2)">ไม่พบข้อมูลสมาชิก UID: ${_escHtml(uid)}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:6px">อาจยังไม่ได้รับ Approve หรือ UID ไม่ตรงกับระบบ</div>
+      </div>`;
+      return;
+    }
+
+    // Set member on TC object and render
+    TC.member = MEMBER_DASH.member;
+    window._personalLoadedFor = uid; // กัน loadMemberDashboard ซ้ำในแท็บ personal เพราะโหลดไปแล้วที่นี่
+    root.innerHTML = tcS5();
+
+    // Attach event delegation for tcS5 onclick (re-render)
+    window._dashRender = function() { root.innerHTML = tcS5(); };
+
+  } catch(e) {
+    root.innerHTML = `<div class="loading-wrap">
+      <div style="font-size:40px;margin-bottom:12px">❌</div>
+      <div style="font-size:14px;color:var(--r)">โหลดข้อมูลไม่สำเร็จ</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:6px">${_escHtml(e.message)}</div>
+      <button onclick="initDashboard('${_escHtml(uid)}')" style="margin-top:16px;background:var(--y);color:#000;border:none;border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer;">🔄 ลองใหม่</button>
+    </div>`;
+  }
+}
+
+// Override tcRender to re-render inside dash-root
+function tcRender() {
+  const root = document.getElementById('dash-root');
+  if (root && TC.member) {
+    root.innerHTML = tcS5();
+  }
+}
+
+// ════════════════════════════════
+//  HELPERS
+// ════════════════════════════════
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const el = document.getElementById('view-' + name);
+  if (el) el.classList.add('active');
+}
+
+function goBack() {
+  // ตัดชื่อไฟล์ปัจจุบัน (member2.html) ออกจาก path แบบทั่วไป ไม่ผูกกับชื่อไฟล์ตายตัว
+  // เดิม regex หาคำว่า "member.html" ตรงๆ ซึ่งไม่ match กับ "member2.html" → base เพี้ยน → 404
+  const base = window.location.href.split('?')[0].split('#')[0].replace(/[^/]*\.html$/i, '');
+
+  // ใช้กลไก Whale-redirect ที่มีอยู่แล้วใน index.html: ตั้งค่านี้แล้วกลับไป index.html
+  // จะถูกอ่านจาก sessionStorage แล้วข้ามsplash ไปเรียก navTo('assets') ตรงๆ ไม่โหลดหน้าใหม่ทั้งหน้า
+  try { sessionStorage.setItem('_returnFromWhale', 'assets'); } catch(e) {}
+
+  window.location.href = base + CFG.INDEX_FILE;
+}
+
+function showMsg(msg, dur = 2500) {
+  const t = document.getElementById('mem-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ════════════════════════════════
+//  tccNotif — notification helper
+// ════════════════════════════════
+function tccNotif(type, title, sub) {
+  const icons = { success:'✅', error:'❌', warn:'⚠️', info:'ℹ️' };
+  const msg = (icons[type] || '') + ' ' + title + (sub ? ' — ' + sub : '');
+  showMsg(msg, type === 'error' ? 4000 : 2500);
+}
+
+// ════════════════════════════════
+//  REGISTER LOGIC
+// ════════════════════════════════
+let _currentStep = 1;
+
+// ════════════════════════════════════════════════════════════════
+//  INIT — ตรวจ ?view= param
+//  [v2-NEW] ไม่มีหน้าสมัครสมาชิกใหม่ (view=register ถูกตัดออก) —
+//  member2.html เป็น Dashboard เท่านั้น เข้าจาก index.html ?uid=...
+// ════════════════════════════════════════════════════════════════
+(function init() {
+  const params = new URLSearchParams(window.location.search);
+  const view   = params.get('view') || '';
+  const uid    = params.get('uid')  || '';
+
+  document.getElementById('view-loading').classList.remove('active');
+
+  if (view === 'terms') {
+    showView('terms');
+    return;
+  }
+
+  // ค่า default คือ dashboard เสมอ (view=dashboard หรือไม่ระบุ view มา)
+  const activeUid = uid || (() => { try { return sessionStorage.getItem('tcc_uid') || ''; } catch(e){ return ''; } })();
+  if (activeUid) {
+    try { sessionStorage.setItem('tcc_uid', activeUid); } catch(e) {}
+    showView('dashboard');
+    initDashboard(activeUid);
+  } else {
+    showMsg('ไม่พบข้อมูล UID กรุณาเข้าจาก Profile อีกครั้ง');
+    setTimeout(goBack, 2000);
+  }
+})();
+</script>
+</body>
+</html>

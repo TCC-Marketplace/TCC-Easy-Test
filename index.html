@@ -12534,7 +12534,7 @@ async function astExecuteWithdraw() {
       // off-chain: ใช้ reference id ภายในได้ แต่ระบุชัดว่าเป็น "Ref ID" ไม่ใช่ Tx Hash
       const txidDisplay = isOffchain
         ? 'Internal Transfer<br>Ref: ' + (result.withdraw_id || '').slice(0, 16).toUpperCase()
-        : 'Pending — waiting for Tx Hash<br>Admin จะอัปเดตภายใน 24 ชม.';
+        : 'Pending — waiting for Tx Hash<br>ระบบจะอัปเดตภายใน 15 รายการ.';
 
       document.getElementById('det-amount-big').textContent = '-' + amt + ' ' + coin;
       document.getElementById('det-network').textContent = isOffchain ? 'Internal Transfer' : netName;

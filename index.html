@@ -13047,7 +13047,7 @@ function buildEarnCard(c) {
     if (isFrozenRedeemReady) {
       warnHtml = `<div class="earn-warn-bar frozen" style="display:flex">🔒 สัญญา Frozen ครบกำหนดแล้ว — กดรับเงินต้นคืนได้เลย</div>`;
     } else {
-      warnHtml = `<div class="earn-warn-bar frozen" style="display:flex">🔒 สัญญาถูก Freeze — Drawdown ≥ 40% | ระบบจะคืนเงินต้นให้เมื่อครบกำหนด</div>`;
+      warnHtml = `<div class="earn-warn-bar frozen" style="display:flex">🔒 สัญญาถูก Freeze — Drawdown ≥ 40% | กดรับเงินต้นคืนได้เลย</div>`;
     }
   } else if (risk === 2) {
     warnHtml = `<div class="earn-warn-bar red" style="display:flex">🚨 Critical: Drawdown ${dd.toFixed(1)}% — ลด Position ทันที ก่อนถูก Auto-Liquidate</div>`;

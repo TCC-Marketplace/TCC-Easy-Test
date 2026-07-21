@@ -3128,7 +3128,7 @@ async function doAdminApproveRenewal(contractId, uid) {
   if (!c) return;
   if (!(await customConfirm(`ระบบจะรีเซ็ตรอบสัญญาใหม่ตามเงื่อนไขเดิม (plan_days/daily_yield_pct/staked_amount เท่าเดิม) โดยคง Realized PnL ที่ค้างอยู่ไว้ — เหมือนกับ auto-renew อัตโนมัติทุกประการ เพียงแต่ไม่ต้องรอครบ 48 ชม.`, {title:`✅ อนุมัติต่ออายุสัญญา ${contractId} ทันที`, okLabel:'อนุมัติทันที'}))) return;
   toast('⏳ กำลังอนุมัติต่ออายุ...', '');
-  const res = await gasWrite('adminApproveEarnRenewal', { contract_id: contractId, uid, admin_note: 'อนุมัติต่ออายุแบบ manual จาก Admin Panel' });
+  const res = await gasWrite('adminApproveEarnRenewal', { contract_id: contractId, uid, admin_note: 'อนุมัติการต่ออายุสัญญาเทรด By Data System' });
   if (!res || res.status !== 'ok') {
     toast('❌ อนุมัติต่ออายุไม่สำเร็จ: ' + (res?.message || 'unknown error — ตรวจว่า Admin.js เพิ่ม action นี้แล้วหรือยัง'), 'er');
     return;

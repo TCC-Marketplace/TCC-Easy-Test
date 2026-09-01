@@ -17138,8 +17138,19 @@ function buildEarnCard(c) {
              ${c.isFixed ? '🔒 ' : ''}${tccT('btn_share_profit')}${canClaim?' (+$'+fmtM(netProfit)+')':''}
            </button>`
       }
-      <button class="earn-act-btn ${c.isFixed ? 'fixed-mode' : 'trade'}" ${c.isFixed ? 'disabled title="Fixed Mode — APT only"' : `onclick="goTradeWithContract('${c.contractId}')"`}>
-        ${c.isFixed ? '🔒 Fixed' : 'Trade'}
+      <button class="earn-act-btn ${c.isFixed ? 'fixed-mode' : c.status === 'matured' ? 'fixed-mode' : 'trade'}" ${
+        c.isFixed
+          ? 'disabled title="Fixed Mode — APT only"'
+          : c.status === 'matured'
+            /* [FIX-TRADE-MATURED] Block Trade เมื่อสัญญา matured — ป้องกัน user ยิง order ที่ GAS จะ
+               reject ด้วย isMatured=true อยู่แล้ว (logPositionWithGuard) แต่ frontend ไม่เคย block
+               ก่อนถึง GAS → UX แย่ (กรอกข้อมูลได้ ยิงไปแล้วค่อย error)
+               สัญญา matured = ครบกำหนดรอบก่อน / กำลังรอ auto-renew 48h window —
+               ห้ามเทรดจนกว่า loadOfflineState() จะ sync status='active' รอบใหม่กลับมา */
+            ? 'disabled title="สัญญาครบกำหนดแล้ว — รอระบบต่ออายุหรือกด Redeem"'
+            : `onclick="goTradeWithContract('${c.contractId}')"`
+      }>
+        ${c.isFixed ? '🔒 Fixed' : c.status === 'matured' ? '⏳ Matured' : 'Trade'}
       </button>
       <button class="earn-act-btn detail" onclick="showEarnDetail('${c.contractId}')">
         ···

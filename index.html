@@ -9953,8 +9953,12 @@ function _refreshAvbl(c) {
     ? _gasAvailMargin
     : (c.stakedAmount - marginUsed + unrealizedPnl);
 
+  // [FIX-AVBL-DISPLAY] Avbl = ยอดคงเหลือในสัญญา (currentBalance) ไม่ใช่ avail_margin (10% margin pool)
+  // avail_margin = 10% ของ staked_amount = วงเงินเปิดออเดอร์ (แสดงใน remainingBudgetTxt แล้ว)
+  // avblEl ควรแสดง currentBalance เหมือน exchange-style "Available Balance"
+  // avbl ยังคงใช้สำหรับ badge/warning logic ด้านล่าง — ไม่แตะ
   const avblEl = document.getElementById('avblVal');
-  if (avblEl) avblEl.textContent = `${fmtNum(avbl,2)} USDT`;
+  if (avblEl) avblEl.textContent = `${fmtNum(c.currentBalance, 2)} USDT`;
 
   const badgeEl = document.getElementById('earnMarginBadge');
   if (badgeEl) {

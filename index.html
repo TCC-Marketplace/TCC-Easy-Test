@@ -16918,12 +16918,15 @@ function _earnCountdownText(c) {
       const _newEnd = c.endTime + (c.planDays || 0) * 86400000;
       const _newEndRemMs = _newEnd - Date.now();
       if (_newEndRemMs > 0) {
-        const _d = Math.floor(_newEndRemMs / 86400000);
-        const _h = Math.floor((_newEndRemMs % 86400000) / 3600000);
-        const _m = Math.floor((_newEndRemMs % 3600000) / 60000);
+        const _totalSec = Math.floor(_newEndRemMs / 1000);
+        const _d = Math.floor(_totalSec / 86400);
+        const _h = Math.floor((_totalSec % 86400) / 3600);
+        const _m = Math.floor((_totalSec % 3600) / 60);
+        const _s = _totalSec % 60;
+        // [FIX-TICK-VISIBLE] เพิ่ม :SS ทุก format เพื่อให้เห็นว่าเดินทุกวินาที
         return _d >= 1
-          ? `🔄 ${_d}d ${String(_h).padStart(2,'0')}:${String(_m).padStart(2,'0')}`
-          : `🔄 ${String(_h).padStart(2,'0')}:${String(_m).padStart(2,'0')}`;
+          ? `🔄 ${_d}d ${String(_h).padStart(2,'0')}:${String(_m).padStart(2,'0')}:${String(_s).padStart(2,'0')}`
+          : `🔄 ${String(_h).padStart(2,'0')}:${String(_m).padStart(2,'0')}:${String(_s).padStart(2,'0')}`;
       }
     }
     return tccT('earn_completed');
@@ -16935,10 +16938,10 @@ function _earnCountdownText(c) {
   const h = Math.floor((totalSec % 86400) / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  if (d >= 1) {
-    return `⏱ ${d}d ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-  }
-  return `⏱ ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  // [FIX-TICK-VISIBLE] เพิ่ม :SS ทุก format — เดิม d>=1 ใช้ HH:MM ดูเหมือนไม่เดินเพราะอัปเดตทุก 60s
+  return d >= 1
+    ? `⏱ ${d}d ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+    : `⏱ ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
 // ── Live tick: อัพเดท countdown badges ทุก 1 วินาที ──

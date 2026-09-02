@@ -16898,10 +16898,36 @@ function _earnCountdownMs(c) {
   return endTime - Date.now();
 }
 function _earnCountdownExpired(c) {
+  // [FIX-COUNTDOWN-AUTORENEW] ถ้า matured และอยู่ใน auto-renew window → badge ไม่ expired
+  // (ยังมีเวลานับถอยหลังรอบใหม่อยู่ — แสดงสีปกติ ไม่ grey-out)
+  if (c.status === 'matured' && c.endTime > 0) {
+    const _sinceEnd = Date.now() - c.endTime;
+    if (_sinceEnd >= 24 * 3600000) {
+      const _newEndRemMs = (c.endTime + (c.planDays || 0) * 86400000) - Date.now();
+      if (_newEndRemMs > 0) return false; // รอบใหม่ยังนับถอยหลังอยู่ → ไม่ expired
+    }
+  }
   return c.status === 'matured' || _earnCountdownMs(c) <= 0;
 }
 function _earnCountdownText(c) {
-  if (c.status === 'matured') return tccT('earn_completed');
+  if (c.status === 'matured') {
+    // [FIX-COUNTDOWN-AUTORENEW] ถ้าอยู่ใน auto-renew window (≥24h หลังครบ) แสดงวันครบกำหนดรอบใหม่
+    // แทนที่จะแสดง "✅ ครบแล้ว" ซึ่งทำให้ user สับสนว่าสัญญาหมดแล้ว
+    const _sinceEnd = c.endTime > 0 ? (Date.now() - c.endTime) : 0;
+    if (c.endTime > 0 && _sinceEnd >= 24 * 3600000) {
+      const _newEnd = c.endTime + (c.planDays || 0) * 86400000;
+      const _newEndRemMs = _newEnd - Date.now();
+      if (_newEndRemMs > 0) {
+        const _d = Math.floor(_newEndRemMs / 86400000);
+        const _h = Math.floor((_newEndRemMs % 86400000) / 3600000);
+        const _m = Math.floor((_newEndRemMs % 3600000) / 60000);
+        return _d >= 1
+          ? `🔄 ${_d}d ${String(_h).padStart(2,'0')}:${String(_m).padStart(2,'0')}`
+          : `🔄 ${String(_h).padStart(2,'0')}:${String(_m).padStart(2,'0')}`;
+      }
+    }
+    return tccT('earn_completed');
+  }
   const ms = _earnCountdownMs(c);
   if (ms <= 0) return tccT('earn_completed');
   const totalSec = Math.floor(ms / 1000);
@@ -17070,7 +17096,13 @@ function buildEarnCard(c) {
     }
   } else if (c.status === 'matured' && _inAutoRenewWindow) {
     // [FIX-AUTORENEW-REDEEM] แจ้ง user ว่าสัญญาอยู่ใน auto-renew window — ยังกด Redeem ไม่ได้
-    warnHtml = `<div class="earn-warn-bar yellow" style="display:flex">⏳ ระบบกำลังต่ออายุสัญญาอัตโนมัติ — กรุณารอสักครู่ หากต้องการปิดสัญญากรุณาติดต่อแอดมิน</div>`;
+    // แสดงวันครบกำหนดรอบใหม่ = endTime + planDays วัน
+    const _newEndMs = (c.endTime || 0) + (c.planDays || 0) * 86400000;
+    const _newEndDate = _newEndMs > 0 ? (() => {
+      const _d = new Date(_newEndMs);
+      return _d.getFullYear() + '-' + String(_d.getMonth()+1).padStart(2,'0') + '-' + String(_d.getDate()).padStart(2,'0');
+    })() : '';
+    warnHtml = `<div class="earn-warn-bar yellow" style="display:flex">🔄 ระบบต่ออายุสัญญาอัตโนมัติแล้ว${_newEndDate ? ` — สัญญาใหม่ครบกำหนด ${_newEndDate}` : ''} กดรับเงินต้นคืนได้เมื่อครบกำหนด</div>`;
   } else if (risk === 2) {
     warnHtml = `<div class="earn-warn-bar red" style="display:flex">${tccT('warn_critical_dd').replace('—%',dd.toFixed(1)+'%')}</div>`;
   } else if (risk === 1) {

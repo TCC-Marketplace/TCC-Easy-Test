@@ -6356,11 +6356,38 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       <div class="earn-modal-title" data-i18n="confirm_redeem_principal">🏁 ยืนยันรับเงินต้นคืน</div>
       <div class="earn-claim-row"><span class="earn-claim-label" data-i18n="contract_label">สัญญา</span><span class="earn-claim-val" id="redeemContractId">—</span></div>
       <div class="earn-claim-row"><span class="earn-claim-label" data-i18n="principal_label">เงินต้น</span><span class="earn-claim-val" id="redeemStaked">0.00 USDT</span></div>
-      <div class="earn-claim-row"><span class="earn-claim-label" data-i18n="prev_claimed">รับไปแล้วก่อนหน้า</span><span class="earn-claim-val" style="color:var(--y)" id="redeemTotalClaimed">0.00 USDT</span></div>
+      <div class="earn-claim-row"><span class="earn-claim-label" data-i18n="prev_claimed">รับไปแล้วก่อนหน้า (APT+Trade)</span><span class="earn-claim-val" style="color:var(--y)" id="redeemTotalClaimed">0.00 USDT</span></div>
       <!-- [NEW: NET-SETTLEMENT] แสดงเฉพาะเมื่อมีขาดทุนค้าง (matured) — ซ่อนโดย default -->
-      <div class="earn-claim-row" id="redeemLossRow" style="display:none"><span class="earn-claim-label" data-i18n="latest_loss">ติดลบล่าสุด</span><span class="earn-claim-val" style="color:var(--r)" id="redeemLossAmount">0.00 USDT</span></div>
+      <div class="earn-claim-row" id="redeemLossRow" style="display:none"><span class="earn-claim-label" data-i18n="latest_loss">ขาดทุนสะสม ณ สิ้นสัญญา</span><span class="earn-claim-val" style="color:var(--r)" id="redeemLossAmount">0.00 USDT</span></div>
       <!-- [NEW: NET-SETTLEMENT] แสดงเฉพาะเมื่อมีการหักบัฟเฟอร์จริง — ซ่อนโดย default -->
-      <div class="earn-claim-row" id="redeemBufferRow" style="display:none"><span class="earn-claim-label" data-i18n="buffer_deduct">ใช้บัฟเฟอร์สำรอง</span><span class="earn-claim-val" style="color:var(--r)" id="redeemBuffer">0.00 USDT</span></div>
+      <div class="earn-claim-row" id="redeemBufferRow" style="display:none"><span class="earn-claim-label" data-i18n="buffer_deduct">บัฟเฟอร์หักจากเงินต้น</span><span class="earn-claim-val" style="color:var(--r)" id="redeemBuffer">0.00 USDT</span></div>
+
+      <!-- [v2.46 NEW] APT Summary Section — แสดง APT ที่ออกแบบไว้ vs ได้รับจริง -->
+      <div id="redeemAptSummarySection" style="display:none;margin:8px 16px 4px;padding:10px 14px;border-radius:10px;background:rgba(255,184,0,0.06);border:1px solid rgba(255,184,0,0.2);font-size:12px;line-height:1.7">
+        <div style="font-weight:700;font-size:12px;color:var(--y);margin-bottom:6px">📅 APT Yield สรุปตลอดสัญญา</div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--t2)">APT ที่ออกแบบไว้ทั้งสัญญา</span>
+          <span style="color:var(--t1)" id="redeemAptExpected">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--t2)">APT ที่รับออกไปแล้ว</span>
+          <span style="color:var(--y)" id="redeemAptClaimed">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between" id="redeemAptAccruedRow">
+          <span style="color:var(--t2)">APT ค้าง (ยังไม่ได้รับ)</span>
+          <span style="color:var(--g)" id="redeemAptAccrued">—</span>
+        </div>
+        <div id="redeemAptLostRow" style="display:none;justify-content:space-between">
+          <span style="color:var(--t2)">APT ถูก Loss กลืน</span>
+          <span style="color:var(--r)" id="redeemAptLost">—</span>
+        </div>
+        <div style="border-top:1px solid rgba(255,184,0,0.15);margin:6px 0 2px"></div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--t2)">APT สุทธิที่ได้รับจริง</span>
+          <span style="color:var(--g);font-weight:700" id="redeemAptNet">—</span>
+        </div>
+      </div>
+
       <!-- [FIX #5 — REDEEM-UX] Warning banner เด่นชัด แสดงเฉพาะเมื่อมีการหักบัฟเฟอร์จริง
            เดิม: ข้อมูลนี้อยู่ในตารางแถวเล็กๆ ที่สมาชิกมองข้ามได้ง่าย → ร้องเรียนว่า "เงินไม่ครบ"
            ใหม่: banner สีแดงเด่นขนาดใหญ่ + อธิบาย business rule ให้เข้าใจก่อนกดยืนยัน -->
@@ -6368,12 +6395,38 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <div style="font-weight:700;font-size:13px;margin-bottom:4px">⚠️ เงินต้นที่จะได้รับไม่ครบ 100%</div>
         <div id="redeemNetWarnText" style="color:var(--t2)"></div>
       </div>
+
+      <!-- [v2.46 NEW] Contract Summary ก่อนบรรทัดสุทธิ -->
+      <div id="redeemContractSummarySection" style="display:none;margin:6px 16px 4px;padding:10px 14px;border-radius:10px;background:rgba(14,203,129,0.04);border:1px solid rgba(14,203,129,0.15);font-size:12px;line-height:1.7">
+        <div style="font-weight:700;font-size:12px;color:var(--t1);margin-bottom:6px">📊 สรุปผลการเทรดตลอดสัญญา</div>
+        <div style="display:flex;justify-content:space-between" id="redeemSumTradeRow">
+          <span style="color:var(--t2)">กำไรเทรดรวม (Gross)</span>
+          <span id="redeemSumTradeGross">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between" id="redeemSumTradeLossRow" style="display:none">
+          <span style="color:var(--t2)">ขาดทุนสะสม</span>
+          <span style="color:var(--r)" id="redeemSumTradeLoss">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--t2)">Trade Claim ที่รับออกไป (40%)</span>
+          <span style="color:var(--y)" id="redeemSumTradeClaim">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--t2)">เบิกรวมทั้งหมด (APT+Trade)</span>
+          <span style="color:var(--y);font-weight:700" id="redeemSumTotalOut">—</span>
+        </div>
+        <div id="redeemSumBufferRow" style="display:none;justify-content:space-between">
+          <span style="color:var(--t2)">บัฟเฟอร์หักจากเงินต้น</span>
+          <span style="color:var(--r)" id="redeemSumBuffer">—</span>
+        </div>
+      </div>
+
       <div class="earn-claim-row" style="background:rgba(14,203,129,.05)"><span class="earn-claim-label" style="color:var(--t1);font-weight:700" data-i18n="net_remaining">คงเหลือเงินต้นสุทธิที่จะได้คืน</span><span class="earn-claim-val" style="color:var(--g);font-size:16px;font-weight:700" id="redeemPrincipal">0.00 USDT</span></div>
       <!-- [NEW: TIER] แสดงเฉพาะสัญญา VIP — แจ้งสิทธิ์การันตีเงินต้น 100% -->
       <div class="earn-claim-row" id="redeemVipNoteRow" style="display:none">
         <span class="earn-claim-val" style="color:var(--g);font-size:12px">👑 สัญญาวีไอพี: เงินต้นการันตีคืน 100% เสมอ ไม่มีการหักบัฟเฟอร์จากกำไรที่เคลมไปแล้ว</span>
       </div>
-      <div class="earn-claim-row"><span class="earn-claim-label"><span data-i18n="this_contract_summary">สรุปการเทรดของสัญญานี้</span></span><span class="earn-claim-val" id="redeemTradeSummary"><span data-i18n="loading">กำลังโหลด...</span></span></div>
+      <div class="earn-claim-row"><span class="earn-claim-label"><span data-i18n="this_contract_summary">ผลการเทรดรวมทั้งสัญญา (GAS)</span></span><span class="earn-claim-val" id="redeemTradeSummary"><span data-i18n="loading">กำลังโหลด...</span></span></div>
       <div style="padding:10px 20px 0;font-size:12px;color:var(--t3);line-height:1.5">
         ⚠️ สัญญานี้จะถูกปิดถาวรหลังยืนยัน — เงินต้นสุทธิ (หลังหักบัฟเฟอร์ถ้ามี) จะโอนเข้า Main Wallet ทันที และไม่สามารถย้อนกลับได้
       </div>
@@ -15469,6 +15522,10 @@ function astSwitchTab(name, el) {
                 lastAptClaimMs:  parseInt(r.last_apt_claim_ms)   || 0,
                 // [NEW: TIER] 'standard' | 'vip'
                 contractTier:    (String(r.contract_tier || '').toLowerCase() === 'vip') ? 'vip' : 'standard',
+                // [v2.46] APT Tracking — แยก APT ออกจาก Trade Claim เพื่อ Contract Summary
+                aptTotalClaimed:  parseFloat(r.apt_total_claimed)  || 0,
+                // apt_yield_accrued และ apt_total_expected มาจาก getContractStatus (ผ่าน _ddContractMap)
+                // ถูก merge เข้า earnContracts ผ่าน updateFromGasStatus ด้านล่าง
               };
               gasMap[c.contractId] = c;
             });
@@ -17925,6 +17982,9 @@ function showEarnDetail(id) {
               avail_margin:          st.avail_margin,
               margin_cap:            st.margin_cap,
               isMarginBlocked:       !!st.isMarginBlocked,
+              // [v2.46] APT Summary
+              apt_total_claimed:     parseFloat(st.apt_total_claimed)  || 0,
+              apt_total_expected:    parseFloat(st.apt_total_expected) || 0,
             });
             const _tl = parseFloat(st.trading_realized_loss) || 0;
             const _ay = parseFloat(st.apt_yield_accrued) || 0;
@@ -18253,12 +18313,31 @@ let redeemTargetId = null;
 function _calcRedeemBreakdown(c, isFrozenReady) {
   const principal    = c.stakedAmount || 0;
   const totalClaimed = c.totalClaimed || 0;
-  const tier          = (c.contractTier === 'vip') ? 'vip' : 'standard';
+  const tier         = (c.contractTier === 'vip') ? 'vip' : 'standard';
   let lossAmount = 0, claimBuffer = 0, netPrincipal = principal;
+
+  // [v2.46] APT Summary — คำนวณสำหรับ Contract Summary Modal
+  // aptTotalExpected = APT ที่ออกแบบไว้ทั้งสัญญา (staked × dailyYield% × planDays)
+  // aptTotalClaimed  = APT ที่ Claim ออกไปแล้วจริง (จาก c.aptTotalClaimed ถ้ามี หรือ estimate)
+  // aptAccrued       = APT ที่ค้างอยู่ตอนนี้ (ยังไม่ได้ Claim) นับจาก last_apt_claim_ms
+  const aptTotalExpected = parseFloat(
+    ((c.stakedAmount || 0) * (c.dailyYield || 0) / 100 * (c.planDays || 0)).toFixed(4)
+  );
+  // ใช้ค่าจาก GAS ถ้ามี (apt_total_claimed field) มิฉะนั้น estimate จาก apt_yield_accrued
+  const aptTotalClaimed  = parseFloat((c.aptTotalClaimed || 0).toFixed(4));
+  // APT ค้างตอนนี้ = ค่าที่ GAS คำนวณส่งมาใน getContractStatus (apt_yield_accrued)
+  const aptAccrued       = parseFloat((c.aptYieldAccrued || 0).toFixed(4));
+  // APT ที่ถูก loss กลืน = expected - claimed - accrued (ถ้าติดลบแสดงว่าไม่มีการสูญหาย)
+  const aptLost          = Math.max(0, parseFloat((aptTotalExpected - aptTotalClaimed - aptAccrued).toFixed(4)));
+  // APT สุทธิที่ได้รับจริง = claimed + accrued (accrued จะถูก claim ก่อน Redeem อยู่แล้ว)
+  const aptNet           = parseFloat((aptTotalClaimed + aptAccrued).toFixed(4));
 
   // [NEW: TIER] VIP (staked ≥1000 + plan ≥30 วัน) การันตีเงินต้น 100% เสมอ ไม่มีการหักบัฟเฟอร์
   if (tier === 'vip') {
-    return { principal, totalClaimed, lossAmount: 0, claimBuffer: 0, netPrincipal: principal, tier };
+    return {
+      principal, totalClaimed, lossAmount: 0, claimBuffer: 0, netPrincipal: principal, tier,
+      aptTotalExpected, aptTotalClaimed, aptAccrued, aptLost, aptNet,
+    };
   }
 
   if (isFrozenReady) {
@@ -18273,12 +18352,31 @@ function _calcRedeemBreakdown(c, isFrozenReady) {
     claimBuffer  = lossAmount > 0 ? Math.max(0, Math.min(totalClaimed, principal)) : 0;
     netPrincipal = parseFloat((principal - claimBuffer).toFixed(8));
   }
-  return { principal, totalClaimed, lossAmount, claimBuffer, netPrincipal, tier };
+  return {
+    principal, totalClaimed, lossAmount, claimBuffer, netPrincipal, tier,
+    aptTotalExpected, aptTotalClaimed, aptAccrued, aptLost, aptNet,
+  };
 }
 
 function openRedeemModal(contractId) {
   const c = earnContracts.find(x => x.contractId === contractId);
   if (!c) return;
+
+  // [v2.46] Merge apt fields จาก _contractDDMap (ถ้ามี) เข้า c ก่อนคำนวณ _calcRedeemBreakdown
+  // aptYieldAccrued = APT ที่สะสมค้างอยู่ตอนนี้ (จาก getContractStatus ของ GAS)
+  // aptTotalClaimed = APT ที่ Claim ออกไปแล้ว (จาก apt_total_claimed field ในชีต)
+  const _ddC = (window._contractDDMap || {})[contractId];
+  if (_ddC) {
+    if (_ddC.apt_yield_accrued  !== undefined) c.aptYieldAccrued  = parseFloat(_ddC.apt_yield_accrued)  || 0;
+    if (_ddC.apt_total_claimed  !== undefined) c.aptTotalClaimed  = parseFloat(_ddC.apt_total_claimed)  || 0;
+    if (_ddC.apt_total_expected !== undefined) c.aptTotalExpected = parseFloat(_ddC.apt_total_expected) || 0;
+  }
+  // ถ้า aptYieldAccrued ยังไม่มี — estimate จาก lastAptClaimMs + dailyYield
+  if (!c.aptYieldAccrued) {
+    const _refMs = c.lastAptClaimMs || c.lastYieldTimeMs || c.startTime || 0;
+    const _days  = _refMs > 0 ? Math.max(0, (Date.now() - _refMs) / 86400000) : 0;
+    c.aptYieldAccrued = parseFloat(((c.stakedAmount || 0) * (c.dailyYield || 0) / 100 * _days).toFixed(4));
+  }
 
   // [v2.39] รองรับทั้ง matured และ frozen ที่ครบกำหนดแล้ว
   const isFrozenReady = c.status === 'frozen' && (c.endTime || 0) > 0 && Date.now() >= (c.endTime || 0);
@@ -18310,12 +18408,13 @@ function openRedeemModal(contractId) {
   redeemTargetId = contractId;
 
   document.getElementById('redeemContractId').textContent   = c.contractId +
-    (_bd.tier === 'vip' ? '  👑 VIP' : '  Standard');
+    (_bd.tier === 'vip' ? '  👑 VIP' : '  Standard') +
+    ' · ' + (c.planDays || '—') + '-Day · ' + (c.dailyYield || '—') + '%/day';
   document.getElementById('redeemStaked').textContent       = fmtM(_bd.principal, 4) + ' USDT';
   document.getElementById('redeemTotalClaimed').textContent = '+' + fmtM(_bd.totalClaimed, 4) + ' USDT';
   document.getElementById('redeemPrincipal').textContent    = fmtM(_bd.netPrincipal, 4) + ' USDT';
 
-  // แถวติดลบ — แสดงเฉพาะกรณี matured ที่มีขาดทุนค้าง (frozen ไม่แสดงยอดติดลบซ้ำ เพราะบันทึกไว้แล้วตอน freeze)
+  // แถวติดลบ — แสดงเฉพาะกรณี matured ที่มีขาดทุนค้าง
   const lossRowEl = document.getElementById('redeemLossRow');
   if (lossRowEl) {
     if (!isFrozenReady && _bd.lossAmount > 0) {
@@ -18326,7 +18425,7 @@ function openRedeemModal(contractId) {
     }
   }
 
-  // แถวบัฟเฟอร์ — แสดงเมื่อมีการหักบัฟเฟอร์จริง (ทั้ง matured-with-loss และ frozen)
+  // แถวบัฟเฟอร์ — แสดงเมื่อมีการหักบัฟเฟอร์จริง
   const bufferRowEl = document.getElementById('redeemBufferRow');
   if (bufferRowEl) {
     if (_bd.claimBuffer > 0) {
@@ -18341,23 +18440,91 @@ function openRedeemModal(contractId) {
   const vipNoteEl = document.getElementById('redeemVipNoteRow');
   if (vipNoteEl) vipNoteEl.style.display = (_bd.tier === 'vip') ? '' : 'none';
 
-  // [FIX #5 — REDEEM-UX] Warning banner เด่นชัด — แสดงก่อนกดยืนยันถ้ามีการหักบัฟเฟอร์จริง
-  // เดิม: สมาชิกเห็นแค่แถวตารางเล็กๆ → ร้องเรียนว่า "เงินไม่ครบ" หลังกดไปแล้ว
-  // ใหม่: banner สีแดงชัดเจน + อธิบาย business rule ให้เข้าใจ "ก่อน" กดยืนยัน
+  // [FIX #5 — REDEEM-UX] Warning banner เด่นชัด
   const _warnBannerEl  = document.getElementById('redeemNetWarnBanner');
   const _warnBannerTxt = document.getElementById('redeemNetWarnText');
   if (_warnBannerEl && _warnBannerTxt) {
     if (_bd.claimBuffer > 0 && _bd.tier !== 'vip') {
       _warnBannerTxt.innerHTML =
         'สัญญาของท่านมีผลขาดทุนเกิดขึ้นระหว่างสัญญา (<span style="color:var(--r)">-' + fmtM(_bd.lossAmount || _bd.claimBuffer, 4) + ' USDT</span>) ' +
-        'และท่านเคยรับกำไร <span style="color:var(--y)">' + fmtM(_bd.totalClaimed, 4) + ' USDT</span> ออกจากสัญญานี้ไปก่อนหน้าแล้ว<br>' +
-        'ระบบจึงนำกำไรที่รับไปแล้ว <span style="color:var(--r)">-' + fmtM(_bd.claimBuffer, 4) + ' USDT</span> ' +
-        'หักออกจากเงินต้น เพื่อรับผิดชอบผลขาดทุนร่วมกัน<br>' +
+        'และท่านเคยรับกำไร+APT รวม <span style="color:var(--y)">' + fmtM(_bd.totalClaimed, 4) + ' USDT</span> ออกจากสัญญานี้ไปแล้ว<br>' +
+        'ระบบหักบัฟเฟอร์ <span style="color:var(--r)">-' + fmtM(_bd.claimBuffer, 4) + ' USDT</span> ' +
+        'จากเงินต้น = MIN(ยอดที่เบิกออก, เงินต้น)<br>' +
         '<strong>ยอดที่จะได้รับจริง: <span style="color:var(--g)">' + fmtM(_bd.netPrincipal, 4) + ' USDT</span></strong>';
       _warnBannerEl.style.display = '';
     } else {
       _warnBannerEl.style.display = 'none';
     }
+  }
+
+  // [v2.46 NEW] APT Summary Section
+  const _aptSecEl = document.getElementById('redeemAptSummarySection');
+  if (_aptSecEl && _bd.aptTotalExpected > 0) {
+    _aptSecEl.style.display = '';
+    document.getElementById('redeemAptExpected').textContent =
+      '+' + fmtM(_bd.aptTotalExpected, 4) + ' USDT';
+    document.getElementById('redeemAptClaimed').textContent =
+      _bd.aptTotalClaimed > 0 ? '+' + fmtM(_bd.aptTotalClaimed, 4) + ' USDT' : '—';
+    // APT ค้าง (ยังไม่ Claim) — แสดงเฉพาะกรณีมีค้างอยู่
+    const aptAccruedEl  = document.getElementById('redeemAptAccrued');
+    const aptAccruedRow = document.getElementById('redeemAptAccruedRow');
+    if (aptAccruedEl && aptAccruedRow) {
+      if (_bd.aptAccrued > 0) {
+        aptAccruedEl.textContent = '+' + fmtM(_bd.aptAccrued, 4) + ' USDT';
+        aptAccruedRow.style.display = '';
+      } else {
+        aptAccruedRow.style.display = 'none';
+      }
+    }
+    // APT ถูก loss กลืน — แสดงเฉพาะเมื่อมีจริง
+    const aptLostEl  = document.getElementById('redeemAptLost');
+    const aptLostRow = document.getElementById('redeemAptLostRow');
+    if (aptLostEl && aptLostRow) {
+      if (_bd.aptLost > 0.0001) {
+        aptLostEl.textContent = '-' + fmtM(_bd.aptLost, 4) + ' USDT';
+        aptLostRow.style.display = 'flex';
+      } else {
+        aptLostRow.style.display = 'none';
+      }
+    }
+    document.getElementById('redeemAptNet').textContent =
+      '+' + fmtM(_bd.aptNet, 4) + ' USDT';
+  } else if (_aptSecEl) {
+    _aptSecEl.style.display = 'none';
+  }
+
+  // [v2.46 NEW] Contract Summary Section — populate ด้วย _bd ที่คำนวณแล้ว
+  // ยอด tradeClaim = totalClaimed - aptTotalClaimed (ส่วนที่เหลือหลังหัก APT)
+  const _sumSecEl = document.getElementById('redeemContractSummarySection');
+  if (_sumSecEl) {
+    const _tradeClaim = Math.max(0, parseFloat((_bd.totalClaimed - _bd.aptTotalClaimed).toFixed(4)));
+    document.getElementById('redeemSumTradeClaim').textContent =
+      _tradeClaim > 0 ? '+' + fmtM(_tradeClaim, 4) + ' USDT' : '—';
+    document.getElementById('redeemSumTotalOut').textContent =
+      _bd.totalClaimed > 0 ? '+' + fmtM(_bd.totalClaimed, 4) + ' USDT' : '—';
+    // ขาดทุน
+    const _sumLossRow = document.getElementById('redeemSumTradeLossRow');
+    const _sumLossEl  = document.getElementById('redeemSumTradeLoss');
+    if (_sumLossRow && _sumLossEl) {
+      if (!isFrozenReady && _bd.lossAmount > 0) {
+        _sumLossEl.textContent = '-' + fmtM(_bd.lossAmount, 4) + ' USDT';
+        _sumLossRow.style.display = 'flex';
+      } else {
+        _sumLossRow.style.display = 'none';
+      }
+    }
+    // บัฟเฟอร์
+    const _sumBufRow = document.getElementById('redeemSumBufferRow');
+    const _sumBufEl  = document.getElementById('redeemSumBuffer');
+    if (_sumBufRow && _sumBufEl) {
+      if (_bd.claimBuffer > 0) {
+        _sumBufEl.textContent = '-' + fmtM(_bd.claimBuffer, 4) + ' USDT';
+        _sumBufRow.style.display = 'flex';
+      } else {
+        _sumBufRow.style.display = 'none';
+      }
+    }
+    _sumSecEl.style.display = '';
   }
 
   // [NEW] Commission Gate สำหรับสัญญา Fixed เท่านั้น — เงื่อนไขเดียวกับ Claim APT
@@ -18419,6 +18586,15 @@ function openRedeemModal(contractId) {
             const t = res.totalRealizedPnl || 0;
             tsEl.style.color = t >= 0 ? 'var(--g)' : 'var(--r)';
             tsEl.textContent = (t >= 0 ? '+' : '') + fmtM(t, 4) + ' USDT (' + (res.tradeCount || 0) + ' ' + tccT('orders_unit') + ')';
+            // [v2.46] populate redeemSumTradeGross จาก tradeSummary จริง
+            const _tradeGrossEl  = document.getElementById('redeemSumTradeGross');
+            const _tradeGrossRow = document.getElementById('redeemSumTradeRow');
+            if (_tradeGrossEl) {
+              const _grossPnl = res.totalGrossPnl || res.totalRealizedPnl || 0;
+              _tradeGrossEl.textContent = (_grossPnl >= 0 ? '+' : '-') + fmtM(Math.abs(_grossPnl), 4) + ' USDT';
+              _tradeGrossEl.style.color = _grossPnl >= 0 ? 'var(--g)' : 'var(--r)';
+              if (_tradeGrossRow) _tradeGrossRow.style.display = 'flex';
+            }
           })
           .catch(() => { if (redeemTargetId === contractId) tsEl.textContent = '—'; });
       }
@@ -18608,6 +18784,9 @@ async function checkCanOpenPosition(earnContractId) {
         isMarginBlocked:       !!st.isMarginBlocked,
         trading_realized_loss: st.trading_realized_loss,
         apt_yield_accrued:     st.apt_yield_accrued,
+              // [v2.46] APT Summary
+              apt_total_claimed:  parseFloat(st.apt_total_claimed)  || 0,
+              apt_total_expected: parseFloat(st.apt_total_expected) || 0,
       };
       // [BUGFIX] merge liq_price_map ถ้า backend ส่งมาด้วย — กัน Liq. Price ค้าง "—"
       if (st.liq_price_map) {
@@ -29375,6 +29554,19 @@ function saveEarnRedeem(data) {
           showToast('ℹ️ ยอดเงินต้นที่ได้รับถูกปรับเป็น ' + fmtM(res.netReturned, 4) +
                     ' USDT (หักบัฟเฟอร์สำรอง ' + fmtM(res.claimBuffer, 4) + ' USDT ตาม GAS)');
         }
+      }
+      // [v2.46] แสดง APT Summary หลัง Redeem สำเร็จ (ถ้า GAS ส่ง aptTotalClaimed กลับมา)
+      if (res.aptTotalClaimed > 0 || res.aptTotalExpected > 0) {
+        const _aptSummaryLines = [];
+        if (res.aptTotalExpected > 0)
+          _aptSummaryLines.push('APT ออกแบบไว้: +' + fmtM(res.aptTotalExpected, 4) + ' USDT');
+        if (res.aptTotalClaimed > 0)
+          _aptSummaryLines.push('APT ที่ได้รับจริง: +' + fmtM(res.aptTotalClaimed, 4) + ' USDT');
+        const _aptGap = Math.max(0, (res.aptTotalExpected || 0) - (res.aptTotalClaimed || 0));
+        if (_aptGap > 0.0001)
+          _aptSummaryLines.push('APT ที่ถูก Loss กลืน: -' + fmtM(_aptGap, 4) + ' USDT');
+        if (_aptSummaryLines.length)
+          setTimeout(() => showToast('📅 ' + _aptSummaryLines.join(' | ')), 1800);
       }
     }
     _invalidateDashCache();

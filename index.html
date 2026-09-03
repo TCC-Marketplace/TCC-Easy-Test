@@ -2389,6 +2389,7 @@ const TCC_I18N = {
   'label_has_coin':['มีเหรียญอยู่','Has coins','Có coin','មានកាក់','ကော်သင်ရှိသည်'],
   'toast_qr_unavailable':['QR Scanner ไม่พร้อมใช้งาน','QR Scanner not available','QR Scanner không khả dụng','QR Scanner មិនអាចប្រើបាន','QR Scanner မရနိုင်ပါ'],
   'toast_camera_denied':['ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการเข้าถึงกล้อง','Unable to open camera, please allow camera access','Không thể mở camera, vui lòng cho phép truy cập camera','មិនអាចបើកកាមេរ៉ាបានទេ សូមអនុញ្ញាតការចូលប្រើកាមេរ៉ា','ကင်မရာဖွင့်၍မရပါ၊ ကင်မရာသုံးခွင့်ပေးပါ'],
+  'toast_camera_permission':['กรุณาอนุญาตการใช้กล้องในการตั้งค่าเบราว์เซอร์ของคุณ','Please allow camera access in your browser settings','Vui lòng cho phép truy cập camera trong cài đặt trình duyệt','សូមអនុញ្ញាតការចូលប្រើកាមេរ៉ានៅក្នុងការកំណត់ browser','Browser ဆက်တင်တွင် ကင်မရာသုံးခွင့်ပေးပါ'],
   'toast_qr_invalid':['⚠ รูปแบบ Address ที่ scan ได้ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง','⚠ The scanned Address format is invalid, please check again','⚠ Định dạng Address quét được không hợp lệ, vui lòng kiểm tra lại','⚠ ទម្រង់ Address ដែលបានស្កេនមិនត្រឹមត្រូវ សូមពិនិត្យម្តងទៀត','⚠ စကင်ဖတ်ရသော Address ပုံစံမမှန်ပါ၊ ထပ်စစ်ဆေးပါ'],
   'toast_qr_network_mismatch':['⚠ รูปแบบ Address ไม่ตรงกับ network {net} ที่เลือกไว้ กรุณาตรวจสอบ','⚠ Address format does not match the selected network {net}, please check','⚠ Định dạng Address không khớp với network {net} đã chọn, vui lòng kiểm tra','⚠ ទម្រង់ Address មិនត្រូវគ្នានឹង network {net} ដែលបានជ្រើសទេ សូមពិនិត្យ','⚠ Address ပုံစံသည် ရွေးထားသော {net} ကွန်ရက်နှင့်မကိုက်ညီပါ၊ စစ်ဆေးပါ'],
   'toast_withdraw_insufficient':['ยอดคงเหลือไม่เพียงพอสำหรับการถอนนี้','Insufficient balance for this withdrawal','Số dư không đủ cho lần rút này','សមតុល្យមិនគ្រប់គ្រាន់សម្រាប់ការដកនេះ','ဤငွေထုတ်မှုအတွက် လက်ကျန်ငွေမလုံလောက်ပါ'],
@@ -16300,46 +16301,95 @@ function startQRScanner() {
   const overlay = document.getElementById('qrScannerOverlay');
   overlay.style.display = 'flex';
 
-  const inst = new Html5Qrcode('qrScannerReader');
-  _qrScannerInstance = inst;
+  // [FIX MOBILE] ขอ permission กล้องโดยตรงก่อน เพราะ html5-qrcode อาจไม่ trigger
+  // permission dialog บน iOS Safari / Android Chrome ถ้า gesture context ห่างเกินไป
+  const _initScanner = () => {
+    const inst = new Html5Qrcode('qrScannerReader');
+    _qrScannerInstance = inst;
 
-  const onDecoded = (decodedText) => {
-    const inp = document.getElementById('snd-address-input');
-    if (inp) {
-      inp.value = decodedText;
-      if (typeof sndValidate === 'function') sndValidate();
-      _qrValidateScannedAddress(decodedText);
-    }
-    stopQRScanner();
-  };
+    const onDecoded = (decodedText) => {
+      const inp = document.getElementById('snd-address-input');
+      if (inp) {
+        inp.value = decodedText;
+        if (typeof sndValidate === 'function') sndValidate();
+        _qrValidateScannedAddress(decodedText);
+      }
+      stopQRScanner();
+    };
 
-  inst.start(
-    { facingMode: 'environment' },
-    { fps: 10, qrbox: _qrBoxFn, aspectRatio: 1.0 },
-    onDecoded,
-    () => {}
-  ).then(() => {
-    _qrScannerStarting = false;
-  }).catch(() => {
-    // [FIX] fallback: ถ้า facingMode 'environment' ใช้ไม่ได้ (เช่นเดสก์ท็อป/บางรุ่นไม่รองรับ)
-    // ลองใหม่ด้วยกล้องตัวแรกที่หาเจอแทนที่จะปล่อยให้ scan ใช้งานไม่ได้เฉยๆ
-    Html5Qrcode.getCameras().then((cams) => {
-      if (!cams || !cams.length) throw new Error('no camera');
-      return inst.start(
-        cams[0].id,
-        { fps: 10, qrbox: _qrBoxFn, aspectRatio: 1.0 },
-        onDecoded,
-        () => {}
-      );
-    }).then(() => {
+    inst.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: _qrBoxFn, aspectRatio: 1.0 },
+      onDecoded,
+      () => {}
+    ).then(() => {
       _qrScannerStarting = false;
     }).catch(() => {
-      _qrScannerStarting = false;
-      _qrScannerInstance = null;
-      showToast(tccT('toast_camera_denied'));
-      overlay.style.display = 'none';
+      // [FIX] fallback: ถ้า facingMode 'environment' ใช้ไม่ได้
+      Html5Qrcode.getCameras().then((cams) => {
+        if (!cams || !cams.length) throw new Error('no camera');
+        return inst.start(
+          cams[0].id,
+          { fps: 10, qrbox: _qrBoxFn, aspectRatio: 1.0 },
+          onDecoded,
+          () => {}
+        );
+      }).then(() => {
+        _qrScannerStarting = false;
+      }).catch(() => {
+        _qrScannerStarting = false;
+        _qrScannerInstance = null;
+        showToast(tccT('toast_camera_denied'));
+        overlay.style.display = 'none';
+      });
     });
-  });
+  };
+
+  // ตรวจสอบ permission API ก่อน (รองรับ Chrome/Android)
+  // iOS Safari ไม่รองรับ permissions.query สำหรับ camera → ข้ามไป getUserMedia โดยตรง
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: 'camera' }).then((result) => {
+      if (result.state === 'denied') {
+        // user block กล้องไว้แล้ว → แจ้งให้ไปเปิดใน settings
+        _qrScannerStarting = false;
+        overlay.style.display = 'none';
+        showToast(tccT('toast_camera_permission'));
+        return;
+      }
+      // granted หรือ prompt → ขอ permission จริงผ่าน getUserMedia
+      _requestCameraAndInit(overlay, _initScanner);
+    }).catch(() => {
+      // permissions.query ไม่รองรับ camera → ลอง getUserMedia โดยตรง
+      _requestCameraAndInit(overlay, _initScanner);
+    });
+  } else {
+    // iOS Safari / browser เก่า → ลอง getUserMedia โดยตรง
+    _requestCameraAndInit(overlay, _initScanner);
+  }
+}
+
+// [FIX MOBILE] แยก permission request ออกมา: เรียก getUserMedia ก่อน 1 ครั้ง
+// เพื่อให้ browser แสดง permission dialog แล้วจึง init html5-qrcode
+// track ที่ได้จะถูก stop ทันทีเพราะ html5-qrcode จะเปิดกล้องใหม่เอง
+function _requestCameraAndInit(overlay, initFn) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    // browser ไม่รองรับ getUserMedia (HTTP หรือ browser เก่ามาก)
+    initFn();
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then((stream) => {
+      // permission ได้แล้ว → stop track ทิ้ง แล้วให้ html5-qrcode เปิดใหม่เอง
+      stream.getTracks().forEach(t => t.stop());
+      initFn();
+    })
+    .catch((err) => {
+      const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+      _qrScannerInstance = null;
+      _qrScannerStarting = false;
+      overlay.style.display = 'none';
+      showToast(tccT(isDenied ? 'toast_camera_permission' : 'toast_camera_denied'));
+    });
 }
 function stopQRScanner() {
   const overlay = document.getElementById('qrScannerOverlay');
@@ -16362,18 +16412,35 @@ function stopQRScanner() {
 function homeQRScan() {
   const sendFormActive = document.getElementById('ast-page-send-form')?.classList.contains('active');
   if (sendFormActive) {
-    // อยู่หน้า Send form อยู่แล้ว → เปิด scanner เลย
     startQRScanner();
     return;
   }
-  // ยังไม่อยู่หน้า Send form → navigate ไป assets → select USDT → เปิด scanner
-  navTo('assets');
-  setTimeout(() => {
-    astSelectSendCoin('USDT');
+  // [FIX MOBILE] ขอ permission กล้องทันทีที่อยู่ใน user gesture context
+  // ก่อน navigate เพื่อให้ browser แสดง permission dialog ได้
+  // (setTimeout หลาย ชั้นทำให้ gesture context หาย → permission denied อัตโนมัติบน iOS/Android)
+  const overlay = document.getElementById('qrScannerOverlay');
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then((stream) => {
+        stream.getTracks().forEach(t => t.stop()); // ได้ permission แล้ว → ปิด track ทิ้ง
+        navTo('assets');
+        setTimeout(() => {
+          astSelectSendCoin('USDT');
+          setTimeout(() => startQRScanner(), 150);
+        }, 300);
+      })
+      .catch((err) => {
+        const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+        showToast(tccT(isDenied ? 'toast_camera_permission' : 'toast_camera_denied'));
+      });
+  } else {
+    // fallback: browser ไม่รองรับ / HTTP → navigate แล้วให้ startQRScanner จัดการเอง
+    navTo('assets');
     setTimeout(() => {
-      startQRScanner();
-    }, 150);
-  }, 300);
+      astSelectSendCoin('USDT');
+      setTimeout(() => startQRScanner(), 150);
+    }, 300);
+  }
 }
 
 // [NEW] ตรวจสอบรูปแบบ address ที่ได้จากการ scan QR ว่าตรงกับ network ที่เลือกหรือไม่

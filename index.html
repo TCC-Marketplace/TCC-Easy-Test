@@ -2429,6 +2429,7 @@ const TCC_I18N = {
   'toast_no_position_data':['ไม่พบข้อมูล position','Position data not found','Không tìm thấy dữ liệu vị thế','រកមិនឃើញទិន្នន័យ position','Position ဒေတာမတွေ့ပါ'],
   'toast_select_image':['กรุณาเลือกไฟล์รูปภาพ','Please select an image file','Vui lòng chọn tệp hình ảnh','សូមជ្រើសរើសឯកសាររូបភាព','ပုံဖိုင်ရွေးချယ်ပါ'],
   'toast_profile_updated':['อัปเดตรูปโปรไฟล์สำเร็จ ✓','Profile picture updated ✓','Cập nhật ảnh đại diện thành công ✓','ធ្វើបច្ចុប្បន្នភាពរូបភាពប្រវត្តិរូបជោគជ័យ ✓','ပရိုဖိုင်ပုံ အပ်ဒိတ်အောင်မြင်ပြီး ✓'],
+  'toast_uploading':['กำลังอัปโหลดรูป...','Uploading image...','Đang tải ảnh lên...','កំពុងផ្ទុករូបភាពឡើង...','ပုံတင်နေသည်...'],
   'toast_sync_fail_generic':['⚠ ไม่สามารถซิงค์ข้อมูล ({action}) ไปยังเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่อ','⚠ Unable to sync data ({action}) to the server, please check your connection','⚠ Không thể đồng bộ dữ liệu ({action}) lên máy chủ, vui lòng kiểm tra kết nối','⚠ មិនអាចធ្វើសមកាលកម្មទិន្នន័យ ({action}) ទៅម៉ាស៊ីនមេបានទេ សូមពិនិត្យការតភ្ជាប់','⚠ ({action}) ဒေတာကို ဆာဗာသို့ sync လုပ်၍မရပါ၊ ချိတ်ဆက်မှုစစ်ဆေးပါ'],
   'toast_order_rejected_default':['ระบบปฏิเสธการเปิดออเดอร์นี้','The system rejected this order','Hệ thống từ chối lệnh này','ប្រព័ន្ធបានបដិសេធការបញ្ជាទិញនេះ','စနစ်က ဤအမိန့်ကို ငြင်းပယ်ခဲ့သည်'],
   'toast_save_fail_retry':['⚠ ไม่สามารถบันทึกข้อมูล ({action}) ไปยังเซิร์ฟเวอร์ได้ ระบบจะลองส่งใหม่อัตโนมัติ','⚠ Unable to save data ({action}) to the server, the system will retry automatically','⚠ Không thể lưu dữ liệu ({action}) lên máy chủ, hệ thống sẽ tự động thử lại','⚠ មិនអាចរក្សាទុកទិន្នន័យ ({action}) ទៅម៉ាស៊ីនមេបានទេ ប្រព័ន្ធនឹងព្យាយាមម្តងទៀតដោយស្វ័យប្រវត្តិ','⚠ ({action}) ဒေတာကို ဆာဗာသို့ သိမ်းဆည်း၍မရပါ၊ စနစ်က အလိုအလျောက် ပြန်ကြိုးစားပါမည်'],
@@ -7778,8 +7779,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
     </div>
     <input type="file" id="prf-avatar-inp" accept="image/*" style="display:none" onchange="_profileAvatarUpload(event)">
     <div class="prf-info">
-      <div id="prf-username" class="prf-username">TCC Team</div>
-      <div class="prf-uid-row">ID: <span id="prf-uid">—</span></div>
+      <div id="prf-username" class="prf-username" onclick="_showEditUsernameDialog()" style="cursor:pointer;" title="แตะเพื่อแก้ชื่อ">TCC Team</div>
+      <div class="prf-uid-row">ID: <span id="prf-uid" onclick="navigator.clipboard&&navigator.clipboard.writeText(this.dataset.uid||'').then(()=>showToast('Copied UID'))" style="cursor:pointer;">—</span></div>
       <div class="prf-badges">
         <span id="prf-vip-badge" class="prf-badge regular">Regular</span>
         <span class="prf-badge verified">✓ Verified</span>
@@ -7928,13 +7929,13 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <span style="font-size:24px;font-weight:800;color:#000;">A</span>
       </div>
       <div>
-        <div class="ai-name" id="ai-username">TCC Team</div>
-        <div style="position:relative;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" onclick="document.getElementById('prf-avatar-inp').click()">
+        <div class="ai-name" id="ai-username" onclick="_showEditUsernameDialog()" style="cursor:pointer;" title="แตะเพื่อแก้ชื่อ">TCC Team</div>
+        <div style="position:relative;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" onclick="_showEditUsernameDialog()">
           <div class="prf-av-edit" style="position:static;width:16px;height:16px;font-size:9px;border:none;background:none;">✏️</div>
         </div>
       </div>
     </div>
-    <div class="ai-row"><span>Binance ID (UID)</span><span class="ai-row-val" id="ai-uid">— <span onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('ai-uid').dataset.uid||'').then(()=>showToast('Copied UID'))" style="cursor:pointer;color:var(--t2);font-size:12px;">⎘</span></span></div>
+    <div class="ai-row"><span>Binance ID (UID)</span><span class="ai-row-val" id="ai-uid" style="cursor:pointer;" onclick="navigator.clipboard&&navigator.clipboard.writeText(this.dataset.uid||'').then(()=>showToast('Copied UID'))">— <span style="color:var(--t2);font-size:12px;">⎘</span></span></div>
     <div class="ai-row"><span>Reg.Info</span><span class="ai-row-val" id="ai-email" style="filter:blur(4px);cursor:pointer" onclick="this.style.filter=''">—</span></div>
     <div class="ai-vip-progress">
       <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:2px;">Upgrade to VIP1 <span style="color:var(--y);font-weight:600;font-size:12px;cursor:pointer;" onclick="showToast('VIP Benefits')">Benefits ›</span></div>
@@ -28019,7 +28020,7 @@ function _applyMemberToProfile(m) {
   });
   ['prf-uid'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.textContent = USER_PROFILE.uid;
+    if (el) { el.textContent = USER_PROFILE.uid; el.dataset.uid = USER_PROFILE.uid || ''; }
   });
   if (typeof _syncProfileToShare === 'function') _syncProfileToShare();
 }
@@ -28052,6 +28053,12 @@ function _homeUpdateAvatar() {
 // ── Profile page renderer ──
 function _profileRender() {
   _homeUpdateAvatar(); // sync avatar
+  // [FIX v2.48] sync prf-uid
+  const prfUid = document.getElementById('prf-uid');
+  if (prfUid) {
+    prfUid.dataset.uid = USER_PROFILE.uid || '';
+    prfUid.textContent = USER_PROFILE.uid || '—';
+  }
   const av = document.getElementById('prf-avatar');
   if (av) {
     if (USER_PROFILE.avatar) {
@@ -28070,19 +28077,95 @@ function _profileRender() {
 }
 
 // ── Avatar upload handler ──
-function _profileAvatarUpload(e) {
+// [FIX v2.49-AVATAR-IMGBB] เดิม: เก็บ base64 dataURL ตรงๆลง USER_PROFILE.avatar แล้วส่งไปบันทึก
+// เป็น avatar_url ใน Users sheet — base64 ของรูปยาวเกิน limit ของ cell ใน Google Sheets (~50,000
+// ตัวอักษร) ทำให้บันทึกไม่สำเร็จ/ค่าถูกตัด และรีเฟรชแล้วรูปหาย
+// ใหม่: ส่ง base64 ไปให้ GAS action 'uploadImage' อัปโหลดขึ้น ImgBB ก่อน (key เก็บใน Tokens sheet
+// ฝั่ง server) แล้วเก็บ "ลิงก์ URL" ที่ได้กลับมาแทน ทั้งใน USER_PROFILE.avatar และ avatar_url ที่บันทึกลง sheet
+async function _profileAvatarUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
   if (!file.type.startsWith('image/')) { showToast(tccT('toast_select_image')); return; }
+  // จำกัดขนาด 2MB
+  if (file.size > 2 * 1024 * 1024) { showToast('ไฟล์ใหญ่เกิน 2MB กรุณาเลือกใหม่'); return; }
+
+  const prevAvatar = USER_PROFILE.avatar; // เผื่อต้อง rollback UI ถ้าอัปโหลดล้มเหลว
+
   const reader = new FileReader();
-  reader.onload = function(ev) {
-    USER_PROFILE.avatar = ev.target.result;
-    _syncProfileToShare();
-    _profileRender();
-    _homeUpdateAvatar();
-    showToast(tccT('toast_profile_updated'), 'success');
+  reader.onload = async function(ev) {
+    const base64Data = ev.target.result; // dataURL — ใช้เป็น preview ชั่วคราวระหว่างรออัปโหลดเท่านั้น ไม่บันทึกลง sheet
+
+    // แสดง preview ทันทีระหว่างอัปโหลด (UX) — ยังไม่ sync ไป GAS จนกว่าจะได้ URL จริงจาก ImgBB
+    const avPreview = document.getElementById('prf-avatar');
+    if (avPreview) avPreview.innerHTML = `<img src="${base64Data}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:.6">`;
+    showToast(tccT('toast_uploading'), 'info');
+
+    try {
+      // [FIX v2.49-AVATAR-IMGBB] อัปโหลดรูปขึ้น ImgBB ผ่าน GAS แล้วรับ URL ถาวรกลับมา
+      const uploadResult = await dbCallRaw('uploadImage', { image: base64Data });
+      const imgUrl = uploadResult && uploadResult.url;
+      if (!imgUrl) throw new Error('ไม่ได้รับลิงก์รูปจาก ImgBB');
+
+      USER_PROFILE.avatar = imgUrl; // เก็บเป็น URL เท่านั้น — ไม่ใช่ base64 อีกต่อไป
+      _syncProfileToShare();
+      _profileRender();
+      _homeUpdateAvatar();
+
+      // บันทึก avatar_url (URL จาก ImgBB) ไป GAS — เบากว่า base64 มาก ไม่มีปัญหาเกิน cell limit
+      if (USER_PROFILE.uid) {
+        dbWrite('upsertUser', {
+          uid:        USER_PROFILE.uid,
+          avatar_url: imgUrl,
+        }, () => {
+          // อัปเดต localStorage cache ด้วย
+          const cacheKey = 'dash_' + USER_PROFILE.uid;
+          const cached = (typeof LS !== 'undefined') ? LS.get(cacheKey) : null;
+          if (cached && cached.data && cached.data.user) {
+            cached.data.user.avatar_url = imgUrl;
+            LS.set(cacheKey, cached);
+          }
+        });
+      }
+      showToast(tccT('toast_profile_updated'), 'success');
+    } catch (err) {
+      console.error('[_profileAvatarUpload] ImgBB upload failed:', err.message);
+      // rollback UI กลับเป็นรูปเดิมก่อนอัปโหลด (ไม่ค้างเป็น base64 preview หรือรูปเสีย)
+      USER_PROFILE.avatar = prevAvatar;
+      _profileRender();
+      _homeUpdateAvatar();
+      showToast('อัปโหลดรูปไม่สำเร็จ: ' + (err.message || 'กรุณาลองใหม่'), 'error');
+    }
   };
   reader.readAsDataURL(file);
+}
+
+// ── [FIX v2.48] Edit Username Dialog ─────────────────────────────
+function _showEditUsernameDialog() {
+  const current = USER_PROFILE.username || '';
+  const newName = window.prompt('แก้ไขชื่อผู้ใช้ (Edit Username)', current);
+  if (newName === null) return; // ยกเลิก
+  const trimmed = newName.trim();
+  if (!trimmed) { showToast('ชื่อต้องไม่ว่างเปล่า'); return; }
+  if (trimmed.length > 40) { showToast('ชื่อยาวเกิน 40 ตัวอักษร'); return; }
+  USER_PROFILE.username = trimmed;
+  // อัปเดต UI ทุกจุดทันที
+  ['prf-username','ai-username','vf-username','hm-username'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = trimmed;
+  });
+  if (typeof _syncProfileToShare === 'function') _syncProfileToShare();
+  // บันทึกไป GAS
+  if (USER_PROFILE.uid) {
+    dbWrite('upsertUser', { uid: USER_PROFILE.uid, username: trimmed }, () => {
+      const cacheKey = 'dash_' + USER_PROFILE.uid;
+      const cached = (typeof LS !== 'undefined') ? LS.get(cacheKey) : null;
+      if (cached && cached.data && cached.data.user) {
+        cached.data.user.username = trimmed;
+        LS.set(cacheKey, cached);
+      }
+    });
+  }
+  showToast('บันทึกชื่อสำเร็จ ✓', 'success');
 }
 
 // ── Whale split bar toggle ──
@@ -28127,7 +28210,16 @@ function _hmToggleWhaleSplit() {
     const aiUname = document.getElementById('ai-username');
     if (aiUname) aiUname.textContent = USER_PROFILE.username;
     const aiUid = document.getElementById('ai-uid');
-    if (aiUid) aiUid.innerHTML = USER_PROFILE.uid + ` <span onclick="navigator.clipboard&&navigator.clipboard.writeText('${USER_PROFILE.uid}').then(()=>showToast('Copied UID'))" style="cursor:pointer;color:var(--t2);font-size:12px;">⎘</span>`;
+    if (aiUid) {
+      aiUid.dataset.uid = USER_PROFILE.uid || '';
+      aiUid.innerHTML = (USER_PROFILE.uid || '—') + ` <span style="cursor:pointer;color:var(--t2);font-size:12px;">⎘</span>`;
+    }
+    // [FIX v2.48] sync prf-uid dataset เช่นกัน
+    const prfUid = document.getElementById('prf-uid');
+    if (prfUid) {
+      prfUid.dataset.uid = USER_PROFILE.uid || '';
+      prfUid.textContent = USER_PROFILE.uid || '—';
+    }
     const aiEmail = document.getElementById('ai-email');
     if (aiEmail) aiEmail.textContent = USER_PROFILE.phone || USER_PROFILE.email || '—';
     const aiVip = document.getElementById('ai-vip-corner');
@@ -28817,6 +28909,8 @@ async function loadDashboard() {
       legalName: u.legal_name || USER_PROFILE.legalName,
       dob:       u.dob        || USER_PROFILE.dob,
       country:   u.country    || USER_PROFILE.country,
+      // [FIX v2.48] โหลด avatar_url จาก Users Sheet — เดิมไม่ถูก map ทำให้ภาพหายทุก refresh
+      avatar:    u.avatar_url || USER_PROFILE.avatar || null,
     });
     if (u.main_balance !== undefined) { const _b = parseFloat(u.main_balance); if (!isNaN(_b)) mainWalletBalance = _b; }
     if (u.funding_balance !== undefined) { const _fb = parseFloat(u.funding_balance); if (!isNaN(_fb)) fundingWalletBalance = _fb; }
@@ -29316,6 +29410,7 @@ function saveProfile() {
     uid,
     username:   USER_PROFILE.username,
     email:      USER_PROFILE.regEmail,
+    avatar_url: USER_PROFILE.avatar || '',   // [FIX v2.48] เพิ่ม avatar_url — เดิมไม่ถูกส่งเลย
     vip_level:  USER_PROFILE.vipLevel,
     verified:   USER_PROFILE.verified,
     country:    USER_PROFILE.country,

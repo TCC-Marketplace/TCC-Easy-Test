@@ -14013,16 +14013,16 @@ function _spUpdateAvbl() {
   if (SP.side === 'buy') {
     // Avbl = USDT ใน mainWallet
     const usdt = mainWalletBalance || 0;
-    avblEl.innerHTML = usdt.toFixed(2) + ' USDT <span style="color:var(--y);cursor:pointer">＋</span>';
+    avblEl.innerHTML = fmtNum(usdt, 2) + ' USDT <span style="color:var(--y);cursor:pointer">＋</span>';
     // Max Buy = USDT / price
-    if (mbEl) mbEl.textContent = (price > 0 ? (usdt / price).toFixed(4) : '0') + ' ' + SP.coin;
+    if (mbEl) mbEl.textContent = (price > 0 ? fmtNum(usdt / price, 4) : '0') + ' ' + SP.coin;
     if (feeEl) feeEl.textContent = (price > 0 ? (usdt / price * 0.001).toFixed(5) : '0.00000') + ' ' + SP.coin;
   } else {
     // Avbl = ยอด coin ใน spotWallet
     const coinBal = (spotWallet[SP.coin] && spotWallet[SP.coin].bal) || 0;
-    avblEl.innerHTML = coinBal.toFixed(6) + ' ' + SP.coin + ' <span style="color:var(--y);cursor:pointer">＋</span>';
+    avblEl.innerHTML = fmtNum(coinBal, 6) + ' ' + SP.coin + ' <span style="color:var(--y);cursor:pointer">＋</span>';
     // Max Sell = coin balance
-    if (mbEl) mbEl.textContent = coinBal.toFixed(6) + ' ' + SP.coin;
+    if (mbEl) mbEl.textContent = fmtNum(coinBal, 6) + ' ' + SP.coin;
     if (feeEl) feeEl.textContent = (coinBal * 0.001).toFixed(8) + ' ' + SP.coin;
   }
 }

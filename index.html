@@ -16998,8 +16998,13 @@ function _earnCountdownExpired(c) {
     if (c.endTime > 0) {
       const _sinceEnd = Date.now() - c.endTime;
       if (_sinceEnd >= 24 * 3600000) {
-        const _newEndRemMs = (c.endTime + (c.planDays || 0) * 86400000) - Date.now();
-        if (_newEndRemMs > 0) return false;
+        // [FIX-MULTIROUND] วนหา n ที่ทำให้ endTime + n*planMs > now
+        const _planMs = (c.planDays || 0) * 86400000;
+        if (_planMs > 0) {
+          const _cyclesPassed = Math.ceil((Date.now() - c.endTime) / _planMs);
+          const _newEndRemMs = (c.endTime + _cyclesPassed * _planMs) - Date.now();
+          if (_newEndRemMs > 0) return false;
+        }
       }
     }
   }
@@ -17050,13 +17055,21 @@ function _earnCountdownText(c) {
     }
     const _sinceEnd = c.endTime > 0 ? (Date.now() - c.endTime) : -1;
     if (c.endTime > 0 && _sinceEnd >= 24 * 3600000) {
-      // กรณี A: คาดเดา endTime รอบใหม่ = endTime เดิม + planDays
+      // กรณี A: คาดเดา endTime รอบใหม่โดยเดิน +planDays ซ้ำจนกว่าจะ > now
+      // [FIX-MULTIROUND] สัญญาที่ matured นาน > 1 รอบ (เช่น EC-L4WNTU):
+      // endTime เดิม + 1×planDays อาจผ่าน now ไปแล้ว → วนหา n ที่ทำให้ _newEnd > now
       // (ถ้า sync สำเร็จแล้ว status จะเป็น 'active' ไม่ใช่ 'matured' อีกต่อไป
-      //  ดังนั้น block นี้ทำงานเฉพาะช่วง "รอ sync + ยังไม่มี _gasEndMs ใหม่" เท่านั้น)
-      const _newEnd = c.endTime + (c.planDays || 0) * 86400000;
-      const _remMs  = _newEnd - Date.now();
-      if (_remMs > 0) {
-        return _fmtCountdownSec(Math.floor(_remMs / 1000), '🔄');
+      //  block นี้ทำงานเฉพาะช่วง "รอ sync + ยังไม่มี _gasEndMs ใหม่" เท่านั้น)
+      const _planMs = (c.planDays || 0) * 86400000;
+      if (_planMs > 0) {
+        const _now = Date.now();
+        // หาจำนวนรอบ n ที่น้อยที่สุดซึ่งทำให้ endTime + n*planMs > now
+        const _cyclesPassed = Math.ceil((_now - c.endTime) / _planMs);
+        const _newEnd = c.endTime + _cyclesPassed * _planMs;
+        const _remMs  = _newEnd - _now;
+        if (_remMs > 0) {
+          return _fmtCountdownSec(Math.floor(_remMs / 1000), '🔄');
+        }
       }
     }
     return tccT('earn_completed');
@@ -17228,10 +17241,20 @@ function buildEarnCard(c) {
     const _warnDdE    = (window._contractDDMap || {})[c.contractId];
     const _warnGasEnd = _warnDdE && _warnDdE.end_time_ms > 0 ? _warnDdE.end_time_ms : 0;
     // ถ้า GAS end_time_ms ใหม่ > endTime local → ใช้ค่าจาก GAS โดยตรง (แม่นยำที่สุด)
-    // ถ้าไม่มี → คาดเดา endTime + planDays (เหมือนเดิม)
-    const _newEndMs = (_warnGasEnd > 0 && _warnGasEnd > (c.endTime || 0))
-      ? _warnGasEnd
-      : (c.endTime || 0) + (c.planDays || 0) * 86400000;
+    // ถ้าไม่มี → คาดเดา endTime + n×planDays ที่ทำให้ > now
+    // [FIX-MULTIROUND] สัญญาที่ matured นาน > 1 รอบ: +1 planDays อาจยังผ่าน now ไปแล้ว
+    let _newEndMs;
+    if (_warnGasEnd > 0 && _warnGasEnd > (c.endTime || 0)) {
+      // A0: GAS มี end_time_ms ใหม่ ← แม่นยำที่สุด
+      _newEndMs = _warnGasEnd;
+    } else if ((c.endTime || 0) > 0 && (c.planDays || 0) > 0) {
+      // A: คาดเดา — วนหา n ที่ทำให้ endTime + n*planMs > now
+      const _planMs2 = c.planDays * 86400000;
+      const _cyclesPassed2 = Math.max(1, Math.ceil((Date.now() - c.endTime) / _planMs2));
+      _newEndMs = c.endTime + _cyclesPassed2 * _planMs2;
+    } else {
+      _newEndMs = 0;
+    }
     const _newEndDate = _newEndMs > 0 ? (() => {
       const _d = new Date(_newEndMs);
       return _d.getFullYear() + '-' + String(_d.getMonth()+1).padStart(2,'0') + '-' + String(_d.getDate()).padStart(2,'0');

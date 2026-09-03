@@ -16972,11 +16972,18 @@ function _earnCountdownExpired(c) {
   if (c.status === 'active') return _earnCountdownMs(c) <= 0;
   // matured: ตรวจ auto-renew window ก่อนตัดสินว่า expired
   // [FIX-COUNTDOWN-AUTORENEW] ถ้า matured + อยู่ใน auto-renew window → badge ไม่ expired
-  if (c.status === 'matured' && c.endTime > 0) {
-    const _sinceEnd = Date.now() - c.endTime;
-    if (_sinceEnd >= 24 * 3600000) {
-      const _newEndRemMs = (c.endTime + (c.planDays || 0) * 86400000) - Date.now();
-      if (_newEndRemMs > 0) return false;
+  if (c.status === 'matured') {
+    // [v2.46 FIX-AUTORENEW-SYNC] กรณี A0: GAS เขียน end_time_ms ใหม่แล้ว (processMaturedAutoRenew)
+    // แต่ status ยังไม่ flush → ถ้า _gasEndMs ใหม่ > now → ยัง active อยู่ = ไม่ expired
+    const _ddMapE   = (window._contractDDMap || {})[c.contractId];
+    const _gasEndMs = _ddMapE && _ddMapE.end_time_ms > 0 ? _ddMapE.end_time_ms : 0;
+    if (_gasEndMs > 0 && _gasEndMs > (c.endTime || 0) && _gasEndMs > Date.now()) return false;
+    if (c.endTime > 0) {
+      const _sinceEnd = Date.now() - c.endTime;
+      if (_sinceEnd >= 24 * 3600000) {
+        const _newEndRemMs = (c.endTime + (c.planDays || 0) * 86400000) - Date.now();
+        if (_newEndRemMs > 0) return false;
+      }
     }
   }
   return c.status === 'matured' || _earnCountdownMs(c) <= 0;
@@ -17004,16 +17011,31 @@ function _earnCountdownText(c) {
 
   // ── matured: ตรวจ auto-renew window ──────────────────────────────────────────
   if (c.status === 'matured') {
-    // [FIX-COUNTDOWN-AUTORENEW v2.46] 2 กรณี:
+    // [FIX-COUNTDOWN-AUTORENEW v2.46] 3 กรณี:
+    // A0) GAS sync end_time_ms ใหม่แล้ว (processMaturedAutoRenew เขียน end_time_ms ใหม่แต่ status
+    //     ยังไม่ flush เป็น 'active') → ใช้ end_time_ms จาก _contractDDMap โดยตรง
+    //     สัญญาแบบ EC-7QJWTD: endTime เดิมผ่าน > 1 รอบ planDays → _newEnd ปลอมจะลบ
+    //     แต่ _ddMap.end_time_ms = end_time_ms จริงที่ GAS เขียนใหม่ → ใช้แทนได้
     // A) ≥ 24h หลัง endTime เดิม → GAS น่าจะต่ออายุแล้ว แต่ sync ยังไม่ถึง
-    //    → แสดง countdown รอบใหม่ (endTime + planDays) + icon 🔄
+    //    → ถ้าไม่มี _ddMap.end_time_ms ใหม่ → คาดเดา endTime รอบใหม่ = endTime เดิม + planDays
+    //    → แสดง countdown รอบใหม่ + icon 🔄
     // B) < 24h หลัง endTime เดิม (หรือ endTime=0) → ยังไม่เข้า auto-renew window
     //    → แสดง "✅ ครบแล้ว" ปกติ
+    const _ddMapE   = (window._contractDDMap || {})[c.contractId];
+    const _gasEndMs = _ddMapE && _ddMapE.end_time_ms > 0 ? _ddMapE.end_time_ms : 0;
+    // กรณี A0: GAS มี end_time_ms ใหม่ (> endTime local) แสดงว่า processMaturedAutoRenew
+    //          เขียน end_time_ms รอบใหม่แล้ว แต่ status ยังไม่ flush → ใช้ _gasEndMs โดยตรง
+    if (_gasEndMs > 0 && _gasEndMs > (c.endTime || 0)) {
+      const _remMsGas = _gasEndMs - Date.now();
+      if (_remMsGas > 0) {
+        return _fmtCountdownSec(Math.floor(_remMsGas / 1000), '🔄');
+      }
+    }
     const _sinceEnd = c.endTime > 0 ? (Date.now() - c.endTime) : -1;
     if (c.endTime > 0 && _sinceEnd >= 24 * 3600000) {
       // กรณี A: คาดเดา endTime รอบใหม่ = endTime เดิม + planDays
       // (ถ้า sync สำเร็จแล้ว status จะเป็น 'active' ไม่ใช่ 'matured' อีกต่อไป
-      //  ดังนั้น block นี้ทำงานเฉพาะช่วง "รอ sync" เท่านั้น)
+      //  ดังนั้น block นี้ทำงานเฉพาะช่วง "รอ sync + ยังไม่มี _gasEndMs ใหม่" เท่านั้น)
       const _newEnd = c.endTime + (c.planDays || 0) * 86400000;
       const _remMs  = _newEnd - Date.now();
       if (_remMs > 0) {
@@ -17184,8 +17206,15 @@ function buildEarnCard(c) {
     }
   } else if (c.status === 'matured' && _inAutoRenewWindow) {
     // [FIX-AUTORENEW-REDEEM] แจ้ง user ว่าสัญญาอยู่ใน auto-renew window — ยังกด Redeem ไม่ได้
-    // แสดงวันครบกำหนดรอบใหม่ = endTime + planDays วัน
-    const _newEndMs = (c.endTime || 0) + (c.planDays || 0) * 86400000;
+    // [v2.46 FIX] ใช้ end_time_ms จาก _contractDDMap (GAS ล่าสุด) ถ้ามีค่าใหม่ > endTime local
+    // ป้องกันวันครบกำหนดที่แสดงผิด (เช่น EC-7QJWTD ที่ endTime เก่าคำนวณ +planDays แล้วยังผ่านไปแล้ว)
+    const _warnDdE    = (window._contractDDMap || {})[c.contractId];
+    const _warnGasEnd = _warnDdE && _warnDdE.end_time_ms > 0 ? _warnDdE.end_time_ms : 0;
+    // ถ้า GAS end_time_ms ใหม่ > endTime local → ใช้ค่าจาก GAS โดยตรง (แม่นยำที่สุด)
+    // ถ้าไม่มี → คาดเดา endTime + planDays (เหมือนเดิม)
+    const _newEndMs = (_warnGasEnd > 0 && _warnGasEnd > (c.endTime || 0))
+      ? _warnGasEnd
+      : (c.endTime || 0) + (c.planDays || 0) * 86400000;
     const _newEndDate = _newEndMs > 0 ? (() => {
       const _d = new Date(_newEndMs);
       return _d.getFullYear() + '-' + String(_d.getMonth()+1).padStart(2,'0') + '-' + String(_d.getDate()).padStart(2,'0');

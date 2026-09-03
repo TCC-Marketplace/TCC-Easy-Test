@@ -14224,14 +14224,24 @@ async function init() {
   // แก้โดยห่อแต่ละ step ด้วย try/catch แยกกัน เพื่อให้ step ที่เหลือ
   // (โดยเฉพาะ connectWS/initChartPanels/setInterval ทั้งหมด) ทำงานต่อได้เสมอ
   // ไม่ว่า step ก่อนหน้าจะสำเร็จหรือไม่
-  try { await fetchAllMids(); } catch(e) { console.error('[init] fetchAllMids failed:', e); }
-  // Load full perp coin list first so coinMap is ready before fetchCandles
-  try { await loadPerpList(); } catch(e) { console.error('[init] loadPerpList failed:', e); }
+  // [PERF-FIX v2.47] ทำ fetchAllMids + loadPerpList parallel กัน — ทั้งสองไม่ depend กัน
+  // ลดเวลาโหลดจาก 2 round-trips เหลือ 1 (ประหยัด ~1-2s โดยเฉพาะ GAS cold-start)
+  // ต้อง await ทั้งคู่ก่อน selectCoin เพราะ selectCoin ต้องการ coinMap จาก loadPerpList
+  // และ mids จาก fetchAllMids เพื่อ render ราคาถูกต้อง
+  await Promise.allSettled([
+    fetchAllMids().catch(e => console.error('[init] fetchAllMids failed:', e)),
+    loadPerpList().catch(e => console.error('[init] loadPerpList failed:', e)),
+  ]);
+
   // ── Restore coin ล่าสุด (เช่น GOLDUSDT) หลัง perp list โหลดเสร็จ ──
+  // selectCoin() เรียก fetchCandles + fetchFunding + fetch24h ภายในตัวเองอยู่แล้ว
+  // ถ้ามี lastCoin → ใช้ผลของ selectCoin() แทน fetch แยกด้านล่าง
+  let _selectCoinDone = false;
   try {
     const _lastCoin = (() => { try { return localStorage.getItem('tcc_lastCoin'); } catch(e) { return null; } })();
     if (_lastCoin) {
       await selectCoin(_lastCoin);
+      _selectCoinDone = true; // selectCoin เรียก fetchCandles+Funding+24h แล้ว ไม่ต้องเรียกซ้ำ
     } else {
       // ไม่มี lastCoin → sync levBtn ตาม BTC cycle default
       const _initCycle = _getActiveLevCycle();
@@ -14244,9 +14254,19 @@ async function init() {
   } catch(e) {
     console.error('[init] restore last coin / selectCoin failed:', e);
   }
-  try { await fetchCandles(S.tf); } catch(e) { console.error('[init] fetchCandles failed:', e); }
-  try { await fetchFunding(); } catch(e) { console.error('[init] fetchFunding failed:', e); }
-  try { await fetch24h(); } catch(e) { console.error('[init] fetch24h failed:', e); }
+
+  // ถ้าไม่มี lastCoin (หรือ selectCoin fail) → fetch candles ก่อน แล้วค่อย signal ready
+  // fetchFunding + fetch24h ยิง fire-and-forget parallel ไม่ block candles
+  if (!_selectCoinDone) {
+    // [CRITICAL PATH] candles ต้องมาก่อน — เป็นตัวที่ทำให้ chart วาดได้
+    try { await fetchCandles(S.tf); } catch(e) { console.error('[init] fetchCandles failed:', e); }
+    // [NON-CRITICAL] funding + 24h ยิง parallel background — ไม่ block chart render
+    fetchFunding().catch(e => console.error('[init] fetchFunding failed:', e));
+    fetch24h().catch(e => console.error('[init] fetch24h failed:', e));
+  }
+
+  // Signal ว่า candles พร้อมแล้ว — initSplash polling จะหยุดและ drawChart() ทันที
+  window._tccCandlesReady = true;
 
   // ── ตั้งแต่บรรทัดนี้ลงไป ต้องทำงานเสมอ ไม่ว่า fetch ด้านบนจะสำเร็จหรือไม่ ──
   try { connectWS(); } catch(e) { console.error('[init] connectWS failed:', e); }
@@ -14276,29 +14296,26 @@ async function init() {
   try { checkMatureContracts(); } catch(e) { console.error('[init] checkMatureContracts failed:', e); }
   // Init unified chart panels (drag resize + pan)
   setTimeout(initChartPanels, 100);
-  // [FIX black-screen-on-refresh v3] ปัญหาหน้าดำเกิดจาก race condition:
-  //   splash ปิดที่ 4200ms (fixed timer) → navTo('futures') → drawChart()
-  //   แต่ fetchCandles ยัง pending อยู่ → S.candles ว่าง → drawChart() return ทันที
-  //   → canvas ยังเปล่า/ดำ และไม่มีอะไร trigger redraw อีกครั้ง
+  // [FIX black-screen-on-refresh v4] drawChart หลัง init() เสร็จ
+  // v2.47: เรา await fetchCandles ก่อนถึงบรรทัดนี้เสมอ (ผ่าน selectCoin หรือ fetchCandles โดยตรง)
+  // และ window._tccCandlesReady = true ถูก set แล้วด้านบน
+  // ดังนั้นตอนนี้จะเป็น case (A) เสมอ (ยกเว้น fetchCandles fail + S.candles ว่างจริงๆ)
   //
-  // แก้: หลัง init() เสร็จ ตรวจ 2 กรณี:
-  //   (A) candles มีแล้ว → drawChart() ทันที (กรณีเน็ตเร็ว init เสร็จก่อน 4200ms)
-  //   (B) candles ยังว่าง (init ช้า / เน็ตช้า) → ตั้ง polling ทุก 300ms สูงสุด 20 ครั้ง (6 วินาที)
-  //       จนกว่า S.candles จะมีข้อมูล แล้วค่อย drawChart() + หยุด polling
-  //   ทั้ง 2 กรณีตรวจเพิ่มว่าอยู่หน้า futures ก่อน (ไม่รบกวนถ้า user เปลี่ยนหน้าไปแล้ว)
+  // กรณี (A): candles มีแล้ว → drawChart() ทันที
+  // กรณี (B): fetchCandles fail หรือ S.candles ยังว่าง → poll สำรอง 300ms × 20 รอบ (6s)
+  //           initSplash v4 มี poll ของตัวเองด้วย — ทั้งคู่ตรวจ currentPage ก่อน draw ไม่ชนกัน
   try {
     if (S.candles && S.candles.length) {
-      // (A) candles พร้อมแล้ว — redraw ทันที
-      drawChart();
+      // (A) candles พร้อมแล้ว — redraw ทันที (กรณีปกติ หลัง v2.47)
+      if (currentPage === 'futures' || currentPage === 'trade') drawChart();
     } else {
-      // (B) candles ยังไม่มา — poll จนกว่าจะมีหรือ timeout
+      // (B) fetchCandles fail / ยังว่าง (fallback poll) — initSplash poll ก็ทำงานขนานอยู่แล้ว
       let _chartRetryCount = 0;
       const _chartRetryMax = 20; // 20 × 300ms = 6s timeout
       const _chartRetryTimer = setInterval(() => {
         _chartRetryCount++;
         if (S.candles && S.candles.length) {
           clearInterval(_chartRetryTimer);
-          // วาดเฉพาะถ้ายังอยู่หน้า futures
           if (currentPage === 'futures' || currentPage === 'trade') {
             try { drawChart(); } catch(e) { console.error('[init] retry drawChart failed:', e); }
           }
@@ -20842,24 +20859,45 @@ function tfShowCoinDDHint() {
     if (window._dashboardReady && typeof updateOverviewBalances === 'function') {
       try { updateOverviewBalances(); } catch(e) {}
     }
-    // [FIX black-screen-on-refresh v3] Safety net ฝั่ง splash:
-    // navTo('futures') เรียก drawChart() ผ่าน rAF แต่ถ้า S.candles ยังว่าง (init() ยังรัน fetch อยู่)
-    // → drawChart() return ทันที → canvas ดำ ไม่มีอะไร trigger redraw
-    // แก้: ถ้า _goPage === 'futures' ให้ตั้ง polling 300ms รอ candles แล้ว redraw
-    // (init() มี retry ของตัวเองด้วย — ทั้งคู่ตรวจ currentPage ก่อน draw เพื่อไม่ชนกัน)
+    // [FIX black-screen-on-refresh v4 — event-driven]
+    // ปัญหาเดิม (v3): polling 300ms × 30 = 9s max รอ S.candles ซึ่งอาจมาช้า/ไม่มาเลย
+    // ปัญหา v3 เพิ่มเติม: ถ้า candles มาก่อน 4200ms (เน็ตเร็ว) → v3 ไม่รู้ เพราะ polling เริ่มหลัง 4200ms
+    //
+    // แก้ใหม่ด้วย 2 กลไกร่วมกัน:
+    // (A) candles พร้อมก่อน splash หาย (window._tccCandlesReady=true ก่อน 4200ms)
+    //     → drawChart() ทันทีที่ splash หาย ไม่ต้องรอ polling เลย
+    // (B) candles ยังไม่พร้อม → poll เหมือนเดิม แต่ตรวจ _tccCandlesReady flag แทน S.candles โดยตรง
+    //     เพราะ init() set flag นี้หลัง fetchCandles await เสร็จทุกกรณี (success หรือ error)
+    //     ป้องกัน poll วนไม่หยุดถ้า fetchCandles fail แล้ว S.candles ว่างตลอด
+    //
+    // init() มี retry ของตัวเองด้วย — ทั้งคู่ตรวจ currentPage ก่อน draw เพื่อไม่ชนกัน
     if (_goPage === 'futures') {
-      let _splashChartRetry = 0;
-      const _splashChartTimer = setInterval(() => {
-        _splashChartRetry++;
-        const _hasCandles = typeof S !== 'undefined' && S.candles && S.candles.length;
-        const _onFutures  = typeof currentPage !== 'undefined' && currentPage === 'futures';
-        if (_hasCandles && _onFutures) {
-          clearInterval(_splashChartTimer);
-          try { if (typeof drawChart === 'function') drawChart(); } catch(e) {}
-        } else if (_splashChartRetry >= 30) { // 30 × 300ms = 9s max
-          clearInterval(_splashChartTimer);
-        }
-      }, 300);
+      const _tryDrawChart = () => {
+        const _onFutures = typeof currentPage !== 'undefined' && (currentPage === 'futures' || currentPage === 'trade');
+        if (!_onFutures) return; // user เปลี่ยนหน้าแล้ว ไม่ต้อง draw
+        try { if (typeof drawChart === 'function') drawChart(); } catch(e) {}
+      };
+      // (A) candles มาก่อน splash — drawChart ทันทีที่ splash หาย
+      if (window._tccCandlesReady || (typeof S !== 'undefined' && S.candles && S.candles.length)) {
+        _tryDrawChart();
+      } else {
+        // (B) candles ยังไม่มา — poll รอ flag จาก init() แทนที่จะตรวจ S.candles โดยตรง
+        // เพราะ init() set _tccCandlesReady แม้ fetchCandles fail (ป้องกัน infinite poll)
+        // timeout สูงสุด 12s (40 × 300ms) ครอบ GAS cold-start worst case
+        let _splashChartRetry = 0;
+        const _splashChartTimer = setInterval(() => {
+          _splashChartRetry++;
+          const _candlesReady = window._tccCandlesReady
+            || (typeof S !== 'undefined' && S.candles && S.candles.length);
+          if (_candlesReady) {
+            clearInterval(_splashChartTimer);
+            _tryDrawChart();
+          } else if (_splashChartRetry >= 40) { // 40 × 300ms = 12s max
+            clearInterval(_splashChartTimer);
+            console.warn('[initSplash] chart poll timeout 12s — candles still not ready');
+          }
+        }, 300);
+      }
     }
   }, 4200);
 })();
@@ -30511,18 +30549,44 @@ document.addEventListener('DOMContentLoaded', () => {
   //   อ่าน uid จาก session ตรงๆอยู่แล้ว ไม่ต้องพึ่ง USER_PROFILE.uid ให้พร้อมก่อน และมี
   //   retry ในตัวถ้า session ยังไม่พร้อมจริงๆ (loadOfflineState retry เอง 3s)
   //   → เรียกได้ทันที ไม่ต้องเดารอ 5 วิ
-  syncOfflineEngine();           // ส่ง local state → GAS
-  loadOfflineState();            // ดึง GAS state กลับ (sync ทั้ง positions/contracts/orders)
+  // [PERF-FIX v2.47] syncOfflineEngine + loadOfflineState + loadDashboard รัน parallel จริง
+  //
+  // โครงสร้างเดิม (v5): loadOfflineState() fire-and-forget แต่ loadDashboard() อยู่ใน async IIFE
+  // ที่รอ resolve ก่อน → ดูเหมือน parallel แต่ loadDashboard ยัง sequential ต่อจาก call stack เดิม
+  //
+  // โครงสร้างใหม่ (v2.47):
+  // - syncOfflineEngine() — fire-and-forget (write-only, ไม่ต้องรอ)
+  // - loadOfflineState() + loadDashboard() — ยิง parallel จริง ด้วย Promise.allSettled
+  // - dashboard เสร็จก่อน → render balance/earnContracts ทันที ไม่รอ offline state ทั้งก้อน
+  // - offline state เสร็จก่อน → positions/orders พร้อมทันทีเช่นกัน
+  // - ทั้งคู่ต่างมี guard กัน race condition ภายในฟังก์ชันตัวเองอยู่แล้ว (_pendingEarnSync,
+  //   _pendingFreeze, _holdFrozen, Pending-Earn-Sync Guard ฯลฯ)
+  syncOfflineEngine(); // ส่ง local state → GAS (fire-and-forget)
 
   (async () => {
-    try {
-      const dash = await loadDashboard();
-      console.warn('[DB] Dashboard ready | Queue:', QUEUE._q.length, 'pending');
-      // [v7 FIX] render earnContracts หลัง dashboard โหลดเสร็จ (กรณี loadOfflineState ยังทำงาน)
-      if (typeof renderEarnContracts === 'function') renderEarnContracts();
-    } catch (e) {
-      console.warn('[DB] Dashboard error (offline?)', e.message);
+    const [_dashSettled, _offlineSettled] = await Promise.allSettled([
+      // loadDashboard — ดึง balance/profile/earnContracts/tradeHistory จาก GAS
+      (async () => {
+        try {
+          const dash = await loadDashboard();
+          console.warn('[DB] Dashboard ready | Queue:', QUEUE._q.length, 'pending');
+          // render earnContracts ทันทีที่ dashboard เสร็จ ไม่รอ loadOfflineState ทั้งก้อน
+          if (typeof renderEarnContracts === 'function') renderEarnContracts();
+          return dash;
+        } catch (e) {
+          console.warn('[DB] Dashboard error (offline?)', e.message);
+        }
+      })(),
+      // loadOfflineState — ดึง positions/openOrders/earnContracts/liqPriceMap จาก GAS
+      loadOfflineState().catch(e => console.warn('[DB] loadOfflineState error:', e.message)),
+    ]);
+    // หลังทั้งคู่เสร็จ: render รอบสุดท้ายเพื่อให้ earnContracts แสดงข้อมูล merge ที่สมบูรณ์
+    // (กรณี loadOfflineState มาทีหลัง loadDashboard — merge earnContracts รอบสุดท้ายให้ถูกต้อง)
+    if (typeof renderEarnContracts === 'function') {
+      try { renderEarnContracts(); } catch(e) {}
     }
+    console.warn('[DB] Boot complete — dashboard:', _dashSettled.status,
+      '| offline:', _offlineSettled.status);
   })();
 
   setTimeout(snapshotPortfolio, 5000);

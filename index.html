@@ -16949,56 +16949,84 @@ function calcDaysPassed(c) {
 }
 
 // ── Earn Contract Countdown helpers ──
+
+// [v2.46] _earnEffectiveEndMs — คำนวณ endTime ที่ใช้จริงสำหรับ countdown
+// ลำดับความสำคัญ: c.endTime (จาก GAS sync) → c.startTime + planDays (fallback)
+// รองรับทั้ง: active รอบใหม่หลัง auto-renew, matured รอบเก่า, legacy contracts
+function _earnEffectiveEndMs(c) {
+  if (c.endTime > 0) return c.endTime;
+  if (c.startTime > 0 && c.planDays > 0) return c.startTime + c.planDays * 86400000;
+  return 0;
+}
+
 function _earnCountdownMs(c) {
   // เวลาที่เหลือจนครบกำหนด (ค่าลบ = หมดแล้ว)
-  const endTime = c.startTime + (c.planDays * 86400000);
-  return endTime - Date.now();
+  // [v2.46] ใช้ _earnEffectiveEndMs แทน startTime+planDays เพื่อรองรับ endTime ที่อัปเดตจาก GAS
+  const endMs = _earnEffectiveEndMs(c);
+  if (endMs > 0) return endMs - Date.now();
+  return (c.startTime + c.planDays * 86400000) - Date.now();
 }
+
 function _earnCountdownExpired(c) {
-  // [FIX-COUNTDOWN-AUTORENEW] ถ้า matured และอยู่ใน auto-renew window → badge ไม่ expired
-  // (ยังมีเวลานับถอยหลังรอบใหม่อยู่ — แสดงสีปกติ ไม่ grey-out)
+  // active: expired ก็ต่อเมื่อ _earnCountdownMs <= 0 เท่านั้น
+  if (c.status === 'active') return _earnCountdownMs(c) <= 0;
+  // matured: ตรวจ auto-renew window ก่อนตัดสินว่า expired
+  // [FIX-COUNTDOWN-AUTORENEW] ถ้า matured + อยู่ใน auto-renew window → badge ไม่ expired
   if (c.status === 'matured' && c.endTime > 0) {
     const _sinceEnd = Date.now() - c.endTime;
     if (_sinceEnd >= 24 * 3600000) {
       const _newEndRemMs = (c.endTime + (c.planDays || 0) * 86400000) - Date.now();
-      if (_newEndRemMs > 0) return false; // รอบใหม่ยังนับถอยหลังอยู่ → ไม่ expired
+      if (_newEndRemMs > 0) return false;
     }
   }
   return c.status === 'matured' || _earnCountdownMs(c) <= 0;
 }
+
+// [v2.46] _fmtCountdownSec — แปลง seconds เป็น "Xd HH:MM:SS" หรือ "HH:MM:SS"
+function _fmtCountdownSec(totalSec, icon) {
+  const _d = Math.floor(totalSec / 86400);
+  const _h = Math.floor((totalSec % 86400) / 3600);
+  const _m = Math.floor((totalSec % 3600) / 60);
+  const _s = totalSec % 60;
+  const _hms = `${String(_h).padStart(2,'0')}:${String(_m).padStart(2,'0')}:${String(_s).padStart(2,'0')}`;
+  return _d >= 1 ? `${icon} ${_d}d ${_hms}` : `${icon} ${_hms}`;
+}
+
 function _earnCountdownText(c) {
+  // [v2.46 FIX-AUTORENEW-SYNC] ── active รอบใหม่ (หลัง sync จาก GAS) ──────────
+  // เมื่อ GAS ต่ออายุสัญญาแล้ว status='active' + endTime ใหม่ถูก sync กลับมา
+  // → countdown ทำงานปกติตาม endTime ใหม่ ไม่ต้องมี logic พิเศษ
+  if (c.status === 'active') {
+    const ms = _earnCountdownMs(c);
+    if (ms <= 0) return tccT('earn_completed');
+    return _fmtCountdownSec(Math.floor(ms / 1000), '⏱');
+  }
+
+  // ── matured: ตรวจ auto-renew window ──────────────────────────────────────────
   if (c.status === 'matured') {
-    // [FIX-COUNTDOWN-AUTORENEW] ถ้าอยู่ใน auto-renew window (≥24h หลังครบ) แสดงวันครบกำหนดรอบใหม่
-    // แทนที่จะแสดง "✅ ครบแล้ว" ซึ่งทำให้ user สับสนว่าสัญญาหมดแล้ว
-    const _sinceEnd = c.endTime > 0 ? (Date.now() - c.endTime) : 0;
+    // [FIX-COUNTDOWN-AUTORENEW v2.46] 2 กรณี:
+    // A) ≥ 24h หลัง endTime เดิม → GAS น่าจะต่ออายุแล้ว แต่ sync ยังไม่ถึง
+    //    → แสดง countdown รอบใหม่ (endTime + planDays) + icon 🔄
+    // B) < 24h หลัง endTime เดิม (หรือ endTime=0) → ยังไม่เข้า auto-renew window
+    //    → แสดง "✅ ครบแล้ว" ปกติ
+    const _sinceEnd = c.endTime > 0 ? (Date.now() - c.endTime) : -1;
     if (c.endTime > 0 && _sinceEnd >= 24 * 3600000) {
+      // กรณี A: คาดเดา endTime รอบใหม่ = endTime เดิม + planDays
+      // (ถ้า sync สำเร็จแล้ว status จะเป็น 'active' ไม่ใช่ 'matured' อีกต่อไป
+      //  ดังนั้น block นี้ทำงานเฉพาะช่วง "รอ sync" เท่านั้น)
       const _newEnd = c.endTime + (c.planDays || 0) * 86400000;
-      const _newEndRemMs = _newEnd - Date.now();
-      if (_newEndRemMs > 0) {
-        const _totalSec = Math.floor(_newEndRemMs / 1000);
-        const _d = Math.floor(_totalSec / 86400);
-        const _h = Math.floor((_totalSec % 86400) / 3600);
-        const _m = Math.floor((_totalSec % 3600) / 60);
-        const _s = _totalSec % 60;
-        // [FIX-TICK-VISIBLE] เพิ่ม :SS ทุก format เพื่อให้เห็นว่าเดินทุกวินาที
-        return _d >= 1
-          ? `🔄 ${_d}d ${String(_h).padStart(2,'0')}:${String(_m).padStart(2,'0')}:${String(_s).padStart(2,'0')}`
-          : `🔄 ${String(_h).padStart(2,'0')}:${String(_m).padStart(2,'0')}:${String(_s).padStart(2,'0')}`;
+      const _remMs  = _newEnd - Date.now();
+      if (_remMs > 0) {
+        return _fmtCountdownSec(Math.floor(_remMs / 1000), '🔄');
       }
     }
     return tccT('earn_completed');
   }
+
+  // fallback สำหรับ status อื่น (frozen ฯลฯ)
   const ms = _earnCountdownMs(c);
   if (ms <= 0) return tccT('earn_completed');
-  const totalSec = Math.floor(ms / 1000);
-  const d = Math.floor(totalSec / 86400);
-  const h = Math.floor((totalSec % 86400) / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  // [FIX-TICK-VISIBLE] เพิ่ม :SS ทุก format — เดิม d>=1 ใช้ HH:MM ดูเหมือนไม่เดินเพราะอัปเดตทุก 60s
-  return d >= 1
-    ? `⏱ ${d}d ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-    : `⏱ ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return _fmtCountdownSec(Math.floor(ms / 1000), '⏱');
 }
 
 // ── Live tick: อัพเดท countdown badges ทุก 1 วินาที ──
@@ -29987,7 +30015,20 @@ async function loadOfflineState() {
       const _localNonTerminalCids = (typeof earnContracts !== 'undefined' && Array.isArray(earnContracts))
         ? earnContracts.filter(c => c.status !== 'matured' && c.status !== 'closed').map(c => c.contractId).filter(Boolean)
         : [];
-      const _activeCids = [...new Set([..._posCids, ..._localNonTerminalCids])];
+      // [v2.46 FIX-AUTORENEW-SYNC] เพิ่ม matured contracts ที่ผ่าน endTime ไปแล้ว ≥ 24h
+      // เข้า _activeCids ด้วย เพื่อให้ getContractStatus ตรวจสอบว่า GAS ต่ออายุไปแล้วหรือยัง
+      // (เดิม matured ถูก filter ออกทั้งหมด → ไม่รู้ว่า status เปลี่ยนเป็น active แล้ว)
+      const _nowForSync = Date.now();
+      const _maturedNeedSyncCids = (typeof earnContracts !== 'undefined' && Array.isArray(earnContracts))
+        ? earnContracts.filter(c => {
+            if (c.status !== 'matured') return false;
+            const _since = c.endTime > 0 ? (_nowForSync - c.endTime) : 0;
+            // sync ถ้า: ยังไม่มี endTime (legacy) หรือ ผ่าน endTime ไปแล้ว > 0h (ครบกำหนดแล้วทุกตัว)
+            // ขอบเขต: สัญญา matured ทุกตัวที่ endTime ผ่านแล้ว ≤ 72h (เกินนั้น closed ไปแล้วหรือ legacy)
+            return c.endTime === 0 || (_since >= 0 && _since <= 72 * 3600000);
+          }).map(c => c.contractId).filter(Boolean)
+        : [];
+      const _activeCids = [...new Set([..._posCids, ..._localNonTerminalCids, ..._maturedNeedSyncCids])];
       if (_activeCids.length > 0) {
         // ดึง getContractStatus แบบ parallel (Promise.allSettled — ไม่ fail ถ้าบางตัว error)
         const _csResults = await Promise.allSettled(
@@ -30019,12 +30060,36 @@ async function loadOfflineState() {
             isMarginBlocked:       !!_st.isMarginBlocked,
             trading_realized_loss: _st.trading_realized_loss,
             apt_yield_accrued:     _st.apt_yield_accrued,
+            // [v2.46] APT Summary + timing fields สำหรับ Contract Summary / auto-renew sync
+            apt_total_claimed:     parseFloat(_st.apt_total_claimed)  || 0,
+            apt_total_expected:    parseFloat(_st.apt_total_expected) || 0,
+            status:                _st.status        || '',
+            start_time_ms:         _st.start_time_ms || 0,
+            end_time_ms:           _st.end_time_ms   || 0,
           };
-          // sync _gasDrawdown กลับเข้า earnContracts local ด้วย
+          // sync _gasDrawdown + [v2.46] auto-renew status กลับเข้า earnContracts local
           if (typeof earnContracts !== 'undefined') {
             const _lc = earnContracts.find(x => x.contractId === _cid);
-            if (_lc && _st.drawdown_pct !== undefined) {
-              _lc._gasDrawdown = parseFloat(_st.drawdown_pct) || 0;
+            if (_lc) {
+              if (_st.drawdown_pct !== undefined) {
+                _lc._gasDrawdown = parseFloat(_st.drawdown_pct) || 0;
+              }
+              // [v2.46 FIX-AUTORENEW-SYNC] ถ้า GAS ยืนยัน status='active' แต่ local ยัง 'matured'
+              // → อัปเดต status + startTime + endTime ทันที ไม่รอ loadOfflineState รอบถัดไป
+              // _st.status มาจาก getContractStatus ซึ่ง GAS อ่านตรงจากชีตทุกครั้ง
+              if (_lc.status === 'matured' && _st.status === 'active') {
+                const _prevStatus = _lc.status;
+                _lc.status    = 'active';
+                // start_time_ms และ end_time_ms ใหม่ (GAS เขียนตอน processMaturedAutoRenew)
+                if (_st.start_time_ms > 0) _lc.startTime = _st.start_time_ms;
+                if (_st.end_time_ms   > 0) _lc.endTime   = _st.end_time_ms;
+                console.warn('[AutoRenew-Sync] ' + _cid + ' synced: ' +
+                             _prevStatus + ' → active' +
+                             ' startTime=' + new Date(_lc.startTime).toISOString().slice(0,16) +
+                             ' endTime='   + new Date(_lc.endTime).toISOString().slice(0,16));
+                // re-render card ทันทีเพื่อ badge + countdown ถูกต้องโดยไม่รอ renderEarnContracts รอบถัดไป
+                if (typeof renderEarnContracts === 'function') renderEarnContracts();
+              }
             }
           }
         });

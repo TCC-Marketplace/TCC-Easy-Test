@@ -29894,6 +29894,11 @@ async function loadOfflineState() {
         isFixed:         String(r.contract_mode || '').trim().toLowerCase() === 'fixed',
         // [NEW: TIER] 'standard' | 'vip'
         contractTier:    (String(r.contract_tier || '').toLowerCase() === 'vip') ? 'vip' : 'standard',
+        // [v2.46] APT Tracking — แยก APT ออกจาก Trade Claim เพื่อ Contract Summary
+        aptTotalClaimed: parseFloat(r.apt_total_claimed) || 0,
+        // NOTE: status ด้านบนมาจาก Sheet โดยตรง — อาจยังเป็น 'matured' แม้ GAS ต่ออายุแล้ว
+        // เพราะ Sheet write latency หรือ getContractStatus (step 1b) ยังไม่ได้ sync มา
+        // → Step 2 Object.assign guard จะตรวจ _contractDDMap และไม่ทับค่า 'active' ที่ sync มาจาก step 1b
       };
     }
 
@@ -30146,12 +30151,32 @@ async function loadOfflineState() {
                 const _esUntil = window._pendingEarnSync ? (window._pendingEarnSync[c.contractId] || 0) : 0;
                 const _holdEarnSync = Date.now() < _esUntil;
                 if (!_holdEarnSync && window._pendingEarnSync) delete window._pendingEarnSync[c.contractId];
+                // [v2.46 FIX-AUTORENEW-OVERWRITE] Guard: อย่าให้ getEarnContracts (Step 2) ทับ
+                // status='active' ที่ getContractStatus (Step 1b) เพิ่ง sync มา
+                // เพราะทั้งสองรัน parallel และ getEarnContracts อ่านจาก Sheet โดยตรง
+                // ซึ่งอาจยังเป็น 'matured' ถ้า processMaturedAutoRenew รันช้ากว่า query นี้
+                // กฎ: ถ้า local ถูก sync เป็น 'active' จาก Step 1b แล้ว (step1bSyncedActive)
+                //      และ _gasRow (getEarnContracts) ยังบอกว่า 'matured'
+                //      → ใช้ status ที่ sync จาก Step 1b ต่อไป อย่าให้ถูกทับ
+                const _ddMapEntry    = (window._contractDDMap || {})[earnContracts[i].contractId];
+                const _step1bSaysActive = _ddMapEntry && _ddMapEntry.status === 'active';
+                const _gasRowMatured    = _gasRow.status === 'matured';
+                // ถ้า Step 1b บอก active แต่ getEarnContracts บอก matured → คง active ไว้
+                const _resolvedStatus = _holdFrozen ? 'frozen'
+                  : (_step1bSaysActive && _gasRowMatured) ? 'active'
+                  : _gasRow.status;
+                // ถ้า active จาก Step 1b → ใช้ startTime/endTime จาก _contractDDMap
+                const _resolvedStartTime = (_step1bSaysActive && _gasRowMatured && _ddMapEntry.start_time_ms > 0)
+                  ? _ddMapEntry.start_time_ms : _gasRow.startTime;
+                const _resolvedEndTime   = (_step1bSaysActive && _gasRowMatured && _ddMapEntry.end_time_ms > 0)
+                  ? _ddMapEntry.end_time_ms   : _gasRow.endTime;
+
                 Object.assign(earnContracts[i], {
                   currentBalance:  _holdFrozen ? earnContracts[i].currentBalance
                                     : (_holdEarnSync ? earnContracts[i].currentBalance : _gasRow.currentBalance),
                   frozenBalance:   _holdFrozen ? earnContracts[i].frozenBalance
                                     : (_holdEarnSync ? earnContracts[i].frozenBalance : _gasRow.frozenBalance),
-                  status:          _holdFrozen ? 'frozen' : _gasRow.status,
+                  status:          _resolvedStatus,
                   realizedPnl:     _holdEarnSync ? earnContracts[i].realizedPnl : _gasRow.realizedPnl,
                   totalClaimed:    _holdEarnSync ? earnContracts[i].totalClaimed : _gasRow.totalClaimed,
                   lastYieldTimeMs: _gasRow.lastYieldTimeMs,
@@ -30162,16 +30187,12 @@ async function loadOfflineState() {
                   // [v2.34 FIX-Q] sync contract_mode + isFixed — admin อาจสลับโหมดโดยไม่ reload
                   contract_mode:   _gasRow.contract_mode || 'trade',
                   isFixed:         !!_gasRow.isFixed,
-                  // [NEW: TIER] sync contractTier จาก GAS (คำนวณครั้งเดียวตอนสร้าง ไม่เปลี่ยนภายหลัง แต่ sync ไว้เผื่อ)
+                  // [NEW: TIER] sync contractTier จาก GAS
                   contractTier:    _gasRow.contractTier || 'standard',
-                  // [FIX-COUNTDOWN-SYNC] sync startTime + endTime จาก GAS เสมอ
-                  // เดิม: ทั้งสองไม่อยู่ใน Object.assign → local ยังเก็บค่ารอบก่อน
-                  // ผล: _earnCountdownMs() คำนวณจาก startTime เก่า → endTime = อดีต
-                  //   → _earnCountdownExpired() คืน true ทันที → countdown แสดงแค่ ~3s แล้วหาย
-                  //   → แสดง "✅ ครบแล้ว" แม้สัญญาต่ออายุเป็น active รอบใหม่แล้ว
-                  // ใหม่: sync ทั้งคู่จาก GAS ทุกครั้ง → countdown ถูกต้องทันทีหลัง loadOfflineState()
-                  startTime:       _gasRow.startTime,
-                  endTime:         _gasRow.endTime,
+                  // [FIX-COUNTDOWN-SYNC] sync startTime + endTime — ใช้ resolved values
+                  // เพื่อรองรับ auto-renew: ถ้า Step 1b sync มาว่า active แล้ว ใช้ timing ใหม่
+                  startTime:       _resolvedStartTime,
+                  endTime:         _resolvedEndTime,
                 });
                 delete gasMap[c.contractId];
               }

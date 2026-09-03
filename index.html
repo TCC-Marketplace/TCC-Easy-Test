@@ -7974,6 +7974,24 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   <button class="prf-logout-btn" onclick="lgLogout()">Log Out</button>
 </div>
 
+<!-- ════ PROFILE: Edit Username Modal [FIX v2.49-NATIVE-DIALOG] — แทนที่ window.prompt() เดิม
+     (browser native prompt ไม่ตรงดีไซน์ระบบ + โดนบล็อกได้บน iOS/Android WebView บางเวอร์ชัน) ════ -->
+<div class="earn-modal-overlay" id="editUsernameModal">
+  <div class="earn-modal">
+    <div class="earn-modal-handle"></div>
+    <div class="earn-modal-title"><span data-i18n="edit_username_title">✏️ แก้ไขชื่อผู้ใช้</span></div>
+    <div style="padding:16px 20px 4px">
+      <input type="text" class="wlt-form-input" id="editUsernameInput" maxlength="40" placeholder="ชื่อผู้ใช้ใหม่" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();_confirmEditUsername();}">
+      <div id="editUsernameErr" style="display:none;color:var(--r);font-size:12px;margin-top:6px"></div>
+    </div>
+    <div class="earn-modal-footer">
+      <button class="earn-submit-btn" id="editUsernameSubmitBtn" onclick="_confirmEditUsername()"><span data-i18n="save">บันทึก</span></button>
+      <div style="text-align:center;padding:14px 0 0;font-size:13px;color:var(--t2);cursor:pointer" onclick="_closeEditUsernameDialog()"><span data-i18n="cancel">ยกเลิก</span></div>
+    </div>
+    <div style="height:16px"></div>
+  </div>
+</div>
+
 <!-- ════════════════════════════════
      PAGE: VERIFICATION CENTER
 ════════════════════════════════ -->
@@ -9032,6 +9050,9 @@ function connectWS() {
     ws.onerror = () => { S.wsConnected = false; };
     ws.onclose = () => {
       S.wsConnected = false;
+      // [FIX v2.49-BFCACHE] ถ้าปิดเพราะหน้าเข้า bfcache — ปล่อยให้ 'pageshow' listener ด้านล่าง
+      // เป็นคนเชื่อมต่อใหม่แทน (หน้ากำลัง freeze อยู่ ตั้ง setTimeout ไปก็ไม่มีประโยชน์)
+      if (_wsClosedForBfcache) return;
       setApiStatus(false, 'WebSocket ตัดการเชื่อมต่อ — กำลังเชื่อมต่อใหม่...');
       setTimeout(connectWS, 3000);
     };
@@ -9040,6 +9061,27 @@ function connectWS() {
     startPolling();
   }
 }
+
+// [FIX v2.49-BFCACHE] เดิม: เวลา user กด back/forward (เช่น กลับจากหน้า Whale ที่ redirect
+// ออกไปด้วย window.location.href) แล้วหน้านี้ถูกดึงกลับมาจาก Back-Forward Cache ของ browser —
+// browser จะบังคับปิด WebSocket ที่เปิดค้างไว้เอง แล้ว log เป็น error สีแดงใน console
+// ("WebSocket connection ... failed: Page entered Back-Forward Cache") ทั้งที่ไม่ใช่ bug จริง
+// แก้: ปิด WS เองล่วงหน้าก่อนเข้า bfcache (เงียบ ไม่มี error) แล้วเชื่อมต่อใหม่ทันทีที่กลับมาแสดงผล
+let _wsClosedForBfcache = false;
+window.addEventListener('pagehide', (evt) => {
+  if (evt.persisted && ws && ws.readyState === WebSocket.OPEN) {
+    _wsClosedForBfcache = true;
+    ws.close();
+  }
+});
+window.addEventListener('pageshow', (evt) => {
+  if (evt.persisted) {
+    _wsClosedForBfcache = false;
+    if (typeof connectWS === 'function' && (!ws || ws.readyState !== WebSocket.OPEN)) {
+      connectWS();
+    }
+  }
+});
 
 function startPolling() {
   setInterval(async () => {
@@ -12324,6 +12366,12 @@ function navTo(page) {
     }
   }
   currentPage = target;
+
+  // [FIX v2.49-PROFILE-SYNC] เผื่อกรณี USER_PROFILE ยังไม่ sync ทันตอนที่ user กดเข้าหน้านี้
+  // (ดูปัญหาเดิม: ai-avatar/vf-avatar ค้างเป็นตัวอักษรย่อ) — sync ซ้ำอีกครั้งทุกครั้งที่เปิดหน้านี้
+  if ((target === 'account-info' || target === 'verification') && typeof _syncAllProfilePages === 'function') {
+    _syncAllProfilePages();
+  }
 
   const futPanel = document.getElementById('futuresChartPanel');
   const spPanel  = document.getElementById('spChartArea');
@@ -28108,8 +28156,11 @@ async function _profileAvatarUpload(e) {
 
       USER_PROFILE.avatar = imgUrl; // เก็บเป็น URL เท่านั้น — ไม่ใช่ base64 อีกต่อไป
       _syncProfileToShare();
-      _profileRender();
-      _homeUpdateAvatar();
+      // [FIX v2.49-PROFILE-SYNC] ใช้ _syncAllProfilePages() แทน _profileRender()+_homeUpdateAvatar()
+      // เดิม เพื่อให้ ai-avatar (Account Info) / vf-avatar (Verification Center) อัปเดตรูปด้วย
+      // ไม่ใช่แค่หน้า Profile หลักกับ topbar เท่านั้น
+      if (typeof _syncAllProfilePages === 'function') _syncAllProfilePages();
+      else { _profileRender(); _homeUpdateAvatar(); }
 
       // บันทึก avatar_url (URL จาก ImgBB) ไป GAS — เบากว่า base64 มาก ไม่มีปัญหาเกิน cell limit
       if (USER_PROFILE.uid) {
@@ -28131,22 +28182,43 @@ async function _profileAvatarUpload(e) {
       console.error('[_profileAvatarUpload] ImgBB upload failed:', err.message);
       // rollback UI กลับเป็นรูปเดิมก่อนอัปโหลด (ไม่ค้างเป็น base64 preview หรือรูปเสีย)
       USER_PROFILE.avatar = prevAvatar;
-      _profileRender();
-      _homeUpdateAvatar();
+      if (typeof _syncAllProfilePages === 'function') _syncAllProfilePages();
+      else { _profileRender(); _homeUpdateAvatar(); }
       showToast('อัปโหลดรูปไม่สำเร็จ: ' + (err.message || 'กรุณาลองใหม่'), 'error');
     }
   };
   reader.readAsDataURL(file);
 }
 
-// ── [FIX v2.48] Edit Username Dialog ─────────────────────────────
+// ── [FIX v2.49-NATIVE-DIALOG] Edit Username Modal — แทนที่ window.prompt() เดิม ──
+// เดิม: window.prompt() เป็น dialog ของ browser เอง (มี URL แถบด้านบนโผล่มา ไม่ตรงดีไซน์
+// ระบบ + บางเบราว์เซอร์/WebView บล็อก prompt() ได้) → เปลี่ยนมาใช้ #editUsernameModal
+// (bottom-sheet pattern เดียวกับ earnRedeemModal/loanRepayModal ที่ใช้อยู่แล้วในแอป)
 function _showEditUsernameDialog() {
-  const current = USER_PROFILE.username || '';
-  const newName = window.prompt('แก้ไขชื่อผู้ใช้ (Edit Username)', current);
-  if (newName === null) return; // ยกเลิก
-  const trimmed = newName.trim();
-  if (!trimmed) { showToast('ชื่อต้องไม่ว่างเปล่า'); return; }
-  if (trimmed.length > 40) { showToast('ชื่อยาวเกิน 40 ตัวอักษร'); return; }
+  const modal = document.getElementById('editUsernameModal');
+  const input = document.getElementById('editUsernameInput');
+  const err   = document.getElementById('editUsernameErr');
+  if (!modal || !input) return;
+  input.value = USER_PROFILE.username || '';
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
+  modal.classList.add('open');
+  setTimeout(() => { input.focus(); input.select(); }, 200); // รอ transition ของ sheet ก่อน focus
+}
+
+function _closeEditUsernameDialog() {
+  const modal = document.getElementById('editUsernameModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function _confirmEditUsername() {
+  const input = document.getElementById('editUsernameInput');
+  const err   = document.getElementById('editUsernameErr');
+  const showErr = (msg) => { if (err) { err.textContent = msg; err.style.display = 'block'; } };
+  if (!input) return;
+  const trimmed = input.value.trim();
+  if (!trimmed) { showErr('ชื่อต้องไม่ว่างเปล่า'); return; }
+  if (trimmed.length > 40) { showErr('ชื่อยาวเกิน 40 ตัวอักษร'); return; }
+
   USER_PROFILE.username = trimmed;
   // อัปเดต UI ทุกจุดทันที
   ['prf-username','ai-username','vf-username','hm-username'].forEach(id => {
@@ -28165,8 +28237,10 @@ function _showEditUsernameDialog() {
       }
     });
   }
+  _closeEditUsernameDialog();
   showToast('บันทึกชื่อสำเร็จ ✓', 'success');
 }
+
 
 // ── Whale split bar toggle ──
 let _whaleSplitVisible = false;
@@ -28194,6 +28268,61 @@ function _hmToggleWhaleSplit() {
 })();
 
 // ══════════════════════════════════════════════════════════════
+//  [FIX v2.49-PROFILE-SYNC] sync ai-avatar/vf-avatar/username/uid ฯลฯ
+//  ให้ตรงกับ USER_PROFILE ปัจจุบันเสมอ — เรียกซ้ำได้ทุกครั้งที่ USER_PROFILE เปลี่ยน
+//  (เดิม logic นี้อยู่ใน IIFE รันครั้งเดียวตอนโหลดหน้าผ่าน setTimeout 500ms เท่านั้น —
+//  ถ้า loadDashboard() ดึง avatar_url จาก GAS เสร็จช้ากว่า 500ms (เกิดขึ้นบ่อยมาก โดยเฉพาะ
+//  cold-start ของ GAS) หน้า Account Info / Verification Center จะค้างเป็นตัวอักษรย่อ (fallback
+//  initial) ตลอดไป ทั้งที่มีรูปโปรไฟล์แล้ว จนกว่าจะ reload ใหม่พอดีจังหวะที่ cache ทันเวลา)
+// ══════════════════════════════════════════════════════════════
+function _syncAllProfilePages() {
+  if (typeof USER_PROFILE === 'undefined') return;
+  // Account info page sync
+  const aiUname = document.getElementById('ai-username');
+  if (aiUname) aiUname.textContent = USER_PROFILE.username;
+  const aiUid = document.getElementById('ai-uid');
+  if (aiUid) {
+    aiUid.dataset.uid = USER_PROFILE.uid || '';
+    aiUid.innerHTML = (USER_PROFILE.uid || '—') + ` <span style="cursor:pointer;color:var(--t2);font-size:12px;">⎘</span>`;
+  }
+  // [FIX v2.48] sync prf-uid dataset เช่นกัน
+  const prfUid = document.getElementById('prf-uid');
+  if (prfUid) {
+    prfUid.dataset.uid = USER_PROFILE.uid || '';
+    prfUid.textContent = USER_PROFILE.uid || '—';
+  }
+  const aiEmail = document.getElementById('ai-email');
+  if (aiEmail) aiEmail.textContent = USER_PROFILE.phone || USER_PROFILE.email || '—';
+  const aiVip = document.getElementById('ai-vip-corner');
+  if (aiVip) aiVip.textContent = USER_PROFILE.vipLevel > 0 ? 'VIP' + USER_PROFILE.vipLevel : 'Regular';
+  // Verification page sync
+  const vfUname = document.getElementById('vf-username');
+  if (vfUname) vfUname.textContent = USER_PROFILE.username;
+  const vfUid = document.getElementById('vf-uid');
+  if (vfUid) vfUid.textContent = USER_PROFILE.uid;
+  const vfLegal = document.getElementById('vf-legalname');
+  if (vfLegal) vfLegal.textContent = USER_PROFILE.legalName;
+  const vfDob = document.getElementById('vf-dob');
+  if (vfDob) vfDob.textContent = USER_PROFILE.dob;
+  // [FIX v2.49-PROFILE-SYNC] sync avatar ทุกหน้าเสมอ ไม่ใช่แค่ตอนที่ USER_PROFILE.avatar
+  // มีค่าแล้วเท่านั้น (เดิม: ถ้ารันตอน avatar ยังไม่โหลดมา จะไม่มีการ retry ใดๆอีกเลย —
+  // ต้องมี fallback เป็นตัวอักษรย่อไว้ด้วยเผื่อยังไม่มีรูปจริงๆ)
+  ['ai-avatar','vf-avatar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (USER_PROFILE.avatar) {
+      el.innerHTML = `<img src="${USER_PROFILE.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    } else {
+      const initials = (USER_PROFILE.username || 'T').charAt(0).toUpperCase();
+      const fontSize = (id === 'vf-avatar') ? '30px' : '24px';
+      el.innerHTML = `<span style="font-size:${fontSize};font-weight:800;color:#000;">${initials}</span>`;
+    }
+  });
+  if (typeof _homeUpdateAvatar === 'function') _homeUpdateAvatar();
+  if (typeof _profileRender === 'function') _profileRender();
+}
+
+// ══════════════════════════════════════════════════════════════
 //  Re-render on load to apply all patches + sync profile pages
 // ══════════════════════════════════════════════════════════════
 (function() {
@@ -28203,46 +28332,11 @@ function _hmToggleWhaleSplit() {
       if (typeof mytRenderContent === 'function') mytRenderContent(MYT.currentTab);
     }, 300);
   }
-  // Sync profile pages with USER_PROFILE on load
-  setTimeout(() => {
-    if (typeof USER_PROFILE === 'undefined') return;
-    // Account info page sync
-    const aiUname = document.getElementById('ai-username');
-    if (aiUname) aiUname.textContent = USER_PROFILE.username;
-    const aiUid = document.getElementById('ai-uid');
-    if (aiUid) {
-      aiUid.dataset.uid = USER_PROFILE.uid || '';
-      aiUid.innerHTML = (USER_PROFILE.uid || '—') + ` <span style="cursor:pointer;color:var(--t2);font-size:12px;">⎘</span>`;
-    }
-    // [FIX v2.48] sync prf-uid dataset เช่นกัน
-    const prfUid = document.getElementById('prf-uid');
-    if (prfUid) {
-      prfUid.dataset.uid = USER_PROFILE.uid || '';
-      prfUid.textContent = USER_PROFILE.uid || '—';
-    }
-    const aiEmail = document.getElementById('ai-email');
-    if (aiEmail) aiEmail.textContent = USER_PROFILE.phone || USER_PROFILE.email || '—';
-    const aiVip = document.getElementById('ai-vip-corner');
-    if (aiVip) aiVip.textContent = USER_PROFILE.vipLevel > 0 ? 'VIP' + USER_PROFILE.vipLevel : 'Regular';
-    // Verification page sync
-    const vfUname = document.getElementById('vf-username');
-    if (vfUname) vfUname.textContent = USER_PROFILE.username;
-    const vfUid = document.getElementById('vf-uid');
-    if (vfUid) vfUid.textContent = USER_PROFILE.uid;
-    const vfLegal = document.getElementById('vf-legalname');
-    if (vfLegal) vfLegal.textContent = USER_PROFILE.legalName;
-    const vfDob = document.getElementById('vf-dob');
-    if (vfDob) vfDob.textContent = USER_PROFILE.dob;
-    // Sync avatar across all pages if available
-    if (USER_PROFILE.avatar) {
-      ['ai-avatar','vf-avatar'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = `<img src="${USER_PROFILE.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-      });
-    }
-    if (typeof _homeUpdateAvatar === 'function') _homeUpdateAvatar();
-  }, 500);
+  // Sync profile pages with USER_PROFILE on load (initial safety pass — loadDashboard()
+  // จะเรียก _syncAllProfilePages() ซ้ำอีกครั้งทันทีที่ข้อมูลจริงจาก GAS มาถึง ดู [FIX v2.49-PROFILE-SYNC])
+  setTimeout(_syncAllProfilePages, 500);
 })();
+
 
 </script>
 
@@ -28914,8 +29008,10 @@ async function loadDashboard() {
     });
     if (u.main_balance !== undefined) { const _b = parseFloat(u.main_balance); if (!isNaN(_b)) mainWalletBalance = _b; }
     if (u.funding_balance !== undefined) { const _fb = parseFloat(u.funding_balance); if (!isNaN(_fb)) fundingWalletBalance = _fb; }
-    if (typeof _profileRender === 'function') _profileRender();
-    if (typeof _homeUpdateAvatar === 'function') _homeUpdateAvatar();
+    // [FIX v2.49-PROFILE-SYNC] ใช้ _syncAllProfilePages() แทน _profileRender()+_homeUpdateAvatar()
+    // เดิม — เพื่อให้หน้า Account Info (ai-avatar) และ Verification Center (vf-avatar) ได้รับ
+    // avatar_url ที่เพิ่งโหลดมาจาก GAS ด้วย ไม่ใช่แค่หน้า Profile หลักกับ topbar เท่านั้น
+    if (typeof _syncAllProfilePages === 'function') _syncAllProfilePages();
     if (typeof updateSysWalletDisplay === 'function') updateSysWalletDisplay();
     // [FIX-1] ได้ยอดจาก getDashboard แล้ว → อัปเดต Overview/Spot ทันที ไม่รอ Admin GAS
     window._dashboardReady = true;

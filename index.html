@@ -35428,8 +35428,8 @@ function rmToggleProvince() {
   rmLoadTeams();
 }
 
-// ── Load Teams (TH → Worker /api/Team) ──────────────────────
-// ⚠️ INTL PATCH ด้านล่างจะ override ฟังก์ชันนี้สำหรับประเทศนอก TH
+// ── Load Teams (fallback — ถูก override ทั้งหมดโดย INTL PATCH ด้านล่าง) ──
+// [FIX] ไม่ถูกเรียกอีกต่อไป — ทุกประเทศ (TH+INTL) ใช้ gasFetch('getTeams') แทน
 async function rmLoadTeams() {
   const sel = document.getElementById('rm-team');
   if (!sel) return;
@@ -35607,23 +35607,16 @@ async function gasUploadImg(thumbEl) {
   return thumbEl.dataset.gasImgUrl;
 }
 
-// ── Override: rmLoadTeams สำหรับ INTL ────────────────────────
-// TH: ndbFetch Worker (ฟังก์ชันเดิมข้างบน)
-// INTL: gasFetch('getTeams') ผ่าน GAS_INTL
+// ── Override: rmLoadTeams — ทุกประเทศใช้ gasFetch('getTeams') ผ่าน GAS_INTL ──
+// [FIX] Worker /api/Team → Sheets 400 "Unable to parse range: Team"
+// แก้: ทั้ง TH และ INTL ดึงทีมผ่าน GAS_INTL เหมือนกัน หลีกเลี่ยง Worker path
 const _origRmLoadTeams = typeof rmLoadTeams === 'function' ? rmLoadTeams : null;
 async function rmLoadTeamsForCountry(force) {
-  const sel     = document.getElementById('rm-team');
+  const sel = document.getElementById('rm-team');
   if (!sel) return;
-  const country = (document.getElementById('rm-country')?.value || 'TH').trim().toUpperCase();
 
-  if (!_isIntlCountry(country)) {
-    // TH path: ใช้ฟังก์ชันเดิม
-    if (force) sel.innerHTML = '<option value="">-- เลือกทีม --</option>';
-    return _origRmLoadTeams ? _origRmLoadTeams() : undefined;
-  }
-
-  // INTL: ดึงทีมผ่าน GAS_INTL
-  sel.innerHTML = '<option value="">⏳ กำลังโหลดทีม (INTL)...</option>';
+  // ทุกประเทศ (ทั้ง TH และ INTL) ดึงทีมผ่าน GAS_INTL
+  sel.innerHTML = '<option value="">⏳ กำลังโหลดทีม...</option>';
   sel.style.borderColor = 'rgba(240,185,11,.5)';
   try {
     const result = await gasFetch('getTeams');
@@ -35636,9 +35629,12 @@ async function rmLoadTeamsForCountry(force) {
       opt.value = opt.textContent = name;
       sel.appendChild(opt);
     });
+    if (sel.options.length <= 1) {
+      sel.innerHTML = '<option value="">-- ไม่พบข้อมูลทีม --</option>';
+    }
     sel.style.borderColor = '';
   } catch(e) {
-    console.warn('[INTL] getTeams error:', e.message);
+    console.warn('[rmLoadTeams] getTeams error:', e.message);
     sel.innerHTML = '<option value="">⚠️ โหลดทีมไม่สำเร็จ</option>';
     sel.style.borderColor = 'rgba(246,70,93,.5)';
   }

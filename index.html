@@ -8537,6 +8537,9 @@ textarea.tc-inp{resize:vertical;min-height:72px;}
 .tc-err{font-size:.74rem;color:#f87171;margin-top:4px;}
 .tc-protect-opt:hover{background:rgba(240,185,11,.15)!important;border-color:rgba(240,185,11,.5)!important;}
 .page-termcondition-header{background:linear-gradient(135deg,rgba(240,185,11,.08),rgba(240,185,11,.02));border-bottom:1px solid rgba(240,185,11,.15);padding:14px 16px;display:flex;align-items:center;gap:10px;}
+/* ── Register Modal Step Dots ── */
+.rm-step{width:28px;height:6px;border-radius:3px;background:rgba(255,255,255,.12);transition:all .3s;}
+.rm-step.rm-step-active{background:var(--y);width:36px;}
 </style>
 
 <!-- ══════════════════════════════════════════
@@ -8552,7 +8555,202 @@ textarea.tc-inp{resize:vertical;min-height:72px;}
     <div class="lg-sub" data-i18n="login_sub">เข้าสู่ระบบด้วยบัญชีสมาชิก TCC</div>
   </div>
   <div class="lg-flow" id="lg-flow-root"></div>
+  <!-- ── ปุ่มสมัครสมาชิก ── -->
+  <div id="lg-register-link" style="width:100%;max-width:440px;padding:0 16px 32px;text-align:center;display:none;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <div style="flex:1;height:1px;background:rgba(240,185,11,.15);"></div>
+      <span style="font-size:.7rem;color:var(--t2);white-space:nowrap;">ยังไม่มีบัญชี?</span>
+      <div style="flex:1;height:1px;background:rgba(240,185,11,.15);"></div>
+    </div>
+    <button onclick="openRegisterModal()"
+      style="width:100%;padding:11px;background:transparent;border:1px solid rgba(240,185,11,.4);
+             border-radius:8px;color:var(--y);font-size:.86rem;font-weight:700;cursor:pointer;
+             font-family:inherit;transition:all .2s;letter-spacing:.3px;"
+      onmouseover="this.style.background='rgba(240,185,11,.08)'"
+      onmouseout="this.style.background='transparent'">
+      📝 สมัครสมาชิก
+    </button>
+  </div>
 </div>
+
+<!-- ══════════════════════════════════════════
+     REGISTER MODAL
+══════════════════════════════════════════ -->
+<div id="reg-modal-overlay" style="display:none;position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,.75);overflow-y:auto;-webkit-overflow-scrolling:touch;"
+  onclick="if(event.target===this)closeRegisterModal()">
+  <div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:24px 16px 60px;">
+    <div style="width:100%;max-width:520px;background:#0b0e11;border:1px solid rgba(240,185,11,.22);
+                border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);">
+
+      <!-- Header Modal -->
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:18px 20px;border-bottom:1px solid rgba(240,185,11,.12);
+                  background:linear-gradient(135deg,#0f1318,#0b0e11);">
+        <div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:1.2rem;font-weight:700;
+                      color:var(--y);letter-spacing:1.5px;">📝 สมัครสมาชิกใหม่</div>
+          <div style="font-size:.72rem;color:var(--t2);margin-top:2px;">กรอกข้อมูลเพื่อเข้าร่วม Trader Cafe Club</div>
+        </div>
+        <button onclick="closeRegisterModal()"
+          style="width:32px;height:32px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+                 border-radius:8px;color:var(--t2);font-size:1rem;cursor:pointer;display:flex;
+                 align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+      </div>
+
+      <!-- Body Modal -->
+      <div style="padding:20px;">
+
+        <!-- Steps indicator -->
+        <div style="display:flex;gap:8px;margin-bottom:20px;justify-content:center;">
+          <div class="rm-step rm-step-active" id="rm-step-1"></div>
+          <div class="rm-step" id="rm-step-2"></div>
+          <div class="rm-step" id="rm-step-3"></div>
+        </div>
+
+        <!-- Notification bar -->
+        <div id="rm-notify" style="display:none;margin-bottom:14px;padding:12px 16px;
+          border-radius:10px;font-size:.82rem;line-height:1.5;"></div>
+
+        <!-- ── Step 1: ข้อมูลส่วนตัว ── -->
+        <div id="rm-step-panel-1">
+          <div style="color:var(--y);font-weight:700;margin-bottom:14px;font-size:.87rem;">
+            📋 ขั้นตอนที่ 1 จาก 3 — ข้อมูลส่วนตัว
+          </div>
+          <div id="rm-ref-banner" style="display:none;margin-bottom:14px;
+            background:linear-gradient(135deg,rgba(240,185,11,.08),rgba(240,185,11,.03));
+            border:1px solid rgba(240,185,11,.3);border-radius:10px;padding:11px 14px;">
+            <div style="font-size:.68rem;color:var(--t2);margin-bottom:3px;font-weight:600;">🔗 ลิงค์แนะนำจากสมาชิก</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:.82rem;color:var(--y);font-weight:700;">BNB ID ผู้แนะนำ:</span>
+              <span id="rm-ref-display" style="font-family:monospace;font-size:.85rem;color:var(--y);
+                background:rgba(240,185,11,.12);padding:2px 10px;border-radius:5px;"></span>
+            </div>
+            <input type="hidden" id="rm-ref-id" value="">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="grid-column:1/-1;">
+              <label style="font-size:.76rem;color:var(--t2);display:block;margin-bottom:5px;">ชื่อ - สกุล *</label>
+              <input type="text" id="rm-name" placeholder="กรอกชื่อ-สกุล" class="lg-inp">
+            </div>
+            <div>
+              <label style="font-size:.76rem;color:var(--t2);display:block;margin-bottom:5px;">เบอร์โทรศัพท์ *</label>
+              <input type="tel" id="rm-phone" placeholder="+66 8x-xxx-xxxx" class="lg-inp">
+            </div>
+            <div>
+              <label style="font-size:.76rem;color:var(--t2);display:block;margin-bottom:5px;">ทีมสังกัด *</label>
+              <select id="rm-team" class="lg-inp"><option value="">-- เลือกทีม --</option></select>
+            </div>
+            <div>
+              <label style="font-size:.76rem;color:var(--t2);display:block;margin-bottom:5px;">ประเทศ</label>
+              <select id="rm-country" class="lg-inp" onchange="rmToggleProvince()">
+                <option value="TH" selected>🇹🇭 ประเทศไทย</option>
+                <option value="MM">🇲🇲 เมียนมาร์</option>
+                <option value="KH">🇰🇭 กัมพูชา</option>
+                <option value="LA">🇱🇦 ลาว</option>
+                <option value="VN">🇻🇳 เวียดนาม</option>
+                <option value="MY">🇲🇾 มาเลเซีย</option>
+              </select>
+            </div>
+            <div id="rm-province-group" style="grid-column:1/-1;">
+              <label style="font-size:.76rem;color:var(--t2);display:block;margin-bottom:5px;">จังหวัด</label>
+              <select id="rm-province" class="lg-inp"><option value="">-- เลือกจังหวัด --</option></select>
+            </div>
+          </div>
+          <button class="lg-btn lg-btn-gold" onclick="rmNext(2)" style="margin-top:14px;">ถัดไป →</button>
+        </div>
+
+        <!-- ── Step 2: Binance & Wallet ── -->
+        <div id="rm-step-panel-2" style="display:none;">
+          <div style="color:var(--y);font-weight:700;margin-bottom:14px;font-size:.87rem;">
+            💳 ขั้นตอนที่ 2 จาก 3 — ข้อมูล Binance & Wallet
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label style="font-size:.76rem;color:var(--t2);display:block;margin-bottom:5px;">Binance ID (BNB_ID) *</label>
+              <input type="text" id="rm-bnbid" placeholder="กรอก Binance ID" class="lg-inp">
+            </div>
+            <div>
+              <label style="font-size:.76rem;color:var(--t2);display:block;margin-bottom:5px;">
+                🪪 ภาพโปรไฟล์ Binance
+                <span style="background:rgba(246,70,93,.15);border:1px solid rgba(246,70,93,.4);
+                  color:#f6465d;font-size:.62rem;padding:1px 6px;border-radius:8px;font-weight:700;">บังคับ</span>
+              </label>
+              <label id="rm-binance-upload-btn" style="display:flex;align-items:center;justify-content:center;
+                gap:8px;width:100%;padding:10px;border:2px dashed rgba(240,185,11,.35);border-radius:10px;
+                cursor:pointer;background:rgba(240,185,11,.04);transition:all .2s;color:var(--y);font-size:.82rem;"
+                onmouseover="this.style.background='rgba(240,185,11,.09)'"
+                onmouseout="this.style.background='rgba(240,185,11,.04)'">
+                📁 เลือกรูปจากเครื่อง
+                <input type="file" id="rm-binance-img-file" accept="image/*" style="display:none"
+                  onchange="handleImgUpload(this,'rm-binance-preview','rm-binance-thumb','rm-binance-upload-btn')">
+              </label>
+              <div id="rm-binance-preview" style="display:none;margin-top:8px;">
+                <img id="rm-binance-thumb" src="" alt="Binance"
+                  style="width:100%;max-height:150px;border-radius:8px;object-fit:cover;
+                         border:2px solid rgba(240,185,11,.4);display:block;">
+                <button onclick="clearImgUpload('rm-binance-img-file','rm-binance-preview','rm-binance-thumb','rm-binance-upload-btn')"
+                  style="margin-top:5px;padding:3px 10px;background:rgba(246,70,93,.15);
+                    border:1px solid rgba(246,70,93,.4);border-radius:5px;color:#f6465d;
+                    cursor:pointer;font-size:.7rem;">✕ เปลี่ยนรูป</button>
+              </div>
+            </div>
+            <div style="grid-column:1/-1;">
+              <label style="font-size:.76rem;color:var(--t2);display:block;margin-bottom:5px;">กระเป๋า USDT (BEP-20) *</label>
+              <input type="text" id="rm-wallet" placeholder="0x..." class="lg-inp">
+            </div>
+            <div style="grid-column:1/-1;">
+              <label style="font-size:.76rem;color:var(--t2);display:block;margin-bottom:5px;">
+                📷 รูป QR Code กระเป๋า USDT
+                <span style="background:rgba(246,70,93,.15);border:1px solid rgba(246,70,93,.4);
+                  color:#f6465d;font-size:.62rem;padding:1px 6px;border-radius:8px;font-weight:700;">บังคับ</span>
+              </label>
+              <label id="rm-qr-upload-btn" style="display:flex;align-items:center;justify-content:center;
+                gap:8px;width:100%;padding:10px;border:2px dashed rgba(240,185,11,.35);border-radius:10px;
+                cursor:pointer;background:rgba(240,185,11,.04);transition:all .2s;color:var(--y);font-size:.82rem;"
+                onmouseover="this.style.background='rgba(240,185,11,.09)'"
+                onmouseout="this.style.background='rgba(240,185,11,.04)'">
+                📁 เลือกรูป QR Code
+                <input type="file" id="rm-qr-file" accept="image/*" style="display:none"
+                  onchange="handleImgUpload(this,'rm-qr-preview','rm-qr-thumb','rm-qr-upload-btn')">
+              </label>
+              <div id="rm-qr-preview" style="display:none;margin-top:8px;">
+                <img id="rm-qr-thumb" src="" alt="QR Code"
+                  style="width:160px;height:160px;border-radius:10px;object-fit:contain;
+                         border:2px solid rgba(240,185,11,.5);background:rgba(255,255,255,.06);
+                         padding:6px;display:block;">
+                <button onclick="clearImgUpload('rm-qr-file','rm-qr-preview','rm-qr-thumb','rm-qr-upload-btn')"
+                  style="margin-top:5px;padding:3px 10px;background:rgba(246,70,93,.15);
+                    border:1px solid rgba(246,70,93,.4);border-radius:5px;color:#f6465d;
+                    cursor:pointer;font-size:.7rem;">✕ เปลี่ยนรูป</button>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:14px;">
+            <button class="lg-btn lg-btn-out" onclick="rmNext(1)" style="flex:1;">← ย้อนกลับ</button>
+            <button class="lg-btn lg-btn-gold" onclick="rmNext(3)" style="flex:2;">ถัดไป →</button>
+          </div>
+        </div>
+
+        <!-- ── Step 3: ยืนยันข้อมูล ── -->
+        <div id="rm-step-panel-3" style="display:none;">
+          <div style="color:var(--y);font-weight:700;margin-bottom:14px;font-size:.87rem;">
+            ✅ ขั้นตอนที่ 3 จาก 3 — ยืนยันข้อมูล
+          </div>
+          <div id="rm-summary" style="background:rgba(255,255,255,.03);border:1px solid rgba(240,185,11,.15);
+            border-radius:10px;padding:14px;margin-bottom:14px;font-size:.8rem;line-height:1.7;"></div>
+          <div id="rm-result" style="margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;">
+            <button class="lg-btn lg-btn-out" onclick="rmNext(2)" style="flex:1;">← ย้อนกลับ</button>
+            <button class="lg-btn lg-btn-gold" id="rm-submit-btn" onclick="rmSubmit()" style="flex:2;">✅ ยืนยันสมัครสมาชิก</button>
+          </div>
+        </div>
+
+      </div><!-- /body -->
+    </div><!-- /modal box -->
+  </div>
+</div><!-- /reg-modal-overlay -->
+
 <div class="whale-nav-split" id="whaleNavSplit">
   <div class="wns-half" onclick="openMobTgPanel()">
     <span class="wns-ico">🐋</span>
@@ -12348,6 +12546,9 @@ function navTo(page) {
   if (target === 'login') {
     if (bnav) bnav.style.display = 'none';
     if (typeof LG !== 'undefined') { LG.step = 1; LG.member = null; LG.isNewPassword = false; }
+    // แสดงปุ่มสมัครสมาชิก
+    const regLink = document.getElementById('lg-register-link');
+    if (regLink) regLink.style.display = 'block';
     setTimeout(() => { if (typeof lgRender === 'function') lgRender(); }, 50);
     currentPage = target;
     return;
@@ -35068,6 +35269,461 @@ function _wltShareDownloadAndPrompt(addr, qrB64, platform) {
     </div>
   </div>
 </div>
+
+<!-- ══════════════════════════════════════════════════════
+     REGISTER MODULE — Core JS Functions
+     ฟังก์ชันสมัครสมาชิก (TH path ผ่าน Worker)
+     INTL path override อยู่ใน INTL PATCH ด้านล่าง
+══════════════════════════════════════════════════════ -->
+<script>
+// ── จังหวัดไทย ──────────────────────────────────────────────
+const TH_PROVINCES = [
+  'กรุงเทพมหานคร','กระบี่','กาญจนบุรี','กาฬสินธุ์','กำแพงเพชร',
+  'ขอนแก่น','จันทบุรี','ฉะเชิงเทรา','ชลบุรี','ชัยนาท','ชัยภูมิ',
+  'ชุมพร','เชียงราย','เชียงใหม่','ตรัง','ตราด','ตาก','นครนายก',
+  'นครปฐม','นครพนม','นครราชสีมา','นครศรีธรรมราช','นครสวรรค์',
+  'นนทบุรี','นราธิวาส','น่าน','บึงกาฬ','บุรีรัมย์','ปทุมธานี',
+  'ประจวบคีรีขันธ์','ปราจีนบุรี','ปัตตานี','พระนครศรีอยุธยา',
+  'พะเยา','พังงา','พัทลุง','พิจิตร','พิษณุโลก','เพชรบุรี',
+  'เพชรบูรณ์','แพร่','ภูเก็ต','มหาสารคาม','มุกดาหาร','แม่ฮ่องสอน',
+  'ยโสธร','ยะลา','ร้อยเอ็ด','ระนอง','ระยอง','ราชบุรี','ลพบุรี',
+  'ลำปาง','ลำพูน','เลย','ศรีสะเกษ','สกลนคร','สงขลา','สตูล',
+  'สมุทรปราการ','สมุทรสงคราม','สมุทรสาคร','สระแก้ว','สระบุรี',
+  'สิงห์บุรี','สุโขทัย','สุพรรณบุรี','สุราษฎร์ธานี','สุรินทร์',
+  'หนองคาย','หนองบัวลำภู','อ่างทอง','อำนาจเจริญ','อุดรธานี',
+  'อุตรดิตถ์','อุทัยธานี','อุบลราชธานี'
+];
+
+// ── ประเทศที่ใช้ INTL path ──────────────────────────────────
+const INTL_COUNTRY_CODES = ['MM','KH','LA','VN','MY'];
+function _isIntlCountry(code) {
+  return INTL_COUNTRY_CODES.includes(String(code || '').trim().toUpperCase());
+}
+
+// ── Notify bar ──────────────────────────────────────────────
+function rmShowNotify(msg, type) {
+  const el = document.getElementById('rm-notify');
+  if (!el) return;
+  const styles = {
+    error:   'background:rgba(246,70,93,.12);border:1px solid rgba(246,70,93,.4);color:#f6465d;',
+    success: 'background:rgba(14,203,129,.12);border:1px solid rgba(14,203,129,.4);color:#0ecb81;',
+    info:    'background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.3);color:var(--y);',
+  };
+  el.style.cssText = (styles[type] || styles.info) + 'display:block;margin-bottom:14px;padding:12px 16px;border-radius:10px;font-size:.82rem;line-height:1.5;';
+  el.textContent = msg;
+}
+function rmHideNotify() {
+  const el = document.getElementById('rm-notify');
+  if (el) el.style.display = 'none';
+}
+
+// ── Step navigation ─────────────────────────────────────────
+function rmGoToStep(step) {
+  [1,2,3].forEach(n => {
+    const panel = document.getElementById('rm-step-panel-' + n);
+    const dot   = document.getElementById('rm-step-' + n);
+    if (panel) panel.style.display = (n === step) ? '' : 'none';
+    if (dot) {
+      dot.classList.toggle('rm-step-active', n === step);
+    }
+  });
+  rmHideNotify();
+}
+
+function rmNext(step) {
+  // Validate before moving forward
+  if (step === 2) {
+    const name    = (document.getElementById('rm-name')?.value   || '').trim();
+    const phone   = (document.getElementById('rm-phone')?.value  || '').trim();
+    const team    = (document.getElementById('rm-team')?.value   || '').trim();
+    if (!name)  { rmShowNotify('⚠️ กรุณากรอกชื่อ-สกุล', 'error'); return; }
+    if (!phone) { rmShowNotify('⚠️ กรุณากรอกเบอร์โทรศัพท์', 'error'); return; }
+    if (!team)  { rmShowNotify('⚠️ กรุณาเลือกทีมสังกัด', 'error'); return; }
+  }
+  if (step === 3) {
+    const bnbId  = (document.getElementById('rm-bnbid')?.value  || '').trim();
+    const wallet = (document.getElementById('rm-wallet')?.value || '').trim();
+    const bThumb = document.getElementById('rm-binance-thumb');
+    const qThumb = document.getElementById('rm-qr-thumb');
+    if (!bnbId)  { rmShowNotify('⚠️ กรุณากรอก Binance ID', 'error'); return; }
+    if (!wallet) { rmShowNotify('⚠️ กรุณากรอกที่อยู่กระเป๋า USDT', 'error'); return; }
+    if (!bThumb?.dataset?.b64) { rmShowNotify('⚠️ กรุณาเลือกภาพโปรไฟล์ Binance', 'error'); return; }
+    if (!qThumb?.dataset?.b64) { rmShowNotify('⚠️ กรุณาเลือกรูป QR Code กระเป๋า', 'error'); return; }
+    // Build summary
+    const name    = (document.getElementById('rm-name')?.value    || '').trim();
+    const phone   = (document.getElementById('rm-phone')?.value   || '').trim();
+    const team    = (document.getElementById('rm-team')?.value    || '').trim();
+    const country = (document.getElementById('rm-country')?.value || 'TH').trim();
+    const province= (document.getElementById('rm-province')?.value|| '').trim();
+    const refId   = (document.getElementById('rm-ref-id')?.value  || '').trim();
+    const sumEl   = document.getElementById('rm-summary');
+    if (sumEl) {
+      const countryMap = {TH:'🇹🇭 ไทย',MM:'🇲🇲 เมียนมาร์',KH:'🇰🇭 กัมพูชา',LA:'🇱🇦 ลาว',VN:'🇻🇳 เวียดนาม',MY:'🇲🇾 มาเลเซีย'};
+      sumEl.innerHTML = `
+        <div style="display:grid;gap:6px;">
+          <div>👤 <b>ชื่อ:</b> ${name}</div>
+          <div>📞 <b>เบอร์:</b> ${phone}</div>
+          <div>🏷️ <b>ทีม:</b> ${team}</div>
+          <div>🌏 <b>ประเทศ:</b> ${countryMap[country]||country}${province?' — '+province:''}</div>
+          <div>🆔 <b>BNB_ID:</b> ${bnbId}</div>
+          <div>💼 <b>Wallet:</b> <span style="font-family:monospace;font-size:.75rem;">${wallet}</span></div>
+          ${refId ? `<div>🔗 <b>ผู้แนะนำ:</b> ${refId}</div>` : ''}
+        </div>`;
+    }
+  }
+  rmGoToStep(step);
+}
+
+// ── Image upload handler ─────────────────────────────────────
+function handleImgUpload(input, previewId, thumbId, btnId) {
+  const file = input.files[0];
+  if (!file) return;
+  // Limit 5MB
+  if (file.size > 5 * 1024 * 1024) {
+    rmShowNotify('⚠️ ไฟล์ใหญ่เกินไป (max 5MB)', 'error');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const thumb   = document.getElementById(thumbId);
+    const preview = document.getElementById(previewId);
+    const btn     = document.getElementById(btnId);
+    if (thumb) {
+      thumb.src = e.target.result;
+      thumb.dataset.b64 = e.target.result; // เก็บ base64 ไว้ upload
+    }
+    if (preview) preview.style.display = 'block';
+    if (btn) btn.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImgUpload(inputId, previewId, thumbId, btnId) {
+  const input   = document.getElementById(inputId);
+  const thumb   = document.getElementById(thumbId);
+  const preview = document.getElementById(previewId);
+  const btn     = document.getElementById(btnId);
+  if (input)   { input.value = ''; }
+  if (thumb)   { thumb.src = ''; delete thumb.dataset.b64; delete thumb.dataset.workerImgUrl; }
+  if (preview) preview.style.display = 'none';
+  if (btn)     btn.style.display = '';
+}
+
+// ── Province toggle ──────────────────────────────────────────
+function rmToggleProvince() {
+  const country  = (document.getElementById('rm-country')?.value || 'TH').trim().toUpperCase();
+  const group    = document.getElementById('rm-province-group');
+  const sel      = document.getElementById('rm-province');
+  if (!group || !sel) return;
+  if (country === 'TH') {
+    group.style.display = '';
+    sel.innerHTML = '<option value="">-- เลือกจังหวัด --</option>'
+      + TH_PROVINCES.map(p => `<option value="${p}">${p}</option>`).join('');
+  } else {
+    group.style.display = 'none';
+    sel.innerHTML = '<option value="">-</option>';
+  }
+  // Reload teams from correct source when country changes
+  rmLoadTeams();
+}
+
+// ── Load Teams (TH → Worker /api/Team) ──────────────────────
+// ⚠️ INTL PATCH ด้านล่างจะ override ฟังก์ชันนี้สำหรับประเทศนอก TH
+async function rmLoadTeams() {
+  const sel = document.getElementById('rm-team');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">⏳ กำลังโหลดทีม...</option>';
+  try {
+    const data = await ndbFetch('Team', { limit: 100 });
+    const rows = data.list || data.data?.list || (Array.isArray(data) ? data : []);
+    sel.innerHTML = '<option value="">-- เลือกทีม --</option>';
+    rows.forEach(t => {
+      const name = t['team_name'] || t['ชื่อทีม'] || '';
+      if (!name) return;
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = name;
+      sel.appendChild(opt);
+    });
+    if (sel.options.length <= 1) {
+      sel.innerHTML = '<option value="">-- ไม่พบข้อมูลทีม --</option>';
+    }
+  } catch(e) {
+    console.warn('[rmLoadTeams] error:', e.message);
+    sel.innerHTML = '<option value="">⚠️ โหลดทีมไม่สำเร็จ</option>';
+  }
+}
+
+// ── Open / Close Register Modal ──────────────────────────────
+function openRegisterModal() {
+  const overlay = document.getElementById('reg-modal-overlay');
+  if (overlay) overlay.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+
+  // ดึง ref จาก sessionStorage (ถ้ามี)
+  try {
+    const ref = sessionStorage.getItem('tcc_ref') || '';
+    const refBanner  = document.getElementById('rm-ref-banner');
+    const refDisplay = document.getElementById('rm-ref-display');
+    const refInput   = document.getElementById('rm-ref-id');
+    if (ref && refBanner && refDisplay && refInput) {
+      refDisplay.textContent = ref;
+      refInput.value = ref;
+      refBanner.style.display = 'block';
+    }
+  } catch(e) {}
+
+  // Populate provinces for TH (default)
+  rmToggleProvince();
+
+  // Go to step 1
+  rmGoToStep(1);
+
+  // โหลดทีม
+  rmLoadTeams();
+}
+
+function closeRegisterModal() {
+  const overlay = document.getElementById('reg-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// ── Submit Register (TH → Worker /api/members) ──────────────
+// ⚠️ INTL PATCH ด้านล่างจะ override ฟังก์ชันนี้สำหรับประเทศ INTL
+async function rmSubmit() {
+  const country  = (document.getElementById('rm-country')?.value  || 'TH').trim().toUpperCase();
+  const bnbId    = (document.getElementById('rm-bnbid')?.value    || '').trim();
+  const name     = (document.getElementById('rm-name')?.value     || '').trim();
+  const phone    = (document.getElementById('rm-phone')?.value    || '').trim().replace(/[^0-9+]/g,'');
+  const team     = (document.getElementById('rm-team')?.value     || '').trim();
+  const province = (document.getElementById('rm-province')?.value || '').trim();
+  const refId    = (document.getElementById('rm-ref-id')?.value   || '').trim();
+  const wallet   = (document.getElementById('rm-wallet')?.value   || '').trim();
+  const bThumb   = document.getElementById('rm-binance-thumb');
+  const qThumb   = document.getElementById('rm-qr-thumb');
+
+  if (!bnbId || !name || !phone || !team) {
+    rmShowNotify('❌ กรุณากรอกข้อมูลให้ครบ (BNB_ID, ชื่อ, เบอร์, ทีม)', 'error'); return;
+  }
+  if (!bThumb?.dataset?.b64) { rmShowNotify('⚠️ กรุณาเลือกภาพโปรไฟล์ Binance', 'error'); return; }
+  if (!qThumb?.dataset?.b64) { rmShowNotify('⚠️ กรุณาเลือกรูป QR Code กระเป๋า', 'error'); return; }
+
+  const btn = document.getElementById('rm-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังส่งข้อมูล...'; }
+
+  try {
+    // ── อัปโหลดรูปผ่าน Worker ──
+    rmShowNotify('⏳ กำลังอัปโหลดภาพโปรไฟล์ Binance...', 'info');
+    const binanceUrl = await _rmUploadImgWorker(bThumb);
+    if (!binanceUrl) throw new Error('อัปโหลดภาพโปรไฟล์ไม่สำเร็จ');
+
+    rmShowNotify('⏳ กำลังอัปโหลด QR Code...', 'info');
+    const qrUrl = await _rmUploadImgWorker(qThumb);
+    if (!qrUrl) throw new Error('อัปโหลด QR Code ไม่สำเร็จ');
+
+    rmShowNotify('⏳ กำลังลงทะเบียน...', 'info');
+    if (btn) btn.textContent = '⏳ กำลังลงทะเบียน...';
+
+    // ── POST ไป Worker /api/members ──
+    const res = await fetch(`${WORKER_URL}/api/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        BNB_ID: bnbId, Name: name, Phone: phone, Team: team,
+        Country: country, Province: province, ReferrerId: refId,
+        'Address Wallet': wallet, 'QR Code': qrUrl, Binance_IMG: binanceUrl,
+        Status: 'Pending',
+      }),
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `Worker ${res.status}`); }
+
+    rmShowNotify('✅ ลงทะเบียนสำเร็จ! กรุณารอ admin อนุมัติ', 'success');
+    if (btn) { btn.disabled = false; btn.textContent = '✅ ยืนยันสมัครสมาชิก'; }
+
+    // Reset fields & close after delay
+    setTimeout(() => {
+      ['rm-name','rm-phone','rm-bnbid','rm-wallet'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      ['rm-team','rm-country','rm-province'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
+      clearImgUpload('rm-binance-img-file','rm-binance-preview','rm-binance-thumb','rm-binance-upload-btn');
+      clearImgUpload('rm-qr-file','rm-qr-preview','rm-qr-thumb','rm-qr-upload-btn');
+      closeRegisterModal();
+      navTo('login');
+    }, 2000);
+  } catch(e) {
+    rmShowNotify('❌ ลงทะเบียนไม่สำเร็จ: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '✅ ยืนยันสมัครสมาชิก'; }
+  }
+}
+
+// ── Upload image ผ่าน Worker (TH path) ──────────────────────
+async function _rmUploadImgWorker(thumbEl) {
+  if (!thumbEl || !thumbEl.dataset.b64) return '';
+  if (thumbEl.dataset.workerImgUrl) return thumbEl.dataset.workerImgUrl;
+  const res = await fetch(`${WORKER_URL}/api/upload-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: thumbEl.dataset.b64 }),
+  });
+  if (!res.ok) throw new Error('Upload failed: ' + res.status);
+  const json = await res.json();
+  const url = json.url || json.data?.url || '';
+  thumbEl.dataset.workerImgUrl = url;
+  return url;
+}
+</script>
+
+<!-- ══════════════════════════════════════════════════════
+     TCC INTL PATCH — v1.0
+     Register routing: ประเทศ INTL → GAS_INTL แทน Worker
+     วางหลัง Register Module ก่อน </body>
+     ⚠️ ไม่ override login flow (ใช้ TH Worker เดิม)
+══════════════════════════════════════════════════════ -->
+<script>
+// ── CONFIG ────────────────────────────────────────────────────
+const GAS_INTL_URL = 'https://script.google.com/macros/s/AKfycbxD1sUK4U5jj57OaGzzUqRZWxJpnHmCEWQk0HpOePGGhPVCLUx5Hc1QjoY-vyUGwdZa/exec';
+
+// ── GAS INTL Fetch Helper ─────────────────────────────────────
+// ใช้ Content-Type: text/plain เพื่อไม่ trigger CORS preflight (OPTIONS)
+// GAS Web App ไม่รองรับ OPTIONS request — ถ้าใช้ application/json จะโดน CORS บล็อก
+async function gasFetch(action, params = {}) {
+  const res = await fetch(GAS_INTL_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body:    JSON.stringify({ action, ...params }),
+  });
+  if (!res.ok) throw new Error('GAS_INTL HTTP ' + res.status);
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'GAS_INTL error');
+  return json.data;
+}
+
+// ── อัปโหลดรูปผ่าน GAS_INTL (สำหรับประเทศที่ Worker บล็อก) ──
+async function gasUploadImg(thumbEl) {
+  if (!thumbEl || !thumbEl.dataset.b64) return '';
+  if (thumbEl.dataset.gasImgUrl) return thumbEl.dataset.gasImgUrl;
+  const data = await gasFetch('uploadImage', { image: thumbEl.dataset.b64 });
+  thumbEl.dataset.gasImgUrl = data.url || '';
+  return thumbEl.dataset.gasImgUrl;
+}
+
+// ── Override: rmLoadTeams สำหรับ INTL ────────────────────────
+// TH: ndbFetch Worker (ฟังก์ชันเดิมข้างบน)
+// INTL: gasFetch('getTeams') ผ่าน GAS_INTL
+const _origRmLoadTeams = typeof rmLoadTeams === 'function' ? rmLoadTeams : null;
+async function rmLoadTeamsForCountry(force) {
+  const sel     = document.getElementById('rm-team');
+  if (!sel) return;
+  const country = (document.getElementById('rm-country')?.value || 'TH').trim().toUpperCase();
+
+  if (!_isIntlCountry(country)) {
+    // TH path: ใช้ฟังก์ชันเดิม
+    if (force) sel.innerHTML = '<option value="">-- เลือกทีม --</option>';
+    return _origRmLoadTeams ? _origRmLoadTeams() : undefined;
+  }
+
+  // INTL: ดึงทีมผ่าน GAS_INTL
+  sel.innerHTML = '<option value="">⏳ กำลังโหลดทีม (INTL)...</option>';
+  sel.style.borderColor = 'rgba(240,185,11,.5)';
+  try {
+    const result = await gasFetch('getTeams');
+    const teams  = result.teams || [];
+    sel.innerHTML = '<option value="">-- เลือกทีม --</option>';
+    teams.forEach(t => {
+      const name = t['team_name'] || t['ประเภทของกลุ่ม'] || t['Field 2'] || '';
+      if (!name) return;
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = name;
+      sel.appendChild(opt);
+    });
+    sel.style.borderColor = '';
+  } catch(e) {
+    console.warn('[INTL] getTeams error:', e.message);
+    sel.innerHTML = '<option value="">⚠️ โหลดทีมไม่สำเร็จ</option>';
+    sel.style.borderColor = 'rgba(246,70,93,.5)';
+  }
+}
+// Override rmLoadTeams และ rmToggleProvince
+rmLoadTeams = function() { return rmLoadTeamsForCountry(false); };
+
+const _origRmToggleProvince = typeof rmToggleProvince === 'function' ? rmToggleProvince : null;
+rmToggleProvince = function() {
+  if (_origRmToggleProvince) _origRmToggleProvince();
+  rmLoadTeamsForCountry(true); // force reload ทีมตามประเทศที่เพิ่งเลือก
+};
+
+// ── Override: rmSubmit สำหรับ INTL ───────────────────────────
+// ใช้ rm-country dropdown เป็น source of truth (ไม่ใช้ IP detection)
+const _origRmSubmit = typeof rmSubmit === 'function' ? rmSubmit : null;
+rmSubmit = async function() {
+  const country = (document.getElementById('rm-country')?.value || 'TH').trim().toUpperCase();
+
+  // TH path: ใช้ฟังก์ชันเดิม (Worker)
+  if (!_isIntlCountry(country)) {
+    return _origRmSubmit ? _origRmSubmit() : undefined;
+  }
+
+  // INTL path: ผ่าน GAS_INTL
+  const bnbId    = (document.getElementById('rm-bnbid')?.value    || '').trim();
+  const name     = (document.getElementById('rm-name')?.value     || '').trim();
+  const phone    = (document.getElementById('rm-phone')?.value    || '').trim().replace(/[^0-9]/g,'');
+  const team     = (document.getElementById('rm-team')?.value     || '').trim();
+  const province = (document.getElementById('rm-province')?.value || '').trim();
+  const refId    = (document.getElementById('rm-ref-id')?.value   || '').trim();
+  const wallet   = (document.getElementById('rm-wallet')?.value   || '').trim();
+
+  if (!bnbId || !name || !phone || !team) {
+    rmShowNotify('❌ กรุณากรอกข้อมูลให้ครบ (BNB_ID, ชื่อ, เบอร์, ทีม)', 'error'); return;
+  }
+
+  const bThumb = document.getElementById('rm-binance-thumb');
+  const qThumb = document.getElementById('rm-qr-thumb');
+  if (!bThumb?.dataset?.b64) { rmShowNotify('⚠️ กรุณาเลือกภาพโปรไฟล์ Binance', 'error'); return; }
+  if (!qThumb?.dataset?.b64) { rmShowNotify('⚠️ กรุณาเลือกรูป QR Code กระเป๋า', 'error'); return; }
+
+  const btn = document.getElementById('rm-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังอัปโหลดรูปภาพ...'; }
+
+  try {
+    rmShowNotify('⏳ กำลังอัปโหลดภาพโปรไฟล์ Binance (ระบบนานาชาติ)...', 'info');
+    const binanceUrl = await gasUploadImg(bThumb);
+    if (!binanceUrl) throw new Error('อัปโหลดภาพโปรไฟล์ไม่สำเร็จ');
+
+    rmShowNotify('⏳ กำลังอัปโหลด QR Code (ระบบนานาชาติ)...', 'info');
+    const qrUrl = await gasUploadImg(qThumb);
+    if (!qrUrl) throw new Error('อัปโหลด QR Code ไม่สำเร็จ');
+
+    if (btn) btn.textContent = '⏳ กำลังลงทะเบียน (ระบบนานาชาติ)...';
+    rmShowNotify('⏳ กำลังลงทะเบียน (ระบบนานาชาติ)...', 'info');
+
+    const result = await gasFetch('register', {
+      bnbId, name, phone, team, country, province,
+      referrerId: refId, addressWallet: wallet,
+      qrCode: qrUrl, binanceImg: binanceUrl,
+    });
+
+    rmShowNotify('✅ ลงทะเบียนสำเร็จ! BNB_ID: ' + result.bnbId, 'success');
+    if (btn) { btn.disabled = false; btn.textContent = '✅ ยืนยันสมัครสมาชิก'; }
+
+    setTimeout(() => {
+      ['rm-name','rm-phone','rm-bnbid','rm-wallet'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      ['rm-team','rm-country','rm-province'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
+      clearImgUpload('rm-binance-img-file','rm-binance-preview','rm-binance-thumb','rm-binance-upload-btn');
+      clearImgUpload('rm-qr-file','rm-qr-preview','rm-qr-thumb','rm-qr-upload-btn');
+      closeRegisterModal();
+      navTo('login');
+    }, 2000);
+  } catch(e) {
+    rmShowNotify('❌ ลงทะเบียนไม่สำเร็จ: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '✅ ยืนยันสมัครสมาชิก'; }
+  }
+};
+
+// ── Re-expose on window (ป้องกัน onclick ใช้ function เก่า) ──
+window.rmSubmit         = rmSubmit;
+window.rmLoadTeams      = rmLoadTeams;
+window.rmToggleProvince = rmToggleProvince;
+</script>
 
 </body>
 </html>

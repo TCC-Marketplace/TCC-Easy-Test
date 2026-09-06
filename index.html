@@ -8537,7 +8537,7 @@ textarea.tc-inp{resize:vertical;min-height:72px;}
 .tc-err{font-size:.74rem;color:#f87171;margin-top:4px;}
 .tc-protect-opt:hover{background:rgba(240,185,11,.15)!important;border-color:rgba(240,185,11,.5)!important;}
 .page-termcondition-header{background:linear-gradient(135deg,rgba(240,185,11,.08),rgba(240,185,11,.02));border-bottom:1px solid rgba(240,185,11,.15);padding:14px 16px;display:flex;align-items:center;gap:10px;}
-/* ── Register Modal Step Dots ── */
+/* ── Register Modal ── */
 .rm-step{width:28px;height:6px;border-radius:3px;background:rgba(255,255,255,.12);transition:all .3s;}
 .rm-step.rm-step-active{background:var(--y);width:36px;}
 </style>
@@ -8555,7 +8555,6 @@ textarea.tc-inp{resize:vertical;min-height:72px;}
     <div class="lg-sub" data-i18n="login_sub">เข้าสู่ระบบด้วยบัญชีสมาชิก TCC</div>
   </div>
   <div class="lg-flow" id="lg-flow-root"></div>
-  <!-- ── ปุ่มสมัครสมาชิก ── -->
   <div id="lg-register-link" style="width:100%;max-width:440px;padding:0 16px 32px;text-align:center;display:none;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
       <div style="flex:1;height:1px;background:rgba(240,185,11,.15);"></div>
@@ -12546,10 +12545,10 @@ function navTo(page) {
   if (target === 'login') {
     if (bnav) bnav.style.display = 'none';
     if (typeof LG !== 'undefined') { LG.step = 1; LG.member = null; LG.isNewPassword = false; }
+    setTimeout(() => { if (typeof lgRender === 'function') lgRender(); }, 50);
     // แสดงปุ่มสมัครสมาชิก
     const regLink = document.getElementById('lg-register-link');
     if (regLink) regLink.style.display = 'block';
-    setTimeout(() => { if (typeof lgRender === 'function') lgRender(); }, 50);
     currentPage = target;
     return;
   } else {
@@ -35272,8 +35271,8 @@ function _wltShareDownloadAndPrompt(addr, qrB64, platform) {
 
 <!-- ══════════════════════════════════════════════════════
      REGISTER MODULE — Core JS Functions
-     ฟังก์ชันสมัครสมาชิก (TH path ผ่าน Worker)
-     INTL path override อยู่ใน INTL PATCH ด้านล่าง
+     ทุกประเทศ (TH+INTL) submit ผ่าน GAS_INTL
+     (Worker /api/upload-image และ /api/members อาจบล็อกบางประเทศ)
 ══════════════════════════════════════════════════════ -->
 <script>
 // ── จังหวัดไทย ──────────────────────────────────────────────
@@ -35323,19 +35322,16 @@ function rmGoToStep(step) {
     const panel = document.getElementById('rm-step-panel-' + n);
     const dot   = document.getElementById('rm-step-' + n);
     if (panel) panel.style.display = (n === step) ? '' : 'none';
-    if (dot) {
-      dot.classList.toggle('rm-step-active', n === step);
-    }
+    if (dot) dot.classList.toggle('rm-step-active', n === step);
   });
   rmHideNotify();
 }
 
 function rmNext(step) {
-  // Validate before moving forward
   if (step === 2) {
-    const name    = (document.getElementById('rm-name')?.value   || '').trim();
-    const phone   = (document.getElementById('rm-phone')?.value  || '').trim();
-    const team    = (document.getElementById('rm-team')?.value   || '').trim();
+    const name  = (document.getElementById('rm-name')?.value  || '').trim();
+    const phone = (document.getElementById('rm-phone')?.value || '').trim();
+    const team  = (document.getElementById('rm-team')?.value  || '').trim();
     if (!name)  { rmShowNotify('⚠️ กรุณากรอกชื่อ-สกุล', 'error'); return; }
     if (!phone) { rmShowNotify('⚠️ กรุณากรอกเบอร์โทรศัพท์', 'error'); return; }
     if (!team)  { rmShowNotify('⚠️ กรุณาเลือกทีมสังกัด', 'error'); return; }
@@ -35350,13 +35346,13 @@ function rmNext(step) {
     if (!bThumb?.dataset?.b64) { rmShowNotify('⚠️ กรุณาเลือกภาพโปรไฟล์ Binance', 'error'); return; }
     if (!qThumb?.dataset?.b64) { rmShowNotify('⚠️ กรุณาเลือกรูป QR Code กระเป๋า', 'error'); return; }
     // Build summary
-    const name    = (document.getElementById('rm-name')?.value    || '').trim();
-    const phone   = (document.getElementById('rm-phone')?.value   || '').trim();
-    const team    = (document.getElementById('rm-team')?.value    || '').trim();
-    const country = (document.getElementById('rm-country')?.value || 'TH').trim();
-    const province= (document.getElementById('rm-province')?.value|| '').trim();
-    const refId   = (document.getElementById('rm-ref-id')?.value  || '').trim();
-    const sumEl   = document.getElementById('rm-summary');
+    const name     = (document.getElementById('rm-name')?.value     || '').trim();
+    const phone    = (document.getElementById('rm-phone')?.value    || '').trim();
+    const team     = (document.getElementById('rm-team')?.value     || '').trim();
+    const country  = (document.getElementById('rm-country')?.value  || 'TH').trim();
+    const province = (document.getElementById('rm-province')?.value || '').trim();
+    const refId    = (document.getElementById('rm-ref-id')?.value   || '').trim();
+    const sumEl    = document.getElementById('rm-summary');
     if (sumEl) {
       const countryMap = {TH:'🇹🇭 ไทย',MM:'🇲🇲 เมียนมาร์',KH:'🇰🇭 กัมพูชา',LA:'🇱🇦 ลาว',VN:'🇻🇳 เวียดนาม',MY:'🇲🇾 มาเลเซีย'};
       sumEl.innerHTML = `
@@ -35378,7 +35374,6 @@ function rmNext(step) {
 function handleImgUpload(input, previewId, thumbId, btnId) {
   const file = input.files[0];
   if (!file) return;
-  // Limit 5MB
   if (file.size > 5 * 1024 * 1024) {
     rmShowNotify('⚠️ ไฟล์ใหญ่เกินไป (max 5MB)', 'error');
     input.value = '';
@@ -35389,12 +35384,9 @@ function handleImgUpload(input, previewId, thumbId, btnId) {
     const thumb   = document.getElementById(thumbId);
     const preview = document.getElementById(previewId);
     const btn     = document.getElementById(btnId);
-    if (thumb) {
-      thumb.src = e.target.result;
-      thumb.dataset.b64 = e.target.result; // เก็บ base64 ไว้ upload
-    }
+    if (thumb)   { thumb.src = e.target.result; thumb.dataset.b64 = e.target.result; }
     if (preview) preview.style.display = 'block';
-    if (btn) btn.style.display = 'none';
+    if (btn)     btn.style.display = 'none';
   };
   reader.readAsDataURL(file);
 }
@@ -35404,17 +35396,17 @@ function clearImgUpload(inputId, previewId, thumbId, btnId) {
   const thumb   = document.getElementById(thumbId);
   const preview = document.getElementById(previewId);
   const btn     = document.getElementById(btnId);
-  if (input)   { input.value = ''; }
-  if (thumb)   { thumb.src = ''; delete thumb.dataset.b64; delete thumb.dataset.workerImgUrl; }
+  if (input)   input.value = '';
+  if (thumb)   { thumb.src = ''; delete thumb.dataset.b64; delete thumb.dataset.gasImgUrl; }
   if (preview) preview.style.display = 'none';
   if (btn)     btn.style.display = '';
 }
 
 // ── Province toggle ──────────────────────────────────────────
 function rmToggleProvince() {
-  const country  = (document.getElementById('rm-country')?.value || 'TH').trim().toUpperCase();
-  const group    = document.getElementById('rm-province-group');
-  const sel      = document.getElementById('rm-province');
+  const country = (document.getElementById('rm-country')?.value || 'TH').trim().toUpperCase();
+  const group   = document.getElementById('rm-province-group');
+  const sel     = document.getElementById('rm-province');
   if (!group || !sel) return;
   if (country === 'TH') {
     group.style.display = '';
@@ -35424,43 +35416,14 @@ function rmToggleProvince() {
     group.style.display = 'none';
     sel.innerHTML = '<option value="">-</option>';
   }
-  // รีเซ็ต dropdown ทีมแล้วโหลดใหม่ทุกครั้งที่เปลี่ยนประเทศ
-  const teamSel = document.getElementById('rm-team');
-  if (teamSel) teamSel.innerHTML = '<option value="">-- เลือกทีม --</option>';
-  rmLoadTeams();
+  if (typeof rmLoadTeams === 'function') rmLoadTeams();
 }
 
-// ── Load Teams (ทุกประเทศ → GAS_INTL getTeams) ─────────────
-// ใช้ GAS เป็น source เดียวสำหรับทุกประเทศ (TH + INTL)
-// เพราะ Worker /api/Team ส่ง 500 error ทำให้ทีมไม่ขึ้น
-// NOTE: INTL PATCH ด้านล่างจะ override ฟังก์ชันนี้อีกครั้ง
-// แต่ logic เหมือนกัน (gasFetch) จึงไม่กระทบผลลัพธ์
+// ── Load Teams (placeholder — override ทันทีโดย INTL PATCH ──
 async function rmLoadTeams() {
   const sel = document.getElementById('rm-team');
   if (!sel) return;
   sel.innerHTML = '<option value="">⏳ กำลังโหลดทีม...</option>';
-  try {
-    // gasFetch ต้องการ GAS_INTL_URL — ถูก define ใน INTL PATCH block ด้านล่าง
-    // ใช้ผ่าน window scope เพื่อให้ทำงานได้ทั้งก่อน/หลัง INTL PATCH โหลด
-    const result = await (typeof gasFetch === 'function'
-      ? gasFetch('getTeams')
-      : Promise.reject(new Error('gasFetch not ready')));
-    const teams = result.teams || [];
-    sel.innerHTML = '<option value="">-- เลือกทีม --</option>';
-    teams.forEach(t => {
-      const name = t['team_name'] || t['ชื่อทีม'] || '';
-      if (!name) return;
-      const opt = document.createElement('option');
-      opt.value = opt.textContent = name;
-      sel.appendChild(opt);
-    });
-    if (sel.options.length <= 1) {
-      sel.innerHTML = '<option value="">-- ไม่พบข้อมูลทีม --</option>';
-    }
-  } catch(e) {
-    console.warn('[rmLoadTeams] error:', e.message);
-    sel.innerHTML = '<option value="">⚠️ โหลดทีมไม่สำเร็จ</option>';
-  }
 }
 
 // ── Open / Close Register Modal ──────────────────────────────
@@ -35468,10 +35431,8 @@ function openRegisterModal() {
   const overlay = document.getElementById('reg-modal-overlay');
   if (overlay) overlay.style.display = 'block';
   document.body.style.overflow = 'hidden';
-
-  // ดึง ref จาก sessionStorage (ถ้ามี)
   try {
-    const ref = sessionStorage.getItem('tcc_ref') || '';
+    const ref        = sessionStorage.getItem('tcc_ref') || '';
     const refBanner  = document.getElementById('rm-ref-banner');
     const refDisplay = document.getElementById('rm-ref-display');
     const refInput   = document.getElementById('rm-ref-id');
@@ -35481,12 +35442,9 @@ function openRegisterModal() {
       refBanner.style.display = 'block';
     }
   } catch(e) {}
-
-  // Populate provinces + โหลดทีม (rmToggleProvince เรียก rmLoadTeams อัตโนมัติ)
   rmToggleProvince();
-
-  // Go to step 1
   rmGoToStep(1);
+  if (typeof rmLoadTeams === 'function') rmLoadTeams();
 }
 
 function closeRegisterModal() {
@@ -35495,12 +35453,85 @@ function closeRegisterModal() {
   document.body.style.overflow = '';
 }
 
-// ── Submit Register (ทุกประเทศ → GAS_INTL) ─────────────────
-// ใช้ GAS เป็น path เดียวสำหรับทุกประเทศ (TH + INTL)
-// เพราะ Worker /api/upload-image และ /api/members ส่ง 500/400 error
-// NOTE: INTL PATCH ด้านล่างจะ override ฟังก์ชันนี้อีกครั้ง
-// แต่ logic เหมือนกัน (gasFetch) จึงไม่กระทบผลลัพธ์
+// ── rmSubmit placeholder — override ทันทีโดย INTL PATCH ─────
 async function rmSubmit() {
+  rmShowNotify('⏳ กำลังเตรียมระบบ...', 'info');
+}
+</script>
+
+<!-- ══════════════════════════════════════════════════════
+     TCC INTL PATCH — v1.0
+     Register routing: ทุกประเทศ → GAS_INTL
+     (แก้ไข: ไม่พึ่ง Worker /api/upload-image, /api/members, /api/Team
+      ซึ่งอาจถูกบล็อกหรือ error 500 ในบางประเทศ/เครือข่าย)
+══════════════════════════════════════════════════════ -->
+<script>
+// ── CONFIG ────────────────────────────────────────────────────
+const GAS_INTL_URL = 'https://script.google.com/macros/s/AKfycbxD1sUK4U5jj57OaGzzUqRZWxJpnHmCEWQk0HpOePGGhPVCLUx5Hc1QjoY-vyUGwdZa/exec';
+
+// ── GAS INTL Fetch Helper ─────────────────────────────────────
+// Content-Type: text/plain เพื่อไม่ trigger CORS preflight (OPTIONS)
+async function gasFetch(action, params = {}) {
+  const res = await fetch(GAS_INTL_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body:    JSON.stringify({ action, ...params }),
+  });
+  if (!res.ok) throw new Error('GAS_INTL HTTP ' + res.status);
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'GAS_INTL error');
+  return json.data;
+}
+
+// ── อัปโหลดรูปผ่าน GAS_INTL ────────────────────────────────
+async function gasUploadImg(thumbEl) {
+  if (!thumbEl || !thumbEl.dataset.b64) return '';
+  if (thumbEl.dataset.gasImgUrl) return thumbEl.dataset.gasImgUrl;
+  const data = await gasFetch('uploadImage', { image: thumbEl.dataset.b64 });
+  thumbEl.dataset.gasImgUrl = data.url || '';
+  return thumbEl.dataset.gasImgUrl;
+}
+
+// ── Override: rmLoadTeams — ทุกประเทศใช้ gasFetch('getTeams') ──
+// [FIX] Worker /api/Team → Sheets 400 "Unable to parse range: Team"
+async function rmLoadTeamsForCountry() {
+  const sel = document.getElementById('rm-team');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">⏳ กำลังโหลดทีม...</option>';
+  sel.style.borderColor = 'rgba(240,185,11,.5)';
+  try {
+    const result = await gasFetch('getTeams');
+    const teams  = result.teams || [];
+    sel.innerHTML = '<option value="">-- เลือกทีม --</option>';
+    teams.forEach(t => {
+      const name = t['team_name'] || t['ประเภทของกลุ่ม'] || t['Field 2'] || '';
+      if (!name) return;
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = name;
+      sel.appendChild(opt);
+    });
+    if (sel.options.length <= 1) {
+      sel.innerHTML = '<option value="">-- ไม่พบข้อมูลทีม --</option>';
+    }
+    sel.style.borderColor = '';
+  } catch(e) {
+    console.warn('[rmLoadTeams] getTeams error:', e.message);
+    sel.innerHTML = '<option value="">⚠️ โหลดทีมไม่สำเร็จ</option>';
+    sel.style.borderColor = 'rgba(246,70,93,.5)';
+  }
+}
+rmLoadTeams = function() { return rmLoadTeamsForCountry(); };
+
+// Override rmToggleProvince ให้ reload ทีมทุกครั้งที่เปลี่ยนประเทศ
+const _origRmToggleProvince = typeof rmToggleProvince === 'function' ? rmToggleProvince : null;
+rmToggleProvince = function() {
+  if (_origRmToggleProvince) _origRmToggleProvince();
+  rmLoadTeamsForCountry();
+};
+
+// ── Override: rmSubmit — ทุกประเทศใช้ gasUploadImg + gasFetch('register') ──
+// [FIX] Worker /api/upload-image → 500, /api/members → อาจบล็อก
+rmSubmit = async function() {
   const country  = (document.getElementById('rm-country')?.value  || 'TH').trim().toUpperCase();
   const bnbId    = (document.getElementById('rm-bnbid')?.value    || '').trim();
   const name     = (document.getElementById('rm-name')?.value     || '').trim();
@@ -35509,20 +35540,20 @@ async function rmSubmit() {
   const province = (document.getElementById('rm-province')?.value || '').trim();
   const refId    = (document.getElementById('rm-ref-id')?.value   || '').trim();
   const wallet   = (document.getElementById('rm-wallet')?.value   || '').trim();
-  const bThumb   = document.getElementById('rm-binance-thumb');
-  const qThumb   = document.getElementById('rm-qr-thumb');
 
   if (!bnbId || !name || !phone || !team) {
     rmShowNotify('❌ กรุณากรอกข้อมูลให้ครบ (BNB_ID, ชื่อ, เบอร์, ทีม)', 'error'); return;
   }
+
+  const bThumb = document.getElementById('rm-binance-thumb');
+  const qThumb = document.getElementById('rm-qr-thumb');
   if (!bThumb?.dataset?.b64) { rmShowNotify('⚠️ กรุณาเลือกภาพโปรไฟล์ Binance', 'error'); return; }
   if (!qThumb?.dataset?.b64) { rmShowNotify('⚠️ กรุณาเลือกรูป QR Code กระเป๋า', 'error'); return; }
 
   const btn = document.getElementById('rm-submit-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังส่งข้อมูล...'; }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังอัปโหลดรูปภาพ...'; }
 
   try {
-    // ── อัปโหลดรูปผ่าน GAS (ทุกประเทศ) ──
     rmShowNotify('⏳ กำลังอัปโหลดภาพโปรไฟล์ Binance...', 'info');
     const binanceUrl = await gasUploadImg(bThumb);
     if (!binanceUrl) throw new Error('อัปโหลดภาพโปรไฟล์ไม่สำเร็จ');
@@ -35531,17 +35562,16 @@ async function rmSubmit() {
     const qrUrl = await gasUploadImg(qThumb);
     if (!qrUrl) throw new Error('อัปโหลด QR Code ไม่สำเร็จ');
 
-    rmShowNotify('⏳ กำลังลงทะเบียน...', 'info');
     if (btn) btn.textContent = '⏳ กำลังลงทะเบียน...';
+    rmShowNotify('⏳ กำลังลงทะเบียน...', 'info');
 
-    // ── ส่งข้อมูลผ่าน GAS register action (ทุกประเทศ) ──
     const result = await gasFetch('register', {
       bnbId, name, phone, team, country, province,
       referrerId: refId, addressWallet: wallet,
       qrCode: qrUrl, binanceImg: binanceUrl,
     });
 
-    rmShowNotify('✅ ลงทะเบียนสำเร็จ! BNB_ID: ' + (result.bnbId || bnbId), 'success');
+    rmShowNotify('✅ ลงทะเบียนสำเร็จ! BNB_ID: ' + result.bnbId, 'success');
     if (btn) { btn.disabled = false; btn.textContent = '✅ ยืนยันสมัครสมาชิก'; }
 
     setTimeout(() => {
@@ -35556,47 +35586,14 @@ async function rmSubmit() {
     rmShowNotify('❌ ลงทะเบียนไม่สำเร็จ: ' + e.message, 'error');
     if (btn) { btn.disabled = false; btn.textContent = '✅ ยืนยันสมัครสมาชิก'; }
   }
-}
-</script>
-
-<!-- ══════════════════════════════════════════════════════
-     TCC INTL PATCH — v1.0
-     Register routing: ประเทศ INTL → GAS_INTL แทน Worker
-     วางหลัง Register Module ก่อน </body>
-     ⚠️ ไม่ override login flow (ใช้ TH Worker เดิม)
-══════════════════════════════════════════════════════ -->
-<script>
-// ── CONFIG ────────────────────────────────────────────────────
-const GAS_INTL_URL = 'https://script.google.com/macros/s/AKfycbxD1sUK4U5jj57OaGzzUqRZWxJpnHmCEWQk0HpOePGGhPVCLUx5Hc1QjoY-vyUGwdZa/exec';
-
-// ── GAS INTL Fetch Helper ─────────────────────────────────────
-// ใช้ Content-Type: text/plain เพื่อไม่ trigger CORS preflight (OPTIONS)
-// GAS Web App ไม่รองรับ OPTIONS request — ถ้าใช้ application/json จะโดน CORS บล็อก
-async function gasFetch(action, params = {}) {
-  const res = await fetch(GAS_INTL_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body:    JSON.stringify({ action, ...params }),
-  });
-  if (!res.ok) throw new Error('GAS_INTL HTTP ' + res.status);
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error || 'GAS_INTL error');
-  return json.data;
-}
-
-// ── อัปโหลดรูปผ่าน GAS_INTL (สำหรับประเทศที่ Worker บล็อก) ──
-async function gasUploadImg(thumbEl) {
-  if (!thumbEl || !thumbEl.dataset.b64) return '';
-  if (thumbEl.dataset.gasImgUrl) return thumbEl.dataset.gasImgUrl;
-  const data = await gasFetch('uploadImage', { image: thumbEl.dataset.b64 });
-  thumbEl.dataset.gasImgUrl = data.url || '';
-  return thumbEl.dataset.gasImgUrl;
-}
+};
 
 // ── Re-expose on window (ป้องกัน onclick ใช้ function เก่า) ──
 window.rmSubmit         = rmSubmit;
 window.rmLoadTeams      = rmLoadTeams;
 window.rmToggleProvince = rmToggleProvince;
+window.openRegisterModal  = openRegisterModal;
+window.closeRegisterModal = closeRegisterModal;
 </script>
 
 </body>

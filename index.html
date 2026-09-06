@@ -35424,8 +35424,10 @@ function rmToggleProvince() {
     group.style.display = 'none';
     sel.innerHTML = '<option value="">-</option>';
   }
-  // ⚠️ ไม่เรียก rmLoadTeams() ที่นี่ — INTL PATCH override จัดการแล้ว
-  // (เพื่อป้องกัน reload ซ้ำซ้อน)
+  // รีเซ็ต dropdown ทีมแล้วโหลดใหม่ทุกครั้งที่เปลี่ยนประเทศ
+  const teamSel = document.getElementById('rm-team');
+  if (teamSel) teamSel.innerHTML = '<option value="">-- เลือกทีม --</option>';
+  rmLoadTeams();
 }
 
 // ── Load Teams (ทุกประเทศ → GAS_INTL getTeams) ─────────────
@@ -35480,14 +35482,11 @@ function openRegisterModal() {
     }
   } catch(e) {}
 
-  // Populate provinces for TH (default)
+  // Populate provinces + โหลดทีม (rmToggleProvince เรียก rmLoadTeams อัตโนมัติ)
   rmToggleProvince();
 
   // Go to step 1
   rmGoToStep(1);
-
-  // โหลดทีม
-  rmLoadTeams();
 }
 
 function closeRegisterModal() {
@@ -35593,18 +35592,6 @@ async function gasUploadImg(thumbEl) {
   thumbEl.dataset.gasImgUrl = data.url || '';
   return thumbEl.dataset.gasImgUrl;
 }
-
-// ── Override: rmToggleProvince — force reload ทีมเมื่อเปลี่ยนประเทศ ──
-// rmLoadTeams และ rmSubmit ใช้ gasFetch โดยตรงแล้ว ไม่ต้อง override ซ้ำ
-// override ที่นี่มีเพื่อให้ reload ทีมทันทีเมื่อ user เปลี่ยน dropdown ประเทศ
-const _origRmToggleProvince = typeof rmToggleProvince === 'function' ? rmToggleProvince : null;
-rmToggleProvince = function() {
-  if (_origRmToggleProvince) _origRmToggleProvince(); // แสดง/ซ่อนจังหวัด + populate list
-  // force reload ทีมตามประเทศที่เพิ่งเลือก (clear cache แล้ว call ใหม่)
-  const sel = document.getElementById('rm-team');
-  if (sel) sel.innerHTML = '<option value="">-- เลือกทีม --</option>';
-  rmLoadTeams();
-};
 
 // ── Re-expose on window (ป้องกัน onclick ใช้ function เก่า) ──
 window.rmSubmit         = rmSubmit;

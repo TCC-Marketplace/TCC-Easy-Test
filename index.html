@@ -35424,21 +35424,28 @@ function rmToggleProvince() {
     group.style.display = 'none';
     sel.innerHTML = '<option value="">-</option>';
   }
-  // Reload teams from correct source when country changes
-  rmLoadTeams();
+  // ⚠️ ไม่เรียก rmLoadTeams() ที่นี่ — INTL PATCH override จัดการแล้ว
+  // (เพื่อป้องกัน reload ซ้ำซ้อน)
 }
 
-// ── Load Teams (fallback — ถูก override ทั้งหมดโดย INTL PATCH ด้านล่าง) ──
-// [FIX] ไม่ถูกเรียกอีกต่อไป — ทุกประเทศ (TH+INTL) ใช้ gasFetch('getTeams') แทน
+// ── Load Teams (ทุกประเทศ → GAS_INTL getTeams) ─────────────
+// ใช้ GAS เป็น source เดียวสำหรับทุกประเทศ (TH + INTL)
+// เพราะ Worker /api/Team ส่ง 500 error ทำให้ทีมไม่ขึ้น
+// NOTE: INTL PATCH ด้านล่างจะ override ฟังก์ชันนี้อีกครั้ง
+// แต่ logic เหมือนกัน (gasFetch) จึงไม่กระทบผลลัพธ์
 async function rmLoadTeams() {
   const sel = document.getElementById('rm-team');
   if (!sel) return;
   sel.innerHTML = '<option value="">⏳ กำลังโหลดทีม...</option>';
   try {
-    const data = await ndbFetch('Team', { limit: 100 });
-    const rows = data.list || data.data?.list || (Array.isArray(data) ? data : []);
+    // gasFetch ต้องการ GAS_INTL_URL — ถูก define ใน INTL PATCH block ด้านล่าง
+    // ใช้ผ่าน window scope เพื่อให้ทำงานได้ทั้งก่อน/หลัง INTL PATCH โหลด
+    const result = await (typeof gasFetch === 'function'
+      ? gasFetch('getTeams')
+      : Promise.reject(new Error('gasFetch not ready')));
+    const teams = result.teams || [];
     sel.innerHTML = '<option value="">-- เลือกทีม --</option>';
-    rows.forEach(t => {
+    teams.forEach(t => {
       const name = t['team_name'] || t['ชื่อทีม'] || '';
       if (!name) return;
       const opt = document.createElement('option');
@@ -35489,8 +35496,11 @@ function closeRegisterModal() {
   document.body.style.overflow = '';
 }
 
-// ── Submit Register (TH → Worker /api/members) ──────────────
-// ⚠️ INTL PATCH ด้านล่างจะ override ฟังก์ชันนี้สำหรับประเทศ INTL
+// ── Submit Register (ทุกประเทศ → GAS_INTL) ─────────────────
+// ใช้ GAS เป็น path เดียวสำหรับทุกประเทศ (TH + INTL)
+// เพราะ Worker /api/upload-image และ /api/members ส่ง 500/400 error
+// NOTE: INTL PATCH ด้านล่างจะ override ฟังก์ชันนี้อีกครั้ง
+// แต่ logic เหมือนกัน (gasFetch) จึงไม่กระทบผลลัพธ์
 async function rmSubmit() {
   const country  = (document.getElementById('rm-country')?.value  || 'TH').trim().toUpperCase();
   const bnbId    = (document.getElementById('rm-bnbid')?.value    || '').trim();
@@ -35513,35 +35523,28 @@ async function rmSubmit() {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังส่งข้อมูล...'; }
 
   try {
-    // ── อัปโหลดรูปผ่าน Worker ──
+    // ── อัปโหลดรูปผ่าน GAS (ทุกประเทศ) ──
     rmShowNotify('⏳ กำลังอัปโหลดภาพโปรไฟล์ Binance...', 'info');
-    const binanceUrl = await _rmUploadImgWorker(bThumb);
+    const binanceUrl = await gasUploadImg(bThumb);
     if (!binanceUrl) throw new Error('อัปโหลดภาพโปรไฟล์ไม่สำเร็จ');
 
     rmShowNotify('⏳ กำลังอัปโหลด QR Code...', 'info');
-    const qrUrl = await _rmUploadImgWorker(qThumb);
+    const qrUrl = await gasUploadImg(qThumb);
     if (!qrUrl) throw new Error('อัปโหลด QR Code ไม่สำเร็จ');
 
     rmShowNotify('⏳ กำลังลงทะเบียน...', 'info');
     if (btn) btn.textContent = '⏳ กำลังลงทะเบียน...';
 
-    // ── POST ไป Worker /api/members ──
-    const res = await fetch(`${WORKER_URL}/api/members`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        BNB_ID: bnbId, Name: name, Phone: phone, Team: team,
-        Country: country, Province: province, ReferrerId: refId,
-        'Address Wallet': wallet, 'QR Code': qrUrl, Binance_IMG: binanceUrl,
-        Status: 'Pending',
-      }),
+    // ── ส่งข้อมูลผ่าน GAS register action (ทุกประเทศ) ──
+    const result = await gasFetch('register', {
+      bnbId, name, phone, team, country, province,
+      referrerId: refId, addressWallet: wallet,
+      qrCode: qrUrl, binanceImg: binanceUrl,
     });
-    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `Worker ${res.status}`); }
 
-    rmShowNotify('✅ ลงทะเบียนสำเร็จ! กรุณารอ admin อนุมัติ', 'success');
+    rmShowNotify('✅ ลงทะเบียนสำเร็จ! BNB_ID: ' + (result.bnbId || bnbId), 'success');
     if (btn) { btn.disabled = false; btn.textContent = '✅ ยืนยันสมัครสมาชิก'; }
 
-    // Reset fields & close after delay
     setTimeout(() => {
       ['rm-name','rm-phone','rm-bnbid','rm-wallet'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
       ['rm-team','rm-country','rm-province'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
@@ -35554,22 +35557,6 @@ async function rmSubmit() {
     rmShowNotify('❌ ลงทะเบียนไม่สำเร็จ: ' + e.message, 'error');
     if (btn) { btn.disabled = false; btn.textContent = '✅ ยืนยันสมัครสมาชิก'; }
   }
-}
-
-// ── Upload image ผ่าน Worker (TH path) ──────────────────────
-async function _rmUploadImgWorker(thumbEl) {
-  if (!thumbEl || !thumbEl.dataset.b64) return '';
-  if (thumbEl.dataset.workerImgUrl) return thumbEl.dataset.workerImgUrl;
-  const res = await fetch(`${WORKER_URL}/api/upload-image`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image: thumbEl.dataset.b64 }),
-  });
-  if (!res.ok) throw new Error('Upload failed: ' + res.status);
-  const json = await res.json();
-  const url = json.url || json.data?.url || '';
-  thumbEl.dataset.workerImgUrl = url;
-  return url;
 }
 </script>
 
@@ -35607,112 +35594,16 @@ async function gasUploadImg(thumbEl) {
   return thumbEl.dataset.gasImgUrl;
 }
 
-// ── Override: rmLoadTeams — ทุกประเทศใช้ gasFetch('getTeams') ผ่าน GAS_INTL ──
-// [FIX] Worker /api/Team → Sheets 400 "Unable to parse range: Team"
-// แก้: ทั้ง TH และ INTL ดึงทีมผ่าน GAS_INTL เหมือนกัน หลีกเลี่ยง Worker path
-const _origRmLoadTeams = typeof rmLoadTeams === 'function' ? rmLoadTeams : null;
-async function rmLoadTeamsForCountry(force) {
-  const sel = document.getElementById('rm-team');
-  if (!sel) return;
-
-  // ทุกประเทศ (ทั้ง TH และ INTL) ดึงทีมผ่าน GAS_INTL
-  sel.innerHTML = '<option value="">⏳ กำลังโหลดทีม...</option>';
-  sel.style.borderColor = 'rgba(240,185,11,.5)';
-  try {
-    const result = await gasFetch('getTeams');
-    const teams  = result.teams || [];
-    sel.innerHTML = '<option value="">-- เลือกทีม --</option>';
-    teams.forEach(t => {
-      const name = t['team_name'] || t['ประเภทของกลุ่ม'] || t['Field 2'] || '';
-      if (!name) return;
-      const opt = document.createElement('option');
-      opt.value = opt.textContent = name;
-      sel.appendChild(opt);
-    });
-    if (sel.options.length <= 1) {
-      sel.innerHTML = '<option value="">-- ไม่พบข้อมูลทีม --</option>';
-    }
-    sel.style.borderColor = '';
-  } catch(e) {
-    console.warn('[rmLoadTeams] getTeams error:', e.message);
-    sel.innerHTML = '<option value="">⚠️ โหลดทีมไม่สำเร็จ</option>';
-    sel.style.borderColor = 'rgba(246,70,93,.5)';
-  }
-}
-// Override rmLoadTeams และ rmToggleProvince
-rmLoadTeams = function() { return rmLoadTeamsForCountry(false); };
-
+// ── Override: rmToggleProvince — force reload ทีมเมื่อเปลี่ยนประเทศ ──
+// rmLoadTeams และ rmSubmit ใช้ gasFetch โดยตรงแล้ว ไม่ต้อง override ซ้ำ
+// override ที่นี่มีเพื่อให้ reload ทีมทันทีเมื่อ user เปลี่ยน dropdown ประเทศ
 const _origRmToggleProvince = typeof rmToggleProvince === 'function' ? rmToggleProvince : null;
 rmToggleProvince = function() {
-  if (_origRmToggleProvince) _origRmToggleProvince();
-  rmLoadTeamsForCountry(true); // force reload ทีมตามประเทศที่เพิ่งเลือก
-};
-
-// ── Override: rmSubmit สำหรับ INTL ───────────────────────────
-// ใช้ rm-country dropdown เป็น source of truth (ไม่ใช้ IP detection)
-const _origRmSubmit = typeof rmSubmit === 'function' ? rmSubmit : null;
-rmSubmit = async function() {
-  const country = (document.getElementById('rm-country')?.value || 'TH').trim().toUpperCase();
-
-  // TH path: ใช้ฟังก์ชันเดิม (Worker)
-  if (!_isIntlCountry(country)) {
-    return _origRmSubmit ? _origRmSubmit() : undefined;
-  }
-
-  // INTL path: ผ่าน GAS_INTL
-  const bnbId    = (document.getElementById('rm-bnbid')?.value    || '').trim();
-  const name     = (document.getElementById('rm-name')?.value     || '').trim();
-  const phone    = (document.getElementById('rm-phone')?.value    || '').trim().replace(/[^0-9]/g,'');
-  const team     = (document.getElementById('rm-team')?.value     || '').trim();
-  const province = (document.getElementById('rm-province')?.value || '').trim();
-  const refId    = (document.getElementById('rm-ref-id')?.value   || '').trim();
-  const wallet   = (document.getElementById('rm-wallet')?.value   || '').trim();
-
-  if (!bnbId || !name || !phone || !team) {
-    rmShowNotify('❌ กรุณากรอกข้อมูลให้ครบ (BNB_ID, ชื่อ, เบอร์, ทีม)', 'error'); return;
-  }
-
-  const bThumb = document.getElementById('rm-binance-thumb');
-  const qThumb = document.getElementById('rm-qr-thumb');
-  if (!bThumb?.dataset?.b64) { rmShowNotify('⚠️ กรุณาเลือกภาพโปรไฟล์ Binance', 'error'); return; }
-  if (!qThumb?.dataset?.b64) { rmShowNotify('⚠️ กรุณาเลือกรูป QR Code กระเป๋า', 'error'); return; }
-
-  const btn = document.getElementById('rm-submit-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังอัปโหลดรูปภาพ...'; }
-
-  try {
-    rmShowNotify('⏳ กำลังอัปโหลดภาพโปรไฟล์ Binance (ระบบนานาชาติ)...', 'info');
-    const binanceUrl = await gasUploadImg(bThumb);
-    if (!binanceUrl) throw new Error('อัปโหลดภาพโปรไฟล์ไม่สำเร็จ');
-
-    rmShowNotify('⏳ กำลังอัปโหลด QR Code (ระบบนานาชาติ)...', 'info');
-    const qrUrl = await gasUploadImg(qThumb);
-    if (!qrUrl) throw new Error('อัปโหลด QR Code ไม่สำเร็จ');
-
-    if (btn) btn.textContent = '⏳ กำลังลงทะเบียน (ระบบนานาชาติ)...';
-    rmShowNotify('⏳ กำลังลงทะเบียน (ระบบนานาชาติ)...', 'info');
-
-    const result = await gasFetch('register', {
-      bnbId, name, phone, team, country, province,
-      referrerId: refId, addressWallet: wallet,
-      qrCode: qrUrl, binanceImg: binanceUrl,
-    });
-
-    rmShowNotify('✅ ลงทะเบียนสำเร็จ! BNB_ID: ' + result.bnbId, 'success');
-    if (btn) { btn.disabled = false; btn.textContent = '✅ ยืนยันสมัครสมาชิก'; }
-
-    setTimeout(() => {
-      ['rm-name','rm-phone','rm-bnbid','rm-wallet'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-      ['rm-team','rm-country','rm-province'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
-      clearImgUpload('rm-binance-img-file','rm-binance-preview','rm-binance-thumb','rm-binance-upload-btn');
-      clearImgUpload('rm-qr-file','rm-qr-preview','rm-qr-thumb','rm-qr-upload-btn');
-      closeRegisterModal();
-      navTo('login');
-    }, 2000);
-  } catch(e) {
-    rmShowNotify('❌ ลงทะเบียนไม่สำเร็จ: ' + e.message, 'error');
-    if (btn) { btn.disabled = false; btn.textContent = '✅ ยืนยันสมัครสมาชิก'; }
-  }
+  if (_origRmToggleProvince) _origRmToggleProvince(); // แสดง/ซ่อนจังหวัด + populate list
+  // force reload ทีมตามประเทศที่เพิ่งเลือก (clear cache แล้ว call ใหม่)
+  const sel = document.getElementById('rm-team');
+  if (sel) sel.innerHTML = '<option value="">-- เลือกทีม --</option>';
+  rmLoadTeams();
 };
 
 // ── Re-expose on window (ป้องกัน onclick ใช้ function เก่า) ──

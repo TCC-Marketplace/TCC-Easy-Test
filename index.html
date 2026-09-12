@@ -2418,6 +2418,7 @@ const TCC_I18N = {
   'toast_redeem_in_progress':['⚠️ กำลังดำเนินการอยู่ กรุณารอสักครู่','⚠️ In progress, please wait a moment','⚠️ Đang xử lý, vui lòng đợi một chút','⚠️ កំពុងដំណើរការ សូមរង់ចាំបន្តិច','⚠️ လုပ်ဆောင်နေသည်၊ ခဏစောင့်ပါ','⚠️ In progress, please wait a moment'],
   'toast_checking_contract':['⏳ กำลังตรวจสอบสถานะสัญญา...','⏳ Checking contract status...','⏳ Đang kiểm tra trạng thái hợp đồng...','⏳ កំពុងពិនិត្យស្ថានភាពកិច្ចសន្យា...','⏳ စာချုပ်အခြေအနေ စစ်ဆေးနေသည်...','⏳ Checking contract status...'],
   'toast_contract_frozen_dd':['🔒 สัญญานี้ถูกระงับ (Frozen) — Drawdown {dd}% | ไม่สามารถเปิด Position ใหม่','🔒 This contract is Frozen — Drawdown {dd}% | Cannot open new positions','🔒 Hợp đồng này đã bị Frozen — Drawdown {dd}% | Không thể mở vị thế mới','🔒 កិច្ចសន្យានេះត្រូវបានផ្អាក (Frozen) — Drawdown {dd}% | មិនអាចបើក Position ថ្មី','🔒 ဤစာချုပ် ရပ်ဆိုင်း (Frozen) ထားသည် — Drawdown {dd}% | Position သစ်မဖွင့်နိုင်ပါ','🔒 This contract is Frozen — Drawdown {dd}% | Cannot open new positions'],
+  'toast_contract_matured':['⏰ สัญญานี้ครบกำหนดแล้ว — กรุณา Redeem ก่อนเปิด Position ใหม่','⏰ This contract has matured — please Redeem before opening a new position','⏰ Hợp đồng này đã đáo hạn — vui lòng Redeem trước khi mở vị thế mới','⏰ កិច្ចសន្យានេះបានដល់កំណត់ — សូម Redeem មុននឹងបើក Position ថ្មី','⏰ ဤစာချုပ်သက်တမ်းကုန်သွားပြီ — Position သစ်မဖွင့်မီ Redeem လုပ်ပါ','⏰ This contract has matured — please Redeem before opening a new position'],
   'toast_budget_full_short':['⛔ วงเงินเทรด 10% ของสัญญาเต็มแล้ว (Realized Loss {rl} / {mc} USDT) — เปิดออเดอร์ใหม่ไม่ได้จนกว่าจะ Claim/Redeem สัญญา','⛔ 10% trading budget is full (Realized Loss {rl} / {mc} USDT) — cannot open new orders until you Claim/Redeem the contract','⛔ Ngân sách giao dịch 10% đã đầy (Realized Loss {rl} / {mc} USDT) — không thể mở lệnh mới cho đến khi Claim/Redeem hợp đồng','⛔ ថវិកាជួញដូរ 10% ពេញហើយ (Realized Loss {rl} / {mc} USDT) — មិនអាចបើកការបញ្ជាទិញថ្មីរហូតដល់ Claim/Redeem កិច្ចសន្យា','⛔ 10% ကုန်သွယ်မှုဘတ်ဂျက် ပြည့်သွားပြီ (Realized Loss {rl} / {mc} USDT) — Claim/Redeem မလုပ်မချင်း အမိန့်သစ်မဖွင့်နိုင်ပါ','⛔ 10% trading budget is full (Realized Loss {rl} / {mc} USDT) — cannot open new orders until you Claim/Redeem the contract'],
   'toast_same_wallet':['ไม่สามารถเลือก Wallet เดียวกันได้','Cannot select the same wallet','Không thể chọn cùng một wallet','មិនអាចជ្រើសរើស Wallet ដូចគ្នាបានទេ','တူညီသော Wallet ကို ရွေးချယ်၍မရပါ','Cannot select the same wallet'],
   'toast_usdt_only':['ขณะนี้รองรับ USDT เท่านั้น','Currently only USDT is supported','Hiện chỉ hỗ trợ USDT','បច្ចុប្បន្នគាំទ្រតែ USDT ប៉ុណ្ណោះ','ယခုအချိန်တွင် USDT ကိုသာ ပံ့ပိုးပါသည်','Currently only USDT is supported'],
@@ -19036,6 +19037,7 @@ async function checkCanOpenPosition(earnContractId) {
       window._contractDDMap[earnContractId] = {
         isFrozen:              !!st.isFrozen,
         isWarning:             !!st.isWarning,
+        isMatured:             !!st.isMatured, // [FIX-GAP-1] เก็บไว้ให้ UI อื่นอ่านค่าสดชุดเดียวกัน
         drawdown_pct:          st.drawdown_pct,
         avail_margin:          st.avail_margin,
         margin_cap:            st.margin_cap,
@@ -19052,6 +19054,15 @@ async function checkCanOpenPosition(earnContractId) {
       }
       if (st.isFrozen) {
         showToast(tccTF('toast_contract_frozen_dd',{dd:st.drawdown_pct||'—'}));
+        return false;
+      }
+      // [FIX-GAP-1] ตรวจ isMatured เช่นเดียวกับ isFrozen — เดิม checkCanOpenPosition ไม่เช็ค
+      // ค่านี้เลย ทั้งที่ backend (logPositionWithGuard/getContractStatus) มี isMatured อยู่แล้ว
+      // (v2.43 FIX-MATURED-1/FIX-TPSL-3) ผล: ผู้ใช้กรอก size/price ได้ตามปกติแล้วเพิ่งโดน error
+      // กลับมาจาก server ตอนกดยืนยัน — UX ไม่สอดคล้องกับเคส Frozen ที่ block ไว้ก่อนกรอกฟอร์ม
+      // แก้: block ที่นี่ตั้งแต่ก่อน user เริ่มกรอก เหมือน isFrozen ทุกประการ
+      if (st.isMatured) {
+        showToast(tccT('toast_contract_matured'));
         return false;
       }
       // [v2.44 FIX-OSC2-D] ตรวจ isMarginBlocked จาก GAS (นับรวม pending orders แล้วใน v2.44)

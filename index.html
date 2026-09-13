@@ -14600,10 +14600,14 @@ setInterval(astUpdateTime, 30000);
 
 // [v13.2] Force-reload balance+transactions จาก GAS ถ้า cache หมดอายุ
 // เรียกทุกครั้งที่เปิดหน้า Assets
+// [v2.47-FD FIX-INFLIGHT-2] in-flight guard — ป้องกัน startup + poll 15s ซ้อนกัน
+let _astRefreshInflight = false;
 async function _astRefreshBalanceIfStale() {
-  if (typeof USER_PROFILE === 'undefined') return;
+  if (_astRefreshInflight) return;
+  _astRefreshInflight = true;
+  if (typeof USER_PROFILE === 'undefined') { _astRefreshInflight = false; return; }
   const uid = USER_PROFILE.uid;
-  if (!uid) return;
+  if (!uid) { _astRefreshInflight = false; return; }
   const cacheKey = 'dash_' + uid;
 
   // [v13.3 FIX] ทำ background fetch เสมอ เพื่อรับ Off-chain deposit จากคนอื่น
@@ -14644,8 +14648,9 @@ async function _astRefreshBalanceIfStale() {
     // [v2.47-FD FIX-BAL-2] ใช้ stale cache ถ้า fresh cache หมดอายุแล้ว (GAS fail scenario)
     const staleCached = cached || LS.get(cacheKey);
     if (staleCached) _applyDash(staleCached.data);
+  } finally {
+    _astRefreshInflight = false;
   }
-  return;
 }
 
 // [v13.3+RED-12 FIX] Polling: refresh balance ทุก 15 วิ ขณะอยู่ที่หน้า Assets
@@ -30429,23 +30434,10 @@ function syncOpenOrdersToGAS() {
  * syncOfflineEngine — เรียกตอนเปิดแอป: ส่ง earnContracts + openOrders ไป GAS ครั้งเดียว
  */
 function syncOfflineEngine() {
-  // [v16 FIX] เดิม updateRefreshTimestamp ถูกเรียกแค่จุดเดียวคือต้นๆ loadOfflineState()
-  // ซึ่งรันหลัง syncOfflineEngine() เสมอ (ดู DOMContentLoaded ด้านล่าง: syncOfflineEngine() แล้วค่อย loadOfflineState())
-  // → ช่วงที่ syncEarnContractsToGAS/syncOpenOrdersToGAS กำลัง "เขียน" สถานะ startup ไปที่ GAS
-  //   ยังไม่มี grace period คุ้มครองเลย ถ้า GAS trigger (funding/liquidate sweep) ทำงานพอดีช่วงนี้
-  //   อาจอ่านสถานะที่เขียนยังไม่ครบ/ชนกับ client ได้ → เรียก updateRefreshTimestamp ที่นี่ก่อน
-  //   เพื่อให้ grace period ครอบคลุมตั้งแต่ต้น sequence (push ก่อน pull) ไม่ใช่แค่ครึ่งหลัง
-  // fail-open: ถ้า call ล้มเหลวไม่บล็อก sync ที่เหลือ
-  try {
-    const _sess = (typeof _lgLoadSession === 'function') ? _lgLoadSession() : null;
-    const _uid = (_sess && _sess.uid) ? String(_sess.uid).trim()
-                  : ((typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) ? USER_PROFILE.uid : '');
-    if (_uid && typeof dbCallRaw === 'function') {
-      dbCallRaw('updateRefreshTimestamp', { uid: _uid }).catch(e =>
-        console.warn('[OfflineEngine] updateRefreshTimestamp (startup push) fail (ignored):', e.message));
-    }
-  } catch (e) { console.warn('[OfflineEngine] updateRefreshTimestamp (startup push) err:', e.message); }
-
+  // [v2.47-FD FIX-RTS] ลบ updateRefreshTimestamp ออกจากที่นี่ — ซ้ำกับที่ loadOfflineState เรียกอยู่แล้ว
+  // เดิม v16 เพิ่มมาเพื่อให้ grace period ครอบคลุม sync startup แต่ทำให้ GAS ได้รับ 2 calls ต่อ startup
+  // loadOfflineState รัน parallel กับ syncOfflineEngine (ดู DOMContentLoaded ด้านล่าง) → updateRefreshTimestamp
+  // ถูกยิงใน loadOfflineState อยู่แล้วก่อน parallel GAS calls — เพียงพอแล้ว
   syncEarnContractsToGAS();  // [v5 FIX] ลบ isStartup param — current_balance/realized_pnl ถูกตัดออกถาวรแล้ว
   syncOpenOrdersToGAS();
   console.warn('[OfflineEngine] startup sync sent');
@@ -35407,11 +35399,15 @@ function aftSetMode(mode) {
 }
 
 /** โหลด+แสดงสรุปยอด Futures-Direct (Margin Balance/ใช้ไปแล้ว/ว่าง + Position/Order list) */
+// [v2.47-FD FIX-INFLIGHT-3] in-flight guard — ป้องกันกดสลับ sub-tab ซ้ำๆ ยิงหลายรอบ
+let _aftdRefreshInflight = false;
 async function aftdRefreshDirectSummary() {
+  if (_aftdRefreshInflight) return;
+  _aftdRefreshInflight = true;
   const sess = (typeof _lgLoadSession === 'function') ? _lgLoadSession() : null;
   const uid  = (sess && sess.uid) ? String(sess.uid).trim()
              : ((typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) ? String(USER_PROFILE.uid).trim() : '');
-  if (!uid) return;
+  if (!uid) { _aftdRefreshInflight = false; return; }
 
   // [v2.47-FD] แสดง loading spinner ขณะโหลด ป้องกัน UI ว่างค้างโดยไม่มีคำอธิบาย
   const _listEl = document.getElementById('astFutDirectPosList');
@@ -35455,6 +35451,8 @@ async function aftdRefreshDirectSummary() {
           '<button class="aft-empty-btn" onclick="aftdRefreshDirectSummary()" style="margin-top:12px;">ลองใหม่</button>' +
         '</div>';
     }
+  } finally {
+    _aftdRefreshInflight = false;
   }
 }
 
@@ -35506,10 +35504,11 @@ function _futdCurrentUid() {
 
 /** เรียกตอนเข้าหน้า Futures-Direct (จาก navTo) */
 function futdInit() {
+  // [v2.47-FD FIX-INIT] stop timer ก่อนเสมอ ป้องกัน timer leak ถ้าเปิดหน้าซ้ำ
+  futdStopPolling();
   futdSetSide('long');
   futdRefreshAccountStatus();
   futdRefreshPrice();
-  futdStopPolling();
   // เช็คราคา + สถานะบัญชีทุก 5 วิ ระหว่างอยู่หน้านี้ (แยกจาก engine ฝั่ง GAS ที่รันทุก 1 นาที —
   // นี่แค่ทำให้ UI ดูสดขึ้นเฉยๆ ไม่ใช่ตัวตัดสิน TP/SL/Liq จริง — ตัวจริงอยู่ที่ processFuturesTpSl)
   FUTD.pollTimer = setInterval(() => {
@@ -35560,9 +35559,13 @@ function futdCalcMargin() {
   hint.textContent = 'Margin โดยประมาณ: ' + margin.toLocaleString('en', { maximumFractionDigits: 2 }) + ' USDT';
 }
 
+// [v2.47-FD FIX-INFLIGHT-1] in-flight guard — ป้องกัน poll 5s ซ้อนกัน
+let _futdRefreshInflight = false;
 async function futdRefreshAccountStatus() {
+  if (_futdRefreshInflight) return;
+  _futdRefreshInflight = true;
   const uid = _futdCurrentUid();
-  if (!uid) return;
+  if (!uid) { _futdRefreshInflight = false; return; }
   try {
     const status = await dbCallRaw('getFuturesAccountStatus', { uid });
     FUTD.status = status;
@@ -35574,6 +35577,8 @@ async function futdRefreshAccountStatus() {
     futdRenderOrders(status.orders || []);
   } catch (e) {
     console.warn('[futdRefreshAccountStatus] fail:', e.message);
+  } finally {
+    _futdRefreshInflight = false;
   }
 }
 

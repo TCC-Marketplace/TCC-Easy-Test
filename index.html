@@ -35334,6 +35334,14 @@ async function aftdRefreshDirectSummary() {
              : ((typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) ? String(USER_PROFILE.uid).trim() : '');
   if (!uid) return;
 
+  // [v2.47-FD] แสดง loading spinner ขณะโหลด ป้องกัน UI ว่างค้างโดยไม่มีคำอธิบาย
+  const _listEl = document.getElementById('astFutDirectPosList');
+  if (_listEl && !_listEl.querySelector('.aft-pos-card')) {
+    _listEl.innerHTML =
+      '<div class="aft-empty"><div class="aft-empty-icon" style="animation:spin 1s linear infinite;display:inline-block;">⏳</div>' +
+      '<div class="aft-empty-title">กำลังโหลดข้อมูล Futures...</div></div>';
+  }
+
   try {
     const status = await dbCallRaw('getFuturesAccountStatus', { uid });
     document.getElementById('aftd-margin-bal').textContent   = (status.futures_balance || 0).toLocaleString('en', { minimumFractionDigits: 2 });
@@ -35344,6 +35352,30 @@ async function aftdRefreshDirectSummary() {
     aftdRenderDirectPosList(status.positions || []);
   } catch (e) {
     console.warn('[aftdRefreshDirectSummary] fail:', e.message);
+    // [v2.47-FD FIX-FD-3] แสดง error state ใน UI แทนที่จะปล่อยว่างเปล่า
+    const _errEl = document.getElementById('astFutDirectPosList');
+    if (_errEl) {
+      const _isDeployErr = e.message && e.message.includes('GAS-DEPLOY-ERROR');
+      const _isTimeout   = e.message && e.message.includes('Timeout');
+      const _icon  = _isDeployErr ? '⚙️' : _isTimeout ? '⏱️' : '⚠️';
+      const _title = _isDeployErr
+        ? 'Server ยังไม่ได้ Deploy เวอร์ชันใหม่'
+        : _isTimeout
+          ? 'เชื่อมต่อ Server ช้าเกินไป'
+          : 'โหลดข้อมูล Futures ไม่ได้';
+      const _sub = _isDeployErr
+        ? 'Admin ต้องกด "New version" ใน GAS → Deploy → Manage Deployments'
+        : _isTimeout
+          ? 'GAS cold-start หรือ quota เต็ม — ลองใหม่อีกครั้ง'
+          : (e.message || 'ไม่ทราบสาเหตุ');
+      _errEl.innerHTML =
+        '<div class="aft-empty" style="border:1px solid #f6465d33;background:#f6465d0d;border-radius:8px;padding:20px;">' +
+          '<div class="aft-empty-icon">' + _icon + '</div>' +
+          '<div class="aft-empty-title" style="color:#f6465d;">' + _title + '</div>' +
+          '<div class="aft-empty-sub" style="font-size:11px;word-break:break-all;">' + _sub + '</div>' +
+          '<button class="aft-empty-btn" onclick="aftdRefreshDirectSummary()" style="margin-top:12px;">ลองใหม่</button>' +
+        '</div>';
+    }
   }
 }
 

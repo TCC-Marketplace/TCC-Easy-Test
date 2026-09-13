@@ -5587,7 +5587,23 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
     .aft-filter-option{padding:13px 20px;font-size:14px;color:var(--t1);cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);transition:background .1s}
     .aft-filter-option:hover{background:var(--bg3)}
     .aft-filter-option.selected{color:var(--y)}
+    /* [FUTURES-DIRECT v1] sub-tab เลือก Direct/Contract ภายในหน้า Futures — แยกยอด Margin
+       Balance ของแต่ละแถบออกจากกันโดยสิ้นเชิง ไม่ผสมกัน */
+    .aft-mode-tabs{display:flex;gap:0;padding:10px 16px 0;border-bottom:1px solid var(--border)}
+    .aft-mode-tab{flex:1;text-align:center;padding:0 0 10px;font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent}
+    .aft-mode-tab.active{color:var(--t1);border-bottom-color:var(--y)}
+    .aft-subview{display:none}
+    .aft-subview.active{display:block}
     </style>
+
+    <!-- [FUTURES-DIRECT v1] เลือกแถบ — แยก Margin Balance ของ Direct/Contract ออกจากกัน -->
+    <div class="aft-mode-tabs">
+      <div class="aft-mode-tab active" id="aft-mode-tab-contract" onclick="aftSetMode('contract')">Futures-Contract</div>
+      <div class="aft-mode-tab" id="aft-mode-tab-direct" onclick="aftSetMode('direct')">Futures-Direct</div>
+    </div>
+
+    <!-- ═══ FUTURES-CONTRACT VIEW (Earn-linked เดิมทั้งหมด — ห่อไว้เฉยๆ ไม่แก้เนื้อหาข้างในเลย) ═══ -->
+    <div class="aft-subview active" id="aft-view-contract">
 
     <!-- Header: Margin Balance + stats -->
     <div class="aft-header">
@@ -5670,6 +5686,47 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       </div>
       <div id="aft-filter-options"></div>
     </div>
+    </div><!-- /aft-view-contract -->
+
+    <!-- ═══ FUTURES-DIRECT VIEW (ใหม่ทั้งหมด — margin/position/order แยกจากด้านบนโดยสิ้นเชิง) ═══ -->
+    <div class="aft-subview" id="aft-view-direct">
+      <div class="aft-header">
+        <div class="aft-margin-row">
+          <div class="aft-margin-lbl">
+            Margin Balance (Futures-Direct)
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+        </div>
+        <div class="aft-big-bal ast-hideable">
+          <span id="aftd-margin-bal">0.00</span><span class="unit">USDT</span>
+        </div>
+        <div class="aft-usd ast-hideable" id="aftd-margin-usd">ไม่มีประกันทุน — เทรดตรงแบบ Binance</div>
+        <div class="aft-stats-row">
+          <div class="aft-stat">
+            <div>Margin ที่ใช้ไปแล้ว (USDT)</div>
+            <div class="aft-stat-val ast-hideable" id="aftd-margin-used">0.00</div>
+          </div>
+          <div class="aft-stat">
+            <div>Margin ที่ว่าง (USDT)</div>
+            <div class="aft-stat-val ast-hideable" id="aftd-margin-avail" style="color:var(--t1)">0.00</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ast-action-row" style="padding-top:12px">
+        <button class="ast-btn-primary" onclick="navTo('futures-direct')">Trade</button>
+        <button class="ast-btn-secondary" onclick="openTransfer(null,'usdm')">Transfer</button>
+      </div>
+
+      <div class="aft-summary-bar">
+        <div class="aft-summary-chips">
+          <div class="aft-chip">Positions <b id="aftd-pos-count">0</b></div>
+          <div class="aft-chip">Orders <b id="aftd-order-count">0</b></div>
+        </div>
+      </div>
+
+      <div id="astFutDirectPosList"></div>
+    </div><!-- /aft-view-direct -->
   </div>
 
   <!-- ─── EARN TAB ─── -->
@@ -15696,7 +15753,7 @@ function astSwitchTab(name, el) {
   try { history.pushState({ tccPage: 'assets', astTab: name }, '', '#assets__' + name); } catch(e) {}
   document.getElementById('astMain')?.scrollTo(0, 0);
   // Hook: render Futures tab ทุกครั้งที่เปิด
-  if (name === 'futures-a') renderAstFuturesTab();
+  if (name === 'futures-a') { renderAstFuturesTab(); if (typeof aftSetMode === 'function') aftSetMode('contract'); }
   // [NEW] Hook: render Commission tab ทุกครั้งที่เปิด — โหลดยอดสดจาก GAS (getMemberDashboard + getReferralDashboard)
   if (name === 'commission') { if (typeof astRenderCommissionTab === 'function') astRenderCommissionTab(); }
   // [v7 FIX] Hook: render Earn Contracts ทุกครั้งที่เปิด Earn tab
@@ -35251,6 +35308,76 @@ function _wltShareDownloadAndPrompt(addr, qrB64, platform) {
 //  (openFuturesPosition / placeFuturesOrder / closeFuturesPosition / cancelFuturesOrder /
 //  getFuturesAccountStatus) — ไม่เรียก logOpen/logClose/cancelOrder ของ Earn-linked เลย
 // ══════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════
+//  [FUTURES-DIRECT v1] — Assets → Futures tab: sub-tab Direct/Contract
+//  ──────────────────────────────────────────────────────────────
+//  แยกจาก FUTD/futd* ด้านบน (ซึ่งเป็นของหน้า page-futures-direct โดยเฉพาะ) โดยตั้งใจ —
+//  ที่นี่แค่ "แสดงสรุป" อ่านอย่างเดียวในหน้า Assets ไม่มีฟอร์มเปิด Position ที่นี่ (กดปุ่ม
+//  Trade เพื่อไปหน้า page-futures-direct แทน) ใช้ prefix aftd (Assets-FuTures-Direct)
+//  เพื่อไม่ชนกับ aft* (Futures-Contract เดิม) และไม่ชนกับ futd* (หน้า Trade แยก)
+// ══════════════════════════════════════════════════════════════════
+
+/** สลับ sub-tab Futures-Direct / Futures-Contract ภายในหน้า Assets → Futures */
+function aftSetMode(mode) {
+  document.getElementById('aft-view-contract')?.classList.toggle('active', mode === 'contract');
+  document.getElementById('aft-view-direct')?.classList.toggle('active', mode === 'direct');
+  document.getElementById('aft-mode-tab-contract')?.classList.toggle('active', mode === 'contract');
+  document.getElementById('aft-mode-tab-direct')?.classList.toggle('active', mode === 'direct');
+  if (mode === 'direct') aftdRefreshDirectSummary();
+}
+
+/** โหลด+แสดงสรุปยอด Futures-Direct (Margin Balance/ใช้ไปแล้ว/ว่าง + Position/Order list) */
+async function aftdRefreshDirectSummary() {
+  const sess = (typeof _lgLoadSession === 'function') ? _lgLoadSession() : null;
+  const uid  = (sess && sess.uid) ? String(sess.uid).trim()
+             : ((typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) ? String(USER_PROFILE.uid).trim() : '');
+  if (!uid) return;
+
+  try {
+    const status = await dbCallRaw('getFuturesAccountStatus', { uid });
+    document.getElementById('aftd-margin-bal').textContent   = (status.futures_balance || 0).toLocaleString('en', { minimumFractionDigits: 2 });
+    document.getElementById('aftd-margin-used').textContent  = (status.margin_used  || 0).toLocaleString('en', { minimumFractionDigits: 2 });
+    document.getElementById('aftd-margin-avail').textContent = (status.avail_margin || 0).toLocaleString('en', { minimumFractionDigits: 2 });
+    document.getElementById('aftd-pos-count').textContent    = (status.positions || []).length;
+    document.getElementById('aftd-order-count').textContent  = (status.orders    || []).length;
+    aftdRenderDirectPosList(status.positions || []);
+  } catch (e) {
+    console.warn('[aftdRefreshDirectSummary] fail:', e.message);
+  }
+}
+
+function aftdRenderDirectPosList(positions) {
+  const el = document.getElementById('astFutDirectPosList');
+  if (!el) return;
+  if (!positions.length) {
+    el.innerHTML = '<div class="aft-empty"><div class="aft-empty-icon">📭</div>' +
+      '<div class="aft-empty-title">ยังไม่มี Position ที่เปิดอยู่</div>' +
+      '<div class="aft-empty-sub">โหมด Futures-Direct ไม่มีประกันทุน (ไม่มี DD/Freeze)</div>' +
+      '<button class="aft-empty-btn" onclick="navTo(\'futures-direct\')">เริ่มเทรด</button></div>';
+    return;
+  }
+  el.innerHTML = positions.map(p => {
+    const pnl = parseFloat(p.realized_pnl) || 0;
+    return `<div class="aft-pos-card" onclick="navTo('futures-direct')">
+      <div class="aft-pos-card-header">
+        <div class="aft-pos-symbol-row">
+          <span class="aft-pos-sym">${p.symbol}</span>
+          <span class="aft-pos-side-lev ${p.side}">${p.side === 'long' ? 'LONG' : 'SHORT'} ${p.lev}x</span>
+        </div>
+        <div class="aft-pos-pnl-blk">
+          <div class="aft-pos-pnl-lbl">Margin</div>
+          <div class="aft-pos-pnl-val">${(parseFloat(p.margin)||0).toFixed(2)}</div>
+        </div>
+      </div>
+      <div class="aft-pos-grid">
+        <div class="aft-pg-item"><div class="aft-pg-lbl">Entry</div><div class="aft-pg-val">${p.entry_price}</div></div>
+        <div class="aft-pg-item"><div class="aft-pg-lbl">Liq. Price</div><div class="aft-pg-val warn">${p.liq_price}</div></div>
+        <div class="aft-pg-item"><div class="aft-pg-lbl">PNL</div><div class="aft-pg-val">${pnl.toFixed(2)}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
 const FUTD = {
   side: 'long',

@@ -9268,9 +9268,12 @@ function connectWS() {
 // แก้: ปิด WS เองล่วงหน้าก่อนเข้า bfcache (เงียบ ไม่มี error) แล้วเชื่อมต่อใหม่ทันทีที่กลับมาแสดงผล
 let _wsClosedForBfcache = false;
 window.addEventListener('pagehide', (evt) => {
-  if (evt.persisted && ws && ws.readyState === WebSocket.OPEN) {
+  // [FIX v2.47-FD BFC2] เดิมเช็คแค่ WebSocket.OPEN (=1) — ถ้า ws อยู่ใน CONNECTING (=0)
+  // ตอน pagehide browser ก็บังคับปิดเองแล้ว log เป็น error "Page entered Back-Forward Cache"
+  // แก้: ปิด ws ถ้าอยู่ใน OPEN หรือ CONNECTING ก็ตาม (ทั้ง 0 และ 1) เพื่อกันทุกกรณี
+  if (evt.persisted && ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
     _wsClosedForBfcache = true;
-    ws.close();
+    try { ws.close(); } catch(e) {}
   }
 });
 window.addEventListener('pageshow', (evt) => {

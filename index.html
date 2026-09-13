@@ -14600,14 +14600,17 @@ setInterval(astUpdateTime, 30000);
 
 // [v13.2] Force-reload balance+transactions จาก GAS ถ้า cache หมดอายุ
 // เรียกทุกครั้งที่เปิดหน้า Assets
-// [v2.47-FD FIX-INFLIGHT-2] in-flight guard — ป้องกัน startup + poll 15s ซ้อนกัน
-let _astRefreshInflight = false;
+// [v2.47-FD FIX-POLL-LOCK] in-flight guard — ป้องกัน concurrent GAS call ซ้อนกัน
+// กรณี GAS timeout 20s แต่ poll interval 15s → request เก่ายังไม่เสร็จ request ใหม่มาแล้ว
+// ผลลัพธ์เดิม: timeout storm ซ้อนกัน error ท่วม console
+// แก้: ถ้ามี request อยู่ระหว่างทาง → skip รอบนี้ทันที
+let _astRefreshInFlight = false;
 async function _astRefreshBalanceIfStale() {
-  if (_astRefreshInflight) return;
-  _astRefreshInflight = true;
-  if (typeof USER_PROFILE === 'undefined') { _astRefreshInflight = false; return; }
+  if (_astRefreshInFlight) return; // [FIX-POLL-LOCK] skip ถ้า request ก่อนยังไม่เสร็จ
+  if (typeof USER_PROFILE === 'undefined') return;
   const uid = USER_PROFILE.uid;
-  if (!uid) { _astRefreshInflight = false; return; }
+  if (!uid) return;
+  _astRefreshInFlight = true; // [FIX-POLL-LOCK] ล็อก
   const cacheKey = 'dash_' + uid;
 
   // [v13.3 FIX] ทำ background fetch เสมอ เพื่อรับ Off-chain deposit จากคนอื่น
@@ -14624,19 +14627,6 @@ async function _astRefreshBalanceIfStale() {
         if (typeof updateSysWalletDisplay === 'function') updateSysWalletDisplay();
         if (typeof updateOverviewBalances  === 'function') updateOverviewBalances();
       }
-    }
-    // [v2.48 FIX-SPOT-COINS] sync per-coin spot balances เข้า spotWallet
-    // เดิมมีเฉพาะใน loadDashboard path — _applyDash (ใช้โดย poll 15s + startup) ไม่ sync
-    // → เหรียญอื่นๆ ไม่ขึ้นใน Spot balance list เมื่อ cache expire / refresh
-    if (dash.spotCoins && Array.isArray(dash.spotCoins)) {
-      dash.spotCoins.forEach(function(entry) {
-        const coin = String(entry.coin || '').toUpperCase();
-        if (!coin || coin === 'USDT') return;
-        const bal = parseFloat(entry.balance) || 0;
-        if (!spotWallet[coin]) spotWallet[coin] = { bal: 0, locked: 0 };
-        spotWallet[coin].bal = bal;
-      });
-      if (typeof renderSpotBalanceList === 'function') renderSpotBalanceList();
     }
     _applyTransactions(uid, dash.transactions); // [FIX-TX-CLEAR]
     if (dash.trades)       _mergeIntoHIST('tradeHistory',       dash.trades);
@@ -14662,11 +14652,15 @@ async function _astRefreshBalanceIfStale() {
     const staleCached = cached || LS.get(cacheKey);
     if (staleCached) _applyDash(staleCached.data);
   } finally {
-    _astRefreshInflight = false;
+    _astRefreshInFlight = false; // [FIX-POLL-LOCK] ปลดล็อกเสมอ ไม่ว่าจะ success/fail/timeout
   }
+  return;
 }
 
-// [v13.3+RED-12 FIX] Polling: refresh balance ทุก 15 วิ ขณะอยู่ที่หน้า Assets
+// [v13.3+RED-12 FIX] Polling: refresh balance ทุก 30 วิ ขณะอยู่ที่หน้า Assets
+// [v2.47-FD FIX-POLL-INTERVAL] เพิ่มจาก 15s → 30s เพื่อให้ > dbCallRaw timeout (20s)
+// ป้องกัน poll รอบใหม่เริ่มก่อน request เก่า timeout แม้ in-flight lock จะช่วยได้แล้ว
+// ผลลัพธ์: เมื่อ GAS ตอบช้า error จะขึ้นมากสุด 1 ครั้ง/30 วิ ไม่ท่วม console
 let _astBalancePoller = null;
 function _astStartBalancePolling() {
   _astStopBalancePolling();
@@ -14676,7 +14670,7 @@ function _astStartBalancePolling() {
     } else {
       _astStopBalancePolling();
     }
-  }, 15000);
+  }, 30000);
 }
 function _astStopBalancePolling() {
   if (_astBalancePoller) { clearInterval(_astBalancePoller); _astBalancePoller = null; }
@@ -15980,7 +15974,8 @@ function updateOverviewBalances() {
   }
   // [vx3 FIX-FROZEN-BAL] Sync ทุก contract รวม frozen — syncContractBalance จัดการ branch เองแล้ว
   // เดิม: skip frozen → currentBalance ค้างค่าเก่า → earnWalletBal / futuresUsdt ผิด
-  earnContracts.forEach(c => { syncContractBalance(c); });
+  // [v2.47-FD FIX-UNDEF-B] filter(Boolean) ป้องกัน undefined เข้า syncContractBalance
+  earnContracts.filter(Boolean).forEach(c => { syncContractBalance(c); });
 
   // Futures Margin Balance = sum(earnContracts currentBalance) - totalUnrealized
   const totalUnrealized = S.positions.reduce((s, p) => s + (p.pnl || 0), 0);
@@ -18567,9 +18562,6 @@ function updateSysWalletDisplay() {
 function tickDailyYield() {
   let needsRender = false;
   earnContracts.forEach(c => {
-    // [v2.48 FIX-TICK-NULL] guard undefined/null entry — ป้องกัน crash c.status ถ้า
-    // earnContracts มี undefined entry จาก race condition ใน loadOfflineState
-    if (!c) return;
     // ── guard: frozen/matured contracts หยุดสะสม yield และไม่ถูก sync ──
     if (c.status !== 'active') return;
     const now = Date.now();
@@ -23742,9 +23734,10 @@ function renderAstFuturesTab() {
   const totalUnrealized = S.positions.reduce((s, p) => s + (p.pnl || 0), 0);
   const totalMarginUsed = S.positions.reduce((s, p) => s + (p.margin || 0), 0);
   // [vx3 FIX-FROZEN-BAL] Sync ทุก contract รวม frozen — syncContractBalance จัดการ branch เองแล้ว
-  earnContracts.forEach(c => { syncContractBalance(c); });
+  // [v2.47-FD FIX-UNDEF-B] filter(Boolean) ป้องกัน undefined เข้า syncContractBalance
+  earnContracts.filter(Boolean).forEach(c => { syncContractBalance(c); });
   // Wallet Balance = sum of all earnContracts currentBalance (staked + realized + unrealized - margin used)
-  const walletBal   = earnContracts.reduce((s, c) => s + (c.currentBalance || 0), 0);
+  const walletBal   = earnContracts.filter(Boolean).reduce((s, c) => s + (c.currentBalance || 0), 0);
   // [v50 FIX] Margin Balance = Wallet Balance + Margin Used (เหมือน Binance: รวมเงินที่ใช้วาง margin ด้วย)
   // currentBalance = staked + realized - marginUsed + unrealized  →  marginBal = walletBal + marginUsed
   const marginBal   = walletBal + totalMarginUsed;
@@ -30374,9 +30367,13 @@ function syncEarnContractsToGAS() {
     const uid = (_sess && _sess.uid) ? String(_sess.uid).trim()
                 : ((typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) ? USER_PROFILE.uid : '');
     if (!uid || typeof earnContracts === 'undefined' || !earnContracts.length) return;
+    // [v2.47-FD FIX-UNDEF-B] กรอง null/undefined ออกก่อน .map() ป้องกัน c.contractId crash
+    // race condition ใน loadOfflineState อาจ push undefined เข้า earnContracts ชั่วคราว
+    const _safeContracts = earnContracts.filter(Boolean);
+    if (!_safeContracts.length) return;
     // [v2.20 FIX-N2b] ตัด current_balance และ realized_pnl ออกจาก mapped object ถาวร
     // GAS (syncEarnContracts) บล็อค 2 field นี้อยู่แล้วอีกชั้น แต่ตัดจากต้นทางด้วยเพื่อความปลอดภัยสูงสุด
-    const mapped = earnContracts.map(c => ({
+    const mapped = _safeContracts.map(c => ({
       contractId:      c.contractId,
       uid:             c.uid || c.userId || uid,
       plan_days:       c.planDays,
@@ -30450,10 +30447,23 @@ function syncOpenOrdersToGAS() {
  * syncOfflineEngine — เรียกตอนเปิดแอป: ส่ง earnContracts + openOrders ไป GAS ครั้งเดียว
  */
 function syncOfflineEngine() {
-  // [v2.47-FD FIX-RTS] ลบ updateRefreshTimestamp ออกจากที่นี่ — ซ้ำกับที่ loadOfflineState เรียกอยู่แล้ว
-  // เดิม v16 เพิ่มมาเพื่อให้ grace period ครอบคลุม sync startup แต่ทำให้ GAS ได้รับ 2 calls ต่อ startup
-  // loadOfflineState รัน parallel กับ syncOfflineEngine (ดู DOMContentLoaded ด้านล่าง) → updateRefreshTimestamp
-  // ถูกยิงใน loadOfflineState อยู่แล้วก่อน parallel GAS calls — เพียงพอแล้ว
+  // [v16 FIX] เดิม updateRefreshTimestamp ถูกเรียกแค่จุดเดียวคือต้นๆ loadOfflineState()
+  // ซึ่งรันหลัง syncOfflineEngine() เสมอ (ดู DOMContentLoaded ด้านล่าง: syncOfflineEngine() แล้วค่อย loadOfflineState())
+  // → ช่วงที่ syncEarnContractsToGAS/syncOpenOrdersToGAS กำลัง "เขียน" สถานะ startup ไปที่ GAS
+  //   ยังไม่มี grace period คุ้มครองเลย ถ้า GAS trigger (funding/liquidate sweep) ทำงานพอดีช่วงนี้
+  //   อาจอ่านสถานะที่เขียนยังไม่ครบ/ชนกับ client ได้ → เรียก updateRefreshTimestamp ที่นี่ก่อน
+  //   เพื่อให้ grace period ครอบคลุมตั้งแต่ต้น sequence (push ก่อน pull) ไม่ใช่แค่ครึ่งหลัง
+  // fail-open: ถ้า call ล้มเหลวไม่บล็อก sync ที่เหลือ
+  try {
+    const _sess = (typeof _lgLoadSession === 'function') ? _lgLoadSession() : null;
+    const _uid = (_sess && _sess.uid) ? String(_sess.uid).trim()
+                  : ((typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) ? USER_PROFILE.uid : '');
+    if (_uid && typeof dbCallRaw === 'function') {
+      dbCallRaw('updateRefreshTimestamp', { uid: _uid }).catch(e =>
+        console.warn('[OfflineEngine] updateRefreshTimestamp (startup push) fail (ignored):', e.message));
+    }
+  } catch (e) { console.warn('[OfflineEngine] updateRefreshTimestamp (startup push) err:', e.message); }
+
   syncEarnContractsToGAS();  // [v5 FIX] ลบ isStartup param — current_balance/realized_pnl ถูกตัดออกถาวรแล้ว
   syncOpenOrdersToGAS();
   console.warn('[OfflineEngine] startup sync sent');
@@ -30817,7 +30827,8 @@ async function loadOfflineState() {
             earnContracts.push(...mapped);
           } else {
             // อัปเดต local contracts ที่มีอยู่แล้ว + เพิ่มใหม่
-            earnContracts.forEach((c, i) => {
+            // [v2.47-FD FIX-UNDEF-B] filter(Boolean) ก่อน forEach ป้องกัน c.contractId crash
+            earnContracts.filter(Boolean).forEach((c, i) => {
               if (gasMap[c.contractId]) {
                 const _gasRow = gasMap[c.contractId];
                 // [v9 FIX] Pending-Freeze Guard: ถ้า local เพิ่ง freeze ไปเอง (_autoLiquidate)
@@ -30896,7 +30907,8 @@ async function loadOfflineState() {
         // แก้: หลัง merge เสร็จ sweep ทุก contract ตรวจกับ _contractDDMap อีกรอบ
         //   ถ้า isFrozen=true และ status ยังเป็น active → บังคับ status='frozen' ทันที
         if (window._contractDDMap) {
-          earnContracts.forEach(c => {
+          // [v2.47-FD FIX-UNDEF-B] filter(Boolean) ป้องกัน c.contractId crash ใน _contractDDMap sweep
+          earnContracts.filter(Boolean).forEach(c => {
             const _ddEntry = window._contractDDMap[c.contractId];
             if (_ddEntry && _ddEntry.isFrozen && c.status !== 'frozen' && c.status !== 'matured') {
               console.warn('[OfflineEngine] FIX-ACTIVE-FROZEN: force status=frozen for', c.contractId,
@@ -35415,15 +35427,11 @@ function aftSetMode(mode) {
 }
 
 /** โหลด+แสดงสรุปยอด Futures-Direct (Margin Balance/ใช้ไปแล้ว/ว่าง + Position/Order list) */
-// [v2.47-FD FIX-INFLIGHT-3] in-flight guard — ป้องกันกดสลับ sub-tab ซ้ำๆ ยิงหลายรอบ
-let _aftdRefreshInflight = false;
 async function aftdRefreshDirectSummary() {
-  if (_aftdRefreshInflight) return;
-  _aftdRefreshInflight = true;
   const sess = (typeof _lgLoadSession === 'function') ? _lgLoadSession() : null;
   const uid  = (sess && sess.uid) ? String(sess.uid).trim()
              : ((typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) ? String(USER_PROFILE.uid).trim() : '');
-  if (!uid) { _aftdRefreshInflight = false; return; }
+  if (!uid) return;
 
   // [v2.47-FD] แสดง loading spinner ขณะโหลด ป้องกัน UI ว่างค้างโดยไม่มีคำอธิบาย
   const _listEl = document.getElementById('astFutDirectPosList');
@@ -35467,8 +35475,6 @@ async function aftdRefreshDirectSummary() {
           '<button class="aft-empty-btn" onclick="aftdRefreshDirectSummary()" style="margin-top:12px;">ลองใหม่</button>' +
         '</div>';
     }
-  } finally {
-    _aftdRefreshInflight = false;
   }
 }
 
@@ -35520,11 +35526,10 @@ function _futdCurrentUid() {
 
 /** เรียกตอนเข้าหน้า Futures-Direct (จาก navTo) */
 function futdInit() {
-  // [v2.47-FD FIX-INIT] stop timer ก่อนเสมอ ป้องกัน timer leak ถ้าเปิดหน้าซ้ำ
-  futdStopPolling();
   futdSetSide('long');
   futdRefreshAccountStatus();
   futdRefreshPrice();
+  futdStopPolling();
   // เช็คราคา + สถานะบัญชีทุก 5 วิ ระหว่างอยู่หน้านี้ (แยกจาก engine ฝั่ง GAS ที่รันทุก 1 นาที —
   // นี่แค่ทำให้ UI ดูสดขึ้นเฉยๆ ไม่ใช่ตัวตัดสิน TP/SL/Liq จริง — ตัวจริงอยู่ที่ processFuturesTpSl)
   FUTD.pollTimer = setInterval(() => {
@@ -35575,13 +35580,9 @@ function futdCalcMargin() {
   hint.textContent = 'Margin โดยประมาณ: ' + margin.toLocaleString('en', { maximumFractionDigits: 2 }) + ' USDT';
 }
 
-// [v2.47-FD FIX-INFLIGHT-1] in-flight guard — ป้องกัน poll 5s ซ้อนกัน
-let _futdRefreshInflight = false;
 async function futdRefreshAccountStatus() {
-  if (_futdRefreshInflight) return;
-  _futdRefreshInflight = true;
   const uid = _futdCurrentUid();
-  if (!uid) { _futdRefreshInflight = false; return; }
+  if (!uid) return;
   try {
     const status = await dbCallRaw('getFuturesAccountStatus', { uid });
     FUTD.status = status;
@@ -35593,8 +35594,6 @@ async function futdRefreshAccountStatus() {
     futdRenderOrders(status.orders || []);
   } catch (e) {
     console.warn('[futdRefreshAccountStatus] fail:', e.message);
-  } finally {
-    _futdRefreshInflight = false;
   }
 }
 

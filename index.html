@@ -17300,9 +17300,13 @@ function getRiskLevel(c) {
 }
 
 // ── Days elapsed / total ──
+// [FIX-TF-4 v2.47-FD] guard c undefined / c.startTime undefined
+// root cause: earnContracts array อาจมี undefined element จาก race condition
+// ใน loadOfflineState (GAS sync) ก่อน page โหลดครบ → crash TypeError
 function calcDaysPassed(c) {
+  if (!c || !c.startTime) return 0;
   const ms = Date.now() - c.startTime;
-  return Math.min(c.planDays, Math.floor(ms / 86400000));
+  return Math.min(c.planDays || 0, Math.floor(ms / 86400000));
 }
 
 // ── Earn Contract Countdown helpers ──
@@ -17310,7 +17314,9 @@ function calcDaysPassed(c) {
 // [v2.46] _earnEffectiveEndMs — คำนวณ endTime ที่ใช้จริงสำหรับ countdown
 // ลำดับความสำคัญ: c.endTime (จาก GAS sync) → c.startTime + planDays (fallback)
 // รองรับทั้ง: active รอบใหม่หลัง auto-renew, matured รอบเก่า, legacy contracts
+// [FIX-TF-4b v2.47-FD] guard c undefined เพื่อป้องกัน crash จาก race condition ใน loadOfflineState
 function _earnEffectiveEndMs(c) {
+  if (!c) return 0;
   if (c.endTime > 0) return c.endTime;
   if (c.startTime > 0 && c.planDays > 0) return c.startTime + c.planDays * 86400000;
   return 0;
@@ -17319,8 +17325,10 @@ function _earnEffectiveEndMs(c) {
 function _earnCountdownMs(c) {
   // เวลาที่เหลือจนครบกำหนด (ค่าลบ = หมดแล้ว)
   // [v2.46] ใช้ _earnEffectiveEndMs แทน startTime+planDays เพื่อรองรับ endTime ที่อัปเดตจาก GAS
+  if (!c) return 0;
   const endMs = _earnEffectiveEndMs(c);
   if (endMs > 0) return endMs - Date.now();
+  if (!c.startTime || !c.planDays) return 0;
   return (c.startTime + c.planDays * 86400000) - Date.now();
 }
 
@@ -17443,7 +17451,9 @@ function renderEarnContracts() {
   if (!listEl) return;
 
   // [v2.35 NEW] สัญญา status='closed' (redeem แล้ว) ไม่ต้องแสดงในรายการอีกต่อไป
-  const _visibleContracts = earnContracts.filter(c => c.status !== 'closed');
+  // [FIX-TF-4c v2.47-FD] กรอง null/undefined ออกก่อน — ป้องกัน crash buildEarnCard(undefined)
+  // จาก race condition ใน loadOfflineState ที่อาจ push undefined เข้า earnContracts
+  const _visibleContracts = earnContracts.filter(c => c && c.status !== 'closed');
 
   let total = 0, cntActive = 0, cntFrozen = 0, cntMatured = 0, totalClaimed = 0;
   _visibleContracts.forEach(c => {
@@ -20889,7 +20899,12 @@ const TF_WALLETS = [
 function tfGetWalletBalance(walletId) {
   switch(walletId) {
     case 'spot':     return mainWalletBalance;
-    case 'usdm':     return mainWalletBalance; // same pool in this demo
+    // [FIX-TF-2 v2.47-FD] usdm ต้องอ่าน futures_balance จาก GAS จริง ไม่ใช่ mainWalletBalance
+    // เดิม: return mainWalletBalance — ทำให้ Available แสดงผิด และ tfConfirm deduct/credit ผิด wallet
+    // ใหม่: ดึงจาก FUTD.status (sync ล่าสุดจาก getFuturesAccountStatus) หรือ 0 ถ้ายังไม่ได้ sync
+    case 'usdm':     return (typeof FUTD !== 'undefined' && FUTD.status)
+                       ? (parseFloat(FUTD.status.futures_balance) || 0)
+                       : 0;
     case 'earn': {
       const total = earnContracts.reduce((s,c) => s + (c.currentBalance||0), 0);
       return parseFloat(total.toFixed(8));
@@ -20963,6 +20978,15 @@ function openTransfer(from, to) {
   if (to)   TF.to   = to;
   document.getElementById('tfAmountInp').value = '';
   document.getElementById('tfErrorMsg').style.display = 'none';
+
+  // [FIX-TF-5 v2.47-FD] ถ้า modal เกี่ยวกับ usdm และ FUTD.status ยังไม่มีข้อมูล
+  // → sync futures_balance จาก GAS ก่อนเปิด เพื่อให้ Available แสดงถูกตั้งแต่ต้น
+  if ((TF.from === 'usdm' || TF.to === 'usdm') &&
+      typeof futdRefreshAccountStatus === 'function' &&
+      (!FUTD || !FUTD.status)) {
+    futdRefreshAccountStatus().catch(() => {});
+  }
+
   tfRefreshDisplay();
   const ov = document.getElementById('transferOverlay');
   ov.style.display = 'flex';
@@ -21035,9 +21059,18 @@ function tfConfirm() {
   const avail = tfGetAvailable();
   if (amt <= 0 || amt > avail) return;
 
+  // [FIX-TF-3 v2.47-FD] แยก local state update ของ usdm ออกจาก spot
+  // เดิม: usdm และ spot ทั้งคู่บวก/ลบ mainWalletBalance → transfer usdm→spot บวกซ้ำ
+  // ใหม่: usdm อัปเดต FUTD.status.futures_balance (optimistic) เพราะ mainWalletBalance ≠ futures_balance
+
   // Deduct from source wallet
-  if (TF.from === 'spot' || TF.from === 'usdm') {
+  if (TF.from === 'spot') {
     mainWalletBalance = Math.max(0, mainWalletBalance - amt);
+  } else if (TF.from === 'usdm') {
+    // Optimistic local update ของ futures_balance (GAS จะยืนยัน/ปรับผ่าน futdRefreshAccountStatus)
+    if (typeof FUTD !== 'undefined' && FUTD.status) {
+      FUTD.status.futures_balance = Math.max(0, (parseFloat(FUTD.status.futures_balance) || 0) - amt);
+    }
   } else if (TF.from === 'earn') {
     // Deduct proportionally from earn contracts
     let remaining = amt;
@@ -21052,8 +21085,13 @@ function tfConfirm() {
   }
 
   // Add to destination wallet
-  if (TF.to === 'spot' || TF.to === 'usdm') {
+  if (TF.to === 'spot') {
     mainWalletBalance += amt;
+  } else if (TF.to === 'usdm') {
+    // Optimistic local update ของ futures_balance
+    if (typeof FUTD !== 'undefined' && FUTD.status) {
+      FUTD.status.futures_balance = (parseFloat(FUTD.status.futures_balance) || 0) + amt;
+    }
   } else if (TF.to === 'earn') {
     // เติมเงินเข้า stakedAmount แล้วให้ syncContractBalance คำนวณ currentBalance ใหม่
     const activeC = earnContracts.find(c => c.status === 'active');
@@ -21063,7 +21101,7 @@ function tfConfirm() {
     fundingWalletBalance += amt;
   }
 
-  // ── [NEW] sync funding_balance ไป GAS ──
+  // ── sync funding_balance ไป GAS ──
   const _uid = USER_PROFILE && USER_PROFILE.uid;
   if (_uid && (TF.from === 'funding' || TF.to === 'funding')) {
     const sign = TF.to === 'funding' ? 1 : -1;
@@ -21073,7 +21111,6 @@ function tfConfirm() {
       amount: sign * amt
     });
   }
-
 
   // Update all displays
   if (typeof updateOverviewBalances === 'function') updateOverviewBalances();
@@ -21085,9 +21122,15 @@ function tfConfirm() {
     if (c && typeof _refreshAvbl === 'function') _refreshAvbl(c);
   }
 
-  // ── HIST: log transfer ──
+  // ── HIST: log transfer (→ saveTransfer → dbWrite logTransfer → GAS atomic update) ──
   if (typeof HIST !== 'undefined') {
     HIST.logTransfer(amt, TF.from, TF.to);
+  }
+
+  // [FIX-TF-3] Re-sync futures_balance จาก GAS หลัง transfer ที่เกี่ยวกับ usdm
+  // เพื่อให้ FUTD.status.futures_balance ตรงกับ Sheet จริง (ไม่ใช่แค่ optimistic)
+  if ((TF.from === 'usdm' || TF.to === 'usdm') && typeof futdRefreshAccountStatus === 'function') {
+    setTimeout(() => futdRefreshAccountStatus(), 1500); // รอ GAS commit เสร็จก่อน re-fetch
   }
 
   // Show success

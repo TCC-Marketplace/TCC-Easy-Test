@@ -14625,6 +14625,19 @@ async function _astRefreshBalanceIfStale() {
         if (typeof updateOverviewBalances  === 'function') updateOverviewBalances();
       }
     }
+    // [v2.48 FIX-SPOT-COINS] sync per-coin spot balances เข้า spotWallet
+    // เดิมมีเฉพาะใน loadDashboard path — _applyDash (ใช้โดย poll 15s + startup) ไม่ sync
+    // → เหรียญอื่นๆ ไม่ขึ้นใน Spot balance list เมื่อ cache expire / refresh
+    if (dash.spotCoins && Array.isArray(dash.spotCoins)) {
+      dash.spotCoins.forEach(function(entry) {
+        const coin = String(entry.coin || '').toUpperCase();
+        if (!coin || coin === 'USDT') return;
+        const bal = parseFloat(entry.balance) || 0;
+        if (!spotWallet[coin]) spotWallet[coin] = { bal: 0, locked: 0 };
+        spotWallet[coin].bal = bal;
+      });
+      if (typeof renderSpotBalanceList === 'function') renderSpotBalanceList();
+    }
     _applyTransactions(uid, dash.transactions); // [FIX-TX-CLEAR]
     if (dash.trades)       _mergeIntoHIST('tradeHistory',       dash.trades);
     if (dash.funding)      _mergeIntoHIST('fundingFee',         dash.funding);
@@ -18554,6 +18567,9 @@ function updateSysWalletDisplay() {
 function tickDailyYield() {
   let needsRender = false;
   earnContracts.forEach(c => {
+    // [v2.48 FIX-TICK-NULL] guard undefined/null entry — ป้องกัน crash c.status ถ้า
+    // earnContracts มี undefined entry จาก race condition ใน loadOfflineState
+    if (!c) return;
     // ── guard: frozen/matured contracts หยุดสะสม yield และไม่ถูก sync ──
     if (c.status !== 'active') return;
     const now = Date.now();

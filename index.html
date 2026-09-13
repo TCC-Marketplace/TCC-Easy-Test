@@ -5494,6 +5494,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <div style="margin-left:auto;padding-bottom:10px;color:var(--t2)">⬡</div>
       </div>
       <div class="ast-account-row" onclick="astSwitchTabByName('futures-a')"><span class="ast-acct-name">Futures</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-futures-usdt">41.87 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-futures-usd">≈ $1,363.39</div></div></div>
+      <!-- [FUTURES-DIRECT v1] แถวใหม่เพิ่มเข้ามาเท่านั้น — ไม่แก้แถว Futures (Earn-linked) ด้านบน -->
+      <div class="ast-account-row" onclick="navTo('futures-direct')"><span class="ast-acct-name">Futures-Direct <span style="font-size:9px;color:var(--y);background:var(--ybg);border-radius:5px;padding:1px 5px;margin-left:4px">เทรดตรง</span></span><div class="ast-acct-right"><div class="ast-acct-usd" style="color:var(--t2);font-size:11px">›</div></div></div>
       <div class="ast-account-row" onclick="astSwitchTabByName('earn')"><span class="ast-acct-name">Earn</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-earn-usdt">0.00 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-earn-usd">≈ $0.00</div></div></div>
       <div class="ast-account-row" onclick="astSwitchTabByName('funding')" style="display:none"><span class="ast-acct-name">Funding</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-funding-usdt">0.00000044 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-funding-usd">≈ $0.00001433</div></div></div>
       <div class="ast-account-row" onclick="astSwitchTabByName('spot-a')"><span class="ast-acct-name">Spot</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-spot-usdt">0.00 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-spot-usd">≈ $0.00</div></div></div>
@@ -7755,6 +7757,117 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .vf-notice { margin: 0 16px 20px; background: rgba(240,185,11,.06); border-radius: 10px; padding: 12px 14px; font-size: 12px; color: var(--t2); line-height: 1.6; border: 1px solid rgba(240,185,11,.12); }
 .vf-notice a { color: var(--y); text-decoration: underline; cursor: pointer; }
 </style>
+
+<!-- ════════════════════════════════
+     PAGE: FUTURES-DIRECT (ส่วนที่ 2 — เทรด Futures ตรง ไม่ผ่าน Earn Contract)
+     [FUTURES-DIRECT v1] หน้าใหม่แยกต่างหากทั้งหมด ไม่ใช้ order-form ของ page-futures เดิม
+     เรียก action ใหม่ทั้งหมด: getFuturesAccountStatus / openFuturesPosition /
+     placeFuturesOrder / closeFuturesPosition / cancelFuturesOrder (ดู GAS MODULE 14)
+════════════════════════════════ -->
+<style>
+.futd-wrap{padding:14px 16px 90px}
+.futd-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.futd-back{cursor:pointer;color:var(--t1);font-size:20px;line-height:1;padding:2px 6px}
+.futd-title{font-size:16px;font-weight:700;color:var(--t1)}
+.futd-badge{margin-left:auto;font-size:10px;color:var(--y);background:var(--ybg);border:1px solid rgba(240,185,11,.3);border-radius:6px;padding:2px 8px}
+.futd-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+.futd-bal-row{display:flex;justify-content:space-between;align-items:center}
+.futd-bal-lbl{font-size:11px;color:var(--t2)}
+.futd-bal-val{font-size:20px;font-weight:700;font-family:var(--mono);color:var(--t1)}
+.futd-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.futd-stat-lbl{font-size:10px;color:var(--t2)}
+.futd-stat-val{font-size:13px;font-weight:600;font-family:var(--mono);color:var(--t1)}
+.futd-form-row{display:flex;gap:8px;margin-bottom:8px}
+.futd-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--t1);font-size:13px;font-family:var(--mono)}
+.futd-select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--t1);font-size:13px}
+.futd-side-row{display:flex;gap:8px;margin-bottom:8px}
+.futd-side-btn{flex:1;text-align:center;padding:10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);color:var(--t2);background:var(--bg3)}
+.futd-side-btn.long.active{background:var(--gbg);color:var(--g);border-color:var(--g)}
+.futd-side-btn.short.active{background:var(--rbg);color:var(--r);border-color:var(--r)}
+.futd-submit{width:100%;padding:12px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;color:#0b0e11}
+.futd-submit.long{background:var(--g)}
+.futd-submit.short{background:var(--r)}
+.futd-margin-hint{font-size:11px;color:var(--t2);margin:4px 0 10px;text-align:right}
+.futd-section-title{font-size:12px;font-weight:600;color:var(--t2);margin:16px 0 8px}
+.futd-pos-row{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:11px;margin-bottom:8px}
+.futd-pos-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.futd-pos-sym{font-size:13px;font-weight:700;color:var(--t1)}
+.futd-pos-side{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px}
+.futd-pos-side.long{background:var(--gbg);color:var(--g)}
+.futd-pos-side.short{background:var(--rbg);color:var(--r)}
+.futd-pos-pnl{font-family:var(--mono);font-weight:700;font-size:13px}
+.futd-pos-detail{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:10.5px;color:var(--t2);margin-bottom:8px}
+.futd-pos-detail b{color:var(--t1);font-family:var(--mono);display:block}
+.futd-pos-actions{display:flex;gap:8px}
+.futd-btn-sm{flex:1;text-align:center;padding:7px;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid var(--border);color:var(--t1);background:var(--bg3)}
+.futd-btn-sm.danger{color:var(--r);border-color:rgba(246,70,93,.4)}
+.futd-empty{text-align:center;color:var(--t3);font-size:12px;padding:24px 0}
+</style>
+<div class="page" id="page-futures-direct">
+  <div class="futd-wrap">
+    <div class="futd-header">
+      <div class="futd-back" onclick="navTo('assets')">‹</div>
+      <div class="futd-title">Futures-Direct</div>
+      <div class="futd-badge">ไม่มีประกัน</div>
+    </div>
+
+    <!-- บัญชี -->
+    <div class="futd-card">
+      <div class="futd-bal-row">
+        <div>
+          <div class="futd-bal-lbl">Futures Wallet Balance</div>
+          <div class="futd-bal-val" id="futd-balance">0.00 <span style="font-size:12px;color:var(--t2)">USDT</span></div>
+        </div>
+        <button class="ast-btn-secondary" onclick="openTransfer(null,'usdm')" style="white-space:nowrap">โอนเงินเข้า</button>
+      </div>
+      <div class="futd-stats">
+        <div><div class="futd-stat-lbl">Margin ที่ใช้อยู่</div><div class="futd-stat-val" id="futd-margin-used">0.00 USDT</div></div>
+        <div><div class="futd-stat-lbl">Margin ที่ว่าง</div><div class="futd-stat-val" id="futd-margin-avail">0.00 USDT</div></div>
+      </div>
+    </div>
+
+    <!-- ฟอร์มเปิด Position -->
+    <div class="futd-card">
+      <div class="futd-form-row">
+        <select class="futd-select" id="futd-symbol" onchange="futdOnSymbolChange()" style="flex:1">
+          <option value="BTC">BTCUSDT</option>
+          <option value="ETH">ETHUSDT</option>
+          <option value="SOL">SOLUSDT</option>
+          <option value="BNB">BNBUSDT</option>
+        </select>
+        <select class="futd-select" id="futd-lev">
+          <option>5</option><option>10</option><option>20</option><option selected>50</option>
+          <option>75</option><option>100</option><option>150</option>
+        </select>
+        <span style="align-self:center;font-size:11px;color:var(--t2)">x</span>
+      </div>
+      <div class="futd-form-row">
+        <div class="futd-input" id="futd-mkprice" style="text-align:center;color:var(--t2)">ราคาตลาด: —</div>
+      </div>
+      <div class="futd-side-row">
+        <div class="futd-side-btn long active" id="futd-side-long" onclick="futdSetSide('long')">Long / Buy</div>
+        <div class="futd-side-btn short" id="futd-side-short" onclick="futdSetSide('short')">Short / Sell</div>
+      </div>
+      <div class="futd-form-row">
+        <input class="futd-input" id="futd-size" type="number" placeholder="Size (จำนวนเหรียญ)" oninput="futdCalcMargin()">
+      </div>
+      <div class="futd-form-row">
+        <input class="futd-input" id="futd-tp" type="number" placeholder="TP Price (ไม่บังคับ)">
+        <input class="futd-input" id="futd-sl" type="number" placeholder="SL Price (ไม่บังคับ)">
+      </div>
+      <div class="futd-margin-hint" id="futd-margin-hint">Margin โดยประมาณ: — USDT</div>
+      <button class="futd-submit long" id="futd-submit-btn" onclick="futdSubmitOpen()">เปิด Position (Long)</button>
+    </div>
+
+    <!-- Positions ที่เปิดอยู่ -->
+    <div class="futd-section-title">Positions ที่เปิดอยู่</div>
+    <div id="futd-positions-list"><div class="futd-empty">กำลังโหลด...</div></div>
+
+    <!-- Orders ที่รอ fill -->
+    <div class="futd-section-title">Limit Orders รอ Fill</div>
+    <div id="futd-orders-list"><div class="futd-empty">กำลังโหลด...</div></div>
+  </div>
+</div>
 
 <!-- ════════════════════════════════
      PAGE: PROFILE
@@ -12340,10 +12453,10 @@ function confirmTpsl(tab) {
 //  NAVIGATION SYSTEM
 // ═══════════════════════════════════════════════
 let currentPage = 'trade';
-const PAGE_IDS = { home:'home', whale:'whale', markets:'markets', trade:'trade', futures:'futures', assets:'assets', profile:'profile', 'account-info':'account-info', verification:'verification', termcondition:'termcondition', loan:'loan', 'loan-flexible':'loan-flexible' };
+const PAGE_IDS = { home:'home', whale:'whale', markets:'markets', trade:'trade', futures:'futures', assets:'assets', profile:'profile', 'account-info':'account-info', verification:'verification', termcondition:'termcondition', loan:'loan', 'loan-flexible':'loan-flexible', 'futures-direct':'futures-direct' };
 
 // ── Sub-pages that don't appear in bottom nav (no ni-xxx) ──
-const PAGE_NAV_KEY = { 'account-info':'home', 'verification':'home', 'profile':'home', 'termcondition':'home', 'loan':'home', 'loan-flexible':'home' };
+const PAGE_NAV_KEY = { 'account-info':'home', 'verification':'home', 'profile':'home', 'termcondition':'home', 'loan':'home', 'loan-flexible':'home', 'futures-direct':'assets' };
 
 function navTo(page) {
   const target = PAGE_IDS[page] || page;
@@ -12410,6 +12523,9 @@ function navTo(page) {
   if (target === 'home')    { if (typeof _homeInit === 'function') _homeInit(); else console.warn('[navTo] _homeInit not ready yet'); }
   if (target === 'markets' && !mktLoaded) loadMarketData();
   if (target === 'trade')   { loadSpotData(); }
+  // [FUTURES-DIRECT v1] — เพิ่ม branch ใหม่เฉยๆ ไม่แก้ของเดิมด้านบน/ล่างเลย
+  if (target === 'futures-direct') { if (typeof futdInit === 'function') futdInit(); }
+  else { if (typeof futdStopPolling === 'function') futdStopPolling(); }
   if (target === 'futures') requestAnimationFrame(() => requestAnimationFrame(() => {
     drawChart();
     // ── sync levBtn + goldLevNote ตาม S.coin ปัจจุบันทุกครั้งที่เข้าหน้า futures ──
@@ -35111,5 +35227,203 @@ function _wltShareDownloadAndPrompt(addr, qrB64, platform) {
   </div>
 </div>
 
+<script>
+// ══════════════════════════════════════════════════════════════════
+//  [FUTURES-DIRECT v1] — เทรด Futures ตรง ไม่ผ่าน Earn Contract
+//  ──────────────────────────────────────────────────────────────
+//  Self-contained module ทั้งหมด — ทุกฟังก์ชัน/ตัวแปรขึ้นต้นด้วย futd/FUTD เพื่อไม่ชนกับ
+//  ของเดิมในไฟล์ (S, TF, HIST, ฯลฯ) เรียก action ใหม่ทั้งหมดที่เพิ่งเพิ่มใน GAS MODULE 14
+//  (openFuturesPosition / placeFuturesOrder / closeFuturesPosition / cancelFuturesOrder /
+//  getFuturesAccountStatus) — ไม่เรียก logOpen/logClose/cancelOrder ของ Earn-linked เลย
+// ══════════════════════════════════════════════════════════════════
+
+const FUTD = {
+  side: 'long',
+  symbolCoin: 'BTC',
+  lastPrice: 0,
+  pollTimer: null,
+  status: null, // ผลล่าสุดจาก getFuturesAccountStatus
+};
+
+function _futdCurrentUid() {
+  const sess = (typeof _lgLoadSession === 'function') ? _lgLoadSession() : null;
+  return (sess && sess.uid) ? String(sess.uid).trim()
+       : ((typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) ? String(USER_PROFILE.uid).trim() : '');
+}
+
+/** เรียกตอนเข้าหน้า Futures-Direct (จาก navTo) */
+function futdInit() {
+  futdSetSide('long');
+  futdRefreshAccountStatus();
+  futdRefreshPrice();
+  futdStopPolling();
+  // เช็คราคา + สถานะบัญชีทุก 5 วิ ระหว่างอยู่หน้านี้ (แยกจาก engine ฝั่ง GAS ที่รันทุก 1 นาที —
+  // นี่แค่ทำให้ UI ดูสดขึ้นเฉยๆ ไม่ใช่ตัวตัดสิน TP/SL/Liq จริง — ตัวจริงอยู่ที่ processFuturesTpSl)
+  FUTD.pollTimer = setInterval(() => {
+    futdRefreshPrice();
+    futdRefreshAccountStatus();
+  }, 5000);
+}
+
+function futdStopPolling() {
+  if (FUTD.pollTimer) { clearInterval(FUTD.pollTimer); FUTD.pollTimer = null; }
+}
+
+function futdOnSymbolChange() {
+  FUTD.symbolCoin = document.getElementById('futd-symbol').value;
+  futdRefreshPrice();
+}
+
+function futdSetSide(side) {
+  FUTD.side = side;
+  document.getElementById('futd-side-long').classList.toggle('active', side === 'long');
+  document.getElementById('futd-side-short').classList.toggle('active', side === 'short');
+  const btn = document.getElementById('futd-submit-btn');
+  btn.className = 'futd-submit ' + side;
+  btn.textContent = side === 'long' ? 'เปิด Position (Long)' : 'เปิด Position (Short)';
+  futdCalcMargin();
+}
+
+/** ดึงราคาล่าสุดจาก Hyperliquid ผ่าน hlPost ที่มีอยู่แล้วในระบบ (ไม่สร้าง fetch logic ใหม่) */
+async function futdRefreshPrice() {
+  try {
+    const mids = await hlPost({ type: 'allMids' });
+    const price = parseFloat(mids[FUTD.symbolCoin]) || 0;
+    FUTD.lastPrice = price;
+    const el = document.getElementById('futd-mkprice');
+    if (el) el.textContent = price > 0 ? ('ราคาตลาด: ' + price.toLocaleString('en', { maximumFractionDigits: 4 })) : 'ราคาตลาด: —';
+    futdCalcMargin();
+  } catch (e) {
+    console.warn('[futdRefreshPrice] fail:', e.message);
+  }
+}
+
+function futdCalcMargin() {
+  const size = parseFloat(document.getElementById('futd-size').value) || 0;
+  const lev  = parseFloat(document.getElementById('futd-lev').value) || 1;
+  const hint = document.getElementById('futd-margin-hint');
+  if (!size || !FUTD.lastPrice) { hint.textContent = 'Margin โดยประมาณ: — USDT'; return; }
+  const margin = (FUTD.lastPrice * size) / lev;
+  hint.textContent = 'Margin โดยประมาณ: ' + margin.toLocaleString('en', { maximumFractionDigits: 2 }) + ' USDT';
+}
+
+async function futdRefreshAccountStatus() {
+  const uid = _futdCurrentUid();
+  if (!uid) return;
+  try {
+    const status = await dbCallRaw('getFuturesAccountStatus', { uid });
+    FUTD.status = status;
+    document.getElementById('futd-balance').innerHTML =
+      (status.futures_balance || 0).toLocaleString('en', { minimumFractionDigits: 2 }) + ' <span style="font-size:12px;color:var(--t2)">USDT</span>';
+    document.getElementById('futd-margin-used').textContent  = (status.margin_used  || 0).toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
+    document.getElementById('futd-margin-avail').textContent = (status.avail_margin || 0).toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
+    futdRenderPositions(status.positions || []);
+    futdRenderOrders(status.orders || []);
+  } catch (e) {
+    console.warn('[futdRefreshAccountStatus] fail:', e.message);
+  }
+}
+
+function futdRenderPositions(positions) {
+  const el = document.getElementById('futd-positions-list');
+  if (!positions.length) { el.innerHTML = '<div class="futd-empty">ยังไม่มี Position ที่เปิดอยู่</div>'; return; }
+  el.innerHTML = positions.map(p => {
+    const coin = (p.symbol || '').replace('USDT', '');
+    const mkt  = (FUTD.status && FUTD.symbolCoin === coin) ? FUTD.lastPrice : null;
+    const pnlColor = 'var(--t2)';
+    return `<div class="futd-pos-row">
+      <div class="futd-pos-top">
+        <div><span class="futd-pos-sym">${p.symbol}</span><span class="futd-pos-side ${p.side}">${p.side === 'long' ? 'LONG' : 'SHORT'} x${p.lev}</span></div>
+        <div class="futd-pos-pnl" style="color:${pnlColor}">${p.realized_pnl || '0.00'}</div>
+      </div>
+      <div class="futd-pos-detail">
+        <div>Entry<b>${p.entry_price}</b></div>
+        <div>Margin<b>${(parseFloat(p.margin)||0).toFixed(2)}</b></div>
+        <div>Liq. Price<b style="color:var(--r)">${p.liq_price}</b></div>
+      </div>
+      <div class="futd-pos-actions">
+        <div class="futd-btn-sm danger" onclick="futdCloseposition('${p.id}')">Close Position</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function futdRenderOrders(orders) {
+  const el = document.getElementById('futd-orders-list');
+  if (!orders.length) { el.innerHTML = '<div class="futd-empty">ไม่มี Order ที่รอ Fill</div>'; return; }
+  el.innerHTML = orders.map(o => `<div class="futd-pos-row">
+      <div class="futd-pos-top">
+        <div><span class="futd-pos-sym">${o.symbol}</span><span class="futd-pos-side ${o.side}">${o.side === 'long' ? 'LONG' : 'SHORT'} x${o.lev}</span></div>
+      </div>
+      <div class="futd-pos-detail">
+        <div>Limit Price<b>${o.limit_price}</b></div>
+        <div>Size<b>${o.size}</b></div>
+        <div>Margin<b>${(parseFloat(o.margin)||0).toFixed(2)}</b></div>
+      </div>
+      <div class="futd-pos-actions">
+        <div class="futd-btn-sm danger" onclick="futdCancelorder('${o.order_id}')">ยกเลิก Order</div>
+      </div>
+    </div>`).join('');
+}
+
+/** เปิด Position ทันที (Market) — เรียก action ใหม่ openFuturesPosition เท่านั้น */
+async function futdSubmitOpen() {
+  const uid = _futdCurrentUid();
+  if (!uid) { showToast('กรุณาเข้าสู่ระบบก่อน'); return; }
+
+  const size = parseFloat(document.getElementById('futd-size').value) || 0;
+  const lev  = parseFloat(document.getElementById('futd-lev').value) || 1;
+  const tp   = parseFloat(document.getElementById('futd-tp').value) || 0;
+  const sl   = parseFloat(document.getElementById('futd-sl').value) || 0;
+
+  if (!size || size <= 0) { showToast('กรุณาระบุ Size'); return; }
+  if (!FUTD.lastPrice)    { showToast('รอราคาตลาดสักครู่แล้วลองใหม่'); return; }
+
+  try {
+    await dbCallRaw('openFuturesPosition', {
+      uid, symbol: FUTD.symbolCoin + 'USDT', side: FUTD.side, lev, size,
+      entry_price: FUTD.lastPrice, mode: 'isolated',
+      tp: tp || '', sl: sl || '',
+    });
+    showToast('✅ เปิด Position สำเร็จ');
+    document.getElementById('futd-size').value = '';
+    document.getElementById('futd-tp').value = '';
+    document.getElementById('futd-sl').value = '';
+    futdRefreshAccountStatus();
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'เปิด Position ไม่สำเร็จ'));
+  }
+}
+
+/** ปิด Position ด้วยมือ (Market Close ที่ราคาตลาดปัจจุบันของเหรียญนั้นๆ) */
+async function futdCloseposition(posId) {
+  const uid = _futdCurrentUid();
+  const pos = (FUTD.status && FUTD.status.positions || []).find(p => p.id === posId);
+  if (!pos) return;
+  const coin = (pos.symbol || '').replace('USDT', '');
+
+  try {
+    const mids = await hlPost({ type: 'allMids' });
+    const exitPrice = parseFloat(mids[coin]) || 0;
+    if (!exitPrice) { showToast('ไม่สามารถดึงราคาปัจจุบันได้ ลองใหม่อีกครั้ง'); return; }
+
+    await dbCallRaw('closeFuturesPosition', { id: posId, uid, exit_price: exitPrice });
+    showToast('✅ ปิด Position สำเร็จ');
+    futdRefreshAccountStatus();
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'ปิด Position ไม่สำเร็จ'));
+  }
+}
+
+async function futdCancelorder(orderId) {
+  try {
+    await dbCallRaw('cancelFuturesOrder', { order_id: orderId });
+    showToast('✅ ยกเลิก Order สำเร็จ');
+    futdRefreshAccountStatus();
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'ยกเลิก Order ไม่สำเร็จ'));
+  }
+}
+</script>
 </body>
 </html>

@@ -14641,7 +14641,9 @@ async function _astRefreshBalanceIfStale() {
     }
   } catch(e) {
     console.warn('[_astRefreshBalanceIfStale] GAS fail, using cache:', e.message);
-    if (cached) _applyDash(cached.data);
+    // [v2.47-FD FIX-BAL-2] ใช้ stale cache ถ้า fresh cache หมดอายุแล้ว (GAS fail scenario)
+    const staleCached = cached || LS.get(cacheKey);
+    if (staleCached) _applyDash(staleCached.data);
   }
   return;
 }
@@ -28707,7 +28709,7 @@ function _syncAllProfilePages() {
 //    - อย่าเพิ่ม SCRIPT_URL ซ้ำ — มีอยู่แล้วบรรทัดแรก
 // ══════════════════════════════════════════════════════════════════
 
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwocCEr-mQu6esBJBRRElo68Y2GLPJryhAShi9FSm__G9mD0TV5oa9IAa8cFxBn_GlILw/exec'; // ← แทนที่ด้วย GAS Web App URL
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxWdhFAgZIhEP1Yx070P3xIGpkdqMm2HDM2UDb_0vYupsfVgxgwzZ2b-842ZWfcbRVNow/exec'; // ← แทนที่ด้วย GAS Web App URL
 
 // [NEW] Admin Panel GAS Web App (แยกจาก SCRIPT_URL หลัก — ใช้สำหรับ action ที่ admin เป็นเจ้าของ
 // เช่น getTeamBalance / getSystemBalances / distributeProfit หากฝั่ง admin deploy คนละ Web App)
@@ -29303,11 +29305,42 @@ async function loadDashboard() {
   let dash = null;
   try {
     dash = await dbCallRaw('getDashboard', { uid });
-    if (dash) LS.setWithTTL(cacheKey, { data: dash }, CACHE_CONFIG.TTL_DASHBOARD);
+    if (dash) {
+      LS.setWithTTL(cacheKey, { data: dash }, CACHE_CONFIG.TTL_DASHBOARD);
+      // [v2.47-FD FIX-BAL-3] บันทึก balance fallback ที่ไม่มีวันหมดอายุ — ใช้เมื่อ GAS fail
+      // และ cache หลักหมดอายุแล้ว (ดีกว่าแสดง 0.00 ให้ผู้ใช้เห็น)
+      if (dash.user) LS.set('bal_fallback_' + uid, {
+        main_balance: dash.user.main_balance,
+        funding_balance: dash.user.funding_balance,
+        _ts: Date.now()
+      });
+    }
   } catch(e) {
     console.warn('[loadDashboard] GAS fail, trying cache fallback:', e.message);
-    const cached = LS.getIfFresh(cacheKey);
+    // [v2.47-FD FIX-BAL-1] ใช้ LS.get() แทน LS.getIfFresh() — ถ้า GAS fail ข้อมูลที่หมดอายุ
+    // ดีกว่าแสดง 0.00 เสมอ (stale balance > no balance ในสายตาผู้ใช้)
+    const cached = LS.get(cacheKey);
     if (cached) dash = cached.data;
+  }
+
+  // [v2.47-FD FIX-BAL-4] ถ้า dash ยังเป็น null (ไม่มี cache เลย) — ลองใช้ balance_fallback
+  // ซึ่งจะ set mainWalletBalance เป็นค่าล่าสุดที่เคย load มาได้สำเร็จ ป้องกัน 0.00 แสดงทับ
+  if (!dash) {
+    const _bfKey = 'bal_fallback_' + uid;
+    const _bf = LS.get(_bfKey);
+    if (_bf) {
+      if (_bf.main_balance !== undefined) {
+        const _bv = parseFloat(_bf.main_balance);
+        if (!isNaN(_bv)) mainWalletBalance = _bv;
+      }
+      if (_bf.funding_balance !== undefined) {
+        const _fv = parseFloat(_bf.funding_balance);
+        if (!isNaN(_fv)) fundingWalletBalance = _fv;
+      }
+      window._dashboardReady = true; // unlock UI ด้วยค่า fallback — ดีกว่า "..."
+      if (typeof updateOverviewBalances === 'function') updateOverviewBalances();
+      console.warn('[loadDashboard] using balance_fallback (age:', Math.round((Date.now()-(_bf._ts||0))/60000), 'min)');
+    }
   }
 
   if (dash && dash.user) {

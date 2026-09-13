@@ -5493,7 +5493,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <div class="ast-tab-inner active">Account</div>
         <div style="margin-left:auto;padding-bottom:10px;color:var(--t2)">⬡</div>
       </div>
-      <div class="ast-account-row" onclick="astSwitchTabByName('futures-a')"><span class="ast-acct-name">Futures</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-futures-usdt">41.87 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-futures-usd">≈ $1,363.39</div></div></div>
+      <div class="ast-account-row" onclick="astSwitchTabByName('futures-a')"><span class="ast-acct-name">Futures-Contract</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-futures-usdt">41.87 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-futures-usd">≈ $1,363.39</div></div></div>
       <!-- [FUTURES-DIRECT v1] แถวใหม่เพิ่มเข้ามาเท่านั้น — ไม่แก้แถว Futures (Earn-linked) ด้านบน -->
       <div class="ast-account-row" onclick="navTo('futures-direct')"><span class="ast-acct-name">Futures-Direct <span style="font-size:9px;color:var(--y);background:var(--ybg);border-radius:5px;padding:1px 5px;margin-left:4px">เทรดตรง</span></span><div class="ast-acct-right"><div class="ast-acct-usd" style="color:var(--t2);font-size:11px">›</div></div></div>
       <div class="ast-account-row" onclick="astSwitchTabByName('earn')"><span class="ast-acct-name">Earn</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-earn-usdt">0.00 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-earn-usd">≈ $0.00</div></div></div>
@@ -28892,6 +28892,21 @@ async function dbCallRaw(action, data = {}) {
       redirect: 'follow',
       signal:   _ctrl.signal,
     });
+    // [FIX-DIAG-1] เดิมไม่เช็ค res.ok/Content-Type เลย ยิง res.json() ตรงๆ — ถ้า Google
+    // ตอบกลับเป็นหน้า HTML (เช่น deployment ผิด/ไม่ได้ redeploy เวอร์ชันใหม่/quota เกิน/
+    // permission ผิด) res.json() จะ throw "Unexpected token '<' ... is not valid JSON"
+    // ซึ่งไม่บอกสาเหตุจริงเลย ผู้ใช้/ผู้ดูแลต้องเดาเอง — เปลี่ยนเป็นเช็คก่อนเสมอ แล้วโยน
+    // error message ที่ชี้สาเหตุตรงๆ ให้เช็ค Deployment ก่อน (ไม่ใช่บั๊กจากการคำนวณ/แสดงผล)
+    const _contentType = res.headers.get('content-type') || '';
+    if (!res.ok || !_contentType.includes('json')) {
+      const _bodyPreview = await res.text().catch(() => '');
+      throw new Error('[GAS-DEPLOY-ERROR] Server ตอบกลับผิดปกติ (HTTP ' + res.status +
+        ', content-type="' + _contentType + '") สำหรับ action=' + action +
+        ' — ไม่ใช่ JSON ที่คาดไว้ สาเหตุที่พบบ่อยที่สุด: (1) ยังไม่ได้กด "New version" ใน ' +
+        'Manage Deployments หลังแก้โค้ด (2) Web App URL/Deployment ID ไม่ตรงกับที่ SCRIPT_URL ' +
+        'ชี้ไปอยู่ (3) Execution/URL Fetch quota ของ Google บัญชีนี้เต็ม — body(preview): ' +
+        _bodyPreview.slice(0, 200));
+    }
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || 'GAS error: ' + action);
     return json.data;

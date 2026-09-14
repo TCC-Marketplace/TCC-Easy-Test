@@ -7822,7 +7822,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
      placeFuturesOrder / closeFuturesPosition / cancelFuturesOrder (ดู GAS MODULE 14)
 ════════════════════════════════ -->
 <style>
-.futd-wrap{padding:14px 16px 90px}
+/* ══ FUTURES-DIRECT: base layout ══ */
+.futd-wrap{padding:14px 16px 16px}
 .futd-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .futd-back{cursor:pointer;color:var(--t1);font-size:20px;line-height:1;padding:2px 6px}
 .futd-title{font-size:16px;font-weight:700;color:var(--t1)}
@@ -7834,6 +7835,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .futd-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 .futd-stat-lbl{font-size:10px;color:var(--t2)}
 .futd-stat-val{font-size:13px;font-weight:600;font-family:var(--mono);color:var(--t1)}
+/* ── Form ── */
 .futd-form-row{display:flex;gap:8px;margin-bottom:8px}
 .futd-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--t1);font-size:13px;font-family:var(--mono)}
 .futd-select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--t1);font-size:13px}
@@ -7845,23 +7847,76 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .futd-submit.long{background:var(--g)}
 .futd-submit.short{background:var(--r)}
 .futd-margin-hint{font-size:11px;color:var(--t2);margin:4px 0 10px;text-align:right}
+/* ── Section title ── */
 .futd-section-title{font-size:12px;font-weight:600;color:var(--t2);margin:16px 0 8px}
+/* ── Position card (enhanced) ── */
 .futd-pos-row{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:11px;margin-bottom:8px}
-.futd-pos-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.futd-pos-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
 .futd-pos-sym{font-size:13px;font-weight:700;color:var(--t1)}
 .futd-pos-side{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px}
 .futd-pos-side.long{background:var(--gbg);color:var(--g)}
 .futd-pos-side.short{background:var(--rbg);color:var(--r)}
-.futd-pos-pnl{font-family:var(--mono);font-weight:700;font-size:13px}
-.futd-pos-detail{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:10.5px;color:var(--t2);margin-bottom:8px}
-.futd-pos-detail b{color:var(--t1);font-family:var(--mono);display:block}
+.futd-pos-pnl{font-family:var(--mono);font-weight:700;font-size:14px;text-align:right}
+.futd-pos-roi{font-size:10px;font-family:var(--mono);text-align:right;margin-top:1px}
+.futd-pos-detail{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 6px;font-size:10.5px;color:var(--t2);margin-bottom:6px}
+.futd-pos-detail b{color:var(--t1);font-family:var(--mono);display:block;font-size:11px}
+.futd-pos-detail2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 6px;font-size:10.5px;color:var(--t2);margin-bottom:8px}
+.futd-pos-detail2 b{color:var(--t1);font-family:var(--mono);display:block;font-size:11px}
+.futd-pos-tpsl-row{display:flex;align-items:center;gap:4px;margin-bottom:7px;flex-wrap:wrap}
+.futd-tpsl-chip{font-size:10px;padding:2px 7px;border-radius:4px;font-family:var(--mono)}
+.futd-tpsl-chip.tp{background:rgba(14,203,129,.12);color:var(--g);border:1px solid rgba(14,203,129,.25)}
+.futd-tpsl-chip.sl{background:rgba(246,70,93,.12);color:var(--r);border:1px solid rgba(246,70,93,.25)}
+.futd-tpsl-chip.none{background:var(--bg3);color:var(--t3);border:1px solid var(--border)}
 .futd-pos-actions{display:flex;gap:8px}
 .futd-btn-sm{flex:1;text-align:center;padding:7px;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid var(--border);color:var(--t1);background:var(--bg3)}
 .futd-btn-sm.danger{color:var(--r);border-color:rgba(246,70,93,.4)}
+.futd-btn-sm.warn{color:var(--y);border-color:rgba(240,185,11,.4)}
 .futd-empty{text-align:center;color:var(--t3);font-size:12px;padding:24px 0}
+/* ── Margin ratio bar ── */
+.futd-mr-bar-wrap{margin:4px 0 7px}
+.futd-mr-label{display:flex;justify-content:space-between;font-size:10px;color:var(--t2);margin-bottom:2px}
+.futd-mr-bar-bg{height:3px;border-radius:2px;background:var(--bg4)}
+.futd-mr-bar-fill{height:3px;border-radius:2px;background:var(--g);transition:width .4s}
+/* ── Chart panel (page-futures-direct) ── */
+#futdChartPanel{
+  position:fixed;bottom:52px;left:0;right:0;
+  max-width:480px;margin:0 auto;
+  z-index:150;background:var(--bg);
+  border-top:1px solid var(--border);
+  box-shadow:0 -2px 12px rgba(0,0,0,.35);
+  user-select:none;display:none;
+}
+#futdChartPanel.active{display:block}
+.futd-chart-drag{height:10px;cursor:row-resize;display:flex;align-items:center;justify-content:center}
+.futd-chart-drag::after{content:'';width:36px;height:4px;border-radius:2px;background:var(--bl)}
+.futd-chart-collapsed-hdr{display:flex;align-items:center;gap:4px;padding:4px 10px;cursor:pointer;min-height:28px;display:none}
+.futd-chart-collapsed-hdr.show{display:flex}
+.futd-tf-bar{display:flex;align-items:center;gap:1px;padding:4px 8px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.futd-tf-bar::-webkit-scrollbar{display:none}
+.futd-tf-label{padding:3px 7px;border-radius:4px;font-size:11px;font-family:var(--mono);color:var(--t2);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.futd-tf-label.active{background:var(--y);color:#000;font-weight:700}
+.futd-ma-row{display:flex;gap:10px;padding:2px 8px;font-size:10px;font-family:var(--mono)}
+.futd-chart-canvas-wrap{position:relative;width:100%}
+.futd-vol-wrap{position:relative;width:100%;height:36px;background:var(--bg);border-top:1px solid rgba(43,49,57,.5);flex-shrink:0}
+.futd-ind-bar{display:flex;align-items:center;gap:4px;padding:3px 8px;border-top:1px solid var(--border)}
+.futd-ind-btn{padding:2px 8px;border-radius:3px;font-size:10px;cursor:pointer;color:var(--t2)}
+.futd-ind-btn.active{background:var(--y-15);color:var(--y)}
+/* ── TP/SL sheet (futd-specific) ── */
+#futdTpslSheet{position:fixed;inset:0;z-index:1050;pointer-events:none}
+#futdTpslSheet.open{pointer-events:all}
+#futdTpslBg{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;transition:opacity .3s}
+#futdTpslSheet.open #futdTpslBg{opacity:1}
+#futdTpslPanel{
+  position:absolute;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);
+  width:100%;max-width:480px;
+  background:var(--bg2);border-radius:16px 16px 0 0;
+  transition:transform .35s cubic-bezier(.32,1,.23,1);
+  max-height:80vh;overflow-y:auto;
+}
+#futdTpslSheet.open #futdTpslPanel{transform:translateX(-50%) translateY(0)}
 </style>
 <div class="page" id="page-futures-direct">
-  <div class="futd-wrap">
+  <div class="futd-wrap" id="futd-scroll-wrap">
     <div class="futd-header">
       <div class="futd-back" onclick="navTo('assets')">‹</div>
       <div class="futd-title">Futures-Direct</div>
@@ -7923,8 +7978,134 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
     <!-- Orders ที่รอ fill -->
     <div class="futd-section-title">Limit Orders รอ Fill</div>
     <div id="futd-orders-list"><div class="futd-empty">กำลังโหลด...</div></div>
+
+    <!-- spacer ให้ chart panel ไม่บัง content ด้านล่าง -->
+    <div id="futd-chart-spacer" style="height:0px"></div>
   </div>
 </div>
+
+<!-- ════ FUTURES-DIRECT: Chart Panel (fixed above bottom nav) ════ -->
+<div id="futdChartPanel">
+  <!-- Drag handle -->
+  <div class="futd-chart-drag" id="futdDragHandle"></div>
+  <!-- Collapsed header (shown when chart is collapsed) -->
+  <div class="futd-chart-collapsed-hdr" id="futdChartHdr" onclick="futdToggleChart()">
+    <span id="futdChartHdrSym" style="font-size:11px;font-weight:600;color:var(--t2);font-family:var(--mono)">BTCUSDT</span>
+    <span style="font-size:10px;color:var(--t3)">Perp</span>
+    <span style="flex:1"></span>
+    <span style="font-size:12px;color:var(--t3);padding:0 8px">▲</span>
+  </div>
+  <!-- Chart body -->
+  <div id="futdChartSec">
+    <!-- TF bar -->
+    <div class="futd-tf-bar" id="futdTFBar">
+      <span class="futd-tf-label" onclick="futdSetTF(this,'1m')">1m</span>
+      <span class="futd-tf-label" onclick="futdSetTF(this,'3m')">3m</span>
+      <span class="futd-tf-label active" onclick="futdSetTF(this,'5m')">5m</span>
+      <span class="futd-tf-label" onclick="futdSetTF(this,'15m')">15m</span>
+      <span class="futd-tf-label" onclick="futdSetTF(this,'30m')">30m</span>
+      <span class="futd-tf-label" onclick="futdSetTF(this,'1h')">1h</span>
+      <span class="futd-tf-label" onclick="futdSetTF(this,'2h')">2h</span>
+      <!-- Countdown -->
+      <span id="futdCandleCountdown" style="font-size:10px;font-family:var(--mono);flex-shrink:0;padding:2px 7px;margin:0 2px;border-radius:10px;white-space:nowrap;background:rgba(14,203,129,.18);color:#0ecb81;font-weight:700;border:1px solid rgba(14,203,129,.3);min-width:42px;text-align:center">--:--</span>
+      <!-- Toggle -->
+      <span onclick="futdToggleChart()" style="font-size:12px;color:var(--t3);cursor:pointer;padding:2px 8px 6px 4px;flex-shrink:0;margin-left:auto">▲</span>
+    </div>
+    <!-- MA row -->
+    <div class="futd-ma-row">
+      <span style="color:#f0a500">MA(7):<span id="futdMa7"> —</span></span>
+      <span style="color:#e040fb">MA(25):<span id="futdMa25"> —</span></span>
+      <span style="color:#26c6da">MA(99):<span id="futdMa99"> —</span></span>
+    </div>
+    <!-- Canvas -->
+    <div class="futd-chart-canvas-wrap" id="futdChartWrap">
+      <canvas id="futdChartCanvas"></canvas>
+      <!-- current-price line/tag -->
+      <div style="position:absolute;right:0;top:0;bottom:0;pointer-events:none">
+        <div id="futdCurLine" style="position:absolute;right:0;left:0;height:1px;border-top:1px dashed var(--y);opacity:.6;pointer-events:none"></div>
+        <div id="futdCurTag" style="position:absolute;right:0;background:var(--y);color:#000;font-size:9px;font-family:var(--mono);font-weight:700;padding:1px 4px;border-radius:2px 0 0 2px;pointer-events:none">—</div>
+      </div>
+      <div id="futdChOhlc" style="position:absolute;top:4px;left:6px;display:flex;gap:6px;font-size:9px;font-family:var(--mono);color:var(--t2);pointer-events:none">
+        <span id="futdChO">O:—</span><span id="futdChH" style="color:var(--g)">H:—</span>
+        <span id="futdChL" style="color:var(--r)">L:—</span><span id="futdChC">C:—</span>
+      </div>
+    </div>
+    <!-- Volume -->
+    <div class="futd-vol-wrap" id="futdVolWrap">
+      <canvas id="futdVolCanvas" style="width:100%;height:100%;display:block"></canvas>
+    </div>
+    <!-- Indicator toggle -->
+    <div class="futd-ind-bar" id="futdIndBar">
+      <span class="futd-ind-btn" id="futdIndRSI" onclick="futdIndToggle('RSI')">RSI</span>
+      <span class="futd-ind-btn" id="futdIndMACD" onclick="futdIndToggle('MACD')">MACD</span>
+      <span class="futd-ind-btn" id="futdIndBB" onclick="futdIndToggle('BB')">BB</span>
+      <span class="futd-ind-btn" id="futdIndEMA" onclick="futdIndToggle('EMA')">EMA</span>
+    </div>
+    <!-- Indicator panel -->
+    <div id="futdIndPanel" style="display:none;position:relative;padding:2px 8px;background:var(--bg)">
+      <span style="font-size:10px;color:var(--t2)" id="futdIndLabel">RSI(14)</span>
+      <span style="font-size:10px;font-family:var(--mono);color:var(--t1);margin-left:6px" id="futdIndVal">—</span>
+      <canvas id="futdIndCanvas" style="width:100%;height:60px;display:block"></canvas>
+    </div>
+  </div>
+</div><!-- /futdChartPanel -->
+
+<!-- ════ FUTURES-DIRECT: TP/SL Bottom Sheet ════ -->
+<div id="futdTpslSheet">
+  <div id="futdTpslBg" onclick="futdCloseTpslSheet()"></div>
+  <div id="futdTpslPanel">
+    <div style="width:36px;height:4px;background:var(--bl);border-radius:2px;margin:10px auto 6px"></div>
+    <div style="font-size:16px;font-weight:700;padding:4px 16px 10px;border-bottom:1px solid var(--border)">ตั้ง TP / SL</div>
+    <!-- Position info row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px" id="futdTpslInfo">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span style="font-size:10px;color:var(--t3)">Symbol</span>
+        <span style="color:var(--t1);font-family:var(--mono);font-size:12px;font-weight:600" id="futdTpslSym">—</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span style="font-size:10px;color:var(--t3)">Entry Price</span>
+        <span style="color:var(--t1);font-family:var(--mono);font-size:12px;font-weight:600" id="futdTpslEntry">—</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span style="font-size:10px;color:var(--t3)">Mark Price</span>
+        <span style="color:var(--t1);font-family:var(--mono);font-size:12px;font-weight:600" id="futdTpslMark">—</span>
+      </div>
+    </div>
+    <!-- Inputs -->
+    <div style="padding:14px 16px">
+      <!-- TP -->
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--g);margin-bottom:6px;display:flex;align-items:center;gap:6px">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--g);display:inline-block"></span>Take Profit (TP)
+        </div>
+        <div style="display:flex;align-items:center;background:var(--bg3);border:1px solid var(--bl);border-radius:6px;padding:0 10px;height:40px">
+          <input id="futdTpslTpInp" type="number" placeholder="TP Price (USDT)" style="flex:1;background:transparent;border:none;outline:none;color:var(--t1);font-size:13px;font-family:var(--mono)">
+          <span style="font-size:11px;color:var(--t2)">USDT</span>
+        </div>
+        <div id="futdTpslTpHint" style="font-size:10px;color:var(--t3);margin-top:3px"></div>
+      </div>
+      <!-- SL -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;color:var(--r);margin-bottom:6px;display:flex;align-items:center;gap:6px">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--r);display:inline-block"></span>Stop Loss (SL)
+        </div>
+        <div style="display:flex;align-items:center;background:var(--bg3);border:1px solid var(--bl);border-radius:6px;padding:0 10px;height:40px">
+          <input id="futdTpslSlInp" type="number" placeholder="SL Price (USDT)" style="flex:1;background:transparent;border:none;outline:none;color:var(--t1);font-size:13px;font-family:var(--mono)">
+          <span style="font-size:11px;color:var(--t2)">USDT</span>
+        </div>
+        <div id="futdTpslSlHint" style="font-size:10px;color:var(--t3);margin-top:3px"></div>
+      </div>
+      <!-- Liq Price note -->
+      <div style="font-size:11px;color:var(--r);background:rgba(246,70,93,.08);border-radius:6px;padding:6px 10px;margin-bottom:14px">
+        Liq. Price: <span style="font-family:var(--mono);font-weight:700" id="futdTpslLiq">—</span> — SL ควรอยู่ห่างจาก Liq. Price เสมอ
+      </div>
+      <!-- Confirm -->
+      <button onclick="futdConfirmTpsl()" style="display:block;width:100%;padding:14px 0;background:var(--y);color:#000;font-size:15px;font-weight:700;border:none;border-radius:8px;cursor:pointer">ยืนยัน TP/SL</button>
+      <div onclick="futdCloseTpslSheet()" style="text-align:center;padding:12px 0 4px;font-size:13px;color:var(--t2);cursor:pointer">ยกเลิก</div>
+    </div>
+    <div style="height:20px"></div>
+  </div>
+</div><!-- /futdTpslSheet -->
 
 <!-- ════════════════════════════════
      PAGE: PROFILE
@@ -35510,12 +35691,29 @@ function aftdRenderDirectPosList(positions) {
   }).join('');
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  FUTURES-DIRECT: State
+// ══════════════════════════════════════════════════════════════════
 const FUTD = {
   side: 'long',
-  symbolCoin: 'BTC',
-  lastPrice: 0,
+  symbolCoin: 'BTC',       // เหรียญที่เลือกในฟอร์ม
+  lastPrice: 0,            // ราคาล่าสุดของเหรียญที่เลือก
+  prices: {},              // map coin → price สำหรับทุก position ที่เปิดอยู่
   pollTimer: null,
-  status: null, // ผลล่าสุดจาก getFuturesAccountStatus
+  status: null,            // ผลล่าสุดจาก getFuturesAccountStatus
+  // Chart state
+  chart: {
+    tf: '5m',
+    candles: [],
+    open: true,
+    wrapH: 180,
+    indicator: null,       // 'RSI' | 'MACD' | 'BB' | 'EMA' | null
+    viewStart: null,
+    visCount: 80,
+    drawTimer: null,
+  },
+  // TP/SL sheet state
+  tpslPosId: null,
 };
 
 function _futdCurrentUid() {
@@ -35524,14 +35722,15 @@ function _futdCurrentUid() {
        : ((typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) ? String(USER_PROFILE.uid).trim() : '');
 }
 
+// ── Init / Stop ──────────────────────────────────────────────────
 /** เรียกตอนเข้าหน้า Futures-Direct (จาก navTo) */
 function futdInit() {
   futdSetSide('long');
   futdRefreshAccountStatus();
   futdRefreshPrice();
   futdStopPolling();
-  // เช็คราคา + สถานะบัญชีทุก 5 วิ ระหว่างอยู่หน้านี้ (แยกจาก engine ฝั่ง GAS ที่รันทุก 1 นาที —
-  // นี่แค่ทำให้ UI ดูสดขึ้นเฉยๆ ไม่ใช่ตัวตัดสิน TP/SL/Liq จริง — ตัวจริงอยู่ที่ processFuturesTpSl)
+  futdChartInit();
+  // poll ราคา + สถานะทุก 5 วิ (ไม่ใช่ตัวตัดสิน TP/SL/Liq — ตัวจริงคือ processFuturesTpSl บน GAS)
   FUTD.pollTimer = setInterval(() => {
     futdRefreshPrice();
     futdRefreshAccountStatus();
@@ -35540,11 +35739,14 @@ function futdInit() {
 
 function futdStopPolling() {
   if (FUTD.pollTimer) { clearInterval(FUTD.pollTimer); FUTD.pollTimer = null; }
+  futdChartStop();
 }
 
+// ── Form helpers ─────────────────────────────────────────────────
 function futdOnSymbolChange() {
   FUTD.symbolCoin = document.getElementById('futd-symbol').value;
   futdRefreshPrice();
+  futdChartLoad();
 }
 
 function futdSetSide(side) {
@@ -35557,15 +35759,24 @@ function futdSetSide(side) {
   futdCalcMargin();
 }
 
-/** ดึงราคาล่าสุดจาก Hyperliquid ผ่าน hlPost ที่มีอยู่แล้วในระบบ (ไม่สร้าง fetch logic ใหม่) */
+// ── Price ────────────────────────────────────────────────────────
+/** ดึงราคาทุกเหรียญที่ต้องการ (form symbol + ทุก position ที่เปิดอยู่) */
 async function futdRefreshPrice() {
   try {
     const mids = await hlPost({ type: 'allMids' });
-    const price = parseFloat(mids[FUTD.symbolCoin]) || 0;
+    // เก็บราคาทุกเหรียญใน map
+    FUTD.prices = {};
+    Object.keys(mids).forEach(k => { FUTD.prices[k] = parseFloat(mids[k]) || 0; });
+
+    // อัปเดตราคาเหรียญที่เลือกในฟอร์ม
+    const price = FUTD.prices[FUTD.symbolCoin] || 0;
     FUTD.lastPrice = price;
     const el = document.getElementById('futd-mkprice');
     if (el) el.textContent = price > 0 ? ('ราคาตลาด: ' + price.toLocaleString('en', { maximumFractionDigits: 4 })) : 'ราคาตลาด: —';
     futdCalcMargin();
+
+    // อัปเดต PnL realtime บน position cards ที่แสดงอยู่ (ถ้ามี status)
+    if (FUTD.status) futdUpdatePnlCards();
   } catch (e) {
     console.warn('[futdRefreshPrice] fail:', e.message);
   }
@@ -35580,6 +35791,7 @@ function futdCalcMargin() {
   hint.textContent = 'Margin โดยประมาณ: ' + margin.toLocaleString('en', { maximumFractionDigits: 2 }) + ' USDT';
 }
 
+// ── Account Status ────────────────────────────────────────────────
 async function futdRefreshAccountStatus() {
   const uid = _futdCurrentUid();
   if (!uid) return;
@@ -35597,30 +35809,116 @@ async function futdRefreshAccountStatus() {
   }
 }
 
+// ── Render Positions (enhanced) ───────────────────────────────────
 function futdRenderPositions(positions) {
   const el = document.getElementById('futd-positions-list');
-  if (!positions.length) { el.innerHTML = '<div class="futd-empty">ยังไม่มี Position ที่เปิดอยู่</div>'; return; }
+  if (!positions.length) {
+    el.innerHTML = '<div class="futd-empty">ยังไม่มี Position ที่เปิดอยู่</div>';
+    return;
+  }
+  const bal = parseFloat((FUTD.status || {}).futures_balance) || 0;
+
   el.innerHTML = positions.map(p => {
-    const coin = (p.symbol || '').replace('USDT', '');
-    const mkt  = (FUTD.status && FUTD.symbolCoin === coin) ? FUTD.lastPrice : null;
-    const pnlColor = 'var(--t2)';
-    return `<div class="futd-pos-row">
+    const coin      = (p.symbol || '').replace('USDT', '');
+    const entryP    = parseFloat(p.entry_price) || 0;
+    const size      = parseFloat(p.size) || 0;
+    const margin    = parseFloat(p.margin) || 0;
+    const liqP      = parseFloat(p.liq_price) || 0;
+    const markP     = FUTD.prices[coin] || 0;
+
+    // Unrealized PnL
+    let upnl = 0;
+    if (markP > 0 && entryP > 0 && size > 0) {
+      upnl = p.side === 'long'
+        ? (markP - entryP) * size
+        : (entryP - markP) * size;
+    }
+    const upnlColor = upnl >= 0 ? 'var(--g)' : 'var(--r)';
+    const roiPct    = margin > 0 ? ((upnl / margin) * 100) : 0;
+
+    // Margin Ratio (margin_used / futures_balance)
+    const marginUsed = parseFloat((FUTD.status || {}).margin_used) || 0;
+    const mrPct      = bal > 0 ? Math.min(100, (marginUsed / bal) * 100) : 0;
+    const mrColor    = mrPct < 50 ? 'var(--g)' : mrPct < 80 ? 'var(--y)' : 'var(--r)';
+
+    // TP/SL chips
+    const tp = parseFloat(p.tp) || 0;
+    const sl = parseFloat(p.sl) || 0;
+    const tpChip = tp > 0
+      ? `<span class="futd-tpsl-chip tp">TP: ${tp.toLocaleString('en',{maximumFractionDigits:4})}</span>`
+      : `<span class="futd-tpsl-chip none">TP: —</span>`;
+    const slChip = sl > 0
+      ? `<span class="futd-tpsl-chip sl">SL: ${sl.toLocaleString('en',{maximumFractionDigits:4})}</span>`
+      : `<span class="futd-tpsl-chip none">SL: —</span>`;
+
+    const markStr = markP > 0 ? markP.toLocaleString('en',{maximumFractionDigits:4}) : '—';
+    const liqStr  = liqP  > 0 ? liqP.toLocaleString('en',{maximumFractionDigits:4})  : '—';
+
+    return `<div class="futd-pos-row" id="futd-pos-${p.id}">
       <div class="futd-pos-top">
-        <div><span class="futd-pos-sym">${p.symbol}</span><span class="futd-pos-side ${p.side}">${p.side === 'long' ? 'LONG' : 'SHORT'} x${p.lev}</span></div>
-        <div class="futd-pos-pnl" style="color:${pnlColor}">${p.realized_pnl || '0.00'}</div>
+        <div>
+          <span class="futd-pos-sym">${p.symbol}</span>
+          <span class="futd-pos-side ${p.side}">${p.side === 'long' ? 'LONG' : 'SHORT'} x${p.lev}</span>
+        </div>
+        <div style="text-align:right">
+          <div class="futd-pos-pnl" style="color:${upnlColor}" id="futd-upnl-${p.id}">
+            ${upnl >= 0 ? '+' : ''}${upnl.toFixed(2)} USDT
+          </div>
+          <div class="futd-pos-roi" style="color:${upnlColor}" id="futd-roi-${p.id}">
+            ${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(2)}%
+          </div>
+        </div>
       </div>
       <div class="futd-pos-detail">
-        <div>Entry<b>${p.entry_price}</b></div>
-        <div>Margin<b>${(parseFloat(p.margin)||0).toFixed(2)}</b></div>
-        <div>Liq. Price<b style="color:var(--r)">${p.liq_price}</b></div>
+        <div>Size (${coin})<b>${size}</b></div>
+        <div>Margin (USDT)<b>${margin.toFixed(2)} (≈$${margin.toFixed(2)})</b></div>
+        <div>Margin Ratio<b style="color:${mrColor}">${mrPct.toFixed(1)}%</b></div>
       </div>
+      <div class="futd-pos-detail2">
+        <div>Avg Entry<b>${entryP.toLocaleString('en',{maximumFractionDigits:4})}</b></div>
+        <div>Mark Price<b id="futd-mark-${p.id}">${markStr}</b></div>
+        <div>Liq. Price<b style="color:var(--r)">${liqStr}</b></div>
+      </div>
+      <div class="futd-mr-bar-wrap">
+        <div class="futd-mr-label"><span>Margin Ratio</span><span style="color:${mrColor}">${mrPct.toFixed(1)}%</span></div>
+        <div class="futd-mr-bar-bg"><div class="futd-mr-bar-fill" style="width:${mrPct.toFixed(1)}%;background:${mrColor}"></div></div>
+      </div>
+      <div class="futd-pos-tpsl-row">${tpChip}${slChip}</div>
       <div class="futd-pos-actions">
+        <div class="futd-btn-sm warn" onclick="futdOpenTpslSheet('${p.id}')">TP/SL</div>
         <div class="futd-btn-sm danger" onclick="futdCloseposition('${p.id}')">Close Position</div>
       </div>
     </div>`;
   }).join('');
 }
 
+/** อัปเดต unrealized PnL + mark price บน card โดยไม่ re-render ทั้งหมด */
+function futdUpdatePnlCards() {
+  const positions = (FUTD.status && FUTD.status.positions) || [];
+  positions.forEach(p => {
+    const coin   = (p.symbol || '').replace('USDT', '');
+    const entryP = parseFloat(p.entry_price) || 0;
+    const size   = parseFloat(p.size) || 0;
+    const margin = parseFloat(p.margin) || 0;
+    const markP  = FUTD.prices[coin] || 0;
+    if (!markP) return;
+
+    let upnl = p.side === 'long'
+      ? (markP - entryP) * size
+      : (entryP - markP) * size;
+    const roiPct   = margin > 0 ? ((upnl / margin) * 100) : 0;
+    const upnlColor = upnl >= 0 ? 'var(--g)' : 'var(--r)';
+
+    const upnlEl = document.getElementById('futd-upnl-' + p.id);
+    const roiEl  = document.getElementById('futd-roi-'  + p.id);
+    const markEl = document.getElementById('futd-mark-' + p.id);
+    if (upnlEl) { upnlEl.textContent = (upnl >= 0 ? '+' : '') + upnl.toFixed(2) + ' USDT'; upnlEl.style.color = upnlColor; }
+    if (roiEl)  { roiEl.textContent  = (roiPct >= 0 ? '+' : '') + roiPct.toFixed(2) + '%'; roiEl.style.color  = upnlColor; }
+    if (markEl) { markEl.textContent = markP.toLocaleString('en', { maximumFractionDigits: 4 }); }
+  });
+}
+
+// ── Render Orders ──────────────────────────────────────────────────
 function futdRenderOrders(orders) {
   const el = document.getElementById('futd-orders-list');
   if (!orders.length) { el.innerHTML = '<div class="futd-empty">ไม่มี Order ที่รอ Fill</div>'; return; }
@@ -35639,7 +35937,8 @@ function futdRenderOrders(orders) {
     </div>`).join('');
 }
 
-/** เปิด Position ทันที (Market) — เรียก action ใหม่ openFuturesPosition เท่านั้น */
+// ── Open / Close / Cancel ──────────────────────────────────────────
+/** เปิด Position ทันที (Market) */
 async function futdSubmitOpen() {
   const uid = _futdCurrentUid();
   if (!uid) { showToast('กรุณาเข้าสู่ระบบก่อน'); return; }
@@ -35668,16 +35967,20 @@ async function futdSubmitOpen() {
   }
 }
 
-/** ปิด Position ด้วยมือ (Market Close ที่ราคาตลาดปัจจุบันของเหรียญนั้นๆ) */
+/** ปิด Position ด้วยมือ (Market Close ที่ราคาตลาดปัจจุบัน) */
 async function futdCloseposition(posId) {
   const uid = _futdCurrentUid();
-  const pos = (FUTD.status && FUTD.status.positions || []).find(p => p.id === posId);
+  const pos = ((FUTD.status && FUTD.status.positions) || []).find(p => p.id === posId);
   if (!pos) return;
   const coin = (pos.symbol || '').replace('USDT', '');
 
   try {
-    const mids = await hlPost({ type: 'allMids' });
-    const exitPrice = parseFloat(mids[coin]) || 0;
+    // ใช้ราคาจาก FUTD.prices ก่อน (มักมีอยู่แล้ว) ถ้าไม่มีค่อย fetch ใหม่
+    let exitPrice = FUTD.prices[coin] || 0;
+    if (!exitPrice) {
+      const mids = await hlPost({ type: 'allMids' });
+      exitPrice = parseFloat(mids[coin]) || 0;
+    }
     if (!exitPrice) { showToast('ไม่สามารถดึงราคาปัจจุบันได้ ลองใหม่อีกครั้ง'); return; }
 
     await dbCallRaw('closeFuturesPosition', { id: posId, uid, exit_price: exitPrice });
@@ -35696,6 +35999,528 @@ async function futdCancelorder(orderId) {
   } catch (e) {
     showToast('❌ ' + (e.message || 'ยกเลิก Order ไม่สำเร็จ'));
   }
+}
+
+// ── TP/SL Sheet ───────────────────────────────────────────────────
+function futdOpenTpslSheet(posId) {
+  const pos = ((FUTD.status && FUTD.status.positions) || []).find(p => p.id === posId);
+  if (!pos) return;
+  FUTD.tpslPosId = posId;
+
+  const coin   = (pos.symbol || '').replace('USDT', '');
+  const markP  = FUTD.prices[coin] || 0;
+  const liqP   = parseFloat(pos.liq_price) || 0;
+  const entryP = parseFloat(pos.entry_price) || 0;
+  const tp     = parseFloat(pos.tp) || 0;
+  const sl     = parseFloat(pos.sl) || 0;
+
+  // Populate info
+  const symEl = document.getElementById('futdTpslSym');
+  if (symEl) symEl.innerHTML = `${pos.symbol} <span style="background:${pos.side==='long'?'rgba(14,203,129,.15)':'rgba(246,70,93,.15)'};color:${pos.side==='long'?'var(--g)':'var(--r)'};font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">${pos.side === 'long' ? 'LONG' : 'SHORT'} ${pos.lev}x</span>`;
+
+  const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  setTxt('futdTpslEntry', entryP > 0 ? entryP.toLocaleString('en',{maximumFractionDigits:4}) : '—');
+  setTxt('futdTpslMark',  markP  > 0 ? markP.toLocaleString('en',{maximumFractionDigits:4})  : '—');
+  setTxt('futdTpslLiq',   liqP   > 0 ? liqP.toLocaleString('en',{maximumFractionDigits:4})   : '—');
+
+  // Pre-fill
+  const tpInp = document.getElementById('futdTpslTpInp');
+  const slInp = document.getElementById('futdTpslSlInp');
+  if (tpInp) tpInp.value = tp > 0 ? tp : '';
+  if (slInp) slInp.value = sl > 0 ? sl : '';
+
+  // Hints
+  futdUpdateTpslHints(pos, markP);
+
+  document.getElementById('futdTpslSheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function futdCloseTpslSheet() {
+  document.getElementById('futdTpslSheet').classList.remove('open');
+  document.body.style.overflow = '';
+  FUTD.tpslPosId = null;
+}
+
+function futdUpdateTpslHints(pos, markP) {
+  const tpHint = document.getElementById('futdTpslTpHint');
+  const slHint = document.getElementById('futdTpslSlHint');
+  if (!tpHint || !slHint) return;
+  if (markP > 0) {
+    tpHint.textContent = pos.side === 'long'
+      ? 'TP ต้องสูงกว่า Mark Price (' + markP.toLocaleString('en',{maximumFractionDigits:4}) + ')'
+      : 'TP ต้องต่ำกว่า Mark Price (' + markP.toLocaleString('en',{maximumFractionDigits:4}) + ')';
+    slHint.textContent = pos.side === 'long'
+      ? 'SL ต้องต่ำกว่า Mark Price และสูงกว่า Liq. Price'
+      : 'SL ต้องสูงกว่า Mark Price และต่ำกว่า Liq. Price';
+  }
+}
+
+async function futdConfirmTpsl() {
+  const uid = _futdCurrentUid();
+  if (!uid || !FUTD.tpslPosId) return;
+
+  const pos = ((FUTD.status && FUTD.status.positions) || []).find(p => p.id === FUTD.tpslPosId);
+  if (!pos) { futdCloseTpslSheet(); return; }
+
+  const tpVal = parseFloat(document.getElementById('futdTpslTpInp')?.value) || null;
+  const slVal = parseFloat(document.getElementById('futdTpslSlInp')?.value) || null;
+
+  // Validate TP/SL direction vs mark price
+  const coin  = (pos.symbol || '').replace('USDT', '');
+  const markP = FUTD.prices[coin] || 0;
+  if (markP > 0) {
+    if (tpVal) {
+      const bad = pos.side === 'long' ? tpVal <= markP : tpVal >= markP;
+      if (bad) { showToast('⚠️ TP อยู่ผิดทิศ — ' + (pos.side === 'long' ? 'Long ต้องสูงกว่า Mark' : 'Short ต้องต่ำกว่า Mark')); return; }
+    }
+    if (slVal) {
+      const bad = pos.side === 'long' ? slVal >= markP : slVal <= markP;
+      if (bad) { showToast('⚠️ SL อยู่ผิดทิศ — ' + (pos.side === 'long' ? 'Long ต้องต่ำกว่า Mark' : 'Short ต้องสูงกว่า Mark')); return; }
+    }
+  }
+
+  // บันทึกใน FUTD.status ทันที (optimistic)
+  const idx = (FUTD.status.positions || []).findIndex(p => p.id === FUTD.tpslPosId);
+  if (idx >= 0) { FUTD.status.positions[idx].tp = tpVal; FUTD.status.positions[idx].sl = slVal; }
+
+  // เรียก GAS action ใหม่ updateFuturesTpSl (เขียนลง FUT_POS — ไม่ชนกับ updateTpsl ของ EarnContract)
+  try {
+    await dbCallRaw('updateFuturesTpSl', {
+      id: FUTD.tpslPosId, uid,
+      tp: tpVal !== null ? tpVal : null,
+      sl: slVal !== null ? slVal : null,
+    });
+    showToast('✅ บันทึก TP/SL สำเร็จ' + (tpVal ? ' | TP: ' + tpVal : '') + (slVal ? ' | SL: ' + slVal : ''));
+  } catch (e) {
+    showToast('⚠️ บันทึก TP/SL ไม่สำเร็จ: ' + (e.message || 'ลองใหม่อีกครั้ง'));
+  }
+
+  futdRenderPositions(FUTD.status.positions || []);
+  futdCloseTpslSheet();
+}
+
+// ── Chart (lightweight — reuse hlPost + candle drawing logic) ─────
+const FUTD_CHART = {
+  pollTimer:     null,   // candle refresh interval
+  countdownTimer: null,  // 1-second tick สำหรับ countdown bar
+  resizeObs:     null,
+};
+
+function futdChartInit() {
+  const panel = document.getElementById('futdChartPanel');
+  if (!panel) return;
+  panel.classList.add('active');
+
+  // Set initial canvas height
+  futdChartSetH(FUTD.chart.wrapH);
+  futdChartRecalcPad();
+
+  // Drag-to-resize
+  const handle = document.getElementById('futdDragHandle');
+  if (handle) {
+    let startY = 0, startH = 0, dragging = false;
+    const onMove = e => {
+      if (!dragging) return;
+      const y = e.touches ? e.touches[0].clientY : e.clientY;
+      const delta = startY - y;
+      futdChartSetH(startH + delta);
+      futdChartRecalcPad();
+    };
+    const onEnd = () => { dragging = false; futdChartDraw(); };
+    handle.addEventListener('mousedown',  e => { dragging = true; startY = e.clientY; startH = FUTD.chart.wrapH; });
+    handle.addEventListener('touchstart', e => { dragging = true; startY = e.touches[0].clientY; startH = FUTD.chart.wrapH; }, { passive: true });
+    document.addEventListener('mousemove',  onMove);
+    document.addEventListener('touchmove',  onMove, { passive: true });
+    document.addEventListener('mouseup',  onEnd);
+    document.addEventListener('touchend', onEnd);
+  }
+
+  // Pan / Zoom on chart canvas
+  const canvas = document.getElementById('futdChartCanvas');
+  if (canvas) {
+    let panning = false, panStartX = 0, panVisStart = null;
+    let pinchDist = 0;
+
+    // Mouse drag pan
+    canvas.addEventListener('mousedown', e => {
+      panning = true; panStartX = e.clientX;
+      panVisStart = FUTD.chart.viewStart !== null
+        ? FUTD.chart.viewStart
+        : Math.max(0, FUTD.chart.candles.length - FUTD.chart.visCount);
+    });
+    canvas.addEventListener('mousemove', e => {
+      if (!panning) return;
+      const dx = e.clientX - panStartX;
+      const cW = (canvas.clientWidth || 375) / FUTD.chart.visCount;
+      const delta = Math.round(dx / cW);
+      const total = FUTD.chart.candles.length;
+      const vis   = FUTD.chart.visCount;
+      FUTD.chart.viewStart = Math.max(0, Math.min(total - vis, panVisStart - delta));
+      futdChartDraw();
+    });
+    canvas.addEventListener('mouseup',   () => { panning = false; });
+    canvas.addEventListener('mouseleave',() => { panning = false; });
+
+    // Touch drag pan
+    canvas.addEventListener('touchstart', e => {
+      if (e.touches.length === 1) {
+        panning = true; panStartX = e.touches[0].clientX;
+        panVisStart = FUTD.chart.viewStart !== null
+          ? FUTD.chart.viewStart
+          : Math.max(0, FUTD.chart.candles.length - FUTD.chart.visCount);
+      } else if (e.touches.length === 2) {
+        panning = false;
+        pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      }
+    }, { passive: true });
+    canvas.addEventListener('touchmove', e => {
+      if (e.touches.length === 1 && panning) {
+        const dx = e.touches[0].clientX - panStartX;
+        const cW = (canvas.clientWidth || 375) / FUTD.chart.visCount;
+        const delta = Math.round(dx / cW);
+        const total = FUTD.chart.candles.length;
+        const vis   = FUTD.chart.visCount;
+        FUTD.chart.viewStart = Math.max(0, Math.min(total - vis, panVisStart - delta));
+        futdChartDraw();
+      } else if (e.touches.length === 2) {
+        // Pinch zoom
+        const newDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        if (pinchDist > 0) {
+          const factor = pinchDist / newDist; // zoom out if pulling apart
+          const newVis = Math.round(Math.max(10, Math.min(500, FUTD.chart.visCount * factor)));
+          if (newVis !== FUTD.chart.visCount) {
+            const center = (FUTD.chart.viewStart || 0) + FUTD.chart.visCount / 2;
+            FUTD.chart.visCount  = newVis;
+            FUTD.chart.viewStart = Math.max(0, Math.min(FUTD.chart.candles.length - newVis, Math.round(center - newVis / 2)));
+            futdChartDraw();
+          }
+        }
+        pinchDist = newDist;
+      }
+    }, { passive: true });
+    canvas.addEventListener('touchend', () => { panning = false; pinchDist = 0; });
+
+    // Scroll wheel zoom
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 1.15 : 0.87;
+      const newVis = Math.round(Math.max(10, Math.min(500, FUTD.chart.visCount * factor)));
+      if (newVis !== FUTD.chart.visCount) {
+        const center = (FUTD.chart.viewStart || 0) + FUTD.chart.visCount / 2;
+        FUTD.chart.visCount  = newVis;
+        FUTD.chart.viewStart = Math.max(0, Math.min(FUTD.chart.candles.length - newVis, Math.round(center - newVis / 2)));
+        futdChartDraw();
+      }
+    }, { passive: false });
+  }
+
+  // Load candles
+  futdChartLoad();
+
+  // Countdown ticker — tick ทุกวินาทีเพื่ออัปเดต countdown pill
+  if (FUTD_CHART.countdownTimer) clearInterval(FUTD_CHART.countdownTimer);
+  FUTD_CHART.countdownTimer = setInterval(() => {
+    const last = FUTD.chart.candles[FUTD.chart.candles.length - 1];
+    if (last) futdUpdateCandleCountdown(last);
+  }, 1000);
+
+  // Update chart header symbol
+  const symEl = document.getElementById('futdChartHdrSym');
+  if (symEl) symEl.textContent = FUTD.symbolCoin + 'USDT';
+}
+
+function futdChartStop() {
+  if (FUTD_CHART.pollTimer)      { clearInterval(FUTD_CHART.pollTimer);      FUTD_CHART.pollTimer      = null; }
+  if (FUTD_CHART.countdownTimer) { clearInterval(FUTD_CHART.countdownTimer); FUTD_CHART.countdownTimer = null; }
+  const panel = document.getElementById('futdChartPanel');
+  if (panel) panel.classList.remove('active');
+  futdChartRecalcPad();
+}
+
+function futdChartSetH(h) {
+  h = Math.max(80, Math.min(400, h));
+  FUTD.chart.wrapH = h;
+  const wrap = document.getElementById('futdChartWrap');
+  if (wrap) wrap.style.height = h + 'px';
+}
+
+function futdChartRecalcPad() {
+  const panel = document.getElementById('futdChartPanel');
+  const spacer = document.getElementById('futd-chart-spacer');
+  if (!panel || !spacer) return;
+  const ph = (FUTD.chart.open && panel.classList.contains('active')) ? panel.offsetHeight : 0;
+  spacer.style.height = (ph + 68) + 'px';
+}
+
+function futdToggleChart() {
+  FUTD.chart.open = !FUTD.chart.open;
+  const sec     = document.getElementById('futdChartSec');
+  const hdr     = document.getElementById('futdChartHdr');
+  if (sec) sec.style.display = FUTD.chart.open ? '' : 'none';
+  if (hdr) hdr.classList.toggle('show', !FUTD.chart.open);
+  setTimeout(() => { futdChartRecalcPad(); if (FUTD.chart.open) futdChartDraw(); }, 50);
+}
+
+function futdSetTF(el, tf) {
+  FUTD.chart.tf = tf;
+  FUTD.chart.candles = [];
+  FUTD.chart.viewStart = null;
+  document.querySelectorAll('.futd-tf-label').forEach(e => e.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const symEl = document.getElementById('futdChartHdrSym');
+  if (symEl) symEl.textContent = FUTD.symbolCoin + 'USDT';
+  futdChartLoad();
+}
+
+function futdIndToggle(ind) {
+  FUTD.chart.indicator = FUTD.chart.indicator === ind ? null : ind;
+  ['RSI','MACD','BB','EMA'].forEach(k => {
+    const btn = document.getElementById('futdInd' + k);
+    if (btn) btn.classList.toggle('active', FUTD.chart.indicator === k);
+  });
+  const panel = document.getElementById('futdIndPanel');
+  if (panel) panel.style.display = FUTD.chart.indicator ? '' : 'none';
+  futdChartDraw();
+  futdChartRecalcPad();
+}
+
+async function futdChartLoad() {
+  try {
+    const now  = Date.now();
+    const intervals = { '1m':60000,'3m':180000,'5m':300000,'15m':900000,'30m':1800000,'1h':3600000,'2h':7200000 };
+    const ms   = intervals[FUTD.chart.tf] || 300000;
+    const coin = FUTD.symbolCoin;
+    const d = await hlPost({
+      type: 'candleSnapshot',
+      req: { coin, interval: FUTD.chart.tf, startTime: now - ms * 120, endTime: now }
+    });
+    FUTD.chart.candles = Array.isArray(d) ? d : [];
+    futdChartDraw();
+    // Auto-refresh candles ทุก interval เต็ม
+    if (FUTD_CHART.pollTimer) clearInterval(FUTD_CHART.pollTimer);
+    FUTD_CHART.pollTimer = setInterval(() => futdChartLoad(), Math.min(ms, 60000));
+  } catch (e) {
+    console.warn('[futdChartLoad] fail:', e.message);
+  }
+}
+
+function futdChartDraw() {
+  const candles = FUTD.chart.candles;
+  const wrap    = document.getElementById('futdChartWrap');
+  const canvas  = document.getElementById('futdChartCanvas');
+  if (!canvas || !wrap || !candles.length) return;
+
+  // Size canvas to container
+  const W = wrap.clientWidth || 375;
+  const H = FUTD.chart.wrapH;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.clearRect(0, 0, W, H);
+
+  // Visible slice — ใช้ viewStart สำหรับ pan; null = show latest
+  const vis   = Math.min(FUTD.chart.visCount, candles.length);
+  const start = FUTD.chart.viewStart !== null
+    ? Math.max(0, Math.min(candles.length - vis, FUTD.chart.viewStart))
+    : Math.max(0, candles.length - vis);
+  // auto-reset viewStart ถ้า pan มาถึงขวาสุดแล้ว
+  if (FUTD.chart.viewStart !== null && start >= candles.length - vis) {
+    FUTD.chart.viewStart = null;
+  }
+  const slice = candles.slice(start, start + vis);
+  if (!slice.length) return;
+
+  const highs = slice.map(c => parseFloat(c.h || c.high));
+  const lows  = slice.map(c => parseFloat(c.l || c.low));
+  const maxP  = Math.max(...highs);
+  const minP  = Math.min(...lows);
+  const range = maxP - minP || 1;
+  const pad   = { t: 16, b: 16, l: 2, r: 44 };
+  const cW    = (W - pad.l - pad.r) / slice.length;
+
+  const toY = price => pad.t + ((maxP - price) / range) * (H - pad.t - pad.b);
+
+  // MA helper
+  const ma = (arr, n) => arr.map((_, i) => {
+    if (i < n - 1) return null;
+    const s = arr.slice(i - n + 1, i + 1).map(c => parseFloat(c.c || c.close));
+    return s.reduce((a, b) => a + b, 0) / n;
+  });
+  const closes = candles.map(c => ({ c: c.c || c.close }));
+  const ma7  = ma(closes, 7).slice(start,  start + vis);
+  const ma25 = ma(closes, 25).slice(start, start + vis);
+  const ma99 = ma(closes, 99).slice(start, start + vis);
+
+  // Draw MA lines
+  [[ma7,'#f0a500','futdMa7'],[ma25,'#e040fb','futdMa25'],[ma99,'#26c6da','futdMa99']].forEach(([maArr, color, lblId]) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.beginPath();
+    let first = true;
+    maArr.forEach((v, i) => {
+      if (v === null) return;
+      const x = pad.l + i * cW + cW / 2;
+      const y = toY(v);
+      first ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      first = false;
+    });
+    ctx.stroke();
+    const last = maArr.filter(v => v !== null).pop();
+    if (last) {
+      const lbl = document.getElementById(lblId);
+      if (lbl) lbl.textContent = ' ' + last.toFixed(1);
+    }
+  });
+
+  // Draw candles
+  slice.forEach((c, i) => {
+    const o = parseFloat(c.o || c.open);
+    const h = parseFloat(c.h || c.high);
+    const l = parseFloat(c.l || c.low);
+    const cl = parseFloat(c.c || c.close);
+    const bull = cl >= o;
+    const color = bull ? '#0ecb81' : '#f6465d';
+    ctx.fillStyle = color; ctx.strokeStyle = color;
+
+    const x  = pad.l + i * cW;
+    const xm = x + cW / 2;
+    // Wick
+    ctx.beginPath();
+    ctx.moveTo(xm, toY(h));
+    ctx.lineTo(xm, toY(l));
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Body
+    const bodyTop = toY(Math.max(o, cl));
+    const bodyBot = toY(Math.min(o, cl));
+    const bH = Math.max(1, bodyBot - bodyTop);
+    const bW = Math.max(1, cW * 0.7);
+    ctx.fillRect(x + (cW - bW) / 2, bodyTop, bW, bH);
+  });
+
+  // Price axis
+  ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+  [0, 0.25, 0.5, 0.75, 1].forEach(f => {
+    const price = maxP - f * range;
+    const y     = toY(price);
+    ctx.fillText(price.toFixed(1), W - 2, y + 3);
+  });
+
+  // Current price line
+  const lastClose = parseFloat(slice[slice.length - 1].c || slice[slice.length - 1].close);
+  const curY = toY(lastClose);
+  const curLine = document.getElementById('futdCurLine');
+  const curTag  = document.getElementById('futdCurTag');
+  if (curLine) curLine.style.top = curY + 'px';
+  if (curTag)  { curTag.style.top = (curY - 8) + 'px'; curTag.textContent = lastClose.toFixed(2); }
+
+  // OHLC labels
+  const last = slice[slice.length - 1];
+  const setOhlc = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  setOhlc('futdChO', 'O:' + parseFloat(last.o || last.open).toFixed(2));
+  setOhlc('futdChH', 'H:' + parseFloat(last.h || last.high).toFixed(2));
+  setOhlc('futdChL', 'L:' + parseFloat(last.l || last.low).toFixed(2));
+  setOhlc('futdChC', 'C:' + parseFloat(last.c || last.close).toFixed(2));
+
+  // Volume histogram
+  futdDrawVolume(slice);
+
+  // Indicator
+  if (FUTD.chart.indicator) futdDrawIndicator(slice, closes.slice(start, start + vis));
+
+  // Candle countdown
+  futdUpdateCandleCountdown(last);
+}
+
+function futdDrawVolume(slice) {
+  const canvas = document.getElementById('futdVolCanvas');
+  if (!canvas) return;
+  const W = (document.getElementById('futdVolWrap') || canvas.parentElement)?.clientWidth || 375;
+  const H = 36;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.clearRect(0, 0, W, H);
+  const vols = slice.map(c => parseFloat(c.v || c.volume || 0));
+  const maxV = Math.max(...vols) || 1;
+  const cW   = slice.length > 0 ? W / slice.length : 4;
+  slice.forEach((c, i) => {
+    const bull = parseFloat(c.c || c.close) >= parseFloat(c.o || c.open);
+    ctx.fillStyle = bull ? 'rgba(14,203,129,.5)' : 'rgba(246,70,93,.5)';
+    const bH = (vols[i] / maxV) * H;
+    ctx.fillRect(i * cW, H - bH, Math.max(1, cW * 0.8), bH);
+  });
+}
+
+function futdDrawIndicator(slice, closesSlice) {
+  const ind    = FUTD.chart.indicator;
+  const canvas = document.getElementById('futdIndCanvas');
+  if (!canvas || !ind) return;
+  const W = canvas.parentElement?.clientWidth || 375;
+  const H = 60;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.clearRect(0, 0, W, H);
+
+  const closeArr = closesSlice.map(c => parseFloat(c.c || c.close));
+  const cW = slice.length > 0 ? W / slice.length : 4;
+
+  if (ind === 'RSI') {
+    // RSI-14
+    const period = 14;
+    const rsi = [];
+    for (let i = 0; i < closeArr.length; i++) {
+      if (i < period) { rsi.push(null); continue; }
+      let gains = 0, losses = 0;
+      for (let j = i - period + 1; j <= i; j++) {
+        const diff = closeArr[j] - closeArr[j - 1];
+        if (diff > 0) gains += diff; else losses -= diff;
+      }
+      const avgG = gains / period; const avgL = losses / period;
+      rsi.push(avgL === 0 ? 100 : 100 - (100 / (1 + avgG / avgL)));
+    }
+    const lastRsi = rsi.filter(v => v !== null).pop() || 0;
+    const lblEl = document.getElementById('futdIndLabel');
+    const valEl = document.getElementById('futdIndVal');
+    if (lblEl) lblEl.textContent = 'RSI(14)';
+    if (valEl) { valEl.textContent = lastRsi.toFixed(2); valEl.style.color = lastRsi > 70 ? 'var(--r)' : lastRsi < 30 ? 'var(--g)' : 'var(--t1)'; }
+    // Overbought/oversold lines
+    ctx.strokeStyle = 'rgba(240,185,11,.3)'; ctx.lineWidth = 1;
+    [[30,H*(1-30/100)],[70,H*(1-70/100)]].forEach(([,y]) => {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    });
+    // RSI line
+    ctx.strokeStyle = '#f0a500'; ctx.lineWidth = 1.5; ctx.beginPath();
+    let first = true;
+    rsi.forEach((v, i) => {
+      if (v === null) return;
+      const x = i * cW + cW / 2; const y = H * (1 - v / 100);
+      first ? ctx.moveTo(x, y) : ctx.lineTo(x, y); first = false;
+    });
+    ctx.stroke();
+  }
+}
+
+function futdUpdateCandleCountdown(lastCandle) {
+  const el = document.getElementById('futdCandleCountdown');
+  if (!el || !lastCandle) return;
+  const intervals = { '1m':60,'3m':180,'5m':300,'15m':900,'30m':1800,'1h':3600,'2h':7200 };
+  const tfSec = intervals[FUTD.chart.tf] || 300;
+  const openT  = parseInt(lastCandle.t || lastCandle.time || 0);
+  const closeT = openT + tfSec * 1000;
+  const remaining = Math.max(0, Math.floor((closeT - Date.now()) / 1000));
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
+  el.textContent = m + ':' + String(s).padStart(2, '0');
 }
 </script>
 </body>

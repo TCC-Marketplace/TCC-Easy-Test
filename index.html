@@ -4837,6 +4837,15 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   </div>
 </div>
 
+<!-- FUTURES TAB BAR -->
+<div class="fut-tab-bar" id="futTabBar">
+  <div class="fut-tab-btn active" id="futTabBtnContract" onclick="futSwitchTab('contract')">📋 Contract</div>
+  <div class="fut-tab-btn" id="futTabBtnDirect" onclick="futSwitchTab('direct')">⚡ Direct</div>
+</div>
+
+<!-- TAB: CONTRACT (เนื้อหาเดิมทั้งหมดของ page-futures) -->
+<div id="fut-tab-contract" class="active">
+
 <!-- API STATUS -->
 <div class="api-status">
   <div class="api-dot loading" id="apiDot"></div>
@@ -5440,6 +5449,78 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   </div>
 </div><!-- /futuresChartPanel -->
 
+</div><!-- /fut-tab-contract -->
+
+<!-- TAB: DIRECT (ย้ายมาจาก page-futures-direct) -->
+<div id="fut-tab-direct">
+  <div class="futd-wrap" id="futd-scroll-wrap">
+    <!-- ไม่มี back button แล้ว — ใช้ Tab Bar แทน -->
+    <div class="futd-header" style="margin-bottom:10px">
+      <div class="futd-title">Futures-Direct</div>
+      <div class="futd-badge">ไม่มีประกัน</div>
+      <button class="ast-btn-secondary" onclick="openTransfer(null,'usdm')" style="white-space:nowrap;margin-left:auto">โอนเงินเข้า</button>
+    </div>
+
+    <!-- บัญชี -->
+    <div class="futd-card">
+      <div class="futd-bal-row">
+        <div>
+          <div class="futd-bal-lbl">Futures Wallet Balance</div>
+          <div class="futd-bal-val" id="futd-balance">0.00 <span style="font-size:12px;color:var(--t2)">USDT</span></div>
+        </div>
+      </div>
+      <div class="futd-stats">
+        <div><div class="futd-stat-lbl">Margin ที่ใช้อยู่</div><div class="futd-stat-val" id="futd-margin-used">0.00 USDT</div></div>
+        <div><div class="futd-stat-lbl">Margin ที่ว่าง</div><div class="futd-stat-val" id="futd-margin-avail">0.00 USDT</div></div>
+      </div>
+    </div>
+
+    <!-- ฟอร์มเปิด Position -->
+    <div class="futd-card">
+      <div class="futd-form-row">
+        <select class="futd-select" id="futd-symbol" onchange="futdOnSymbolChange()" style="flex:1">
+          <option value="BTC">BTCUSDT</option>
+          <option value="ETH">ETHUSDT</option>
+          <option value="SOL">SOLUSDT</option>
+          <option value="BNB">BNBUSDT</option>
+        </select>
+        <select class="futd-select" id="futd-lev">
+          <option>5</option><option>10</option><option>20</option><option selected>50</option>
+          <option>75</option><option>100</option><option>150</option>
+        </select>
+        <span style="align-self:center;font-size:11px;color:var(--t2)">x</span>
+      </div>
+      <div class="futd-form-row">
+        <div class="futd-input" id="futd-mkprice" style="text-align:center;color:var(--t2)">ราคาตลาด: —</div>
+      </div>
+      <div class="futd-side-row">
+        <div class="futd-side-btn long active" id="futd-side-long" onclick="futdSetSide('long')">Long / Buy</div>
+        <div class="futd-side-btn short" id="futd-side-short" onclick="futdSetSide('short')">Short / Sell</div>
+      </div>
+      <div class="futd-form-row">
+        <input class="futd-input" id="futd-size" type="number" placeholder="Size (จำนวนเหรียญ)" oninput="futdCalcMargin()">
+      </div>
+      <div class="futd-form-row">
+        <input class="futd-input" id="futd-tp" type="number" placeholder="TP Price (ไม่บังคับ)">
+        <input class="futd-input" id="futd-sl" type="number" placeholder="SL Price (ไม่บังคับ)">
+      </div>
+      <div class="futd-margin-hint" id="futd-margin-hint">Margin โดยประมาณ: — USDT</div>
+      <button class="futd-submit long" id="futd-submit-btn" onclick="futdSubmitOpen()">เปิด Position (Long)</button>
+    </div>
+
+    <!-- Positions ที่เปิดอยู่ -->
+    <div class="futd-section-title">Positions ที่เปิดอยู่</div>
+    <div id="futd-positions-list"><div class="futd-empty">กำลังโหลด...</div></div>
+
+    <!-- Orders ที่รอ fill -->
+    <div class="futd-section-title">Limit Orders รอ Fill</div>
+    <div id="futd-orders-list"><div class="futd-empty">กำลังโหลด...</div></div>
+
+    <!-- spacer ให้ chart panel ไม่บัง content ด้านล่าง -->
+    <div id="futd-chart-spacer" style="height:0px"></div>
+  </div>
+</div><!-- /fut-tab-direct -->
+
 </div><!-- /page-futures -->
 
 <!-- ═══ PAGE: ASSETS ═══ -->
@@ -5495,7 +5576,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       </div>
       <div class="ast-account-row" onclick="astSwitchTabByName('futures-a')"><span class="ast-acct-name">Futures-Contract</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-futures-usdt">41.87 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-futures-usd">≈ $1,363.39</div></div></div>
       <!-- [FUTURES-DIRECT v1] แถวใหม่เพิ่มเข้ามาเท่านั้น — ไม่แก้แถว Futures (Earn-linked) ด้านบน -->
-      <div class="ast-account-row" onclick="navTo('futures-direct')"><span class="ast-acct-name">Futures-Direct <span style="font-size:9px;color:var(--y);background:var(--ybg);border-radius:5px;padding:1px 5px;margin-left:4px">เทรดตรง</span></span><div class="ast-acct-right"><div class="ast-acct-usd" style="color:var(--t2);font-size:11px">›</div></div></div>
+      <div class="ast-account-row" onclick="navTo('futures');requestAnimationFrame(()=>futSwitchTab('direct'))"><span class="ast-acct-name">Futures-Direct <span style="font-size:9px;color:var(--y);background:var(--ybg);border-radius:5px;padding:1px 5px;margin-left:4px">เทรดตรง</span></span><div class="ast-acct-right"><div class="ast-acct-usd" style="color:var(--t2);font-size:11px">›</div></div></div>
       <div class="ast-account-row" onclick="astSwitchTabByName('earn')"><span class="ast-acct-name">Earn</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-earn-usdt">0.00 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-earn-usd">≈ $0.00</div></div></div>
       <div class="ast-account-row" onclick="astSwitchTabByName('funding')" style="display:none"><span class="ast-acct-name">Funding</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-funding-usdt">0.00000044 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-funding-usd">≈ $0.00001433</div></div></div>
       <div class="ast-account-row" onclick="astSwitchTabByName('spot-a')"><span class="ast-acct-name">Spot</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-spot-usdt">0.00 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-spot-usd">≈ $0.00</div></div></div>
@@ -5714,7 +5795,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       </div>
 
       <div class="ast-action-row" style="padding-top:12px">
-        <button class="ast-btn-primary" onclick="navTo('futures-direct')">Trade</button>
+        <button class="ast-btn-primary" onclick="navTo('futures');requestAnimationFrame(()=>futSwitchTab('direct'))">Trade</button>
         <button class="ast-btn-secondary" onclick="openTransfer(null,'usdm')">Transfer</button>
       </div>
 
@@ -7822,6 +7903,13 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
      placeFuturesOrder / closeFuturesPosition / cancelFuturesOrder (ดู GAS MODULE 14)
 ════════════════════════════════ -->
 <style>
+/* ══ FUTURES PAGE — Tab Bar (Contract / Direct) ══ */
+.fut-tab-bar{display:flex;background:var(--bg2);border-bottom:2px solid var(--border);position:sticky;top:0;z-index:200}
+.fut-tab-btn{flex:1;text-align:center;padding:9px 4px 7px;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .18s,border-color .18s;white-space:nowrap}
+.fut-tab-btn.active{color:var(--y);border-bottom-color:var(--y)}
+#fut-tab-contract,#fut-tab-direct{display:none}
+#fut-tab-contract.active,#fut-tab-direct.active{display:block}
+
 /* ══ FUTURES-DIRECT: base layout ══ */
 .futd-wrap{padding:14px 16px 16px}
 .futd-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
@@ -7915,75 +8003,6 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 }
 #futdTpslSheet.open #futdTpslPanel{transform:translateX(-50%) translateY(0)}
 </style>
-<div class="page" id="page-futures-direct">
-  <div class="futd-wrap" id="futd-scroll-wrap">
-    <div class="futd-header">
-      <div class="futd-back" onclick="navTo('assets')">‹</div>
-      <div class="futd-title">Futures-Direct</div>
-      <div class="futd-badge">ไม่มีประกัน</div>
-    </div>
-
-    <!-- บัญชี -->
-    <div class="futd-card">
-      <div class="futd-bal-row">
-        <div>
-          <div class="futd-bal-lbl">Futures Wallet Balance</div>
-          <div class="futd-bal-val" id="futd-balance">0.00 <span style="font-size:12px;color:var(--t2)">USDT</span></div>
-        </div>
-        <button class="ast-btn-secondary" onclick="openTransfer(null,'usdm')" style="white-space:nowrap">โอนเงินเข้า</button>
-      </div>
-      <div class="futd-stats">
-        <div><div class="futd-stat-lbl">Margin ที่ใช้อยู่</div><div class="futd-stat-val" id="futd-margin-used">0.00 USDT</div></div>
-        <div><div class="futd-stat-lbl">Margin ที่ว่าง</div><div class="futd-stat-val" id="futd-margin-avail">0.00 USDT</div></div>
-      </div>
-    </div>
-
-    <!-- ฟอร์มเปิด Position -->
-    <div class="futd-card">
-      <div class="futd-form-row">
-        <select class="futd-select" id="futd-symbol" onchange="futdOnSymbolChange()" style="flex:1">
-          <option value="BTC">BTCUSDT</option>
-          <option value="ETH">ETHUSDT</option>
-          <option value="SOL">SOLUSDT</option>
-          <option value="BNB">BNBUSDT</option>
-        </select>
-        <select class="futd-select" id="futd-lev">
-          <option>5</option><option>10</option><option>20</option><option selected>50</option>
-          <option>75</option><option>100</option><option>150</option>
-        </select>
-        <span style="align-self:center;font-size:11px;color:var(--t2)">x</span>
-      </div>
-      <div class="futd-form-row">
-        <div class="futd-input" id="futd-mkprice" style="text-align:center;color:var(--t2)">ราคาตลาด: —</div>
-      </div>
-      <div class="futd-side-row">
-        <div class="futd-side-btn long active" id="futd-side-long" onclick="futdSetSide('long')">Long / Buy</div>
-        <div class="futd-side-btn short" id="futd-side-short" onclick="futdSetSide('short')">Short / Sell</div>
-      </div>
-      <div class="futd-form-row">
-        <input class="futd-input" id="futd-size" type="number" placeholder="Size (จำนวนเหรียญ)" oninput="futdCalcMargin()">
-      </div>
-      <div class="futd-form-row">
-        <input class="futd-input" id="futd-tp" type="number" placeholder="TP Price (ไม่บังคับ)">
-        <input class="futd-input" id="futd-sl" type="number" placeholder="SL Price (ไม่บังคับ)">
-      </div>
-      <div class="futd-margin-hint" id="futd-margin-hint">Margin โดยประมาณ: — USDT</div>
-      <button class="futd-submit long" id="futd-submit-btn" onclick="futdSubmitOpen()">เปิด Position (Long)</button>
-    </div>
-
-    <!-- Positions ที่เปิดอยู่ -->
-    <div class="futd-section-title">Positions ที่เปิดอยู่</div>
-    <div id="futd-positions-list"><div class="futd-empty">กำลังโหลด...</div></div>
-
-    <!-- Orders ที่รอ fill -->
-    <div class="futd-section-title">Limit Orders รอ Fill</div>
-    <div id="futd-orders-list"><div class="futd-empty">กำลังโหลด...</div></div>
-
-    <!-- spacer ให้ chart panel ไม่บัง content ด้านล่าง -->
-    <div id="futd-chart-spacer" style="height:0px"></div>
-  </div>
-</div>
-
 <!-- ════ FUTURES-DIRECT: Chart Panel (fixed above bottom nav) ════ -->
 <div id="futdChartPanel">
   <!-- Drag handle -->
@@ -12694,10 +12713,12 @@ function confirmTpsl(tab) {
 //  NAVIGATION SYSTEM
 // ═══════════════════════════════════════════════
 let currentPage = 'trade';
-const PAGE_IDS = { home:'home', whale:'whale', markets:'markets', trade:'trade', futures:'futures', assets:'assets', profile:'profile', 'account-info':'account-info', verification:'verification', termcondition:'termcondition', loan:'loan', 'loan-flexible':'loan-flexible', 'futures-direct':'futures-direct' };
+const PAGE_IDS = { home:'home', whale:'whale', markets:'markets', trade:'trade', futures:'futures', assets:'assets', profile:'profile', 'account-info':'account-info', verification:'verification', termcondition:'termcondition', loan:'loan', 'loan-flexible':'loan-flexible' };
+// [v2.49-TAB] 'futures-direct' ถูกรวมเป็น sub-tab ของ page-futures แล้ว — ไม่ต้องอยู่ใน PAGE_IDS อีก
 
 // ── Sub-pages that don't appear in bottom nav (no ni-xxx) ──
-const PAGE_NAV_KEY = { 'account-info':'home', 'verification':'home', 'profile':'home', 'termcondition':'home', 'loan':'home', 'loan-flexible':'home', 'futures-direct':'assets' };
+const PAGE_NAV_KEY = { 'account-info':'home', 'verification':'home', 'profile':'home', 'termcondition':'home', 'loan':'home', 'loan-flexible':'home' };
+// [v2.49-TAB] 'futures-direct':'assets' ถูกลบออก — futures-direct เป็น sub-tab ของ page-futures
 
 function navTo(page) {
   const target = PAGE_IDS[page] || page;
@@ -12756,17 +12777,27 @@ function navTo(page) {
     _syncAllProfilePages();
   }
 
-  const futPanel = document.getElementById('futuresChartPanel');
-  const spPanel  = document.getElementById('spChartArea');
-  if (futPanel) futPanel.style.display = (target === 'futures') ? '' : 'none';
-  if (spPanel)  spPanel.style.display  = (target === 'trade')   ? '' : 'none';
+  // [v2.49-TAB] futuresChartPanel แสดงตาม active tab ของ page-futures
+  // futdChartPanel แสดงเมื่อ futures + direct tab เท่านั้น
+  const futPanel  = document.getElementById('futuresChartPanel');
+  const futdPanel = document.getElementById('futdChartPanel');
+  const spPanel   = document.getElementById('spChartArea');
+  if (target === 'futures') {
+    const _activeTab = (typeof _futActiveTab !== 'undefined') ? _futActiveTab : 'contract';
+    if (futPanel)  futPanel.style.display  = (_activeTab === 'contract') ? '' : 'none';
+    if (futdPanel) { /* futdChartPanel visibility managed by futdToggleChart / futdChartInit */ }
+    if (spPanel)   spPanel.style.display   = 'none';
+  } else {
+    if (futPanel)  futPanel.style.display  = 'none';
+    if (futdPanel) futdPanel.style.display = 'none';
+    if (spPanel)   spPanel.style.display   = (target === 'trade') ? '' : 'none';
+  }
 
   if (target === 'home')    { if (typeof _homeInit === 'function') _homeInit(); else console.warn('[navTo] _homeInit not ready yet'); }
   if (target === 'markets' && !mktLoaded) loadMarketData();
   if (target === 'trade')   { loadSpotData(); }
-  // [FUTURES-DIRECT v1] — เพิ่ม branch ใหม่เฉยๆ ไม่แก้ของเดิมด้านบน/ล่างเลย
-  if (target === 'futures-direct') { if (typeof futdInit === 'function') futdInit(); }
-  else { if (typeof futdStopPolling === 'function') futdStopPolling(); }
+  // [v2.49-TAB] futures-direct ไม่มี page แยกแล้ว — futdInit/futdStopPolling จัดการใน futSwitchTab
+  if (target !== 'futures') { if (typeof futdStopPolling === 'function') futdStopPolling(); }
   if (target === 'futures') requestAnimationFrame(() => requestAnimationFrame(() => {
     drawChart();
     // ── sync levBtn + goldLevNote ตาม S.coin ปัจจุบันทุกครั้งที่เข้าหน้า futures ──
@@ -12803,6 +12834,48 @@ function navTo(page) {
   }
   // เมื่อเข้าแอปหลักครั้งแรกหลัง login → โหลด member จาก session
   if (typeof USER_PROFILE !== 'undefined' && !USER_PROFILE._memberLoaded) autoLoginFromMembers();
+}
+
+// ═══════════════════════════════════════════════
+//  [v2.49-TAB] FUTURES TAB SWITCHER
+//  futSwitchTab(tab) — 'contract' | 'direct'
+//  เรียกจาก Tab Bar onclick และจาก navTo('futures-direct') redirect
+// ═══════════════════════════════════════════════
+let _futActiveTab = 'contract'; // track tab ปัจจุบัน
+
+function futSwitchTab(tab) {
+  _futActiveTab = tab;
+
+  // ── Toggle tab content ──
+  const tabContract = document.getElementById('fut-tab-contract');
+  const tabDirect   = document.getElementById('fut-tab-direct');
+  if (tabContract) tabContract.classList.toggle('active', tab === 'contract');
+  if (tabDirect)   tabDirect.classList.toggle('active',   tab === 'direct');
+
+  // ── Toggle tab button highlight ──
+  const btnContract = document.getElementById('futTabBtnContract');
+  const btnDirect   = document.getElementById('futTabBtnDirect');
+  if (btnContract) btnContract.classList.toggle('active', tab === 'contract');
+  if (btnDirect)   btnDirect.classList.toggle('active',   tab === 'direct');
+
+  // ── Chart panels: แสดง/ซ่อนตาม tab ──
+  const futPanel  = document.getElementById('futuresChartPanel');
+  const futdPanel = document.getElementById('futdChartPanel');
+
+  if (tab === 'contract') {
+    // เข้า Contract tab → หยุด Direct polling, แสดง Contract chart (ถ้า open)
+    if (typeof futdStopPolling === 'function') futdStopPolling();
+    if (futPanel)  futPanel.style.display  = '';  // จะซ่อน/แสดงเองตาม CHART_PANELS.fut.open
+    if (futdPanel) futdPanel.style.display = 'none';
+    // redraw contract chart
+    requestAnimationFrame(() => {
+      if (typeof drawChart === 'function') drawChart();
+    });
+  } else {
+    // เข้า Direct tab → ซ่อน Contract chart, init Direct
+    if (futPanel)  futPanel.style.display  = 'none';
+    if (typeof futdInit === 'function') futdInit();
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -35666,12 +35739,12 @@ function aftdRenderDirectPosList(positions) {
     el.innerHTML = '<div class="aft-empty"><div class="aft-empty-icon">📭</div>' +
       '<div class="aft-empty-title">ยังไม่มี Position ที่เปิดอยู่</div>' +
       '<div class="aft-empty-sub">โหมด Futures-Direct ไม่มีประกันทุน (ไม่มี DD/Freeze)</div>' +
-      '<button class="aft-empty-btn" onclick="navTo(\'futures-direct\')">เริ่มเทรด</button></div>';
+      '<button class="aft-empty-btn" onclick="navTo(\'futures\');requestAnimationFrame(()=>futSwitchTab(\'direct\'))">เริ่มเทรด</button></div>';
     return;
   }
   el.innerHTML = positions.map(p => {
     const pnl = parseFloat(p.realized_pnl) || 0;
-    return `<div class="aft-pos-card" onclick="navTo('futures-direct')">
+    return `<div class="aft-pos-card" onclick="navTo('futures');requestAnimationFrame(()=>futSwitchTab('direct'))">
       <div class="aft-pos-card-header">
         <div class="aft-pos-symbol-row">
           <span class="aft-pos-sym">${p.symbol}</span>

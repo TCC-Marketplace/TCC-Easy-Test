@@ -13072,6 +13072,8 @@ function futdSyncCoinFromTopbar(coin) {
   futdRefreshPrice();
   futdChartLoad();
   futdStartOrderBook();
+  // [v2.51] re-fetch funding rate เมื่อเปลี่ยนเหรียญ
+  if (typeof futdFetchFunding === 'function') futdFetchFunding();
   // อัปเดต unit label
   const unitEl = document.getElementById('futdObAmtUnit');
   if (unitEl) unitEl.textContent = '(' + coin + ')';
@@ -36003,6 +36005,12 @@ const FUTD = {
   },
   // TP/SL sheet state
   tpslPosId: null,
+  // [v2.51] Funding rate state (mirror of S.funding for Direct tab)
+  funding: {
+    rate: 0.01,        // % (เช่น 0.01 = 0.01%)
+    countdown: '--:--:--',
+  },
+  fundingTimer: null,  // setInterval handle สำหรับ countdown
 };
 
 function _futdCurrentUid() {
@@ -36029,6 +36037,10 @@ function futdInit() {
   // เริ่ม Order Book WebSocket สำหรับ Direct tab
   futdStartOrderBook();
 
+  // [v2.51] เริ่ม Funding rate + Countdown timer
+  futdFetchFunding();
+  futdStartFundingTimer();
+
   // poll ราคา + สถานะทุก 5 วิ
   FUTD.pollTimer = setInterval(() => {
     futdRefreshPrice();
@@ -36038,6 +36050,8 @@ function futdInit() {
 
 function futdStopPolling() {
   if (FUTD.pollTimer) { clearInterval(FUTD.pollTimer); FUTD.pollTimer = null; }
+  // [v2.51] หยุด Funding timer ด้วย
+  if (FUTD.fundingTimer) { clearInterval(FUTD.fundingTimer); FUTD.fundingTimer = null; }
   futdChartStop();
   futdStopOrderBook();
 }
@@ -36045,6 +36059,61 @@ function futdStopPolling() {
 // ══════════════════════════════════════════════════════════════
 //  [v2.50] FUTURES-DIRECT — New Layout Functions
 // ══════════════════════════════════════════════════════════════
+
+// ── [v2.51] Funding Rate + Countdown (Direct Tab) ─────────────
+/** ดึง funding rate จาก Hyperliquid สำหรับ Direct tab */
+async function futdFetchFunding() {
+  try {
+    const coin = FUTD.symbolCoin || 'BTC';
+    const d = await hlPost({ type: 'fundingHistory', coin, startTime: Date.now() - 28800000 });
+    if (d && d.length) {
+      const latest = d[d.length - 1];
+      FUTD.funding.rate = parseFloat(latest.fundingRate) * 100; // convert to %
+    }
+    futdUpdateFundingVal();
+  } catch(e) {
+    console.warn('[futdFetchFunding] fail:', e.message);
+  }
+}
+
+/** countdown timer — tick ทุกวินาที เหมือน startFundingTimer() ของ Contract tab */
+function futdStartFundingTimer() {
+  if (FUTD.fundingTimer) { clearInterval(FUTD.fundingTimer); FUTD.fundingTimer = null; }
+  function tick() {
+    const now = new Date();
+    const h = now.getUTCHours();
+    const next8h = (Math.floor(h / 8) + 1) * 8;
+    const nextTime = new Date(now);
+    nextTime.setUTCHours(next8h % 24, 0, 0, 0);
+    if (next8h >= 24) nextTime.setUTCDate(nextTime.getUTCDate() + 1);
+    const diff = nextTime - now;
+    const hh = Math.floor(diff / 3600000);
+    const mm = Math.floor((diff % 3600000) / 60000);
+    const ss = Math.floor((diff % 60000) / 1000);
+    FUTD.funding.countdown = String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+    futdUpdateFundingVal();
+    // re-fetch rate ทุก 8 ชั่วโมงเมื่อข้าม boundary
+    const curFundingHour = Math.floor(h / 8) * 8;
+    if (!FUTD._lastFundingHour) FUTD._lastFundingHour = curFundingHour;
+    if (FUTD._lastFundingHour !== curFundingHour) {
+      FUTD._lastFundingHour = curFundingHour;
+      futdFetchFunding();
+    }
+  }
+  tick();
+  FUTD.fundingTimer = setInterval(tick, 1000);
+}
+
+/** เขียนค่าลง element futdFundingVal */
+function futdUpdateFundingVal() {
+  const el = document.getElementById('futdFundingVal');
+  if (!el) return;
+  const rateStr = (FUTD.funding.rate || 0).toFixed(5) + '%';
+  const cdStr   = FUTD.funding.countdown || '--:--:--';
+  el.textContent = rateStr + '/' + cdStr;
+  // สีตาม rate: บวก = เขียว, ลบ = แดง (Long จ่าย Short รับ เมื่อ rate บวก)
+  el.style.color = FUTD.funding.rate >= 0 ? 'var(--g)' : 'var(--r)';
+}
 
 // ── Leverage cycle (Direct: 5x–150x) ──────────────────────────
 const levCycleDirect = [5, 10, 25, 50, 75, 100, 125, 150];
@@ -36610,8 +36679,9 @@ function futdRenderPositions(positions) {
       </div>
       <div class="futd-pos-tpsl-row">${tpChip}${slChip}</div>
       <div class="futd-pos-actions">
+        <div class="futd-btn-sm" onclick="futdAdjLeverage('${p.id}')">Leverage</div>
         <div class="futd-btn-sm warn" onclick="futdOpenTpslSheet('${p.id}')">TP/SL</div>
-        <div class="futd-btn-sm danger" onclick="futdCloseposition('${p.id}')">Close Position</div>
+        <div class="futd-btn-sm danger" onclick="futdCloseposition('${p.id}')">Close</div>
       </div>
     </div>`;
   }).join('');
@@ -36690,6 +36760,21 @@ async function futdSubmitOpen() {
   } catch (e) {
     showToast('❌ ' + (e.message || 'เปิด Position ไม่สำเร็จ'));
   }
+}
+
+// [v2.51] Leverage adjustment for Direct positions (toast + cycle like Contract posAdjLeverage)
+function futdAdjLeverage(posId) {
+  const pos = ((FUTD.status && FUTD.status.positions) || []).find(p => p.id === posId);
+  if (!pos) return;
+  const levSteps = [5, 10, 25, 50, 75, 100, 125, 150];
+  const curLev = parseInt(pos.lev) || 50;
+  const curIdx = levSteps.indexOf(curLev);
+  const nextIdx = (curIdx + 1) % levSteps.length;
+  const nextLev = levSteps[nextIdx];
+  // Optimistic update
+  pos.lev = nextLev;
+  showToast('Leverage: ' + nextLev + 'x (จะมีผลบน Position ถัดไป)');
+  futdRenderPositions(FUTD.status.positions || []);
 }
 
 /** ปิด Position ด้วยมือ (Market Close ที่ราคาตลาดปัจจุบัน) */
@@ -37141,6 +37226,42 @@ function futdChartDraw() {
   if (curLine) curLine.style.top = curY + 'px';
   if (curTag)  { curTag.style.top = (curY - 8) + 'px'; curTag.textContent = lastClose.toFixed(2); }
 
+  // [v2.51] Position Lines — Entry / TP / SL (เหมือน Contract tab)
+  const futdPositions = (FUTD.status && FUTD.status.positions) || [];
+  futdPositions.forEach(p => {
+    const coin  = (p.symbol || '').replace('USDT', '');
+    if (coin !== FUTD.symbolCoin) return; // แสดงเฉพาะเหรียญที่กำลังดูกราฟ
+    const entryP = parseFloat(p.entry_price) || 0;
+    const tp     = parseFloat(p.tp)          || 0;
+    const sl     = parseFloat(p.sl)          || 0;
+    const isLong = p.side === 'long';
+
+    // Helper — วาดเส้นแนวนอน + label ขวา
+    const drawHLine = (price, color, label, dash) => {
+      if (!price || price < minP * 0.98 || price > maxP * 1.02) return; // นอก range → ข้าม
+      const y = toY(price);
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = 1;
+      if (dash) ctx.setLineDash([4, 3]); else ctx.setLineDash([]);
+      ctx.globalAlpha = 0.75;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+      // Label pill
+      ctx.globalAlpha = 1;
+      ctx.setLineDash([]);
+      ctx.fillStyle = color;
+      ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'left';
+      const lbl = label + ' ' + price.toLocaleString('en',{maximumFractionDigits:2});
+      ctx.fillText(lbl, 4, y - 2);
+      ctx.restore();
+    };
+
+    drawHLine(entryP, isLong ? '#0ecb81' : '#f6465d', isLong ? '▲ Entry' : '▼ Entry', false);
+    if (tp > 0) drawHLine(tp, '#0ecb81', 'TP', true);
+    if (sl > 0) drawHLine(sl, '#f6465d', 'SL', true);
+  });
+
   // OHLC labels
   const last = slice[slice.length - 1];
   const setOhlc = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
@@ -37232,6 +37353,160 @@ function futdDrawIndicator(slice, closesSlice) {
       first ? ctx.moveTo(x, y) : ctx.lineTo(x, y); first = false;
     });
     ctx.stroke();
+  }
+
+  // [v2.51] MACD (12, 26, 9)
+  if (ind === 'MACD') {
+    const ema = (arr, n) => {
+      const k = 2 / (n + 1); const result = [];
+      arr.forEach((v, i) => {
+        if (i === 0) { result.push(v); return; }
+        result.push(v * k + result[i - 1] * (1 - k));
+      });
+      return result;
+    };
+    const ema12 = ema(closeArr, 12);
+    const ema26 = ema(closeArr, 26);
+    const macdLine   = closeArr.map((_, i) => (i < 25 ? null : ema12[i] - ema26[i]));
+    const validMacd  = macdLine.map(v => v === null ? 0 : v);
+    const signalLine = ema(validMacd, 9).map((v, i) => macdLine[i] === null ? null : v);
+    const histogram  = macdLine.map((v, i) => (v !== null && signalLine[i] !== null) ? v - signalLine[i] : null);
+
+    const allVals = [...macdLine, ...signalLine, ...histogram].filter(v => v !== null);
+    if (!allVals.length) return;
+    const maxV = Math.max(...allVals.map(Math.abs)) || 1;
+    const midY = H / 2;
+    const scaleV = v => midY - (v / maxV) * (midY - 4);
+
+    // Zero line
+    ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(0, midY); ctx.lineTo(W, midY); ctx.stroke();
+
+    // Histogram bars
+    histogram.forEach((v, i) => {
+      if (v === null) return;
+      const x = i * cW; const y = scaleV(v);
+      ctx.fillStyle = v >= 0 ? 'rgba(14,203,129,.55)' : 'rgba(246,70,93,.55)';
+      ctx.fillRect(x, Math.min(midY, y), Math.max(1, cW * 0.7), Math.abs(midY - y));
+    });
+
+    // MACD line (blue)
+    ctx.strokeStyle = '#2196f3'; ctx.lineWidth = 1.5; ctx.beginPath();
+    let first2 = true;
+    macdLine.forEach((v, i) => {
+      if (v === null) return;
+      const x = i * cW + cW / 2; const y = scaleV(v);
+      first2 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); first2 = false;
+    });
+    ctx.stroke();
+
+    // Signal line (orange)
+    ctx.strokeStyle = '#f0a500'; ctx.lineWidth = 1; ctx.beginPath();
+    let first3 = true;
+    signalLine.forEach((v, i) => {
+      if (v === null) return;
+      const x = i * cW + cW / 2; const y = scaleV(v);
+      first3 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); first3 = false;
+    });
+    ctx.stroke();
+
+    const lastMacd = macdLine.filter(v => v !== null).pop() || 0;
+    const lastSig  = signalLine.filter(v => v !== null).pop() || 0;
+    const lastHist = histogram.filter(v => v !== null).pop() || 0;
+    const lblEl = document.getElementById('futdIndLabel');
+    const valEl = document.getElementById('futdIndVal');
+    if (lblEl) lblEl.textContent = 'MACD(12,26,9)';
+    if (valEl) {
+      valEl.textContent = `MACD:${lastMacd.toFixed(2)} Sig:${lastSig.toFixed(2)} Hist:${lastHist.toFixed(2)}`;
+      valEl.style.color = lastHist >= 0 ? 'var(--g)' : 'var(--r)';
+    }
+  }
+
+  // [v2.51] Bollinger Bands (20, 2)
+  if (ind === 'BB') {
+    const period = 20; const mult = 2;
+    const upper = [], middle = [], lower = [];
+    for (let i = 0; i < closeArr.length; i++) {
+      if (i < period - 1) { upper.push(null); middle.push(null); lower.push(null); continue; }
+      const sl2 = closeArr.slice(i - period + 1, i + 1);
+      const avg = sl2.reduce((a, b) => a + b, 0) / period;
+      const std = Math.sqrt(sl2.reduce((s, v) => s + (v - avg) ** 2, 0) / period);
+      middle.push(avg); upper.push(avg + mult * std); lower.push(avg - mult * std);
+    }
+    const allBB = [...upper, ...lower].filter(v => v !== null);
+    if (!allBB.length) return;
+    const maxB = Math.max(...allBB); const minB = Math.min(...allBB);
+    const rangeB = maxB - minB || 1;
+    const toYB = v => 4 + ((maxB - v) / rangeB) * (H - 8);
+
+    // Shaded band area
+    ctx.fillStyle = 'rgba(33,150,243,.07)';
+    ctx.beginPath();
+    upper.forEach((v, i) => { if (v === null) return; const x = i * cW + cW / 2; i === 0 || upper[i-1] === null ? ctx.moveTo(x, toYB(v)) : ctx.lineTo(x, toYB(v)); });
+    [...lower].reverse().forEach((v, i) => {
+      const origI = lower.length - 1 - i;
+      if (v === null) return;
+      ctx.lineTo(origI * cW + cW / 2, toYB(v));
+    });
+    ctx.closePath(); ctx.fill();
+
+    // Upper / Middle / Lower lines
+    [[upper,'rgba(33,150,243,.8)',1],[middle,'rgba(240,185,11,.8)',1],[lower,'rgba(33,150,243,.8)',1]].forEach(([arr, color, lw]) => {
+      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.beginPath();
+      let fst = true;
+      arr.forEach((v, i) => {
+        if (v === null) return;
+        const x = i * cW + cW / 2; const y = toYB(v);
+        fst ? ctx.moveTo(x, y) : ctx.lineTo(x, y); fst = false;
+      });
+      ctx.stroke();
+    });
+
+    const lastU = upper.filter(v=>v!==null).pop()||0;
+    const lastM = middle.filter(v=>v!==null).pop()||0;
+    const lastL = lower.filter(v=>v!==null).pop()||0;
+    const lblEl = document.getElementById('futdIndLabel');
+    const valEl = document.getElementById('futdIndVal');
+    if (lblEl) lblEl.textContent = 'BB(20,2)';
+    if (valEl) {
+      valEl.textContent = `U:${lastU.toFixed(1)} M:${lastM.toFixed(1)} L:${lastL.toFixed(1)}`;
+      valEl.style.color = 'var(--t1)';
+    }
+  }
+
+  // [v2.51] EMA (9, 21)
+  if (ind === 'EMA') {
+    const ema = (arr, n) => {
+      const k = 2 / (n + 1); const result = [];
+      arr.forEach((v, i) => { result.push(i === 0 ? v : v * k + result[i - 1] * (1 - k)); });
+      return result;
+    };
+    const ema9  = ema(closeArr, 9);
+    const ema21 = ema(closeArr, 21);
+    const allE  = [...ema9, ...ema21];
+    const maxE  = Math.max(...allE); const minE = Math.min(...allE);
+    const rangeE = maxE - minE || 1;
+    const toYE  = v => 4 + ((maxE - v) / rangeE) * (H - 8);
+
+    [[ema9,'#0ecb81','EMA9'],[ema21,'#f0a500','EMA21']].forEach(([arr, color, lbl]) => {
+      ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
+      let fst = true;
+      arr.forEach((v, i) => {
+        const x = i * cW + cW / 2; const y = toYE(v);
+        fst ? ctx.moveTo(x, y) : ctx.lineTo(x, y); fst = false;
+      });
+      ctx.stroke();
+    });
+
+    const lastE9  = ema9[ema9.length - 1]   || 0;
+    const lastE21 = ema21[ema21.length - 1]  || 0;
+    const lblEl = document.getElementById('futdIndLabel');
+    const valEl = document.getElementById('futdIndVal');
+    if (lblEl) lblEl.textContent = 'EMA(9,21)';
+    if (valEl) {
+      valEl.textContent = `EMA9:${lastE9.toFixed(1)}  EMA21:${lastE21.toFixed(1)}`;
+      valEl.style.color = lastE9 > lastE21 ? 'var(--g)' : 'var(--r)';
+    }
   }
 }
 

@@ -5453,72 +5453,238 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 
 <!-- TAB: DIRECT (ย้ายมาจาก page-futures-direct) -->
 <div id="fut-tab-direct">
-  <div class="futd-wrap" id="futd-scroll-wrap">
-    <!-- ไม่มี back button แล้ว — ใช้ Tab Bar แทน -->
-    <div class="futd-header" style="margin-bottom:10px">
-      <div class="futd-title">Futures-Direct</div>
-      <div class="futd-badge">ไม่มีประกัน</div>
-      <button class="ast-btn-secondary" onclick="openTransfer(null,'usdm')" style="white-space:nowrap;margin-left:auto">โอนเงินเข้า</button>
+
+<!-- API STATUS (shared via id — same DOM as contract tab but controlled via futSwitchTab) -->
+<!-- futd-specific: Futures Wallet Balance bar แทน Earn Contract Selector -->
+<div class="futd-api-status-bar" id="futdApiStatusBar">
+  <div style="display:flex;align-items:center;gap:6px">
+    <span style="font-size:9px;color:var(--t2)">⚡ Direct</span>
+    <span class="futd-bal-chip" id="futd-balance-chip">Bal: — USDT</span>
+    <span class="futd-bal-chip futd-margin-chip" id="futd-margin-chip">Margin: — USDT</span>
+  </div>
+  <button class="ast-btn-secondary" onclick="openTransfer(null,'usdm')" style="font-size:10px;padding:3px 8px;white-space:nowrap">โอนเงินเข้า</button>
+</div>
+
+<!-- 24H TICKER STRIP (Direct-specific ids: futd-tk-*) -->
+<div style="display:flex;gap:0;overflow-x:auto;border-bottom:1px solid var(--border);background:var(--bg2);scrollbar-width:none" id="futdTickerStrip">
+  <div style="flex:1;min-width:0;padding:5px 10px;border-right:1px solid var(--border)">
+    <div style="font-size:9px;color:var(--t2);margin-bottom:1px">Mark</div>
+    <div style="font-size:11px;font-family:var(--mono);font-weight:600;color:var(--t1)" id="futd-tk-mark">—</div>
+  </div>
+  <div style="flex:1;min-width:0;padding:5px 10px;border-right:1px solid var(--border)">
+    <div style="font-size:9px;color:var(--t2);margin-bottom:1px">24h High</div>
+    <div style="font-size:11px;font-family:var(--mono);font-weight:500;color:var(--g)" id="futd-tk-high">—</div>
+  </div>
+  <div style="flex:1;min-width:0;padding:5px 10px;border-right:1px solid var(--border)">
+    <div style="font-size:9px;color:var(--t2);margin-bottom:1px">24h Low</div>
+    <div style="font-size:11px;font-family:var(--mono);font-weight:500;color:var(--r)" id="futd-tk-low">—</div>
+  </div>
+  <div style="flex:1;min-width:0;padding:5px 10px">
+    <div style="font-size:9px;color:var(--t2);margin-bottom:1px">24h Vol</div>
+    <div style="font-size:11px;font-family:var(--mono);font-weight:500;color:var(--t1)" id="futd-tk-vol">—</div>
+  </div>
+</div>
+
+<!-- MAIN SPLIT (same layout as Contract) -->
+<div class="main-split">
+
+  <!-- LEFT: TRADE PANEL (Direct) -->
+  <div class="left-panel">
+
+    <!-- Funding / Countdown (Direct-specific ids: futd-funding*) -->
+    <div style="padding:5px 8px 4px;border-bottom:1px solid var(--border)">
+      <div style="font-size:9px;color:var(--t2)">Funding (8h) / Countdown</div>
+      <div style="font-size:10px;font-family:var(--mono);color:var(--t1);font-weight:500" id="futdFundingVal">0.01000%/--:--:--</div>
     </div>
 
-    <!-- บัญชี -->
-    <div class="futd-card">
-      <div class="futd-bal-row">
-        <div>
-          <div class="futd-bal-lbl">Futures Wallet Balance</div>
-          <div class="futd-bal-val" id="futd-balance">0.00 <span style="font-size:12px;color:var(--t2)">USDT</span></div>
+    <!-- Open/Close toggle (Direct-specific ids: futdOC*) -->
+    <div class="oc-toggle">
+      <div class="oc-btn active" id="futdOcOpen"  onclick="futdSetOC('open')">Open</div>
+      <div class="oc-btn"        id="futdOcClose" onclick="futdSetOC('close')">Close</div>
+    </div>
+
+    <!-- Cross / Leverage (Direct: 5x–150x, prefix futd) -->
+    <div class="cls-row">
+      <div class="cls-btn" onclick="showToast('Cross Margin — Futures Direct')">Cross</div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div class="lev-btn" id="futdLevBtn" onclick="futdCycleLev()">50x</div>
+      </div>
+      <div class="side-btn" id="futdSideBtn" onclick="futdToggleSide()">S</div>
+    </div>
+
+    <!-- Order type (Direct: Limit / Market only — no BBO) -->
+    <div class="order-type-row">
+      <div class="info-ico">i</div>
+      <div class="select-wrap" onclick="futdCycleOrderType()">
+        <div class="fake-select"><span id="futdOrderTypeLabel">Limit</span><div class="arr"></div></div>
+      </div>
+    </div>
+
+    <!-- Limit Price Input (Direct) -->
+    <div class="amt-row" id="futdLimitPriceRow">
+      <div class="amt-input-wrap">
+        <div class="amt-btn" onclick="futdAdjPrice(-1)">−</div>
+        <input class="amt-inp" id="futdLimitPriceInp" type="number" placeholder="Price (USDT)" step="0.1">
+        <div class="amt-unit" style="background:transparent;border:none;color:var(--t2)">USDT</div>
+      </div>
+    </div>
+
+    <!-- Direct Order Mode selector (replaces BBO/Counterparty — Direct uses Market/Limit only) -->
+    <div class="cpbbo-row">
+      <div class="cp-select" style="flex:1;cursor:default">
+        <span style="font-size:11px;color:var(--t2);font-weight:500" id="futdOrderModeLabel">⚡ Futures Direct</span>
+      </div>
+      <button class="bbo-btn" style="background:var(--bg3);border-color:var(--bl);color:var(--t2);cursor:default;font-size:10px" title="Direct ส่ง order ตรงไปยัง Hyperliquid โดยไม่ผ่าน EarnContract">DIRECT</button>
+    </div>
+
+    <!-- Amount -->
+    <div class="amt-row">
+      <div class="amt-input-wrap">
+        <div class="amt-btn" onclick="futdAdjAmt(-1)">−</div>
+        <input class="amt-inp" id="futd-size" type="number" placeholder="Amount" step="0.001" oninput="futdCalcMargin()">
+        <div class="amt-unit" onclick="futdToggleAmtUnit()">
+          <span id="futdAmtUnit">BTC</span>
+          <div class="arr" style="border-top-color:var(--t3)"></div>
         </div>
       </div>
-      <div class="futd-stats">
-        <div><div class="futd-stat-lbl">Margin ที่ใช้อยู่</div><div class="futd-stat-val" id="futd-margin-used">0.00 USDT</div></div>
-        <div><div class="futd-stat-lbl">Margin ที่ว่าง</div><div class="futd-stat-val" id="futd-margin-avail">0.00 USDT</div></div>
+    </div>
+
+    <!-- Slider -->
+    <div class="slider-row">
+      <input class="pct-slider" id="futdPctSlider" type="range" min="0" max="100" value="0" oninput="futdOnSlider(this)">
+      <div class="slider-marks">
+        <div class="slider-mark" data-v="0%"   onclick="futdSetSlider(0)"></div>
+        <div class="slider-mark" data-v="25%"  onclick="futdSetSlider(25)"></div>
+        <div class="slider-mark" data-v="50%"  onclick="futdSetSlider(50)"></div>
+        <div class="slider-mark" data-v="75%"  onclick="futdSetSlider(75)"></div>
+        <div class="slider-mark" data-v="100%" onclick="futdSetSlider(100)"></div>
       </div>
     </div>
 
-    <!-- ฟอร์มเปิด Position -->
-    <div class="futd-card">
-      <div class="futd-form-row">
-        <select class="futd-select" id="futd-symbol" onchange="futdOnSymbolChange()" style="flex:1">
-          <option value="BTC">BTCUSDT</option>
-          <option value="ETH">ETHUSDT</option>
-          <option value="SOL">SOLUSDT</option>
-          <option value="BNB">BNBUSDT</option>
-        </select>
-        <select class="futd-select" id="futd-lev">
-          <option>5</option><option>10</option><option>20</option><option selected>50</option>
-          <option>75</option><option>100</option><option>150</option>
-        </select>
-        <span style="align-self:center;font-size:11px;color:var(--t2)">x</span>
-      </div>
-      <div class="futd-form-row">
-        <div class="futd-input" id="futd-mkprice" style="text-align:center;color:var(--t2)">ราคาตลาด: —</div>
-      </div>
-      <div class="futd-side-row">
-        <div class="futd-side-btn long active" id="futd-side-long" onclick="futdSetSide('long')">Long / Buy</div>
-        <div class="futd-side-btn short" id="futd-side-short" onclick="futdSetSide('short')">Short / Sell</div>
-      </div>
-      <div class="futd-form-row">
-        <input class="futd-input" id="futd-size" type="number" placeholder="Size (จำนวนเหรียญ)" oninput="futdCalcMargin()">
-      </div>
-      <div class="futd-form-row">
-        <input class="futd-input" id="futd-tp" type="number" placeholder="TP Price (ไม่บังคับ)">
-        <input class="futd-input" id="futd-sl" type="number" placeholder="SL Price (ไม่บังคับ)">
-      </div>
-      <div class="futd-margin-hint" id="futd-margin-hint">Margin โดยประมาณ: — USDT</div>
-      <button class="futd-submit long" id="futd-submit-btn" onclick="futdSubmitOpen()">เปิด Position (Long)</button>
+    <!-- Avbl (Futures Wallet Balance) -->
+    <div class="avbl-row">
+      <span class="avbl-label">Avbl</span>
+      <span><span class="avbl-val" id="futdAvblVal">0.00 USDT</span><span class="avbl-swap" onclick="openTransfer(null,'usdm')">⇄</span></span>
     </div>
 
-    <!-- Positions ที่เปิดอยู่ -->
-    <div class="futd-section-title">Positions ที่เปิดอยู่</div>
-    <div id="futd-positions-list"><div class="futd-empty">กำลังโหลด...</div></div>
+    <!-- Margin hint row -->
+    <div id="futdMarginHintBar" style="display:flex;align-items:center;justify-content:space-between;padding:3px 8px 2px;gap:6px">
+      <span id="futd-margin-hint" style="font-size:10px;color:var(--t2)">Margin: — USDT</span>
+    </div>
 
-    <!-- Orders ที่รอ fill -->
-    <div class="futd-section-title">Limit Orders รอ Fill</div>
-    <div id="futd-orders-list"><div class="futd-empty">กำลังโหลด...</div></div>
+    <!-- TP/SL -->
+    <div class="tpsl-row" onclick="futdToggleTPSL()">
+      <div class="sq-check" id="futdTpslCheck"></div>
+      <span class="tpsl-label">TP/SL</span>
+    </div>
 
-    <!-- spacer ให้ chart panel ไม่บัง content ด้านล่าง -->
-    <div id="futd-chart-spacer" style="height:0px"></div>
+    <!-- TP/SL inputs -->
+    <div id="futdTpslPanel" style="display:none;padding:0 8px 6px;gap:4px;flex-direction:column">
+      <div class="amt-input-wrap" style="margin-bottom:3px">
+        <span style="font-size:10px;color:var(--g);min-width:22px">TP</span>
+        <input class="amt-inp" id="futd-tp" type="number" placeholder="Take Profit Price">
+        <span style="font-size:9px;color:var(--t3)">USDT</span>
+      </div>
+      <div class="amt-input-wrap">
+        <span style="font-size:10px;color:var(--r);min-width:22px">SL</span>
+        <input class="amt-inp" id="futd-sl" type="number" placeholder="Stop Loss Price">
+        <span style="font-size:9px;color:var(--t3)">USDT</span>
+      </div>
+    </div>
+
+    <!-- GTC -->
+    <div class="gtc-row" onclick="showToast('Time in Force — GTC')">
+      <div class="gtc-sel"><span style="font-size:11px;color:var(--t2)">GTC</span><div class="gtc-arr"></div></div>
+    </div>
+
+    <!-- Max Open / Cost (Long) -->
+    <div class="maxcost-row">
+      <div class="mc-line"><span>Max Open</span><span class="mc-val" id="futdMaxOpen">0.000 BTC</span></div>
+      <div class="mc-line"><span>Cost</span><span class="mc-val" id="futdCostVal">0.00 USDT</span></div>
+    </div>
+
+    <!-- Open Long button -->
+    <button class="trade-btn long" id="futdTradeBtnLong" onclick="futdPlaceOrder('long')">
+      <span id="futdTradeBtnLongLabel">Open Long</span><span class="tb-sub">Buy</span>
+    </button>
+
+    <!-- Max Open / Cost (Short) -->
+    <div class="maxcost-row">
+      <div class="mc-line"><span>Max Open</span><span class="mc-val" id="futdMaxOpenS">0.000 BTC</span></div>
+      <div class="mc-line"><span>Cost</span><span class="mc-val" id="futdCostValS">0.00 USDT</span></div>
+    </div>
+
+    <!-- Open Short button -->
+    <button class="trade-btn short" id="futdTradeBtnShort" onclick="futdPlaceOrder('short')">
+      <span id="futdTradeBtnShortLabel">Open Short</span><span class="tb-sub">Sell</span>
+    </button>
+
+  </div><!-- /left-panel Direct -->
+
+  <!-- RIGHT: ORDER BOOK (Direct — prefix futd*) -->
+  <div class="right-panel">
+    <div class="ob-header">
+      <span>Price<span class="sub">(USDT)</span></span>
+      <span style="text-align:right">Amount<span class="sub" id="futdObAmtUnit">(BTC)</span></span>
+    </div>
+
+    <!-- ASK rows -->
+    <div id="futdAskList" style="flex:1;min-height:120px;overflow:hidden;display:flex;flex-direction:column-reverse"></div>
+
+    <!-- Mid price -->
+    <div class="ob-mid">
+      <span class="ob-mid-price up" id="futdObMidPrice">—</span>
+      <span class="ob-mid-mark" id="futdObMarkPrice">—</span>
+      <span class="ob-mid-arr" onclick="showToast('Direct Price Detail')">›</span>
+    </div>
+
+    <!-- BID rows -->
+    <div id="futdBidList" style="flex:1;min-height:120px;overflow:hidden;display:flex;flex-direction:column"></div>
+
+    <!-- Ratio -->
+    <div class="ob-ratio">
+      <span class="ob-ratio-g" id="futdObLongR">—%</span>
+      <div class="ob-ratio-bar"><div class="ob-ratio-fill" id="futdObRatioFill" style="width:50%"></div></div>
+      <span class="ob-ratio-r" id="futdObShortR">—%</span>
+    </div>
+
+    <!-- Size + Grid -->
+    <div class="ob-size-row">
+      <input class="ob-size-inp" id="futdObSizeInp" type="number" value="1" min="0.001">
+      <div class="ob-grid-ico" onclick="showToast('Layout')">
+        <div class="ob-grid-row"><div class="ob-gdot"></div><div class="ob-gdot"></div></div>
+        <div class="ob-grid-row"><div class="ob-gdot"></div><div class="ob-gdot"></div></div>
+      </div>
+    </div>
+  </div><!-- /right-panel Direct -->
+
+</div><!-- /main-split Direct -->
+
+<!-- TABS BAR (Direct — prefix futd) -->
+<div class="tabs-bar">
+  <div class="tab active" id="futdTabPos" onclick="futdSwitchSubTab('pos')">Positions<span class="cnt" id="futdCntPos">0</span></div>
+  <div class="tab"        id="futdTabOrd" onclick="futdSwitchSubTab('ord')">Open Orders<span class="cnt" id="futdCntOrd">0</span></div>
+  <div class="tab-hdr-r">
+    <span class="ico" onclick="showToast('Sort')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg></span>
+    <span class="ico" onclick="showToast('Trade History — Direct')" style="cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg></span>
   </div>
+</div>
+
+<!-- Filter row -->
+<div class="filter-row">
+  <label class="fcheck" onclick="futdToggleHide()"><div class="sq on" id="futdHideChk"></div><span>Hide Other Pairs</span></label>
+  <button class="btn-ca" onclick="futdCloseAll()">Close All</button>
+</div>
+
+<!-- SCROLLABLE (Direct positions / orders) -->
+<div class="scrollable" id="futdScrollable">
+  <div id="futd-positions-list"></div>
+  <div id="futd-orders-list" style="display:none"></div>
+</div>
+
+<!-- spacer ให้ chart panel ไม่บัง content -->
+<div id="futd-chart-spacer" style="height:0px"></div>
+
 </div><!-- /fut-tab-direct -->
 
 </div><!-- /page-futures -->
@@ -7989,6 +8155,23 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .futd-ind-bar{display:flex;align-items:center;gap:4px;padding:3px 8px;border-top:1px solid var(--border)}
 .futd-ind-btn{padding:2px 8px;border-radius:3px;font-size:10px;cursor:pointer;color:var(--t2)}
 .futd-ind-btn.active{background:var(--y-15);color:var(--y)}
+
+/* ══════════════════════════════
+   Direct Tab — New Layout CSS (v2.50)
+══════════════════════════════ */
+/* API Status / Balance bar ที่ด้านบนของ Direct tab */
+.futd-api-status-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 8px;background:rgba(240,185,11,.04);
+  border-bottom:1px solid var(--border);gap:6px;
+}
+.futd-bal-chip{
+  font-size:10px;font-family:var(--mono);font-weight:600;
+  color:var(--t1);background:var(--bg3);border:1px solid var(--bl);
+  border-radius:4px;padding:2px 6px;white-space:nowrap;
+}
+.futd-margin-chip{color:var(--t2)}
+
 /* ── TP/SL sheet (futd-specific) ── */
 #futdTpslSheet{position:fixed;inset:0;z-index:1050;pointer-events:none}
 #futdTpslSheet.open{pointer-events:all}
@@ -12875,6 +13058,27 @@ function futSwitchTab(tab) {
     // เข้า Direct tab → ซ่อน Contract chart, init Direct
     if (futPanel)  futPanel.style.display  = 'none';
     if (typeof futdInit === 'function') futdInit();
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  [v2.50] Direct Tab — Symbol Change from Topbar coin selector
+//  เมื่อ user เปลี่ยน coin ที่ topbar ขณะอยู่ใน Direct tab
+//  ต้องเรียก futdOnSymbolChange() แต่ไม่มี futd-symbol select แล้ว
+// ════════════════════════════════════════════════════════════════
+function futdSyncCoinFromTopbar(coin) {
+  if (!coin) return;
+  FUTD.symbolCoin = coin;
+  futdRefreshPrice();
+  futdChartLoad();
+  futdStartOrderBook();
+  // อัปเดต unit label
+  const unitEl = document.getElementById('futdObAmtUnit');
+  if (unitEl) unitEl.textContent = '(' + coin + ')';
+  const amtUnitEl = document.getElementById('futdAmtUnit');
+  if (amtUnitEl && FUTD.amtUnit !== 'USDT') {
+    FUTD.amtUnit = coin;
+    amtUnitEl.textContent = coin;
   }
 }
 
@@ -35774,6 +35978,18 @@ const FUTD = {
   prices: {},              // map coin → price สำหรับทุก position ที่เปิดอยู่
   pollTimer: null,
   status: null,            // ผลล่าสุดจาก getFuturesAccountStatus
+  // [v2.50] New layout state
+  oc: 'open',              // 'open' | 'close'
+  lev: 50,                 // leverage ปัจจุบัน
+  levIdx: 3,               // index ใน levCycleDirect
+  orderType: 'Limit',      // 'Limit' | 'Market'
+  tpslOn: false,           // TP/SL toggle
+  amtUnit: 'BTC',          // unit ของ amount input
+  hideOtherPairs: true,
+  subTab: 'pos',           // 'pos' | 'ord'
+  obWs: null,              // WebSocket สำหรับ L2 orderbook
+  asks: [],                // order book asks (Direct)
+  bids: [],                // order book bids (Direct)
   // Chart state
   chart: {
     tf: '5m',
@@ -35798,12 +36014,22 @@ function _futdCurrentUid() {
 // ── Init / Stop ──────────────────────────────────────────────────
 /** เรียกตอนเข้าหน้า Futures-Direct (จาก navTo) */
 function futdInit() {
-  futdSetSide('long');
+  // [v2.50] Init new layout elements
+  futdSetOC('open');
+  futdUpdateLevBtn();
+  futdUpdateOrderTypeUI();
+  futdUpdateTradeBtnLabels();
+  futdSwitchSubTab('pos');
+
   futdRefreshAccountStatus();
   futdRefreshPrice();
   futdStopPolling();
   futdChartInit();
-  // poll ราคา + สถานะทุก 5 วิ (ไม่ใช่ตัวตัดสิน TP/SL/Liq — ตัวจริงคือ processFuturesTpSl บน GAS)
+
+  // เริ่ม Order Book WebSocket สำหรับ Direct tab
+  futdStartOrderBook();
+
+  // poll ราคา + สถานะทุก 5 วิ
   FUTD.pollTimer = setInterval(() => {
     futdRefreshPrice();
     futdRefreshAccountStatus();
@@ -35813,22 +36039,405 @@ function futdInit() {
 function futdStopPolling() {
   if (FUTD.pollTimer) { clearInterval(FUTD.pollTimer); FUTD.pollTimer = null; }
   futdChartStop();
+  futdStopOrderBook();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  [v2.50] FUTURES-DIRECT — New Layout Functions
+// ══════════════════════════════════════════════════════════════
+
+// ── Leverage cycle (Direct: 5x–150x) ──────────────────────────
+const levCycleDirect = [5, 10, 25, 50, 75, 100, 125, 150];
+
+function futdCycleLev() {
+  FUTD.levIdx = (FUTD.levIdx + 1) % levCycleDirect.length;
+  FUTD.lev = levCycleDirect[FUTD.levIdx];
+  futdUpdateLevBtn();
+  showToast('Leverage: ' + FUTD.lev + 'x');
+  futdUpdateMaxCost();
+}
+
+function futdUpdateLevBtn() {
+  const btn = document.getElementById('futdLevBtn');
+  if (btn) btn.textContent = FUTD.lev + 'x';
+}
+
+// ── Open/Close toggle ─────────────────────────────────────────
+function futdSetOC(v) {
+  FUTD.oc = v;
+  const btnOpen  = document.getElementById('futdOcOpen');
+  const btnClose = document.getElementById('futdOcClose');
+  if (btnOpen)  btnOpen.className  = 'oc-btn' + (v === 'open'  ? ' active' : '');
+  if (btnClose) btnClose.className = 'oc-btn' + (v === 'close' ? ' active' : '');
+  futdUpdateTradeBtnLabels();
+}
+
+function futdUpdateTradeBtnLabels() {
+  const isClose = FUTD.oc === 'close';
+  const ll = document.getElementById('futdTradeBtnLongLabel');
+  const sl = document.getElementById('futdTradeBtnShortLabel');
+  if (ll) ll.textContent = isClose ? 'Close Short' : 'Open Long';
+  if (sl) sl.textContent = isClose ? 'Close Long'  : 'Open Short';
+}
+
+// ── Side toggle (L/S) ─────────────────────────────────────────
+function futdToggleSide() {
+  FUTD.side = FUTD.side === 'L' ? 'S' : 'L';
+  const btn = document.getElementById('futdSideBtn');
+  if (btn) {
+    btn.textContent = FUTD.side;
+    btn.style.color = FUTD.side === 'L' ? 'var(--g)' : 'var(--r)';
+  }
+}
+
+// ── Order type cycle (Limit / Market) ─────────────────────────
+const futdOrderTypes = ['Limit', 'Market'];
+function futdCycleOrderType() {
+  const idx = futdOrderTypes.indexOf(FUTD.orderType);
+  FUTD.orderType = futdOrderTypes[(idx + 1) % futdOrderTypes.length];
+  futdUpdateOrderTypeUI();
+}
+function futdUpdateOrderTypeUI() {
+  const lbl = document.getElementById('futdOrderTypeLabel');
+  if (lbl) lbl.textContent = FUTD.orderType;
+  const priceRow = document.getElementById('futdLimitPriceRow');
+  if (priceRow) priceRow.style.display = FUTD.orderType === 'Market' ? 'none' : '';
+}
+
+// ── Amount helpers ─────────────────────────────────────────────
+function futdAdjAmt(dir) {
+  const inp = document.getElementById('futd-size');
+  if (!inp) return;
+  const v = parseFloat(inp.value) || 0;
+  const step = FUTD.symbolCoin === 'BTC' ? 0.001 : FUTD.symbolCoin === 'ETH' ? 0.01 : 0.1;
+  inp.value = Math.max(0, v + dir * step).toFixed(step < 0.01 ? 3 : step < 0.1 ? 2 : 1);
+  futdCalcMargin();
+}
+
+function futdAdjPrice(dir) {
+  const inp = document.getElementById('futdLimitPriceInp');
+  if (!inp) return;
+  const v = parseFloat(inp.value) || (FUTD.lastPrice || 0);
+  const step = FUTD.symbolCoin === 'BTC' ? 0.5 : 0.1;
+  inp.value = Math.max(0, v + dir * step).toFixed(1);
+  futdUpdateMaxCost();
+}
+
+function futdToggleAmtUnit() {
+  FUTD.amtUnit = FUTD.amtUnit === 'BTC' ? 'USDT' : FUTD.symbolCoin;
+  const el = document.getElementById('futdAmtUnit');
+  if (el) el.textContent = FUTD.amtUnit;
+}
+
+// ── Slider ────────────────────────────────────────────────────
+function futdOnSlider(el) {
+  const v = parseInt(el.value);
+  el.style.setProperty('--pct', v + '%');
+  const bal = FUTD.status ? (parseFloat(FUTD.status.avail_margin) || 0) : 0;
+  if (bal > 0 && FUTD.lastPrice > 0) {
+    const marginToUse = (v / 100) * bal;
+    const notional = marginToUse * FUTD.lev;
+    const coinAmt  = notional / FUTD.lastPrice;
+    const inp = document.getElementById('futd-size');
+    if (inp) inp.value = coinAmt > 0 ? coinAmt.toFixed(3) : '';
+    futdUpdateMaxCost();
+  }
+}
+
+function futdSetSlider(v) {
+  const sl = document.getElementById('futdPctSlider');
+  if (!sl) return;
+  sl.value = v;
+  sl.style.setProperty('--pct', v + '%');
+  futdOnSlider(sl);
+}
+
+// ── Max / Cost display ────────────────────────────────────────
+function futdUpdateMaxCost() {
+  let price;
+  const priceRaw = parseFloat(document.getElementById('futdLimitPriceInp')?.value);
+  if (FUTD.orderType === 'Market') {
+    price = FUTD.lastPrice;
+  } else if (priceRaw > 0) {
+    price = priceRaw;
+  } else {
+    price = FUTD.lastPrice;
+  }
+  const amt = parseFloat(document.getElementById('futd-size')?.value) || 0;
+  const lev = FUTD.lev;
+  if (price && amt) {
+    const notional = price * amt;
+    const margin   = notional / lev;
+    const coin     = FUTD.symbolCoin || 'BTC';
+    const moEl  = document.getElementById('futdMaxOpen');
+    const cvEl  = document.getElementById('futdCostVal');
+    const mosEl = document.getElementById('futdMaxOpenS');
+    const cvsEl = document.getElementById('futdCostValS');
+    if (moEl)  moEl.textContent  = amt.toFixed(3) + ' ' + coin;
+    if (cvEl)  cvEl.textContent  = margin.toFixed(2) + ' USDT';
+    if (mosEl) mosEl.textContent = amt.toFixed(3) + ' ' + coin;
+    if (cvsEl) cvsEl.textContent = margin.toFixed(2) + ' USDT';
+  }
+}
+
+// ── TP/SL toggle ──────────────────────────────────────────────
+function futdToggleTPSL() {
+  FUTD.tpslOn = !FUTD.tpslOn;
+  const el    = document.getElementById('futdTpslCheck');
+  const panel = document.getElementById('futdTpslPanel');
+  if (el)    el.classList.toggle('on', FUTD.tpslOn);
+  if (panel) panel.style.display = FUTD.tpslOn ? 'flex' : 'none';
+}
+
+// ── fillPrice (OB row click → fill limit price input) ─────────
+function futdFillPrice(p) {
+  const inp = document.getElementById('futdLimitPriceInp');
+  if (inp) { inp.value = p.toFixed(1); futdUpdateMaxCost(); }
+}
+
+// ── Sub-tab: Positions / Open Orders ─────────────────────────
+function futdSwitchSubTab(tab) {
+  FUTD.subTab = tab;
+  const posList = document.getElementById('futd-positions-list');
+  const ordList = document.getElementById('futd-orders-list');
+  const tabPos  = document.getElementById('futdTabPos');
+  const tabOrd  = document.getElementById('futdTabOrd');
+  if (posList) posList.style.display = tab === 'pos' ? '' : 'none';
+  if (ordList) ordList.style.display = tab === 'ord' ? '' : 'none';
+  if (tabPos)  tabPos.classList.toggle('active',  tab === 'pos');
+  if (tabOrd)  tabOrd.classList.toggle('active',  tab === 'ord');
+}
+
+// ── Hide Other Pairs toggle ───────────────────────────────────
+function futdToggleHide() {
+  FUTD.hideOtherPairs = !FUTD.hideOtherPairs;
+  const chk = document.getElementById('futdHideChk');
+  if (chk) chk.classList.toggle('on', FUTD.hideOtherPairs);
+  futdRenderPositions((FUTD.status && FUTD.status.positions) || []);
+}
+
+// ── Close All positions ───────────────────────────────────────
+async function futdCloseAll() {
+  const positions = (FUTD.status && FUTD.status.positions) || [];
+  if (!positions.length) { showToast('ไม่มี Position ที่เปิดอยู่'); return; }
+  if (!confirm('ปิดทุก Position ทันที?')) return;
+  for (const pos of positions) {
+    await futdCloseposition(pos.id);
+  }
+}
+
+// ── Order Book WebSocket (Direct) ─────────────────────────────
+function futdStartOrderBook() {
+  futdStopOrderBook();
+  const coin = FUTD.symbolCoin || 'BTC';
+  const wsCoin = _isMetalCoin(coin) ? (METAL_DEX + ':' + coin) : coin;
+  try {
+    const ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
+    FUTD.obWs = ws;
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'l2Book', coin: wsCoin } }));
+    };
+    ws.onmessage = (evt) => {
+      try {
+        const d = JSON.parse(evt.data);
+        if (d.channel === 'l2Book' && d.data) {
+          const levels = d.data.levels || [];
+          // levels[0] = bids, levels[1] = asks  (Hyperliquid format)
+          const bids = (levels[0] || []).slice(0, 12).map(x => ({ p: parseFloat(x.px), s: parseFloat(x.sz) }));
+          const asks = (levels[1] || []).slice(0, 12).map(x => ({ p: parseFloat(x.px), s: parseFloat(x.sz) }));
+          FUTD.bids = bids;
+          FUTD.asks = asks;
+          // อัปเดต mark price จาก mid
+          if (bids.length && asks.length) {
+            const mid = (bids[0].p + asks[asks.length - 1].p) / 2;
+            FUTD.lastPrice = mid;
+          }
+          futdRenderOrderBook();
+        }
+      } catch (e) { /* ignore */ }
+    };
+    ws.onerror = () => {};
+    ws.onclose = () => { FUTD.obWs = null; };
+  } catch (e) {
+    console.warn('[futdStartOrderBook] WebSocket init fail:', e.message);
+  }
+}
+
+function futdStopOrderBook() {
+  if (FUTD.obWs) {
+    try { FUTD.obWs.close(); } catch(e) {}
+    FUTD.obWs = null;
+  }
+}
+
+// ── Render Order Book (Direct) ─────────────────────────────────
+function futdRenderOrderBook() {
+  const maxAsk = Math.max(...FUTD.asks.map(a => a.s), 0.001);
+  const maxBid = Math.max(...FUTD.bids.map(b => b.s), 0.001);
+
+  const askList = document.getElementById('futdAskList');
+  if (askList && FUTD.asks.length) {
+    askList.innerHTML = FUTD.asks.map(a => {
+      const pct = Math.min(100, (a.s / maxAsk) * 100);
+      return `<div class="ob-row" onclick="futdFillPrice(${a.p})">
+        <div class="ob-bar ask" style="width:${pct}%"></div>
+        <span class="ob-price ask">${fmtP(a.p)}</span>
+        <span class="ob-amt">${a.s.toFixed(3)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  const bidList = document.getElementById('futdBidList');
+  if (bidList && FUTD.bids.length) {
+    bidList.innerHTML = FUTD.bids.map(b => {
+      const pct = Math.min(100, (b.s / maxBid) * 100);
+      return `<div class="ob-row" onclick="futdFillPrice(${b.p})">
+        <div class="ob-bar bid" style="width:${pct}%"></div>
+        <span class="ob-price bid">${fmtP(b.p)}</span>
+        <span class="ob-amt">${b.s.toFixed(3)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Mid price display
+  const mid  = document.getElementById('futdObMidPrice');
+  const mark = document.getElementById('futdObMarkPrice');
+  if (mid && FUTD.asks.length && FUTD.bids.length) {
+    const midPrice = (FUTD.bids[0].p + FUTD.asks[FUTD.asks.length - 1].p) / 2;
+    mid.textContent = fmtP(midPrice);
+    mid.className = 'ob-mid-price up';
+  }
+  if (mark && FUTD.asks.length && FUTD.bids.length) {
+    const spread = FUTD.asks[FUTD.asks.length - 1].p - FUTD.bids[0].p;
+    mark.textContent = fmtP(FUTD.bids[0].p + spread * 0.5 + spread * 0.1);
+  }
+
+  // Long/Short ratio
+  if (FUTD.asks.length && FUTD.bids.length) {
+    const totalBid = FUTD.bids.reduce((s, b) => s + b.s * b.p, 0);
+    const totalAsk = FUTD.asks.reduce((s, a) => s + a.s * a.p, 0);
+    const total    = totalBid + totalAsk;
+    const bidPct   = total > 0 ? (totalBid / total * 100) : 50;
+    const askPct   = 100 - bidPct;
+    const rFill = document.getElementById('futdObRatioFill');
+    const rL    = document.getElementById('futdObLongR');
+    const rR    = document.getElementById('futdObShortR');
+    if (rFill) rFill.style.width = bidPct.toFixed(2) + '%';
+    if (rL)    rL.textContent    = bidPct.toFixed(2) + '%';
+    if (rR)    rR.textContent    = askPct.toFixed(2) + '%';
+  }
+}
+
+// ── Ticker strip update (Direct) ──────────────────────────────
+/** เรียกได้จาก WebSocket ticker feed หรือ allMids poll */
+function futdUpdateTicker(data) {
+  // data: { mark, high, low, vol }
+  const setSafe = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  if (data.mark  !== undefined) setSafe('futd-tk-mark', fmtP(data.mark));
+  if (data.high  !== undefined) setSafe('futd-tk-high', fmtP(data.high));
+  if (data.low   !== undefined) setSafe('futd-tk-low',  fmtP(data.low));
+  if (data.vol   !== undefined) setSafe('futd-tk-vol',  data.vol);
+}
+
+// ── Balance bar update (Direct) ───────────────────────────────
+function futdUpdateBalanceBar(status) {
+  if (!status) return;
+  const balChip    = document.getElementById('futd-balance-chip');
+  const marginChip = document.getElementById('futd-margin-chip');
+  const avblEl     = document.getElementById('futdAvblVal');
+  const bal        = parseFloat(status.futures_balance) || 0;
+  const marginUsed = parseFloat(status.margin_used)     || 0;
+  const avail      = parseFloat(status.avail_margin)    || 0;
+  if (balChip)    balChip.textContent    = 'Bal: ' + bal.toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
+  if (marginChip) marginChip.textContent = 'Margin: ' + marginUsed.toFixed(2) + ' USDT';
+  if (avblEl)     avblEl.textContent     = avail.toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
+}
+
+// ── futdPlaceOrder: ส่ง order ตรง Hyperliquid (Open หรือ Close) ─
+async function futdPlaceOrder(side) {
+  const uid = _futdCurrentUid();
+  if (!uid) { showToast('กรุณาเข้าสู่ระบบก่อน'); return; }
+
+  if (FUTD.oc === 'close') {
+    // หา position ที่ตรงกับ side ตรงข้าม
+    const positions = (FUTD.status && FUTD.status.positions) || [];
+    const closeSide = side === 'long' ? 'short' : 'long'; // Close Long ต้อง close Short pos
+    const pos = positions.find(p => {
+      const coin = (p.symbol || '').replace('USDT', '');
+      return coin === FUTD.symbolCoin && p.side === closeSide;
+    });
+    if (!pos) { showToast('ไม่มี ' + closeSide.toUpperCase() + ' Position ที่จะปิด'); return; }
+    await futdCloseposition(pos.id);
+    return;
+  }
+
+  // Open mode
+  const size = parseFloat(document.getElementById('futd-size')?.value) || 0;
+  const tp   = parseFloat(document.getElementById('futd-tp')?.value)   || 0;
+  const sl   = parseFloat(document.getElementById('futd-sl')?.value)   || 0;
+
+  if (!size || size <= 0) { showToast('กรุณาระบุ Size'); return; }
+  if (!FUTD.lastPrice)    { showToast('รอราคาตลาดสักครู่แล้วลองใหม่'); return; }
+
+  let entryPrice = FUTD.lastPrice;
+  if (FUTD.orderType === 'Limit') {
+    const priceRaw = parseFloat(document.getElementById('futdLimitPriceInp')?.value);
+    if (priceRaw > 0) entryPrice = priceRaw;
+  }
+
+  try {
+    await dbCallRaw('openFuturesPosition', {
+      uid,
+      symbol: FUTD.symbolCoin + 'USDT',
+      side,
+      lev: FUTD.lev,
+      size,
+      entry_price: entryPrice,
+      mode: 'isolated',
+      order_type: FUTD.orderType,
+      tp: tp || '',
+      sl: sl || '',
+    });
+    showToast('✅ ' + (FUTD.orderType === 'Limit' ? 'Limit Order' : 'เปิด Position') + ' สำเร็จ');
+    const inp = document.getElementById('futd-size');
+    if (inp) inp.value = '';
+    const tpInp = document.getElementById('futd-tp');
+    if (tpInp) tpInp.value = '';
+    const slInp = document.getElementById('futd-sl');
+    if (slInp) slInp.value = '';
+    futdSetSlider(0);
+    futdRefreshAccountStatus();
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'ส่ง Order ไม่สำเร็จ'));
+  }
 }
 
 // ── Form helpers ─────────────────────────────────────────────────
 function futdOnSymbolChange() {
-  FUTD.symbolCoin = document.getElementById('futd-symbol').value;
+  FUTD.symbolCoin = document.getElementById('futd-symbol')?.value || FUTD.symbolCoin;
   futdRefreshPrice();
   futdChartLoad();
+  // รีสตาร์ท OB WebSocket ด้วย coin ใหม่
+  futdStartOrderBook();
+  // อัปเดต OB unit label
+  const unitEl = document.getElementById('futdObAmtUnit');
+  if (unitEl) unitEl.textContent = '(' + FUTD.symbolCoin + ')';
 }
 
 function futdSetSide(side) {
   FUTD.side = side;
-  document.getElementById('futd-side-long').classList.toggle('active', side === 'long');
-  document.getElementById('futd-side-short').classList.toggle('active', side === 'short');
-  const btn = document.getElementById('futd-submit-btn');
-  btn.className = 'futd-submit ' + side;
-  btn.textContent = side === 'long' ? 'เปิด Position (Long)' : 'เปิด Position (Short)';
+  // [v2.50] Legacy: compat กับ futd-side-long/short ถ้ายังมีใน DOM
+  const btnLong  = document.getElementById('futd-side-long');
+  const btnShort = document.getElementById('futd-side-short');
+  if (btnLong)  btnLong.classList.toggle('active',  side === 'long');
+  if (btnShort) btnShort.classList.toggle('active', side === 'short');
+  // [v2.50] Legacy submit btn
+  const subBtn = document.getElementById('futd-submit-btn');
+  if (subBtn) {
+    subBtn.className  = 'futd-submit ' + side;
+    subBtn.textContent = side === 'long' ? 'เปิด Position (Long)' : 'เปิด Position (Short)';
+  }
+  // [v2.50] New layout — ไม่มี dedicated side buttons, side ถูกกำหนดผ่านปุ่ม Long/Short trade buttons
   futdCalcMargin();
 }
 
@@ -35844,9 +36453,18 @@ async function futdRefreshPrice() {
     // อัปเดตราคาเหรียญที่เลือกในฟอร์ม
     const price = FUTD.prices[FUTD.symbolCoin] || 0;
     FUTD.lastPrice = price;
+
+    // [v2.50] อัปเดต ticker strip — mark price
+    const tkMark = document.getElementById('futd-tk-mark');
+    if (tkMark && price > 0) tkMark.textContent = fmtP(price);
+
+    // Legacy: futd-mkprice element (ถ้ายังมีอยู่)
     const el = document.getElementById('futd-mkprice');
     if (el) el.textContent = price > 0 ? ('ราคาตลาด: ' + price.toLocaleString('en', { maximumFractionDigits: 4 })) : 'ราคาตลาด: —';
+
     futdCalcMargin();
+    // [v2.50] อัปเดต max/cost
+    if (typeof futdUpdateMaxCost === 'function') futdUpdateMaxCost();
 
     // อัปเดต PnL realtime บน position cards ที่แสดงอยู่ (ถ้ามี status)
     if (FUTD.status) futdUpdatePnlCards();
@@ -35856,12 +36474,18 @@ async function futdRefreshPrice() {
 }
 
 function futdCalcMargin() {
-  const size = parseFloat(document.getElementById('futd-size').value) || 0;
-  const lev  = parseFloat(document.getElementById('futd-lev').value) || 1;
+  const size = parseFloat(document.getElementById('futd-size')?.value) || 0;
+  // [v2.50] ใช้ FUTD.lev แทน futd-lev select (เพราะ new layout ใช้ cycle button)
+  const lev  = FUTD.lev || parseFloat(document.getElementById('futd-lev')?.value) || 1;
   const hint = document.getElementById('futd-margin-hint');
-  if (!size || !FUTD.lastPrice) { hint.textContent = 'Margin โดยประมาณ: — USDT'; return; }
+  if (!size || !FUTD.lastPrice) {
+    if (hint) hint.textContent = 'Margin: — USDT';
+    return;
+  }
   const margin = (FUTD.lastPrice * size) / lev;
-  hint.textContent = 'Margin โดยประมาณ: ' + margin.toLocaleString('en', { maximumFractionDigits: 2 }) + ' USDT';
+  if (hint) hint.textContent = 'Margin: ' + margin.toLocaleString('en', { maximumFractionDigits: 2 }) + ' USDT';
+  // [v2.50] sync max/cost display
+  if (typeof futdUpdateMaxCost === 'function') futdUpdateMaxCost();
 }
 
 // ── Account Status ────────────────────────────────────────────────
@@ -35871,12 +36495,27 @@ async function futdRefreshAccountStatus() {
   try {
     const status = await dbCallRaw('getFuturesAccountStatus', { uid });
     FUTD.status = status;
-    document.getElementById('futd-balance').innerHTML =
+
+    // [v2.50] อัปเดต Balance bar ใหม่
+    if (typeof futdUpdateBalanceBar === 'function') futdUpdateBalanceBar(status);
+
+    // [Legacy compat] อัปเดต element เดิม ถ้ายังมีอยู่ใน DOM
+    const balEl = document.getElementById('futd-balance');
+    if (balEl) balEl.innerHTML =
       (status.futures_balance || 0).toLocaleString('en', { minimumFractionDigits: 2 }) + ' <span style="font-size:12px;color:var(--t2)">USDT</span>';
-    document.getElementById('futd-margin-used').textContent  = (status.margin_used  || 0).toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
-    document.getElementById('futd-margin-avail').textContent = (status.avail_margin || 0).toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
+    const muEl = document.getElementById('futd-margin-used');
+    if (muEl) muEl.textContent = (status.margin_used  || 0).toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
+    const maEl = document.getElementById('futd-margin-avail');
+    if (maEl) maEl.textContent = (status.avail_margin || 0).toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
+
     futdRenderPositions(status.positions || []);
     futdRenderOrders(status.orders || []);
+
+    // อัปเดต position count badge
+    const cntPos = document.getElementById('futdCntPos');
+    const cntOrd = document.getElementById('futdCntOrd');
+    if (cntPos) cntPos.textContent = (status.positions || []).length || 0;
+    if (cntOrd) cntOrd.textContent = (status.orders    || []).length || 0;
   } catch (e) {
     console.warn('[futdRefreshAccountStatus] fail:', e.message);
   }
@@ -35885,10 +36524,23 @@ async function futdRefreshAccountStatus() {
 // ── Render Positions (enhanced) ───────────────────────────────────
 function futdRenderPositions(positions) {
   const el = document.getElementById('futd-positions-list');
-  if (!positions.length) {
+  if (!el) return;
+
+  // [v2.50] filter Hide Other Pairs
+  let filteredPos = positions;
+  if (FUTD.hideOtherPairs && FUTD.symbolCoin) {
+    filteredPos = positions.filter(p => {
+      const coin = (p.symbol || '').replace('USDT', '');
+      return coin === FUTD.symbolCoin;
+    });
+  }
+
+  if (!filteredPos.length) {
     el.innerHTML = '<div class="futd-empty">ยังไม่มี Position ที่เปิดอยู่</div>';
     return;
   }
+  // reassign for rendering
+  positions = filteredPos;
   const bal = parseFloat((FUTD.status || {}).futures_balance) || 0;
 
   el.innerHTML = positions.map(p => {

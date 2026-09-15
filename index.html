@@ -35979,6 +35979,7 @@ const FUTD = {
   lastPrice: 0,            // ราคาล่าสุดของเหรียญที่เลือก
   prices: {},              // map coin → price สำหรับทุก position ที่เปิดอยู่
   pollTimer: null,
+  _astInFlight: false,     // [v2.52 FIX-POLL-LOCK] in-flight guard สำหรับ futdRefreshAccountStatus
   status: null,            // ผลล่าสุดจาก getFuturesAccountStatus
   // [v2.50] New layout state
   oc: 'open',              // 'open' | 'close'
@@ -36041,11 +36042,15 @@ function futdInit() {
   futdFetchFunding();
   futdStartFundingTimer();
 
-  // poll ราคา + สถานะทุก 5 วิ
+  // [v2.52 FIX-POLL-LOCK] poll ราคา + สถานะ
+  // เพิ่ม interval 5s → 15s: dbCallRaw timeout=20s — ถ้า 5s request ก่อนยังไม่เสร็จ
+  // request ใหม่ซ้อนกัน 4 ชั้น → timeout storm (เหมือนบั๊ก _astRefreshBalanceIfStale เดิม)
+  // 15s > 1 GAS cold-start cycle (10-12s) → request ก่อนน่าจะเสร็จแล้วก่อน poll รอบถัดไป
   FUTD.pollTimer = setInterval(() => {
     futdRefreshPrice();
-    futdRefreshAccountStatus();
-  }, 5000);
+    // [FIX-POLL-LOCK] in-flight guard — skip ถ้า request ก่อนยังไม่เสร็จ
+    if (!FUTD._astInFlight) futdRefreshAccountStatus();
+  }, 15000);
 }
 
 function futdStopPolling() {
@@ -36558,9 +36563,14 @@ function futdCalcMargin() {
 }
 
 // ── Account Status ────────────────────────────────────────────────
+// [v2.52 FIX-POLL-LOCK] in-flight guard — ป้องกัน concurrent GAS call ซ้อนกัน
+// pattern เดียวกับ _astRefreshInFlight ใน _astRefreshBalanceIfStale
+// FUTD._astInFlight set บน FUTD object เพื่อให้ poll setInterval ตรวจได้ด้วย
 async function futdRefreshAccountStatus() {
+  if (FUTD._astInFlight) return; // [FIX-POLL-LOCK] skip ถ้า request ก่อนยังไม่เสร็จ
   const uid = _futdCurrentUid();
   if (!uid) return;
+  FUTD._astInFlight = true; // [FIX-POLL-LOCK] ล็อก
   try {
     const status = await dbCallRaw('getFuturesAccountStatus', { uid });
     FUTD.status = status;
@@ -36587,6 +36597,29 @@ async function futdRefreshAccountStatus() {
     if (cntOrd) cntOrd.textContent = (status.orders    || []).length || 0;
   } catch (e) {
     console.warn('[futdRefreshAccountStatus] fail:', e.message);
+    // [v2.52] GAS-DEPLOY-ERROR หรือ Timeout: หยุด auto-poll ชั่วคราว 60s กัน storm
+    // ป้องกันกรณี GAS deployment พัง → error ท่วม console ทุก 15s ตลอดไป
+    if (e.message && (e.message.includes('GAS-DEPLOY-ERROR') || e.message.includes('Timeout'))) {
+      if (FUTD.pollTimer) {
+        clearInterval(FUTD.pollTimer);
+        FUTD.pollTimer = null;
+        console.warn('[futdRefreshAccountStatus] poll หยุดชั่วคราว 60s (GAS ไม่ตอบสนอง) — จะเริ่มใหม่อัตโนมัติ');
+        setTimeout(() => {
+          // resume ถ้า FUTD tab ยังเปิดอยู่ (pollTimer ถูกตั้งใหม่โดย futdInit เท่านั้น
+          // ถ้า user เปลี่ยน tab ไปแล้ว futdStopPolling() จะ null pollTimer ก่อนที่ setTimeout นี้ fire
+          // ดังนั้น check pollTimer === null ก่อน resume เท่านั้น ไม่ resume ถ้า stop แล้ว)
+          if (FUTD.pollTimer === null && _futdCurrentUid()) {
+            FUTD.pollTimer = setInterval(() => {
+              futdRefreshPrice();
+              if (!FUTD._astInFlight) futdRefreshAccountStatus();
+            }, 15000);
+            console.warn('[futdRefreshAccountStatus] poll resumed หลัง backoff 60s');
+          }
+        }, 60000);
+      }
+    }
+  } finally {
+    FUTD._astInFlight = false; // [FIX-POLL-LOCK] ปลดล็อกเสมอ ไม่ว่าจะ success/fail/timeout
   }
 }
 

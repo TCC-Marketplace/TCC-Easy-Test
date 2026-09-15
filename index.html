@@ -13057,8 +13057,7 @@ function futSwitchTab(tab) {
   } else {
     // เข้า Direct tab → ซ่อน Contract chart, init Direct
     if (futPanel)  futPanel.style.display  = 'none';
-    // [FIX-CHART-DISPLAY] ล้าง inline display:none ของ futdPanel ก่อน futdInit()
-    // เพื่อให้ futdChartInit() → panel.classList.add('active') มีผลทาง CSS
+    // [FIX-CHART-DISPLAY] ล้าง inline display:none ก่อน futdInit() เพื่อให้ CSS .active มีผล
     if (futdPanel) futdPanel.style.display = '';
     if (typeof futdInit === 'function') futdInit();
   }
@@ -36592,6 +36591,11 @@ async function futdRefreshPrice() {
 
     // อัปเดต PnL realtime บน position cards ที่แสดงอยู่ (ถ้ามี status)
     if (FUTD.status) futdUpdatePnlCards();
+
+    // [FIX-POS-LINES] วาดกราฟใหม่หลังได้ราคา — เพื่อให้ Position Lines (Entry/TP/SL) + Mark Price
+    // แสดงทันทีโดยไม่ต้องรอให้ user กดเปลี่ยน TF
+    // (futdChartDraw ตรวจ candles.length ก่อนวาด ถ้าแท่งเทียนยังไม่โหลดจะ return เอง)
+    if (FUTD.chart.candles.length) futdChartDraw();
   } catch (e) {
     console.warn('[futdRefreshPrice] fail:', e.message);
   }
@@ -36645,6 +36649,10 @@ async function futdRefreshAccountStatus() {
     const cntOrd = document.getElementById('futdCntOrd');
     if (cntPos) cntPos.textContent = (status.positions || []).length || 0;
     if (cntOrd) cntOrd.textContent = (status.orders    || []).length || 0;
+
+    // [FIX-POS-LINES] วาดกราฟใหม่หลังได้ positions — เพื่อให้ Position Lines (Entry/TP/SL)
+    // แสดงทันทีโดยไม่ต้องรอให้ user กดเปลี่ยน TF
+    if (FUTD.chart.candles.length) futdChartDraw();
   } catch (e) {
     console.warn('[futdRefreshAccountStatus] fail:', e.message);
     // [v2.52] GAS-DEPLOY-ERROR หรือ Timeout: หยุด auto-poll ชั่วคราว 60s กัน storm
@@ -37003,9 +37011,8 @@ const FUTD_CHART = {
 function futdChartInit() {
   const panel = document.getElementById('futdChartPanel');
   if (!panel) return;
-  // [FIX-CHART-DISPLAY] ล้าง inline style.display='none' ที่ถูกตั้งโดย navTo() / futSwitchTab('contract')
-  // เพราะ inline style override CSS rule #futdChartPanel.active{display:block}
-  // → classList.add('active') ไม่มีผลถ้า inline style:'none' ยังอยู่
+  // [FIX-CHART-DISPLAY] ล้าง inline style.display='none' ที่ navTo()/futSwitchTab('contract') ตั้งไว้
+  // inline style override CSS rule #futdChartPanel.active{display:block} เสมอ
   panel.style.display = '';
   panel.classList.add('active');
 
@@ -37198,11 +37205,10 @@ async function futdChartLoad() {
     console.warn('[futdChartLoad] fail:', e.message);
   } finally {
     // [FIX-1] ตั้ง poll รอบถัดไปเสมอ ไม่ว่า fetch ครั้งนี้จะสำเร็จหรือ fail
-    // [FIX-CHART-ZOMBIE] ตรวจ panel ยัง active อยู่ก่อนตั้ง timer ใหม่
-    // ป้องกัน: futdChartStop() ถูกเรียก ระหว่าง async fetch → พอ fetch เสร็จ finally ตั้ง timer ใหม่ทับ = zombie poll
+    // [FIX-CHART-ZOMBIE] ถ้า panel ถูก stop ระหว่าง async fetch → ไม่ตั้ง timer ใหม่
     if (FUTD_CHART.pollTimer) { clearInterval(FUTD_CHART.pollTimer); FUTD_CHART.pollTimer = null; }
-    const _chartPanel = document.getElementById('futdChartPanel');
-    if (_chartPanel && _chartPanel.classList.contains('active') && _chartPanel.style.display !== 'none') {
+    const _cp = document.getElementById('futdChartPanel');
+    if (_cp && _cp.classList.contains('active') && _cp.style.display !== 'none') {
       FUTD_CHART.pollTimer = setInterval(() => futdChartLoad(), Math.min(ms, 60000));
     }
   }
@@ -37214,8 +37220,7 @@ function futdChartDraw() {
   const canvas  = document.getElementById('futdChartCanvas');
   if (!canvas || !wrap || !candles.length) return;
 
-  // [FIX-CHART-HIDDEN] ถ้า panel ซ่อนอยู่ clientWidth=0 → canvas.width=0 → ลบ pixels ทิ้ง
-  // ข้าม draw แต่ pollTimer ยังวิ่งอยู่ จะ draw จริงเมื่อ panel กลับมา visible
+  // [FIX-CHART-HIDDEN] panel ซ่อน → clientWidth=0 → canvas.width=0 → ลบ pixels ทิ้ง — ข้าม draw
   const W = wrap.clientWidth;
   if (!W) return;
   const H = FUTD.chart.wrapH;

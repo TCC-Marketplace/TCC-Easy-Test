@@ -5505,7 +5505,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 
     <!-- Cross / Leverage (Direct: 5x–150x, prefix futd) -->
     <div class="cls-row">
-      <div class="cls-btn" onclick="showToast('Cross Margin — Futures Direct')">Cross</div>
+      <!-- [v2.53] Margin Mode toggle: Cross / Isolated -->
+      <div class="cls-btn" id="futdMarginModeBtn" onclick="futdToggleMarginMode()" title="กดเพื่อสลับ Cross / Isolated Margin">Cross</div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
         <div class="lev-btn" id="futdLevBtn" onclick="futdCycleLev()">50x</div>
       </div>
@@ -8308,6 +8309,88 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
     <div style="height:20px"></div>
   </div>
 </div><!-- /futdTpslSheet -->
+
+<!-- ════ [v2.53] FUTURES-DIRECT: Adjust Margin Sheet (Isolated only) ════ -->
+<style>
+/* Adjust Margin Sheet */
+#futdMarginSheet{position:fixed;inset:0;z-index:1050;pointer-events:none}
+#futdMarginSheet.open{pointer-events:all}
+#futdMarginBg{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;transition:opacity .3s}
+#futdMarginSheet.open #futdMarginBg{opacity:1}
+#futdMarginPanel{
+  position:absolute;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);
+  width:100%;max-width:480px;
+  background:var(--bg2);border-radius:16px 16px 0 0;
+  transition:transform .35s cubic-bezier(.32,1,.23,1);
+  max-height:80vh;overflow-y:auto;
+}
+#futdMarginSheet.open #futdMarginPanel{transform:translateX(-50%) translateY(0)}
+.futd-mg-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:14px}
+.futd-mg-tab{flex:1;padding:10px 0;text-align:center;font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.futd-mg-tab.active{color:var(--y);border-bottom-color:var(--y)}
+.futd-mg-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 14px;border-bottom:1px solid var(--border);margin-bottom:14px}
+.futd-mg-info-item{display:flex;flex-direction:column;gap:2px}
+.futd-mg-info-item span:first-child{font-size:10px;color:var(--t3)}
+.futd-mg-info-item span:last-child{font-size:12px;font-family:var(--mono);font-weight:600;color:var(--t1)}
+</style>
+<div id="futdMarginSheet">
+  <div id="futdMarginBg" onclick="futdCloseMarginSheet()"></div>
+  <div id="futdMarginPanel">
+    <div style="width:36px;height:4px;background:var(--bl);border-radius:2px;margin:10px auto 6px"></div>
+    <div style="font-size:16px;font-weight:700;padding:4px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <span>ปรับ Margin</span>
+      <span style="font-size:11px;background:rgba(240,185,11,.15);color:var(--y);border:1px solid rgba(240,185,11,.3);border-radius:4px;padding:2px 8px" id="futdMgSym">—</span>
+    </div>
+
+    <!-- Add / Remove tabs -->
+    <div class="futd-mg-tabs">
+      <div class="futd-mg-tab active" id="futdMgTabAdd" onclick="futdMgSetTab('add')">➕ เพิ่ม Margin</div>
+      <div class="futd-mg-tab" id="futdMgTabRem" onclick="futdMgSetTab('remove')">➖ ลด Margin</div>
+    </div>
+
+    <!-- Info grid -->
+    <div class="futd-mg-info-grid">
+      <div class="futd-mg-info-item">
+        <span>Margin ปัจจุบัน</span>
+        <span id="futdMgCurMargin">—</span>
+      </div>
+      <div class="futd-mg-info-item">
+        <span>Liq. Price</span>
+        <span style="color:var(--r)" id="futdMgLiq">—</span>
+      </div>
+      <div class="futd-mg-info-item">
+        <span>Avail. Margin</span>
+        <span style="color:var(--g)" id="futdMgAvail">—</span>
+      </div>
+      <div class="futd-mg-info-item">
+        <span>Effective Lev</span>
+        <span id="futdMgEffLev">—</span>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div style="padding:0 16px 14px">
+      <div style="font-size:11px;color:var(--t3);margin-bottom:6px" id="futdMgHint">เพิ่ม Margin → Liq. Price ห่างขึ้น (ความเสี่ยงลดลง)</div>
+      <div style="display:flex;align-items:center;background:var(--bg3);border:1px solid var(--bl);border-radius:6px;padding:0 10px;height:44px;margin-bottom:12px">
+        <input id="futdMgAmtInp" type="number" placeholder="จำนวน USDT" min="1" step="1"
+               style="flex:1;background:transparent;border:none;outline:none;color:var(--t1);font-size:14px;font-family:var(--mono)">
+        <span style="font-size:11px;color:var(--t2);font-weight:600">USDT</span>
+      </div>
+      <!-- Quick amount buttons -->
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <div onclick="document.getElementById('futdMgAmtInp').value=10" style="flex:1;padding:5px 0;text-align:center;background:var(--bg3);border:1px solid var(--bl);border-radius:4px;font-size:11px;color:var(--t2);cursor:pointer">+10</div>
+        <div onclick="document.getElementById('futdMgAmtInp').value=50" style="flex:1;padding:5px 0;text-align:center;background:var(--bg3);border:1px solid var(--bl);border-radius:4px;font-size:11px;color:var(--t2);cursor:pointer">+50</div>
+        <div onclick="document.getElementById('futdMgAmtInp').value=100" style="flex:1;padding:5px 0;text-align:center;background:var(--bg3);border:1px solid var(--bl);border-radius:4px;font-size:11px;color:var(--t2);cursor:pointer">+100</div>
+        <div onclick="document.getElementById('futdMgAmtInp').value=parseFloat(document.getElementById('futdMgAvail').textContent)||0" style="flex:1;padding:5px 0;text-align:center;background:var(--bg3);border:1px solid var(--bl);border-radius:4px;font-size:11px;color:var(--y);cursor:pointer">Max</div>
+      </div>
+      <!-- Confirm button -->
+      <button id="futdMgConfirmBtn" onclick="futdConfirmMarginAdj()"
+              style="display:block;width:100%;padding:14px 0;background:var(--y);color:#000;font-size:15px;font-weight:700;border:none;border-radius:8px;cursor:pointer">ยืนยัน</button>
+      <div onclick="futdCloseMarginSheet()" style="text-align:center;padding:12px 0 4px;font-size:13px;color:var(--t2);cursor:pointer">ยกเลิก</div>
+    </div>
+    <div style="height:20px"></div>
+  </div>
+</div><!-- /futdMarginSheet -->
 
 <!-- ════════════════════════════════
      PAGE: PROFILE
@@ -12968,7 +13051,14 @@ function navTo(page) {
   if (target === 'futures') {
     const _activeTab = (typeof _futActiveTab !== 'undefined') ? _futActiveTab : 'contract';
     if (futPanel)  futPanel.style.display  = (_activeTab === 'contract') ? '' : 'none';
-    if (futdPanel) { /* futdChartPanel visibility managed by futdToggleChart / futdChartInit */ }
+    if (futdPanel) {
+      // [v2.53 FIX-CHART-RESTORE] กลับจากหน้าอื่น → ถ้า tab ปัจจุบันเป็น direct ต้อง re-init กราฟ
+      // (navTo ก่อนหน้าตั้ง display:none + classList.remove('active') ไว้)
+      if (_activeTab === 'direct') {
+        futdPanel.style.display = '';
+        if (typeof futdChartInit === 'function') futdChartInit();
+      }
+    }
     if (spPanel)   spPanel.style.display   = 'none';
   } else {
     if (futPanel)  futPanel.style.display  = 'none';
@@ -36039,6 +36129,7 @@ const FUTD = {
   amtUnit: 'BTC',          // unit ของ amount input
   hideOtherPairs: true,
   subTab: 'pos',           // 'pos' | 'ord'
+  marginMode: 'cross',     // [v2.53] 'cross' | 'isolated' — ผู้ใช้เลือกก่อน open position
   obWs: null,              // WebSocket สำหรับ L2 orderbook
   asks: [],                // order book asks (Direct)
   bids: [],                // order book bids (Direct)
@@ -36078,6 +36169,7 @@ function futdInit() {
   futdUpdateOrderTypeUI();
   futdUpdateTradeBtnLabels();
   futdSwitchSubTab('pos');
+  if (typeof futdUpdateMarginModeBtn === 'function') futdUpdateMarginModeBtn(); // [v2.53]
 
   futdRefreshAccountStatus();
   futdRefreshPrice();
@@ -36516,7 +36608,7 @@ async function futdPlaceOrder(side) {
       lev: FUTD.lev,
       size,
       entry_price: entryPrice,
-      mode: 'isolated',
+      mode: FUTD.marginMode || 'cross', // [v2.53] ส่ง mode จริงที่ผู้ใช้เลือก
       order_type: FUTD.orderType,
       tp: tp || '',
       sl: sl || '',
@@ -36721,9 +36813,22 @@ function futdRenderPositions(positions) {
     const upnlColor = upnl >= 0 ? 'var(--g)' : 'var(--r)';
     const roiPct    = margin > 0 ? ((upnl / margin) * 100) : 0;
 
-    // Margin Ratio (margin_used / futures_balance)
-    const marginUsed = parseFloat((FUTD.status || {}).margin_used) || 0;
-    const mrPct      = bal > 0 ? Math.min(100, (marginUsed / bal) * 100) : 0;
+    // [v2.53] Margin Ratio: แยกตาม mode
+    // Isolated: maintenance_margin / isolated_margin ของ position นี้เท่านั้น
+    //           maintenance_margin = mmr × notional = 0.005 × entryP × size
+    // Cross:    margin_used / futures_balance รวมทั้งบัญชี (เหมือนเดิม)
+    const posMode     = String(p.mode || 'isolated').toLowerCase();
+    let mrPct = 0;
+    if (posMode === 'isolated') {
+      // Isolated: (mmr × entryP × size) / margin  ← ความเสี่ยงเป็น % ของ margin ที่วางไว้
+      const mmrFront = 0.005;
+      const maintMargin = mmrFront * entryP * size;
+      mrPct = margin > 0 ? Math.min(100, (maintMargin / margin) * 100) : 0;
+    } else {
+      // Cross: margin_used / futures_balance รวมบัญชี
+      const marginUsed = parseFloat((FUTD.status || {}).margin_used) || 0;
+      mrPct = bal > 0 ? Math.min(100, (marginUsed / bal) * 100) : 0;
+    }
     const mrColor    = mrPct < 50 ? 'var(--g)' : mrPct < 80 ? 'var(--y)' : 'var(--r)';
 
     // TP/SL chips
@@ -36739,11 +36844,16 @@ function futdRenderPositions(positions) {
     const markStr = markP > 0 ? markP.toLocaleString('en',{maximumFractionDigits:4}) : '—';
     const liqStr  = liqP  > 0 ? liqP.toLocaleString('en',{maximumFractionDigits:4})  : '—';
 
+    // [v2.53] mode badge
+    const modeBadge = posMode === 'isolated'
+      ? `<span style="font-size:9px;background:rgba(240,185,11,.15);color:var(--y);border:1px solid rgba(240,185,11,.3);border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:700">ISO</span>`
+      : `<span style="font-size:9px;background:rgba(14,203,129,.12);color:var(--g);border:1px solid rgba(14,203,129,.3);border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:700">CROSS</span>`;
+
     return `<div class="futd-pos-row" id="futd-pos-${p.id}">
       <div class="futd-pos-top">
         <div>
           <span class="futd-pos-sym">${p.symbol}</span>
-          <span class="futd-pos-side ${p.side}">${p.side === 'long' ? 'LONG' : 'SHORT'} x${p.lev}</span>
+          <span class="futd-pos-side ${p.side}">${p.side === 'long' ? 'LONG' : 'SHORT'} x${p.lev}</span>${modeBadge}
         </div>
         <div style="text-align:right">
           <div class="futd-pos-pnl" style="color:${upnlColor}" id="futd-upnl-${p.id}">
@@ -36772,6 +36882,7 @@ function futdRenderPositions(positions) {
       <div class="futd-pos-actions">
         <div class="futd-btn-sm" onclick="futdAdjLeverage('${p.id}')">Leverage</div>
         <div class="futd-btn-sm warn" onclick="futdOpenTpslSheet('${p.id}')">TP/SL</div>
+        ${posMode === 'isolated' ? `<div class="futd-btn-sm" style="color:var(--y);border-color:rgba(240,185,11,.4)" onclick="futdOpenMarginSheet('${p.id}')">+Margin</div>` : ''}
         <div class="futd-btn-sm danger" onclick="futdCloseposition('${p.id}')">Close</div>
       </div>
     </div>`;
@@ -36840,7 +36951,7 @@ async function futdSubmitOpen() {
   try {
     await dbCallRaw('openFuturesPosition', {
       uid, symbol: FUTD.symbolCoin + 'USDT', side: FUTD.side, lev, size,
-      entry_price: FUTD.lastPrice, mode: 'isolated',
+      entry_price: FUTD.lastPrice, mode: FUTD.marginMode || 'cross', // [v2.53]
       tp: tp || '', sl: sl || '',
     });
     showToast('✅ เปิด Position สำเร็จ');
@@ -36866,6 +36977,136 @@ function futdAdjLeverage(posId) {
   pos.lev = nextLev;
   showToast('Leverage: ' + nextLev + 'x (จะมีผลบน Position ถัดไป)');
   futdRenderPositions(FUTD.status.positions || []);
+}
+
+// ══════════════════════════════════════════════════════════
+// [v2.53] Margin Mode Toggle (Cross / Isolated)
+// ══════════════════════════════════════════════════════════
+
+/** สลับ Cross ↔ Isolated และอัปเดตปุ่มใน UI */
+function futdToggleMarginMode() {
+  FUTD.marginMode = (FUTD.marginMode === 'cross') ? 'isolated' : 'cross';
+  futdUpdateMarginModeBtn();
+  // แจ้งผู้ใช้ให้เข้าใจความแตกต่าง
+  if (FUTD.marginMode === 'isolated') {
+    showToast('🔒 Isolated Margin — ขาดทุนสูงสุด = Margin ของ Position นั้นเท่านั้น');
+  } else {
+    showToast('🔀 Cross Margin — ใช้ Equity รวมทั้งบัญชี, Liq. Price อิงยอดรวม');
+  }
+}
+
+/** อัปเดตตัวอักษร + สีของปุ่ม Margin Mode */
+function futdUpdateMarginModeBtn() {
+  const btn = document.getElementById('futdMarginModeBtn');
+  if (!btn) return;
+  if (FUTD.marginMode === 'isolated') {
+    btn.textContent = 'Isolated';
+    btn.style.color        = 'var(--y)';
+    btn.style.borderColor  = 'rgba(240,185,11,.5)';
+  } else {
+    btn.textContent = 'Cross';
+    btn.style.color        = '';
+    btn.style.borderColor  = '';
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// [v2.53] Adjust Margin Sheet (Isolated positions เท่านั้น)
+// ──────────────────────────────────────────────────────────
+// เหมือน Binance "Add / Remove Margin" — ผู้ใช้ระบุ USDT
+// แล้ว GAS ปรับ margin + recalc liq_price ใหม่
+// ══════════════════════════════════════════════════════════
+
+/** เปิด Adjust Margin bottom-sheet */
+function futdOpenMarginSheet(posId) {
+  const pos = ((FUTD.status && FUTD.status.positions) || []).find(p => p.id === posId);
+  if (!pos) return;
+  if (String(pos.mode || '').toLowerCase() !== 'isolated') {
+    showToast('Adjust Margin ใช้ได้เฉพาะ Isolated Margin เท่านั้น');
+    return;
+  }
+  FUTD._marginPosId = posId;
+
+  const coin   = (pos.symbol || '').replace('USDT', '');
+  const entryP = parseFloat(pos.entry_price) || 0;
+  const size   = parseFloat(pos.size) || 0;
+  const margin = parseFloat(pos.margin) || 0;
+  const liqP   = parseFloat(pos.liq_price) || 0;
+  const avail  = parseFloat((FUTD.status || {}).avail_margin) || 0;
+
+  // ค่า effective lev ปัจจุบัน
+  const effLev = (entryP > 0 && size > 0 && margin > 0)
+    ? ((entryP * size) / margin).toFixed(1)
+    : (pos.lev || '—');
+
+  const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  const symEl = document.getElementById('futdMgSym');
+  if (symEl) symEl.innerHTML =
+    pos.symbol +
+    ` <span style="background:${pos.side==='long'?'rgba(14,203,129,.15)':'rgba(246,70,93,.15)'};color:${pos.side==='long'?'var(--g)':'var(--r)'};font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">${pos.side === 'long' ? 'LONG' : 'SHORT'} ${pos.lev}x ISO</span>`;
+
+  setTxt('futdMgCurMargin', margin.toFixed(2) + ' USDT');
+  setTxt('futdMgLiq',       liqP > 0 ? liqP.toLocaleString('en', { maximumFractionDigits: 4 }) : '—');
+  setTxt('futdMgAvail',     avail.toFixed(2) + ' USDT');
+  setTxt('futdMgEffLev',    effLev + 'x');
+
+  // ล้าง input + tab
+  const inp = document.getElementById('futdMgAmtInp');
+  if (inp) inp.value = '';
+  futdMgSetTab('add');
+
+  document.getElementById('futdMarginSheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+/** ปิด Adjust Margin sheet */
+function futdCloseMarginSheet() {
+  document.getElementById('futdMarginSheet').classList.remove('open');
+  document.body.style.overflow = '';
+  FUTD._marginPosId = null;
+}
+
+/** สลับ tab Add / Remove */
+function futdMgSetTab(tab) {
+  FUTD._marginTab = tab;
+  const addBtn = document.getElementById('futdMgTabAdd');
+  const remBtn = document.getElementById('futdMgTabRem');
+  const hint   = document.getElementById('futdMgHint');
+  if (addBtn) addBtn.classList.toggle('active', tab === 'add');
+  if (remBtn) remBtn.classList.toggle('active', tab === 'remove');
+  if (hint) hint.textContent = tab === 'add'
+    ? 'เพิ่ม Margin → Liq. Price ห่างขึ้น (ความเสี่ยงลดลง)'
+    : 'ลด Margin → ดึง USDT กลับเข้า Wallet (Liq. Price ใกล้ขึ้น)';
+}
+
+/** ยืนยัน Adjust Margin → ส่ง GAS */
+async function futdConfirmMarginAdj() {
+  const posId = FUTD._marginPosId;
+  if (!posId) return;
+  const uid = _futdCurrentUid();
+  if (!uid) { showToast('กรุณาเข้าสู่ระบบก่อน'); return; }
+
+  const amtRaw = parseFloat(document.getElementById('futdMgAmtInp')?.value) || 0;
+  if (!amtRaw || amtRaw <= 0) { showToast('กรุณาระบุจำนวน USDT'); return; }
+
+  const delta = (FUTD._marginTab === 'remove') ? -amtRaw : amtRaw;
+  const label = delta > 0 ? 'เพิ่ม' : 'ลด';
+
+  const confirmBtn = document.getElementById('futdMgConfirmBtn');
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'กำลังดำเนินการ...'; }
+
+  try {
+    const res = await dbCallRaw('adjustFuturesMargin', { id: posId, uid, delta });
+    showToast('✅ ' + label + ' Margin สำเร็จ — Margin ใหม่: ' +
+              (res.new_margin || 0).toFixed(2) + ' USDT | Liq.: ' +
+              (res.new_liq_price || 0).toLocaleString('en', { maximumFractionDigits: 4 }));
+    futdCloseMarginSheet();
+    futdRefreshAccountStatus();
+  } catch (e) {
+    showToast('❌ ' + (e.message || label + ' Margin ไม่สำเร็จ'));
+  } finally {
+    if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'ยืนยัน'; }
+  }
 }
 
 /** ปิด Position ด้วยมือ (Market Close ที่ราคาตลาดปัจจุบัน) */

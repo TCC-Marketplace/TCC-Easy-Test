@@ -8254,58 +8254,189 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 </div><!-- /futdChartPanel -->
 
 <!-- ════ FUTURES-DIRECT: TP/SL Bottom Sheet ════ -->
+<!-- [v2.55] futdTpslSheet — อัพเกรดให้ตรงกับโครงสร้าง Contract tab (tabs + Trigger + Amount + live PnL) -->
+<style>
+/* futdTpslSheet tabs */
+.futd-tssh-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:0}
+.futd-tssh-tab{flex:1;padding:10px 0;text-align:center;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.futd-tssh-tab.active{color:var(--y);border-bottom-color:var(--y)}
+.futd-tssh-panel{display:none;padding:14px 16px 0}
+.futd-tssh-panel.active{display:block}
+.futd-tssh-section{font-size:12px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.futd-tssh-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:11px;color:var(--t3)}
+.futd-tssh-sel{display:flex;align-items:center;gap:3px;background:var(--bg3);border:1px solid var(--bl);border-radius:4px;padding:3px 7px;cursor:pointer;font-size:11px;color:var(--t2)}
+.futd-tssh-inp-wrap{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--bl);border-radius:6px;padding:0 10px;height:40px;margin-bottom:4px}
+.futd-tssh-inp{flex:1;background:transparent;border:none;outline:none;color:var(--t1);font-size:13px;font-family:var(--mono)}
+.futd-tssh-inp-unit{font-size:11px;color:var(--t2)}
+.futd-tssh-hint{font-size:10px;color:var(--t3);margin-bottom:8px;line-height:1.4}
+.futd-tssh-live-pnl{font-size:12px;font-weight:700;font-family:var(--mono);padding:2px 8px;border-radius:4px;margin-bottom:6px;display:none}
+.futd-tssh-divider{border-top:1px solid var(--border);margin:10px 0}
+.futd-tssh-amt-row{padding:4px 0 10px}
+.futd-tssh-amt-label{font-size:12px;font-weight:600;color:var(--t2);margin-bottom:4px}
+.futd-tssh-amt-full{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--t1);margin-bottom:6px}
+.futd-tssh-liq-note{font-size:11px;color:var(--r);background:rgba(246,70,93,.08);border-radius:6px;padding:6px 10px;margin-bottom:12px}
+.futd-tssh-confirm-btn{display:block;width:100%;padding:14px 0;background:var(--y);color:#000;font-size:15px;font-weight:700;border:none;border-radius:8px;cursor:pointer;margin-bottom:2px}
+/* Trailing stop styles */
+.futd-tssh-cb-row{display:flex;gap:6px;margin-bottom:10px}
+.futd-tssh-cb-btn{flex:1;padding:6px 0;text-align:center;background:var(--bg3);border:1px solid var(--bl);border-radius:4px;font-size:12px;color:var(--t2);cursor:pointer;transition:all .15s}
+.futd-tssh-cb-btn.active{background:rgba(240,185,11,.15);border-color:var(--y);color:var(--y)}
+</style>
 <div id="futdTpslSheet">
   <div id="futdTpslBg" onclick="futdCloseTpslSheet()"></div>
   <div id="futdTpslPanel">
     <div style="width:36px;height:4px;background:var(--bl);border-radius:2px;margin:10px auto 6px"></div>
-    <div style="font-size:16px;font-weight:700;padding:4px 16px 10px;border-bottom:1px solid var(--border)">ตั้ง TP / SL</div>
+    <div style="font-size:16px;font-weight:700;padding:4px 16px 10px;border-bottom:1px solid var(--border)">TP/SL</div>
     <!-- Position info row -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px" id="futdTpslInfo">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 16px 10px;border-bottom:1px solid var(--border);font-size:12px" id="futdTpslInfo">
       <div style="display:flex;flex-direction:column;gap:2px">
         <span style="font-size:10px;color:var(--t3)">Symbol</span>
         <span style="color:var(--t1);font-family:var(--mono);font-size:12px;font-weight:600" id="futdTpslSym">—</span>
       </div>
-      <div style="display:flex;flex-direction:column;gap:2px">
-        <span style="font-size:10px;color:var(--t3)">Entry Price</span>
+      <div style="display:flex;flex-direction:column;gap:2px;text-align:right">
+        <span style="font-size:10px;color:var(--t3)">Entry Price (USDT)</span>
         <span style="color:var(--t1);font-family:var(--mono);font-size:12px;font-weight:600" id="futdTpslEntry">—</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:2px">
-        <span style="font-size:10px;color:var(--t3)">Mark Price</span>
+        <span style="font-size:10px;color:var(--t3)">Mark Price (USDT)</span>
         <span style="color:var(--t1);font-family:var(--mono);font-size:12px;font-weight:600" id="futdTpslMark">—</span>
       </div>
+      <div style="display:flex;flex-direction:column;gap:2px;text-align:right">
+        <span style="font-size:10px;color:var(--t3)">Est. Liq. Price (USDT)</span>
+        <span style="color:var(--r);font-family:var(--mono);font-size:12px;font-weight:600" id="futdTpslLiq">—</span>
+      </div>
     </div>
-    <!-- Inputs -->
-    <div style="padding:14px 16px">
-      <!-- TP -->
-      <div style="margin-bottom:12px">
-        <div style="font-size:12px;font-weight:600;color:var(--g);margin-bottom:6px;display:flex;align-items:center;gap:6px">
-          <span style="width:8px;height:8px;border-radius:50%;background:var(--g);display:inline-block"></span>Take Profit (TP)
-        </div>
-        <div style="display:flex;align-items:center;background:var(--bg3);border:1px solid var(--bl);border-radius:6px;padding:0 10px;height:40px">
-          <input id="futdTpslTpInp" type="number" placeholder="TP Price (USDT)" style="flex:1;background:transparent;border:none;outline:none;color:var(--t1);font-size:13px;font-family:var(--mono)">
-          <span style="font-size:11px;color:var(--t2)">USDT</span>
-        </div>
-        <div id="futdTpslTpHint" style="font-size:10px;color:var(--t3);margin-top:3px"></div>
-      </div>
-      <!-- SL -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:12px;font-weight:600;color:var(--r);margin-bottom:6px;display:flex;align-items:center;gap:6px">
-          <span style="width:8px;height:8px;border-radius:50%;background:var(--r);display:inline-block"></span>Stop Loss (SL)
-        </div>
-        <div style="display:flex;align-items:center;background:var(--bg3);border:1px solid var(--bl);border-radius:6px;padding:0 10px;height:40px">
-          <input id="futdTpslSlInp" type="number" placeholder="SL Price (USDT)" style="flex:1;background:transparent;border:none;outline:none;color:var(--t1);font-size:13px;font-family:var(--mono)">
-          <span style="font-size:11px;color:var(--t2)">USDT</span>
-        </div>
-        <div id="futdTpslSlHint" style="font-size:10px;color:var(--t3);margin-top:3px"></div>
-      </div>
-      <!-- Liq Price note -->
-      <div style="font-size:11px;color:var(--r);background:rgba(246,70,93,.08);border-radius:6px;padding:6px 10px;margin-bottom:14px">
-        Liq. Price: <span style="font-family:var(--mono);font-weight:700" id="futdTpslLiq">—</span> — SL ควรอยู่ห่างจาก Liq. Price เสมอ
-      </div>
-      <!-- Confirm -->
-      <button onclick="futdConfirmTpsl()" style="display:block;width:100%;padding:14px 0;background:var(--y);color:#000;font-size:15px;font-weight:700;border:none;border-radius:8px;cursor:pointer">ยืนยัน TP/SL</button>
-      <div onclick="futdCloseTpslSheet()" style="text-align:center;padding:12px 0 4px;font-size:13px;color:var(--t2);cursor:pointer">ยกเลิก</div>
+    <!-- Tabs: TP/SL / Position TP/SL / Trailing Stop -->
+    <div class="futd-tssh-tabs">
+      <div class="futd-tssh-tab active" id="futdTsshTabTpsl" onclick="futdTsshSwitchTab('tpsl')">TP/SL</div>
+      <div class="futd-tssh-tab" id="futdTsshTabPosition" onclick="futdTsshSwitchTab('position')">Position TP/SL</div>
+      <div class="futd-tssh-tab" id="futdTsshTabTrailing" onclick="futdTsshSwitchTab('trailing')">Trailing Stop</div>
     </div>
+
+    <!-- ── TAB 1: TP/SL ── -->
+    <div class="futd-tssh-panel active" id="futdTsshPanelTpsl">
+      <!-- Take Profit -->
+      <div class="futd-tssh-section" style="color:var(--g)">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--g);display:inline-block"></span>Take Profit
+      </div>
+      <div class="futd-tssh-row">
+        <div class="futd-tssh-sel">TP Trigger <span style="font-size:8px;margin-left:2px">▼</span></div>
+        <span>Last</span><span style="font-size:8px">▼</span>
+        <div class="futd-tssh-sel">PnL <span style="font-size:8px;margin-left:2px">▼</span></div>
+        <span>USDT</span><span style="font-size:8px">▼</span>
+      </div>
+      <div class="futd-tssh-inp-wrap">
+        <input class="futd-tssh-inp" id="futdTpslTpInp" type="number" placeholder="TP Trigger Price" oninput="futdTsshUpdateHints()">
+        <span class="futd-tssh-inp-unit">USDT <span style="font-size:8px">▼</span></span>
+      </div>
+      <span class="futd-tssh-live-pnl" id="futdTsshTpLivePnl"></span>
+      <div class="futd-tssh-hint" id="futdTpslTpHint">เมื่อ <b>Last Price</b> ถึง <b id="futdTsshTpHintPrice">—</b> จะทริกเกอร์ TP Market และปิด Position PnL ≈ <b id="futdTsshTpHintPnl">—</b></div>
+      <div class="futd-tssh-divider"></div>
+      <!-- Stop Loss -->
+      <div class="futd-tssh-section" style="color:var(--r)">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--r);display:inline-block"></span>Stop Loss
+      </div>
+      <div class="futd-tssh-row">
+        <div class="futd-tssh-sel">SL Trigger <span style="font-size:8px;margin-left:2px">▼</span></div>
+        <span>Last</span><span style="font-size:8px">▼</span>
+        <div class="futd-tssh-sel">PnL <span style="font-size:8px;margin-left:2px">▼</span></div>
+        <span>USDT</span><span style="font-size:8px">▼</span>
+      </div>
+      <div class="futd-tssh-inp-wrap">
+        <input class="futd-tssh-inp" id="futdTpslSlInp" type="number" placeholder="Stop Loss Price" oninput="futdTsshUpdateHints()">
+        <span class="futd-tssh-inp-unit">USDT <span style="font-size:8px">▼</span></span>
+      </div>
+      <span class="futd-tssh-live-pnl" id="futdTsshSlLivePnl"></span>
+      <div class="futd-tssh-hint" id="futdTpslSlHint">เมื่อ <b>Last Price</b> ถึง <b id="futdTsshSlHintPrice">—</b> จะทริกเกอร์ SL Market และปิด Position PnL ≈ <b id="futdTsshSlHintPnl">—</b></div>
+      <div class="futd-tssh-divider"></div>
+      <!-- Amount -->
+      <div class="futd-tssh-amt-row">
+        <div class="futd-tssh-amt-label">Amount</div>
+        <div class="futd-tssh-amt-full">
+          <span id="futdTsshAmtPct">100% (≈—)</span>
+          <span style="color:var(--t2);font-size:12px" id="futdTsshAmtCoin">—</span>
+        </div>
+        <input type="range" class="pct-slider" id="futdTsshAmtSlider" min="0" max="100" value="100"
+               style="width:100%;margin-top:4px" oninput="futdTsshOnAmtSlider(this)">
+        <div class="tssh-slider-marks">
+          <div class="tssh-mark" onclick="futdTsshSetAmtSlider(0)"></div>
+          <div class="tssh-mark" onclick="futdTsshSetAmtSlider(25)"></div>
+          <div class="tssh-mark" onclick="futdTsshSetAmtSlider(50)"></div>
+          <div class="tssh-mark" onclick="futdTsshSetAmtSlider(75)"></div>
+          <div class="tssh-mark" onclick="futdTsshSetAmtSlider(100)"></div>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:6px">Position Amount <span id="futdTsshPosAmt">—</span></div>
+      </div>
+      <div class="futd-tssh-liq-note">
+        Liq. Price: <span style="font-family:var(--mono);font-weight:700" id="futdTsshLiqNote">—</span> — SL ควรอยู่ห่างจาก Liq. Price เสมอ
+      </div>
+      <button class="futd-tssh-confirm-btn" onclick="futdConfirmTpsl()">Confirm</button>
+      <div onclick="futdCloseTpslSheet()" style="text-align:center;padding:10px 0 6px;font-size:13px;color:var(--t2);cursor:pointer">ยกเลิก</div>
+    </div>
+
+    <!-- ── TAB 2: Position TP/SL ── -->
+    <div class="futd-tssh-panel" id="futdTsshPanelPosition">
+      <div class="futd-tssh-section" style="justify-content:space-between;color:var(--t1)">
+        Take Profit <span style="font-size:11px;font-weight:400;color:var(--t2)">Last <span style="font-size:8px">▼</span></span>
+      </div>
+      <div class="futd-tssh-inp-wrap">
+        <input class="futd-tssh-inp" id="futdTsshPosTpInp" type="number" placeholder="Trigger Price" oninput="futdTsshUpdateHints()">
+        <span class="futd-tssh-inp-unit">USDT</span>
+      </div>
+      <span class="futd-tssh-live-pnl" id="futdTsshPosTpLivePnl"></span>
+      <div class="futd-tssh-hint">เมื่อ <b>Last Price</b> ถึง <b id="futdTsshPosTpHintPrice">—</b> จะทริกเกอร์ Take Profit Market เพื่อปิด Position PnL ≈ <b id="futdTsshPosTpHintPnl">—</b></div>
+      <div class="futd-tssh-divider"></div>
+      <div class="futd-tssh-section" style="justify-content:space-between;color:var(--t1)">
+        Stop Loss <span style="font-size:11px;font-weight:400;color:var(--t2)">Last <span style="font-size:8px">▼</span></span>
+      </div>
+      <div class="futd-tssh-inp-wrap">
+        <input class="futd-tssh-inp" id="futdTsshPosSlInp" type="number" placeholder="Trigger Price" oninput="futdTsshUpdateHints()">
+        <span class="futd-tssh-inp-unit">USDT</span>
+      </div>
+      <span class="futd-tssh-live-pnl" id="futdTsshPosSlLivePnl"></span>
+      <div class="futd-tssh-hint">เมื่อ <b>Last Price</b> ถึง <b id="futdTsshPosSlHintPrice">—</b> จะทริกเกอร์ Stop Market เพื่อปิด Position PnL ≈ <b id="futdTsshPosSlHintPnl">—</b></div>
+      <div class="futd-tssh-divider"></div>
+      <div class="futd-tssh-liq-note">
+        Liq. Price: <span style="font-family:var(--mono);font-weight:700" id="futdTsshLiqNotePosTab">—</span> — SL ควรอยู่ห่างจาก Liq. Price เสมอ
+      </div>
+      <button class="futd-tssh-confirm-btn" onclick="futdConfirmTpslFromPositionTab()">Confirm</button>
+      <div onclick="futdCloseTpslSheet()" style="text-align:center;padding:10px 0 6px;font-size:13px;color:var(--t2);cursor:pointer">ยกเลิก</div>
+    </div>
+
+    <!-- ── TAB 3: Trailing Stop ── -->
+    <div class="futd-tssh-panel" id="futdTsshPanelTrailing">
+      <div class="futd-tssh-amt-label" style="margin-bottom:6px">Callback Ratio</div>
+      <div class="futd-tssh-inp-wrap" style="margin-bottom:8px">
+        <input class="futd-tssh-inp" id="futdTsshCbInp" type="number" placeholder="" step="0.1" min="0.1" max="10">
+        <span class="futd-tssh-inp-unit">%</span>
+      </div>
+      <div class="futd-tssh-cb-row">
+        <div class="futd-tssh-cb-btn" onclick="futdTsshSetCb(this,1)">1%</div>
+        <div class="futd-tssh-cb-btn" onclick="futdTsshSetCb(this,5)">5%</div>
+        <div class="futd-tssh-cb-btn" onclick="futdTsshSetCb(this,10)">10%</div>
+      </div>
+      <div class="futd-tssh-divider"></div>
+      <div class="futd-tssh-amt-row">
+        <div class="futd-tssh-amt-label">Amount</div>
+        <div class="futd-tssh-amt-full">
+          <span id="futdTsshTrailAmtPct">100% (≈—)</span>
+          <span style="color:var(--t2);font-size:12px" id="futdTsshTrailAmtCoin">—</span>
+        </div>
+        <input type="range" class="pct-slider" id="futdTsshTrailSlider" min="0" max="100" value="100"
+               style="width:100%;margin-top:4px" oninput="futdTsshOnTrailSlider(this)">
+        <div class="tssh-slider-marks">
+          <div class="tssh-mark" onclick="futdTsshSetTrailSlider(0)"></div>
+          <div class="tssh-mark" onclick="futdTsshSetTrailSlider(25)"></div>
+          <div class="tssh-mark" onclick="futdTsshSetTrailSlider(50)"></div>
+          <div class="tssh-mark" onclick="futdTsshSetTrailSlider(75)"></div>
+          <div class="tssh-mark" onclick="futdTsshSetTrailSlider(100)"></div>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:6px">Position Amount <span id="futdTsshTrailPosAmt">—</span></div>
+      </div>
+      <div class="futd-tssh-divider"></div>
+      <button class="futd-tssh-confirm-btn" onclick="futdConfirmTrailingStop()">Confirm</button>
+      <div onclick="futdCloseTpslSheet()" style="text-align:center;padding:10px 0 6px;font-size:13px;color:var(--t2);cursor:pointer">ยกเลิก</div>
+    </div>
+
     <div style="height:20px"></div>
   </div>
 </div><!-- /futdTpslSheet -->
@@ -37079,7 +37210,7 @@ function futdMgSetTab(tab) {
     : 'ลด Margin → ดึง USDT กลับเข้า Wallet (Liq. Price ใกล้ขึ้น)';
 }
 
-/** ยืนยัน Adjust Margin → ส่ง GAS */
+/** ยืนยัน Adjust Margin → ส่ง GAS + Optimistic UI update ทันที */
 async function futdConfirmMarginAdj() {
   const posId = FUTD._marginPosId;
   if (!posId) return;
@@ -37095,14 +37226,41 @@ async function futdConfirmMarginAdj() {
   const confirmBtn = document.getElementById('futdMgConfirmBtn');
   if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'กำลังดำเนินการ...'; }
 
+  // [FIX-MARGIN-OPTIMISTIC] อัปเดต FUTD.status ทันทีก่อน GAS ตอบกลับ เพื่อให้ UI ไม่ต้อง refresh
+  const idx = (FUTD.status && FUTD.status.positions || []).findIndex(p => p.id === posId);
+  const prevMargin = idx >= 0 ? parseFloat(FUTD.status.positions[idx].margin) || 0 : 0;
+  if (idx >= 0) {
+    const newMargin = Math.max(0, prevMargin + delta);
+    FUTD.status.positions[idx].margin = newMargin;
+    // อัปเดต avail_margin ด้านบัญชี (optimistic)
+    if (FUTD.status.avail_margin !== undefined) {
+      FUTD.status.avail_margin = Math.max(0, (parseFloat(FUTD.status.avail_margin) || 0) - delta);
+    }
+  }
+  // render ทันที (ก่อน GAS)
+  futdRenderPositions(FUTD.status.positions || []);
+  futdCloseMarginSheet();
+
   try {
     const res = await dbCallRaw('adjustFuturesMargin', { id: posId, uid, delta });
+    // GAS ตอบกลับ — อัปเดตค่าจริงจาก response
+    if (idx >= 0 && res.new_margin !== undefined) {
+      FUTD.status.positions[idx].margin    = res.new_margin;
+      FUTD.status.positions[idx].liq_price = res.new_liq_price || FUTD.status.positions[idx].liq_price;
+    }
     showToast('✅ ' + label + ' Margin สำเร็จ — Margin ใหม่: ' +
               (res.new_margin || 0).toFixed(2) + ' USDT | Liq.: ' +
               (res.new_liq_price || 0).toLocaleString('en', { maximumFractionDigits: 4 }));
-    futdCloseMarginSheet();
+    futdRenderPositions(FUTD.status.positions || []);
+    // sync รอบสุดท้ายจาก GAS (ให้แน่ใจว่าข้อมูลตรง)
     futdRefreshAccountStatus();
   } catch (e) {
+    // GAS ผิดพลาด — ย้อน optimistic กลับ
+    if (idx >= 0) { FUTD.status.positions[idx].margin = prevMargin; }
+    if (FUTD.status.avail_margin !== undefined) {
+      FUTD.status.avail_margin = Math.max(0, (parseFloat(FUTD.status.avail_margin) || 0) + delta);
+    }
+    futdRenderPositions(FUTD.status.positions || []);
     showToast('❌ ' + (e.message || label + ' Margin ไม่สำเร็จ'));
   } finally {
     if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'ยืนยัน'; }
@@ -37153,26 +37311,58 @@ function futdOpenTpslSheet(posId) {
   const markP  = FUTD.prices[coin] || 0;
   const liqP   = parseFloat(pos.liq_price) || 0;
   const entryP = parseFloat(pos.entry_price) || 0;
+  const size   = parseFloat(pos.size) || 0;
   const tp     = parseFloat(pos.tp) || 0;
   const sl     = parseFloat(pos.sl) || 0;
 
-  // Populate info
+  // Populate info header
   const symEl = document.getElementById('futdTpslSym');
   if (symEl) symEl.innerHTML = `${pos.symbol} <span style="background:${pos.side==='long'?'rgba(14,203,129,.15)':'rgba(246,70,93,.15)'};color:${pos.side==='long'?'var(--g)':'var(--r)'};font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">${pos.side === 'long' ? 'LONG' : 'SHORT'} ${pos.lev}x</span>`;
 
   const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  setTxt('futdTpslEntry', entryP > 0 ? entryP.toLocaleString('en',{maximumFractionDigits:4}) : '—');
-  setTxt('futdTpslMark',  markP  > 0 ? markP.toLocaleString('en',{maximumFractionDigits:4})  : '—');
-  setTxt('futdTpslLiq',   liqP   > 0 ? liqP.toLocaleString('en',{maximumFractionDigits:4})   : '—');
+  const liqStr = liqP > 0 ? liqP.toLocaleString('en',{maximumFractionDigits:4}) : '—';
+  setTxt('futdTpslEntry',         entryP > 0 ? entryP.toLocaleString('en',{maximumFractionDigits:4}) : '—');
+  setTxt('futdTpslMark',          markP  > 0 ? markP.toLocaleString('en',{maximumFractionDigits:4})  : '—');
+  setTxt('futdTpslLiq',           liqStr);
+  // sync liq note fields in all tabs
+  setTxt('futdTsshLiqNote',       liqStr);
+  setTxt('futdTsshLiqNotePosTab', liqStr);
 
-  // Pre-fill
-  const tpInp = document.getElementById('futdTpslTpInp');
-  const slInp = document.getElementById('futdTpslSlInp');
-  if (tpInp) tpInp.value = tp > 0 ? tp : '';
-  if (slInp) slInp.value = sl > 0 ? sl : '';
+  // Amount display
+  const sizeStr = size > 0 ? size + ' ' + coin : '—';
+  setTxt('futdTsshPosAmt',        sizeStr);
+  setTxt('futdTsshAmtCoin',       coin);
+  setTxt('futdTsshAmtPct',        `100% (≈${size > 0 ? size : '—'})`);
+  setTxt('futdTsshTrailAmtCoin',  coin);
+  setTxt('futdTsshTrailPosAmt',   sizeStr);
+  setTxt('futdTsshTrailAmtPct',   `100% (≈${size > 0 ? size : '—'})`);
 
-  // Hints
-  futdUpdateTpslHints(pos, markP);
+  // Reset sliders
+  ['futdTsshAmtSlider','futdTsshTrailSlider'].forEach(id => {
+    const sl = document.getElementById(id);
+    if (sl) { sl.value = 100; sl.style.setProperty('--pct','100%'); }
+  });
+
+  // Pre-fill TP/SL inputs
+  const tpInp     = document.getElementById('futdTpslTpInp');
+  const slInp     = document.getElementById('futdTpslSlInp');
+  const posTpInp  = document.getElementById('futdTsshPosTpInp');
+  const posSlInp  = document.getElementById('futdTsshPosSlInp');
+  if (tpInp)    tpInp.value    = tp > 0 ? tp : '';
+  if (slInp)    slInp.value    = sl > 0 ? sl : '';
+  if (posTpInp) posTpInp.value = tp > 0 ? tp : '';
+  if (posSlInp) posSlInp.value = sl > 0 ? sl : '';
+
+  // Reset trailing
+  const cbInp = document.getElementById('futdTsshCbInp');
+  if (cbInp) cbInp.value = '';
+  document.querySelectorAll('.futd-tssh-cb-btn').forEach(b => b.classList.remove('active'));
+
+  // Switch to first tab
+  futdTsshSwitchTab('tpsl');
+
+  // Update dynamic hints
+  futdTsshUpdateHints();
 
   document.getElementById('futdTpslSheet').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -37184,18 +37374,159 @@ function futdCloseTpslSheet() {
   FUTD.tpslPosId = null;
 }
 
-function futdUpdateTpslHints(pos, markP) {
-  const tpHint = document.getElementById('futdTpslTpHint');
-  const slHint = document.getElementById('futdTpslSlHint');
-  if (!tpHint || !slHint) return;
-  if (markP > 0) {
-    tpHint.textContent = pos.side === 'long'
-      ? 'TP ต้องสูงกว่า Mark Price (' + markP.toLocaleString('en',{maximumFractionDigits:4}) + ')'
-      : 'TP ต้องต่ำกว่า Mark Price (' + markP.toLocaleString('en',{maximumFractionDigits:4}) + ')';
-    slHint.textContent = pos.side === 'long'
+/** [v2.55] สลับ sub-tab ของ futdTpslSheet */
+function futdTsshSwitchTab(tab) {
+  ['tpsl','position','trailing'].forEach(t => {
+    const btn = document.getElementById('futdTsshTab' + t.charAt(0).toUpperCase() + t.slice(1));
+    const panel = document.getElementById('futdTsshPanel' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (btn)   btn.classList.toggle('active',   t === tab);
+    if (panel) panel.classList.toggle('active', t === tab);
+  });
+  FUTD._tpslTab = tab;
+}
+
+/** [v2.55] อัปเดต live PnL hints เมื่อ user พิมพ์ TP/SL */
+function futdTsshUpdateHints() {
+  const pos = FUTD.tpslPosId && ((FUTD.status && FUTD.status.positions) || []).find(p => p.id === FUTD.tpslPosId);
+  if (!pos) return;
+  const coin   = (pos.symbol || '').replace('USDT', '');
+  const markP  = FUTD.prices[coin] || 0;
+  const entryP = parseFloat(pos.entry_price) || 0;
+  const size   = parseFloat(pos.size) || 0;
+  const margin = parseFloat(pos.margin) || 0;
+
+  const calcPnl = (triggerP) => {
+    if (!triggerP || !entryP || !size) return null;
+    return pos.side === 'long' ? (triggerP - entryP) * size : (entryP - triggerP) * size;
+  };
+  const fmtPnl = (pnl) => {
+    if (pnl === null) return '—';
+    const color = pnl >= 0 ? 'var(--g)' : 'var(--r)';
+    const pct   = margin > 0 ? ((pnl / margin) * 100).toFixed(2) + '%' : '';
+    return `<span style="color:${color}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} USDT ${pct ? '('+pct+')' : ''}</span>`;
+  };
+  const setInner = (id, v) => { const e = document.getElementById(id); if (e) e.innerHTML = v; };
+  const setTxt   = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+
+  const tpVal  = parseFloat(document.getElementById('futdTpslTpInp')?.value) || 0;
+  const slVal  = parseFloat(document.getElementById('futdTpslSlInp')?.value) || 0;
+  const ptpVal = parseFloat(document.getElementById('futdTsshPosTpInp')?.value) || 0;
+  const pslVal = parseFloat(document.getElementById('futdTsshPosSlInp')?.value) || 0;
+
+  // Tab 1 hints
+  if (tpVal > 0) {
+    setTxt('futdTsshTpHintPrice', tpVal.toLocaleString('en',{maximumFractionDigits:4}));
+    setInner('futdTsshTpHintPnl', fmtPnl(calcPnl(tpVal)));
+    const liveTpEl = document.getElementById('futdTsshTpLivePnl');
+    if (liveTpEl) { const pnl = calcPnl(tpVal); if (pnl !== null) { liveTpEl.innerHTML = fmtPnl(pnl); liveTpEl.style.display = 'inline-block'; } }
+  } else {
+    setTxt('futdTsshTpHintPrice','—'); setTxt('futdTsshTpHintPnl','—');
+    const liveTpEl = document.getElementById('futdTsshTpLivePnl'); if (liveTpEl) liveTpEl.style.display = 'none';
+  }
+  if (slVal > 0) {
+    setTxt('futdTsshSlHintPrice', slVal.toLocaleString('en',{maximumFractionDigits:4}));
+    setInner('futdTsshSlHintPnl', fmtPnl(calcPnl(slVal)));
+    const liveSlEl = document.getElementById('futdTsshSlLivePnl');
+    if (liveSlEl) { const pnl = calcPnl(slVal); if (pnl !== null) { liveSlEl.innerHTML = fmtPnl(pnl); liveSlEl.style.display = 'inline-block'; } }
+  } else {
+    setTxt('futdTsshSlHintPrice','—'); setTxt('futdTsshSlHintPnl','—');
+    const liveSlEl = document.getElementById('futdTsshSlLivePnl'); if (liveSlEl) liveSlEl.style.display = 'none';
+  }
+  // Tab 2 hints
+  if (ptpVal > 0) {
+    setTxt('futdTsshPosTpHintPrice', ptpVal.toLocaleString('en',{maximumFractionDigits:4}));
+    setInner('futdTsshPosTpHintPnl', fmtPnl(calcPnl(ptpVal)));
+    const el = document.getElementById('futdTsshPosTpLivePnl'); if (el) { const pnl=calcPnl(ptpVal); if(pnl!==null){el.innerHTML=fmtPnl(pnl);el.style.display='inline-block';} }
+  } else { setTxt('futdTsshPosTpHintPrice','—'); setTxt('futdTsshPosTpHintPnl','—'); const el=document.getElementById('futdTsshPosTpLivePnl');if(el)el.style.display='none'; }
+  if (pslVal > 0) {
+    setTxt('futdTsshPosSlHintPrice', pslVal.toLocaleString('en',{maximumFractionDigits:4}));
+    setInner('futdTsshPosSlHintPnl', fmtPnl(calcPnl(pslVal)));
+    const el = document.getElementById('futdTsshPosSlLivePnl'); if (el) { const pnl=calcPnl(pslVal); if(pnl!==null){el.innerHTML=fmtPnl(pnl);el.style.display='inline-block';} }
+  } else { setTxt('futdTsshPosSlHintPrice','—'); setTxt('futdTsshPosSlHintPnl','—'); const el=document.getElementById('futdTsshPosSlLivePnl');if(el)el.style.display='none'; }
+
+  // Static hints ที่ไม่ขึ้นกับ input
+  const tpHintEl = document.getElementById('futdTpslTpHint');
+  const slHintEl = document.getElementById('futdTpslSlHint');
+  if (!tpVal && markP > 0 && tpHintEl) {
+    tpHintEl.innerHTML = pos.side === 'long'
+      ? `TP ต้องสูงกว่า Mark Price (${markP.toLocaleString('en',{maximumFractionDigits:4})})`
+      : `TP ต้องต่ำกว่า Mark Price (${markP.toLocaleString('en',{maximumFractionDigits:4})})`;
+  }
+  if (!slVal && slHintEl) {
+    slHintEl.innerHTML = pos.side === 'long'
       ? 'SL ต้องต่ำกว่า Mark Price และสูงกว่า Liq. Price'
       : 'SL ต้องสูงกว่า Mark Price และต่ำกว่า Liq. Price';
   }
+}
+
+/** [v2.55] Amount slider handlers */
+function futdTsshOnAmtSlider(el) {
+  const v = parseInt(el.value);
+  el.style.setProperty('--pct', v + '%');
+  const pos = FUTD.tpslPosId && ((FUTD.status && FUTD.status.positions) || []).find(p => p.id === FUTD.tpslPosId);
+  if (!pos) return;
+  const coin = (pos.symbol || '').replace('USDT', '');
+  const size = parseFloat(pos.size) || 0;
+  const amt  = (size * v / 100).toFixed(3);
+  const el2 = document.getElementById('futdTsshAmtPct');
+  if (el2) el2.textContent = `${v}% (≈${amt})`;
+}
+function futdTsshSetAmtSlider(v) {
+  const sl = document.getElementById('futdTsshAmtSlider');
+  if (sl) { sl.value = v; sl.style.setProperty('--pct', v + '%'); futdTsshOnAmtSlider(sl); }
+}
+function futdTsshOnTrailSlider(el) {
+  const v = parseInt(el.value);
+  el.style.setProperty('--pct', v + '%');
+  const pos = FUTD.tpslPosId && ((FUTD.status && FUTD.status.positions) || []).find(p => p.id === FUTD.tpslPosId);
+  if (!pos) return;
+  const size = parseFloat(pos.size) || 0;
+  const amt  = (size * v / 100).toFixed(3);
+  const el2 = document.getElementById('futdTsshTrailAmtPct');
+  if (el2) el2.textContent = `${v}% (≈${amt})`;
+}
+function futdTsshSetTrailSlider(v) {
+  const sl = document.getElementById('futdTsshTrailSlider');
+  if (sl) { sl.value = v; sl.style.setProperty('--pct', v + '%'); futdTsshOnTrailSlider(sl); }
+}
+function futdTsshSetCb(el, val) {
+  document.querySelectorAll('.futd-tssh-cb-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const inp = document.getElementById('futdTsshCbInp');
+  if (inp) inp.value = val;
+}
+
+/** [v2.55] Confirm จาก Position TP/SL tab — ดึงค่าจาก posTp/posSlInp แล้วส่งเข้า futdConfirmTpsl */
+async function futdConfirmTpslFromPositionTab() {
+  // sync ค่าจาก Position tab → main inputs ก่อนส่ง
+  const ptpVal = document.getElementById('futdTsshPosTpInp')?.value || '';
+  const pslVal = document.getElementById('futdTsshPosSlInp')?.value || '';
+  const mainTp = document.getElementById('futdTpslTpInp');
+  const mainSl = document.getElementById('futdTpslSlInp');
+  if (mainTp) mainTp.value = ptpVal;
+  if (mainSl) mainSl.value = pslVal;
+  await futdConfirmTpsl();
+}
+
+/** [v2.55] Confirm Trailing Stop — บันทึก trailingCb ใน FUTD.status.positions */
+async function futdConfirmTrailingStop() {
+  const uid = _futdCurrentUid();
+  if (!uid || !FUTD.tpslPosId) return;
+  const cb = parseFloat(document.getElementById('futdTsshCbInp')?.value);
+  if (!cb || cb <= 0) { showToast('กรุณาระบุ Callback Ratio (%)'); return; }
+  const idx = (FUTD.status && FUTD.status.positions || []).findIndex(p => p.id === FUTD.tpslPosId);
+  if (idx >= 0) {
+    FUTD.status.positions[idx].trailingCb     = cb;
+    FUTD.status.positions[idx].trailingActive = true;
+  }
+  futdRenderPositions(FUTD.status.positions || []);
+  futdCloseTpslSheet();
+  showToast('✅ Trailing Stop (' + cb + '%) ตั้งค่าเรียบร้อย');
+}
+
+// [DEPRECATED v2.55] ฟังก์ชันเก่า — ยังคงไว้เพื่อ backward compat แต่ redirect ไปยัง futdTsshUpdateHints
+function futdUpdateTpslHints(pos, markP) {
+  futdTsshUpdateHints();
 }
 
 async function futdConfirmTpsl() {
@@ -37222,24 +37553,31 @@ async function futdConfirmTpsl() {
     }
   }
 
-  // บันทึกใน FUTD.status ทันที (optimistic)
-  const idx = (FUTD.status.positions || []).findIndex(p => p.id === FUTD.tpslPosId);
+  // [FIX-TPSL-OPTIMISTIC] บันทึกใน FUTD.status ทันที (optimistic) แล้ว render + ปิด sheet ก่อน GAS
+  const tpslPosId = FUTD.tpslPosId; // เก็บ id ก่อน close sheet ล้าง
+  const idx = (FUTD.status.positions || []).findIndex(p => p.id === tpslPosId);
+  const prevTp = idx >= 0 ? FUTD.status.positions[idx].tp : undefined;
+  const prevSl = idx >= 0 ? FUTD.status.positions[idx].sl : undefined;
   if (idx >= 0) { FUTD.status.positions[idx].tp = tpVal; FUTD.status.positions[idx].sl = slVal; }
 
-  // เรียก GAS action ใหม่ updateFuturesTpSl (เขียนลง FUT_POS — ไม่ชนกับ updateTpsl ของ EarnContract)
+  // render ทันที — ผู้ใช้เห็นผลโดยไม่ต้อง refresh
+  futdRenderPositions(FUTD.status.positions || []);
+  futdCloseTpslSheet();
+
+  // เรียก GAS action updateFuturesTpSl (เขียนลง FUT_POS — ไม่ชนกับ updateTpsl ของ EarnContract)
   try {
     await dbCallRaw('updateFuturesTpSl', {
-      id: FUTD.tpslPosId, uid,
+      id: tpslPosId, uid,
       tp: tpVal !== null ? tpVal : null,
       sl: slVal !== null ? slVal : null,
     });
     showToast('✅ บันทึก TP/SL สำเร็จ' + (tpVal ? ' | TP: ' + tpVal : '') + (slVal ? ' | SL: ' + slVal : ''));
   } catch (e) {
+    // GAS ผิดพลาด — ย้อน optimistic กลับ
+    if (idx >= 0) { FUTD.status.positions[idx].tp = prevTp; FUTD.status.positions[idx].sl = prevSl; }
+    futdRenderPositions(FUTD.status.positions || []);
     showToast('⚠️ บันทึก TP/SL ไม่สำเร็จ: ' + (e.message || 'ลองใหม่อีกครั้ง'));
   }
-
-  futdRenderPositions(FUTD.status.positions || []);
-  futdCloseTpslSheet();
 }
 
 // ── Chart (lightweight — reuse hlPost + candle drawing logic) ─────

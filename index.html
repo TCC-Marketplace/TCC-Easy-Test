@@ -36131,7 +36131,7 @@ async function aftdRefreshDirectSummary() {
     document.getElementById('aftd-margin-avail').textContent = (status.avail_margin || 0).toLocaleString('en', { minimumFractionDigits: 2 });
     document.getElementById('aftd-pos-count').textContent    = (status.positions || []).length;
     document.getElementById('aftd-order-count').textContent  = (status.orders    || []).length;
-    aftdRenderDirectPosList(status.positions || []);
+    aftdRenderDirectPosList(status.positions || [], status.liq_price_map || {});
   } catch (e) {
     console.warn('[aftdRefreshDirectSummary] fail:', e.message);
     // [v2.47-FD FIX-FD-3] แสดง error state ใน UI แทนที่จะปล่อยว่างเปล่า
@@ -36161,7 +36161,7 @@ async function aftdRefreshDirectSummary() {
   }
 }
 
-function aftdRenderDirectPosList(positions) {
+function aftdRenderDirectPosList(positions, liqPriceMap) {
   const el = document.getElementById('astFutDirectPosList');
   if (!el) return;
   if (!positions.length) {
@@ -36175,13 +36175,15 @@ function aftdRenderDirectPosList(positions) {
   const bal         = parseFloat((FUTD.status || {}).futures_balance) || 0;
   const marginUsed  = parseFloat((FUTD.status || {}).margin_used)     || 0;
   const mrPctGlobal = bal > 0 ? Math.min(100, (marginUsed / bal) * 100) : 0;
+  const _liqMap     = liqPriceMap || (FUTD.status && FUTD.status.liq_price_map) || {};
 
   el.innerHTML = positions.map(p => {
     const coin   = (p.symbol || '').replace('USDT', '');
     const entryP = parseFloat(p.entry_price) || 0;
     const size   = parseFloat(p.size)        || 0;
     const margin = parseFloat(p.margin)      || 0;
-    const liqP   = parseFloat(p.liq_price)   || 0;
+    // [v2.55 FIX] Cross mode: ใช้ liq_price_map จาก GAS (คำนวณด้วย equity รวม) แทน p.liq_price (isolated formula เก่า)
+    const liqP   = parseFloat(_liqMap[p.id] !== undefined ? _liqMap[p.id] : p.liq_price) || 0;
     const markP  = (FUTD.prices && FUTD.prices[coin]) || 0;
 
     let upnl = 0;
@@ -36931,7 +36933,9 @@ function futdRenderPositions(positions) {
     const entryP    = parseFloat(p.entry_price) || 0;
     const size      = parseFloat(p.size) || 0;
     const margin    = parseFloat(p.margin) || 0;
-    const liqP      = parseFloat(p.liq_price) || 0;
+    // [v2.55 FIX] Cross mode: ใช้ liq_price_map จาก GAS (คำนวณด้วย equity รวม) แทน p.liq_price (isolated formula เก่า)
+    const _liqMap   = (FUTD.status && FUTD.status.liq_price_map) || {};
+    const liqP      = parseFloat(_liqMap[p.id] !== undefined ? _liqMap[p.id] : p.liq_price) || 0;
     const markP     = FUTD.prices[coin] || 0;
 
     // Unrealized PnL

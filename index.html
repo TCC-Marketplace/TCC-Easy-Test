@@ -13057,6 +13057,9 @@ function futSwitchTab(tab) {
   } else {
     // เข้า Direct tab → ซ่อน Contract chart, init Direct
     if (futPanel)  futPanel.style.display  = 'none';
+    // [FIX-CHART-DISPLAY] ล้าง inline display:none ของ futdPanel ก่อน futdInit()
+    // เพื่อให้ futdChartInit() → panel.classList.add('active') มีผลทาง CSS
+    if (futdPanel) futdPanel.style.display = '';
     if (typeof futdInit === 'function') futdInit();
   }
 }
@@ -35948,37 +35951,27 @@ function aftdRenderDirectPosList(positions) {
       '<button class="aft-empty-btn" onclick="navTo(\'futures\');requestAnimationFrame(()=>futSwitchTab(\'direct\'))">เริ่มเทรด</button></div>';
     return;
   }
-
-  // [FIX-POS-ASSETS] แสดง position layout เหมือนหน้า Futures → ⚡ Direct
-  // ใช้ FUTD.status ถ้ามี (โหลดครั้งเดียวกัน) สำหรับ margin_used / futures_balance → Margin Ratio bar
-  // ใช้ FUTD.prices สำหรับ mark price + unrealized PNL ถ้า FUTD tab เคย init แล้ว; fallback realized_pnl
-  const bal        = parseFloat((FUTD.status || {}).futures_balance) || 0;
-  const marginUsed = parseFloat((FUTD.status || {}).margin_used)     || 0;
+  // [FIX-POS-ASSETS] แสดง layout เหมือนหน้า Futures → ⚡ Direct (futdRenderPositions)
+  const bal         = parseFloat((FUTD.status || {}).futures_balance) || 0;
+  const marginUsed  = parseFloat((FUTD.status || {}).margin_used)     || 0;
   const mrPctGlobal = bal > 0 ? Math.min(100, (marginUsed / bal) * 100) : 0;
 
   el.innerHTML = positions.map(p => {
-    const coin    = (p.symbol || '').replace('USDT', '');
-    const entryP  = parseFloat(p.entry_price) || 0;
-    const size    = parseFloat(p.size)        || 0;
-    const margin  = parseFloat(p.margin)      || 0;
-    const liqP    = parseFloat(p.liq_price)   || 0;
-    // Mark price: ใช้ FUTD.prices ถ้ามี (Futures tab เคยเปิด), ไม่งั้น = 0
-    const markP   = (FUTD.prices && FUTD.prices[coin]) || 0;
+    const coin   = (p.symbol || '').replace('USDT', '');
+    const entryP = parseFloat(p.entry_price) || 0;
+    const size   = parseFloat(p.size)        || 0;
+    const margin = parseFloat(p.margin)      || 0;
+    const liqP   = parseFloat(p.liq_price)   || 0;
+    const markP  = (FUTD.prices && FUTD.prices[coin]) || 0;
 
-    // Unrealized PNL — เหมือน futdRenderPositions
     let upnl = 0;
     if (markP > 0 && entryP > 0 && size > 0) {
-      upnl = p.side === 'long'
-        ? (markP - entryP) * size
-        : (entryP - markP) * size;
+      upnl = p.side === 'long' ? (markP - entryP) * size : (entryP - markP) * size;
     }
     const upnlColor = upnl >= 0 ? 'var(--g)' : 'var(--r)';
     const roiPct    = margin > 0 ? ((upnl / margin) * 100) : 0;
-
-    // Margin Ratio bar — global ratio (margin_used / futures_balance) เหมือน futdRenderPositions
     const mrColor   = mrPctGlobal < 50 ? 'var(--g)' : mrPctGlobal < 80 ? 'var(--y)' : 'var(--r)';
 
-    // TP/SL chips
     const tp = parseFloat(p.tp) || 0;
     const sl = parseFloat(p.sl) || 0;
     const tpChip = tp > 0
@@ -35990,23 +35983,17 @@ function aftdRenderDirectPosList(positions) {
 
     const markStr = markP > 0 ? markP.toLocaleString('en',{maximumFractionDigits:4}) : '—';
     const liqStr  = liqP  > 0 ? liqP.toLocaleString('en',{maximumFractionDigits:4})  : '—';
+    const goDirect = `navTo('futures');requestAnimationFrame(()=>futSwitchTab('direct'))`;
 
-    // Actions: คลิก Leverage/TP/SL/Close → นำทางไปหน้า Futures→Direct แล้วเปิด position นั้น
-    const goDirectPos = `navTo('futures');requestAnimationFrame(()=>futSwitchTab('direct'))`;
-
-    return `<div class="futd-pos-row" style="margin:8px 12px" onclick="${goDirectPos}">
+    return `<div class="futd-pos-row" style="margin:8px 12px" onclick="${goDirect}">
       <div class="futd-pos-top">
         <div>
           <span class="futd-pos-sym">${p.symbol}</span>
           <span class="futd-pos-side ${p.side}">${p.side === 'long' ? 'LONG' : 'SHORT'} x${p.lev}</span>
         </div>
         <div style="text-align:right">
-          <div class="futd-pos-pnl" style="color:${upnlColor}">
-            ${upnl >= 0 ? '+' : ''}${upnl.toFixed(2)} USDT
-          </div>
-          <div class="futd-pos-roi" style="color:${upnlColor}">
-            ${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(2)}%
-          </div>
+          <div class="futd-pos-pnl" style="color:${upnlColor}">${upnl >= 0 ? '+' : ''}${upnl.toFixed(2)} USDT</div>
+          <div class="futd-pos-roi" style="color:${upnlColor}">${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(2)}%</div>
         </div>
       </div>
       <div class="futd-pos-detail">
@@ -36025,9 +36012,9 @@ function aftdRenderDirectPosList(positions) {
       </div>
       <div class="futd-pos-tpsl-row" style="display:flex;gap:6px;margin-bottom:8px">${tpChip}${slChip}</div>
       <div class="futd-pos-actions" onclick="event.stopPropagation()">
-        <div class="futd-btn-sm" onclick="${goDirectPos}">Leverage</div>
-        <div class="futd-btn-sm warn" onclick="${goDirectPos}">TP/SL</div>
-        <div class="futd-btn-sm danger" onclick="${goDirectPos}">Close</div>
+        <div class="futd-btn-sm" onclick="${goDirect}">Leverage</div>
+        <div class="futd-btn-sm warn" onclick="${goDirect}">TP/SL</div>
+        <div class="futd-btn-sm danger" onclick="${goDirect}">Close</div>
       </div>
     </div>`;
   }).join('');
@@ -37016,6 +37003,10 @@ const FUTD_CHART = {
 function futdChartInit() {
   const panel = document.getElementById('futdChartPanel');
   if (!panel) return;
+  // [FIX-CHART-DISPLAY] ล้าง inline style.display='none' ที่ถูกตั้งโดย navTo() / futSwitchTab('contract')
+  // เพราะ inline style override CSS rule #futdChartPanel.active{display:block}
+  // → classList.add('active') ไม่มีผลถ้า inline style:'none' ยังอยู่
+  panel.style.display = '';
   panel.classList.add('active');
 
   // Set initial canvas height
@@ -37207,21 +37198,12 @@ async function futdChartLoad() {
     console.warn('[futdChartLoad] fail:', e.message);
   } finally {
     // [FIX-1] ตั้ง poll รอบถัดไปเสมอ ไม่ว่า fetch ครั้งนี้จะสำเร็จหรือ fail
-    // (เดิม: ถ้า hlPost() fail ครั้งเดียว จะไม่ตั้ง interval รอบถัดไปเลย ทำให้ auto-refresh หยุดถาวร
-    //  กราฟค้างที่แท่งเทียนเก่า เหมือน "แสดงพักหนึ่งแล้วหายไป")
-    // [FIX-CHART-ZOMBIE] ถ้า panel ถูก stop ไปแล้ว (FUTD_CHART.pollTimer === null หมายถึง futdChartStop() ถูกเรียก)
-    // อย่าตั้ง timer ใหม่ — ป้องกัน zombie poll หลังจาก tab เปลี่ยน
-    if (FUTD_CHART.pollTimer !== null) {
-      // มี timer เดิมอยู่ → เคลียร์ก่อนตั้งใหม่
-      clearInterval(FUTD_CHART.pollTimer);
-    }
-    const _panel = document.getElementById('futdChartPanel');
-    if (_panel && _panel.classList.contains('active')) {
-      // panel ยัง active → ตั้ง poll รอบถัดไป
+    // [FIX-CHART-ZOMBIE] ตรวจ panel ยัง active อยู่ก่อนตั้ง timer ใหม่
+    // ป้องกัน: futdChartStop() ถูกเรียก ระหว่าง async fetch → พอ fetch เสร็จ finally ตั้ง timer ใหม่ทับ = zombie poll
+    if (FUTD_CHART.pollTimer) { clearInterval(FUTD_CHART.pollTimer); FUTD_CHART.pollTimer = null; }
+    const _chartPanel = document.getElementById('futdChartPanel');
+    if (_chartPanel && _chartPanel.classList.contains('active') && _chartPanel.style.display !== 'none') {
       FUTD_CHART.pollTimer = setInterval(() => futdChartLoad(), Math.min(ms, 60000));
-    } else {
-      // panel ถูกซ่อน (futdChartStop() ถูกเรียก ระหว่าง async fetch) → ล้าง timer, ไม่ตั้งใหม่
-      FUTD_CHART.pollTimer = null;
     }
   }
 }
@@ -37232,8 +37214,8 @@ function futdChartDraw() {
   const canvas  = document.getElementById('futdChartCanvas');
   if (!canvas || !wrap || !candles.length) return;
 
-  // [FIX-CHART-HIDDEN] ถ้า panel ซ่อนอยู่ (tab เปลี่ยน) clientWidth = 0 → canvas.width = 0 → ลบ pixels ทิ้ง
-  // ข้าม draw เฉยๆ — pollTimer ยังวิ่งอยู่ แต่จะ draw จริงเมื่อ panel กลับมา visible
+  // [FIX-CHART-HIDDEN] ถ้า panel ซ่อนอยู่ clientWidth=0 → canvas.width=0 → ลบ pixels ทิ้ง
+  // ข้าม draw แต่ pollTimer ยังวิ่งอยู่ จะ draw จริงเมื่อ panel กลับมา visible
   const W = wrap.clientWidth;
   if (!W) return;
   const H = FUTD.chart.wrapH;

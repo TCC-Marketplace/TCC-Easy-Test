@@ -37096,10 +37096,10 @@ function futdIndToggle(ind) {
 }
 
 async function futdChartLoad() {
+  const intervals = { '1m':60000,'3m':180000,'5m':300000,'15m':900000,'30m':1800000,'1h':3600000,'2h':7200000 };
+  const ms = intervals[FUTD.chart.tf] || 300000;
   try {
     const now  = Date.now();
-    const intervals = { '1m':60000,'3m':180000,'5m':300000,'15m':900000,'30m':1800000,'1h':3600000,'2h':7200000 };
-    const ms   = intervals[FUTD.chart.tf] || 300000;
     const coin = FUTD.symbolCoin;
     const d = await hlPost({
       type: 'candleSnapshot',
@@ -37107,11 +37107,14 @@ async function futdChartLoad() {
     });
     FUTD.chart.candles = Array.isArray(d) ? d : [];
     futdChartDraw();
-    // Auto-refresh candles ทุก interval เต็ม
-    if (FUTD_CHART.pollTimer) clearInterval(FUTD_CHART.pollTimer);
-    FUTD_CHART.pollTimer = setInterval(() => futdChartLoad(), Math.min(ms, 60000));
   } catch (e) {
     console.warn('[futdChartLoad] fail:', e.message);
+  } finally {
+    // [FIX-1] ตั้ง poll รอบถัดไปเสมอ ไม่ว่า fetch ครั้งนี้จะสำเร็จหรือ fail
+    // (เดิม: ถ้า hlPost() fail ครั้งเดียว จะไม่ตั้ง interval รอบถัดไปเลย ทำให้ auto-refresh หยุดถาวร
+    //  กราฟค้างที่แท่งเทียนเก่า เหมือน "แสดงพักหนึ่งแล้วหายไป")
+    if (FUTD_CHART.pollTimer) clearInterval(FUTD_CHART.pollTimer);
+    FUTD_CHART.pollTimer = setInterval(() => futdChartLoad(), Math.min(ms, 60000));
   }
 }
 
@@ -37131,6 +37134,21 @@ function futdChartDraw() {
   const ctx = canvas.getContext('2d');
   ctx.scale(devicePixelRatio, devicePixelRatio);
   ctx.clearRect(0, 0, W, H);
+
+  // [FIX-4] Watermark Logo — เหมือน Contract ต้นฉบับ (ใช้ _chartLogoImg/_chartLogoReady ตัวเดียวกัน)
+  if (typeof _chartLogoReady !== 'undefined' && _chartLogoReady && _chartLogoImg.complete) {
+    const logoSize = Math.min(W, H) * 0.48;
+    const logoX = W / 2 - logoSize / 2;
+    const logoY = H / 2 - logoSize / 2;
+    ctx.save();
+    ctx.globalAlpha = 0.055;
+    ctx.filter = 'blur(0.5px)';
+    ctx.drawImage(_chartLogoImg, logoX, logoY, logoSize, logoSize);
+    ctx.filter = 'none';
+    ctx.globalAlpha = 0.07;
+    ctx.drawImage(_chartLogoImg, logoX, logoY, logoSize, logoSize);
+    ctx.restore();
+  }
 
   // Visible slice — ใช้ viewStart สำหรับ pan; null = show latest
   const vis   = Math.min(FUTD.chart.visCount, candles.length);
@@ -37226,7 +37244,8 @@ function futdChartDraw() {
   if (curLine) curLine.style.top = curY + 'px';
   if (curTag)  { curTag.style.top = (curY - 8) + 'px'; curTag.textContent = lastClose.toFixed(2); }
 
-  // [v2.51] Position Lines — Entry / TP / SL (เหมือน Contract tab)
+  // [FIX-3] Position Lines — Entry / TP / SL วาดเป็น filled pill เหมือน Contract ต้นฉบับ
+  // (เดิม: label เป็นตัวหนังสือธรรมดาชิดซ้าย ไม่มีพื้นหลัง — ไม่ตรงกับ 📋 Contract)
   const futdPositions = (FUTD.status && FUTD.status.positions) || [];
   futdPositions.forEach(p => {
     const coin  = (p.symbol || '').replace('USDT', '');
@@ -37234,32 +37253,81 @@ function futdChartDraw() {
     const entryP = parseFloat(p.entry_price) || 0;
     const tp     = parseFloat(p.tp)          || 0;
     const sl     = parseFloat(p.sl)          || 0;
+    const size   = parseFloat(p.size)        || 0;
     const isLong = p.side === 'long';
+    const entryCol = isLong ? '#0ecb81' : '#f6465d';
 
-    // Helper — วาดเส้นแนวนอน + label ขวา
-    const drawHLine = (price, color, label, dash) => {
-      if (!price || price < minP * 0.98 || price > maxP * 1.02) return; // นอก range → ข้าม
+    // Unrealized PNL — คำนวณแบบเดียวกับ futdRenderPositions
+    const markP = (FUTD.prices && FUTD.prices[coin]) || 0;
+    let upnl = 0;
+    if (markP > 0 && entryP > 0 && size > 0) {
+      upnl = isLong ? (markP - entryP) * size : (entryP - markP) * size;
+    }
+
+    // Helper — เส้นแนวนอน + pill ราคาทึบสีชิดขวา (เหมือน Contract ต้นฉบับ)
+    const drawPriceTag = (price, bg, dash, textColor) => {
+      if (!price || price < minP * 0.98 || price > maxP * 1.02) return null; // นอก range → ข้าม
       const y = toY(price);
       ctx.save();
-      ctx.strokeStyle = color;
-      ctx.lineWidth   = 1;
-      if (dash) ctx.setLineDash([4, 3]); else ctx.setLineDash([]);
-      ctx.globalAlpha = 0.75;
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
-      // Label pill
+      ctx.strokeStyle = bg;
+      ctx.lineWidth   = dash ? 0.9 : 1.2;
+      ctx.setLineDash(dash ? [4, 4] : [5, 3]);
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W - pad.r - 2, y); ctx.stroke();
       ctx.globalAlpha = 1;
       ctx.setLineDash([]);
-      ctx.fillStyle = color;
-      ctx.font = 'bold 9px monospace';
+
+      // Price tag — filled rounded rect ชิดขวา (แนว price axis)
+      ctx.font = 'bold 10px monospace';
+      const priceTxt = price.toLocaleString('en', { maximumFractionDigits: 2 });
+      const tagX = W - pad.r + 2, tagW = pad.r - 4, tagY = y - 9;
+      ctx.fillStyle = bg;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(tagX, tagY, tagW, 18, 3); else ctx.rect(tagX, tagY, tagW, 18);
+      ctx.fill();
+      ctx.fillStyle = textColor;
       ctx.textAlign = 'left';
-      const lbl = label + ' ' + price.toLocaleString('en',{maximumFractionDigits:2});
-      ctx.fillText(lbl, 4, y - 2);
+      ctx.fillText(priceTxt, tagX + 3, y + 4);
       ctx.restore();
+      return y;
     };
 
-    drawHLine(entryP, isLong ? '#0ecb81' : '#f6465d', isLong ? '▲ Entry' : '▼ Entry', false);
-    if (tp > 0) drawHLine(tp, '#0ecb81', 'TP', true);
-    if (sl > 0) drawHLine(sl, '#f6465d', 'SL', true);
+    // Entry line — pill ราคาขวา + tag PNL/Leverage ฝั่งซ้าย (เหมือน Contract)
+    const ey = drawPriceTag(entryP, entryCol, false, isLong ? '#000' : '#fff');
+    if (ey !== null) {
+      ctx.save();
+      ctx.font = 'bold 9.5px monospace';
+      const pnlSign = upnl >= 0 ? '+' : '';
+      const pnlTxt  = 'PNL ' + pnlSign + upnl.toFixed(2);
+      const pnlBg   = upnl >= 0 ? 'rgba(14,203,129,0.88)' : 'rgba(246,70,93,0.88)';
+      const pnlW = ctx.measureText(pnlTxt).width + 10;
+      const tagH = 16, tagY = ey - tagH / 2;
+      ctx.fillStyle = pnlBg;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(2, tagY, pnlW, tagH, 3); else ctx.rect(2, tagY, pnlW, tagH);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'left';
+      ctx.fillText(pnlTxt, 6, ey + 3.5);
+
+      // Leverage tag — ติดกับ PNL
+      ctx.font = 'bold 8.5px monospace';
+      const levTxt = (p.lev || '') + 'x';
+      const levW = ctx.measureText(levTxt).width + 8;
+      const levX = 2 + pnlW + 2;
+      ctx.fillStyle = 'rgba(43,49,57,0.92)';
+      ctx.strokeStyle = entryCol;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(levX, tagY, levW, tagH, 3); else ctx.rect(levX, tagY, levW, tagH);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = entryCol;
+      ctx.fillText(levTxt, levX + 4, ey + 3.5);
+      ctx.restore();
+    }
+
+    if (tp > 0) drawPriceTag(tp, 'rgba(14,203,129,0.88)', true, '#000');
+    if (sl > 0) drawPriceTag(sl, 'rgba(246,70,93,0.88)', true, '#fff');
   });
 
   // OHLC labels
@@ -37274,7 +37342,10 @@ function futdChartDraw() {
   futdDrawVolume(slice);
 
   // Indicator
-  if (FUTD.chart.indicator) futdDrawIndicator(slice, closes.slice(start, start + vis));
+  // [FIX-2] ส่ง closes ทั้งหมด + start/vis แทนการตัด slice มาก่อน เพื่อให้ RSI/MACD/BB
+  // มี look-back period ที่ถูกต้อง (เดิมส่งแค่ closesSlice ที่ตัดมาแล้ว ทำให้ค่าต้นๆ ของ indicator
+  // เป็น null ไปกินพื้นที่ครึ่งซ้ายของกราฟ indicator)
+  if (FUTD.chart.indicator) futdDrawIndicator(closes, start, vis);
 
   // Candle countdown
   futdUpdateCandleCountdown(last);
@@ -37303,7 +37374,7 @@ function futdDrawVolume(slice) {
   });
 }
 
-function futdDrawIndicator(slice, closesSlice) {
+function futdDrawIndicator(closesAll, start, vis) {
   const ind    = FUTD.chart.indicator;
   const canvas = document.getElementById('futdIndCanvas');
   if (!canvas || !ind) return;
@@ -37317,23 +37388,27 @@ function futdDrawIndicator(slice, closesSlice) {
   ctx.scale(devicePixelRatio, devicePixelRatio);
   ctx.clearRect(0, 0, W, H);
 
-  const closeArr = closesSlice.map(c => parseFloat(c.c || c.close));
-  const cW = slice.length > 0 ? W / slice.length : 4;
+  // [FIX-2] คำนวณจาก closes ทั้งหมด (มี look-back ก่อนช่วงที่มองเห็น) แล้วค่อยตัดมาแสดงเฉพาะ
+  // ช่วง visible — เดิมคำนวณจาก closesSlice ที่ตัดมาก่อนแล้ว ทำให้ periods แรกๆ (RSI 14 /
+  // MACD 26 / BB 20) เป็น null ไปกินพื้นที่ครึ่งซ้ายของกราฟ indicator
+  const closeArrFull = closesAll.map(c => parseFloat(c.c || c.close));
+  const cW = vis > 0 ? W / vis : 4;
 
   if (ind === 'RSI') {
     // RSI-14
     const period = 14;
-    const rsi = [];
-    for (let i = 0; i < closeArr.length; i++) {
-      if (i < period) { rsi.push(null); continue; }
+    const rsiFull = [];
+    for (let i = 0; i < closeArrFull.length; i++) {
+      if (i < period) { rsiFull.push(null); continue; }
       let gains = 0, losses = 0;
       for (let j = i - period + 1; j <= i; j++) {
-        const diff = closeArr[j] - closeArr[j - 1];
+        const diff = closeArrFull[j] - closeArrFull[j - 1];
         if (diff > 0) gains += diff; else losses -= diff;
       }
       const avgG = gains / period; const avgL = losses / period;
-      rsi.push(avgL === 0 ? 100 : 100 - (100 / (1 + avgG / avgL)));
+      rsiFull.push(avgL === 0 ? 100 : 100 - (100 / (1 + avgG / avgL)));
     }
+    const rsi = rsiFull.slice(start, start + vis);
     const lastRsi = rsi.filter(v => v !== null).pop() || 0;
     const lblEl = document.getElementById('futdIndLabel');
     const valEl = document.getElementById('futdIndVal');
@@ -37365,12 +37440,16 @@ function futdDrawIndicator(slice, closesSlice) {
       });
       return result;
     };
-    const ema12 = ema(closeArr, 12);
-    const ema26 = ema(closeArr, 26);
-    const macdLine   = closeArr.map((_, i) => (i < 25 ? null : ema12[i] - ema26[i]));
-    const validMacd  = macdLine.map(v => v === null ? 0 : v);
-    const signalLine = ema(validMacd, 9).map((v, i) => macdLine[i] === null ? null : v);
-    const histogram  = macdLine.map((v, i) => (v !== null && signalLine[i] !== null) ? v - signalLine[i] : null);
+    const ema12Full = ema(closeArrFull, 12);
+    const ema26Full = ema(closeArrFull, 26);
+    const macdLineFull   = closeArrFull.map((_, i) => (i < 25 ? null : ema12Full[i] - ema26Full[i]));
+    const validMacdFull  = macdLineFull.map(v => v === null ? 0 : v);
+    const signalLineFull = ema(validMacdFull, 9).map((v, i) => macdLineFull[i] === null ? null : v);
+    const histogramFull  = macdLineFull.map((v, i) => (v !== null && signalLineFull[i] !== null) ? v - signalLineFull[i] : null);
+
+    const macdLine   = macdLineFull.slice(start, start + vis);
+    const signalLine = signalLineFull.slice(start, start + vis);
+    const histogram  = histogramFull.slice(start, start + vis);
 
     const allVals = [...macdLine, ...signalLine, ...histogram].filter(v => v !== null);
     if (!allVals.length) return;
@@ -37425,14 +37504,18 @@ function futdDrawIndicator(slice, closesSlice) {
   // [v2.51] Bollinger Bands (20, 2)
   if (ind === 'BB') {
     const period = 20; const mult = 2;
-    const upper = [], middle = [], lower = [];
-    for (let i = 0; i < closeArr.length; i++) {
-      if (i < period - 1) { upper.push(null); middle.push(null); lower.push(null); continue; }
-      const sl2 = closeArr.slice(i - period + 1, i + 1);
+    const upperFull = [], middleFull = [], lowerFull = [];
+    for (let i = 0; i < closeArrFull.length; i++) {
+      if (i < period - 1) { upperFull.push(null); middleFull.push(null); lowerFull.push(null); continue; }
+      const sl2 = closeArrFull.slice(i - period + 1, i + 1);
       const avg = sl2.reduce((a, b) => a + b, 0) / period;
       const std = Math.sqrt(sl2.reduce((s, v) => s + (v - avg) ** 2, 0) / period);
-      middle.push(avg); upper.push(avg + mult * std); lower.push(avg - mult * std);
+      middleFull.push(avg); upperFull.push(avg + mult * std); lowerFull.push(avg - mult * std);
     }
+    const upper  = upperFull.slice(start, start + vis);
+    const middle = middleFull.slice(start, start + vis);
+    const lower  = lowerFull.slice(start, start + vis);
+
     const allBB = [...upper, ...lower].filter(v => v !== null);
     if (!allBB.length) return;
     const maxB = Math.max(...allBB); const minB = Math.min(...allBB);
@@ -37481,8 +37564,10 @@ function futdDrawIndicator(slice, closesSlice) {
       arr.forEach((v, i) => { result.push(i === 0 ? v : v * k + result[i - 1] * (1 - k)); });
       return result;
     };
-    const ema9  = ema(closeArr, 9);
-    const ema21 = ema(closeArr, 21);
+    const ema9Full  = ema(closeArrFull, 9);
+    const ema21Full = ema(closeArrFull, 21);
+    const ema9  = ema9Full.slice(start, start + vis);
+    const ema21 = ema21Full.slice(start, start + vis);
     const allE  = [...ema9, ...ema21];
     const maxE  = Math.max(...allE); const minE = Math.min(...allE);
     const rangeE = maxE - minE || 1;

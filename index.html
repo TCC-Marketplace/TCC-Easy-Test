@@ -5606,7 +5606,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 
     <!-- Open Long button -->
     <button class="trade-btn long" id="futdTradeBtnLong" onclick="futdPlaceOrder('long')">
-      <span id="futdTradeBtnLongLabel">Open Long</span><span class="tb-sub">Buy</span>
+      <span id="futdTradeBtnLongLabel">Open Long</span><span class="tb-sub" id="futdTradeBtnLongSub">Buy</span>
     </button>
 
     <!-- Max Open / Cost (Short) -->
@@ -5617,7 +5617,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 
     <!-- Open Short button -->
     <button class="trade-btn short" id="futdTradeBtnShort" onclick="futdPlaceOrder('short')">
-      <span id="futdTradeBtnShortLabel">Open Short</span><span class="tb-sub">Sell</span>
+      <span id="futdTradeBtnShortLabel">Open Short</span><span class="tb-sub" id="futdTradeBtnShortSub">Sell</span>
     </button>
 
   </div><!-- /left-panel Direct -->
@@ -36495,10 +36495,14 @@ function futdSetOC(v) {
 
 function futdUpdateTradeBtnLabels() {
   const isClose = FUTD.oc === 'close';
-  const ll = document.getElementById('futdTradeBtnLongLabel');
-  const sl = document.getElementById('futdTradeBtnShortLabel');
-  if (ll) ll.textContent = isClose ? 'Close Short' : 'Open Long';
-  if (sl) sl.textContent = isClose ? 'Close Long'  : 'Open Short';
+  const ll  = document.getElementById('futdTradeBtnLongLabel');
+  const lsb = document.getElementById('futdTradeBtnLongSub');   // [v2.57 FIX-C]
+  const sl  = document.getElementById('futdTradeBtnShortLabel');
+  const ssb = document.getElementById('futdTradeBtnShortSub');  // [v2.57 FIX-C]
+  if (ll)  ll.textContent  = isClose ? 'Close Short' : 'Open Long';
+  if (lsb) lsb.textContent = isClose ? 'Buy'         : 'Buy';   // Open=Buy, Close Short=Buy ทั้งคู่
+  if (sl)  sl.textContent  = isClose ? 'Close Long'  : 'Open Short';
+  if (ssb) ssb.textContent = isClose ? 'Sell'        : 'Sell';  // Open=Sell, Close Long=Sell ทั้งคู่
 }
 
 // ── Side toggle (L/S) ─────────────────────────────────────────
@@ -36837,6 +36841,23 @@ function futdUpdateBalanceBar(status) {
 }
 
 // ── futdPlaceOrder: ส่ง order ตรง Hyperliquid (Open หรือ Close) ─
+// [v2.57 FIX-A] เพิ่ม double-submit guard: disable ปุ่มทันทีที่กด, คืนใน finally
+// ป้องกัน user กดซ้ำขณะ await dbCallRaw ยังทำงานอยู่ (mirror ของ _setBtnLoading ใน Contract tab)
+function _futdSetBtnLoading(side, isLoading) {
+  const btn = document.getElementById(side === 'long' ? 'futdTradeBtnLong' : 'futdTradeBtnShort');
+  if (!btn) return;
+  if (isLoading) {
+    btn.dataset._origInner = btn.innerHTML;
+    btn.textContent = '⏳ ...';
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+  } else {
+    if (btn.dataset._origInner) btn.innerHTML = btn.dataset._origInner;
+    btn.disabled = false;
+    btn.style.opacity = '';
+  }
+}
+
 async function futdPlaceOrder(side) {
   const uid = _futdCurrentUid();
   if (!uid) { showToast('กรุณาเข้าสู่ระบบก่อน'); return; }
@@ -36850,7 +36871,12 @@ async function futdPlaceOrder(side) {
       return coin === FUTD.symbolCoin && p.side === closeSide;
     });
     if (!pos) { showToast('ไม่มี ' + closeSide.toUpperCase() + ' Position ที่จะปิด'); return; }
-    await futdCloseposition(pos.id);
+    _futdSetBtnLoading(side, true);
+    try {
+      await futdCloseposition(pos.id);
+    } finally {
+      _futdSetBtnLoading(side, false);
+    }
     return;
   }
 
@@ -36868,6 +36894,7 @@ async function futdPlaceOrder(side) {
     if (priceRaw > 0) entryPrice = priceRaw;
   }
 
+  _futdSetBtnLoading(side, true);
   try {
     await dbCallRaw('openFuturesPosition', {
       uid,
@@ -36892,6 +36919,8 @@ async function futdPlaceOrder(side) {
     futdRefreshAccountStatus();
   } catch (e) {
     showToast('❌ ' + (e.message || 'ส่ง Order ไม่สำเร็จ'));
+  } finally {
+    _futdSetBtnLoading(side, false);
   }
 }
 

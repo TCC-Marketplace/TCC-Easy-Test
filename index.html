@@ -36683,6 +36683,23 @@ function futdStopOrderBook() {
     try { FUTD.obWs.close(); } catch(e) {}
     FUTD.obWs = null;
   }
+  // [v2.57 FIX-OB-STALE] Bug OB: reset bids/asks และ lastPrice ทันทีที่หยุด WS เก่า
+  // ป้องกัน orderbook เก่า (BTC) แสดงอยู่ระหว่างรอ WS ใหม่เชื่อมต่อ
+  // lastPrice ถูก reset เป็น 0 → futdRefreshPrice() (ซึ่งเรียกพร้อมกันใน futdSyncCoinFromTopbar)
+  // จะ set ค่าถูกต้องเมื่อ allMids resolve (เร็วกว่า WS snapshot เสมอ)
+  FUTD.bids = [];
+  FUTD.asks = [];
+  FUTD.lastPrice = 0;
+
+  // Clear orderbook UI ให้แสดง — ทันที ไม่รอ WS ใหม่
+  const askList = document.getElementById('futdAskList');
+  const bidList = document.getElementById('futdBidList');
+  const midEl   = document.getElementById('futdObMidPrice');
+  const markEl  = document.getElementById('futdObMarkPrice');
+  if (askList) askList.innerHTML = '';
+  if (bidList) bidList.innerHTML = '';
+  if (midEl)   midEl.textContent  = '—';
+  if (markEl)  markEl.textContent = '—';
 }
 
 // ── Render Order Book (Direct) ─────────────────────────────────

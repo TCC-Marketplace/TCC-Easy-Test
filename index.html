@@ -13339,6 +13339,19 @@ function futdSyncCoinFromTopbar(coin) {
   });
   // ดึง 24h stats ใหม่สำหรับ coin นี้
   if (typeof futdFetch24h === 'function') futdFetch24h();
+
+  // [v2.57 FIX-COIN-POS] Bug A+C: re-render positions/orders ทันทีด้วย cache เดิม
+  // ป้องกันค่าเก่าของ coin ก่อนหน้าค้างอยู่ระหว่างรอ poll ถัดไป (worst case 15s+GAS 20s = 35s)
+  if (FUTD.status) {
+    futdRenderPositions(FUTD.status.positions || []);
+    futdRenderOrders(FUTD.status.orders || []);
+  }
+
+  // [v2.57 FIX-COIN-REFRESH] Bug C: trigger refresh ทันที ไม่รอ poll cycle ถัดไป
+  // ใช้ setTimeout(0) เพื่อไม่บล็อก UI paint จาก futdRefreshPrice/futdChartLoad ข้างบน
+  if (!FUTD._astInFlight) {
+    setTimeout(() => { futdRefreshAccountStatus(); }, 0);
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -37174,8 +37187,19 @@ function futdUpdatePnlCards() {
 // ── Render Orders ──────────────────────────────────────────────────
 function futdRenderOrders(orders) {
   const el = document.getElementById('futd-orders-list');
-  if (!orders.length) { el.innerHTML = '<div class="futd-empty">ไม่มี Order ที่รอ Fill</div>'; return; }
-  el.innerHTML = orders.map(o => `<div class="futd-pos-row">
+  if (!el) return;
+
+  // [v2.57 FIX-ORD-FILTER] Bug B: filter Hide Other Pairs เหมือน futdRenderPositions
+  let filteredOrd = orders;
+  if (FUTD.hideOtherPairs && FUTD.symbolCoin) {
+    filteredOrd = orders.filter(o => {
+      const coin = (o.symbol || '').replace('USDT', '');
+      return coin === FUTD.symbolCoin;
+    });
+  }
+
+  if (!filteredOrd.length) { el.innerHTML = '<div class="futd-empty">ไม่มี Order ที่รอ Fill</div>'; return; }
+  el.innerHTML = filteredOrd.map(o => `<div class="futd-pos-row">
       <div class="futd-pos-top">
         <div><span class="futd-pos-sym">${o.symbol}</span><span class="futd-pos-side ${o.side}">${o.side === 'long' ? 'LONG' : 'SHORT'} x${o.lev}</span></div>
       </div>

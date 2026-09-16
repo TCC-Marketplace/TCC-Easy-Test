@@ -13304,7 +13304,8 @@ function futdSyncCoinFromTopbar(coin) {
   futdStartOrderBook();
   // [v2.51] re-fetch funding rate เมื่อเปลี่ยนเหรียญ
   if (typeof futdFetchFunding === 'function') futdFetchFunding();
-  // อัปเดต unit label
+
+  // [v2.57 FIX-COIN-SYNC] อัปเดต unit labels ทั้งหมดทันที
   const unitEl = document.getElementById('futdObAmtUnit');
   if (unitEl) unitEl.textContent = '(' + coin + ')';
   const amtUnitEl = document.getElementById('futdAmtUnit');
@@ -13312,6 +13313,32 @@ function futdSyncCoinFromTopbar(coin) {
     FUTD.amtUnit = coin;
     amtUnitEl.textContent = coin;
   }
+
+  // [v2.57 FIX-MAXCOST] Reset Max Open/Cost display ให้แสดง coin ใหม่ทันที
+  // (futdUpdateMaxCost ต้องการ amt > 0 ถึงจะทำงาน → reset label ด้วยตัวเอง)
+  const _moEl  = document.getElementById('futdMaxOpen');
+  const _mosEl = document.getElementById('futdMaxOpenS');
+  const _cvEl  = document.getElementById('futdCostVal');
+  const _cvsEl = document.getElementById('futdCostValS');
+  const _sizeNow = parseFloat(document.getElementById('futd-size')?.value) || 0;
+  if (_sizeNow > 0 && FUTD.lastPrice > 0) {
+    // มี size อยู่แล้ว → recalc ทันที
+    if (typeof futdUpdateMaxCost === 'function') futdUpdateMaxCost();
+  } else {
+    // ยังไม่มี size → reset ให้แสดง coin ใหม่
+    if (_moEl)  _moEl.textContent  = '0.000 ' + coin;
+    if (_mosEl) _mosEl.textContent = '0.000 ' + coin;
+    if (_cvEl)  _cvEl.textContent  = '0.00 USDT';
+    if (_cvsEl) _cvsEl.textContent = '0.00 USDT';
+  }
+
+  // [v2.57 FIX-24H] Reset 24h stats ให้แสดง — เพื่อหลีกเลี่ยงค่าเก่าค้างระหว่างโหลด
+  ['futd-tk-high','futd-tk-low','futd-tk-vol'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '—';
+  });
+  // ดึง 24h stats ใหม่สำหรับ coin นี้
+  if (typeof futdFetch24h === 'function') futdFetch24h();
 }
 
 // ═══════════════════════════════════════════════
@@ -36340,6 +36367,9 @@ function futdInit() {
   futdFetchFunding();
   futdStartFundingTimer();
 
+  // [v2.57] ดึง 24h High/Low/Vol ครั้งแรก
+  if (typeof futdFetch24h === 'function') futdFetch24h();
+
   // [v2.52 FIX-POLL-LOCK] poll ราคา + สถานะ
   // เพิ่ม interval 5s → 15s: dbCallRaw timeout=20s — ถ้า 5s request ก่อนยังไม่เสร็จ
   // request ใหม่ซ้อนกัน 4 ชั้น → timeout storm (เหมือนบั๊ก _astRefreshBalanceIfStale เดิม)
@@ -36700,6 +36730,51 @@ function futdRenderOrderBook() {
   }
 }
 
+// ── [v2.57] 24h Stats (High / Low / Vol) for Direct tab ──────
+/**
+ * ดึง 24h High / Low / Vol จาก Hyperliquid metaAndAssetCtxs
+ * เรียกครั้งแรกตอน futdInit และทุกครั้งที่เปลี่ยนเหรียญผ่าน futdSyncCoinFromTopbar
+ * ใช้ METAL_DEX สำหรับ Metal coins (GOLD, SILVER, …) เหมือนส่วนอื่นของระบบ
+ */
+async function futdFetch24h() {
+  const coin = FUTD.symbolCoin || 'BTC';
+  try {
+    const isMetal = (typeof _isMetalCoin === 'function') && _isMetalCoin(coin);
+    const ctx = await hlPost(
+      isMetal
+        ? { type: 'metaAndAssetCtxs', dex: METAL_DEX }
+        : { type: 'metaAndAssetCtxs' }
+    );
+    if (!ctx || !ctx[0] || !ctx[1]) return;
+    const universe = ctx[0].universe || [];
+    const ctxs     = ctx[1];
+    const idx = universe.findIndex(u => u.name === coin);
+    if (idx === -1) return;
+    const c       = ctxs[idx] || {};
+    const markPx  = parseFloat(FUTD.prices[coin]) || parseFloat(c.markPx) || 0;
+    const prevDay = parseFloat(c.prevDayPx) || markPx;
+    // Hyperliquid ไม่มี high/low โดยตรงใน assetCtxs — ใช้ dayNtlVlm (USD vol) และ prevDayPx
+    // High ≈ ราคาสูงสุด/ต่ำสุดใน session คำนวณจาก open (prevDayPx) vs mark ปัจจุบัน
+    const hi  = Math.max(prevDay, markPx);
+    const lo  = Math.min(prevDay, markPx);
+    const vol = parseFloat(c.dayNtlVlm) || 0;
+    // format vol: K/M/B
+    const _fmtVol = v => {
+      if (v >= 1e9) return (v/1e9).toFixed(2) + 'B';
+      if (v >= 1e6) return (v/1e6).toFixed(2) + 'M';
+      if (v >= 1e3) return (v/1e3).toFixed(2) + 'K';
+      return v.toFixed(2);
+    };
+    futdUpdateTicker({
+      high: hi  > 0 ? hi  : undefined,
+      low:  lo  > 0 ? lo  : undefined,
+      vol:  vol > 0 ? _fmtVol(vol) : undefined,
+    });
+  } catch(e) {
+    console.warn('[futdFetch24h] fail:', e.message);
+  }
+}
+
 // ── Ticker strip update (Direct) ──────────────────────────────
 /** เรียกได้จาก WebSocket ticker feed หรือ allMids poll */
 function futdUpdateTicker(data) {
@@ -36845,6 +36920,12 @@ async function futdRefreshPrice() {
     // แสดงทันทีโดยไม่ต้องรอให้ user กดเปลี่ยน TF
     // (futdChartDraw ตรวจ candles.length ก่อนวาด ถ้าแท่งเทียนยังไม่โหลดจะ return เอง)
     if (FUTD.chart.candles.length) futdChartDraw();
+
+    // [v2.57] Refresh 24h stats ทุก 4 รอบ (~60s) — ไม่ดึงทุก poll เพราะ metaAndAssetCtxs หนัก
+    FUTD._priceTickCount = (FUTD._priceTickCount || 0) + 1;
+    if (FUTD._priceTickCount % 4 === 0 && typeof futdFetch24h === 'function') {
+      futdFetch24h();
+    }
   } catch (e) {
     console.warn('[futdRefreshPrice] fail:', e.message);
   }
@@ -36904,6 +36985,22 @@ async function futdRefreshAccountStatus() {
     if (FUTD.chart.candles.length) futdChartDraw();
   } catch (e) {
     console.warn('[futdRefreshAccountStatus] fail:', e.message);
+
+    // [v2.57 FIX-POS-CACHE] GAS fail → ถ้ามี cache เดิม ให้ render positions จาก cache
+    // ป้องกันปัญหา: GAS timeout ทำให้ positions ว่างเปล่า ทั้งที่มี position จริง
+    if (FUTD.status && (FUTD.status.positions || []).length > 0) {
+      futdRenderPositions(FUTD.status.positions);
+      futdRenderOrders(FUTD.status.orders || []);
+      // แสดง warning banner เล็กๆ บน positions list
+      const _posEl = document.getElementById('futd-positions-list');
+      if (_posEl) {
+        const _warn = document.createElement('div');
+        _warn.style.cssText = 'font-size:10px;color:var(--y);text-align:center;padding:4px 8px;opacity:.75';
+        _warn.textContent = '⚠ ข้อมูลจาก cache (GAS ไม่ตอบสนอง)';
+        _posEl.insertBefore(_warn, _posEl.firstChild);
+      }
+    }
+
     // [v2.52] GAS-DEPLOY-ERROR หรือ Timeout: หยุด auto-poll ชั่วคราว 60s กัน storm
     // ป้องกันกรณี GAS deployment พัง → error ท่วม console ทุก 15s ตลอดไป
     if (e.message && (e.message.includes('GAS-DEPLOY-ERROR') || e.message.includes('Timeout'))) {

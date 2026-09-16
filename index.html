@@ -12133,6 +12133,13 @@ async function selectCoin(sym) {
       updateRiskWarnings(_selC);
     }
   }
+  // [v2.56 FIX] ถ้ากำลังอยู่ใน Direct tab → sync coin ไปยัง FUTD ด้วย
+  // ป้องกันปัญหา: เปลี่ยนเหรียญจาก topbar แล้ว Direct tab ยังแสดง chart/OB/price ของเหรียญเก่า
+  if ((typeof _futActiveTab !== 'undefined') && _futActiveTab === 'direct') {
+    if (typeof futdSyncCoinFromTopbar === 'function') {
+      futdSyncCoinFromTopbar(S.coin);
+    }
+  }
 }
 
 function renderOrderBook2() {
@@ -36172,9 +36179,12 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
     return;
   }
   // [FIX-POS-ASSETS] แสดง layout เหมือนหน้า Futures → ⚡ Direct (futdRenderPositions)
-  const bal         = parseFloat((FUTD.status || {}).futures_balance) || 0;
-  const marginUsed  = parseFloat((FUTD.status || {}).margin_used)     || 0;
-  const mrPctGlobal = bal > 0 ? Math.min(100, (marginUsed / bal) * 100) : 0;
+  // [v2.56 FIX] ใช้ status จาก parameter โดยตรง ไม่พึ่ง FUTD.status ที่อาจยังไม่ได้ set
+  //             (aftdRefreshDirectSummary เรียก GAS แยก จาก futdRefreshAccountStatus)
+  const _statusSrc  = { futures_balance: 0, margin_used: 0 }; // fallback
+  // พยายาม borrow จาก FUTD.status ถ้ามี แต่ค่าหลักคือ parameter liqPriceMap ที่ส่งมาแล้ว
+  const bal         = parseFloat((FUTD.status || _statusSrc).futures_balance) || 0;
+  const marginUsedG = parseFloat((FUTD.status || _statusSrc).margin_used)     || 0;
   const _liqMap     = liqPriceMap || (FUTD.status && FUTD.status.liq_price_map) || {};
 
   el.innerHTML = positions.map(p => {
@@ -36192,6 +36202,20 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
     }
     const upnlColor = upnl >= 0 ? 'var(--g)' : 'var(--r)';
     const roiPct    = margin > 0 ? ((upnl / margin) * 100) : 0;
+
+    // [v2.56 FIX] Margin Ratio: แยกตาม mode เหมือน futdRenderPositions (บรรทัด 36951-36966)
+    // ก่อนหน้านี้ใช้ mrPctGlobal (margin_used/bal รวมบัญชี) กับทุก position ทำให้ค่าไม่ตรงกับ Direct tab
+    // Isolated: (mmr × entryP × size) / margin × 100  — ความเสี่ยงของ position นี้เอง
+    // Cross:    margin_used / futures_balance × 100     — บัญชีรวม
+    const posMode = String(p.mode || 'isolated').toLowerCase();
+    let mrPctGlobal = 0;
+    if (posMode === 'isolated') {
+      const mmrFront    = 0.005;
+      const maintMargin = mmrFront * entryP * size;
+      mrPctGlobal = margin > 0 ? Math.min(100, (maintMargin / margin) * 100) : 0;
+    } else {
+      mrPctGlobal = bal > 0 ? Math.min(100, (marginUsedG / bal) * 100) : 0;
+    }
     const mrColor   = mrPctGlobal < 50 ? 'var(--g)' : mrPctGlobal < 80 ? 'var(--y)' : 'var(--r)';
 
     const tp = parseFloat(p.tp) || 0;

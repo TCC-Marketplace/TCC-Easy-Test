@@ -36232,8 +36232,14 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
     const entryP = parseFloat(p.entry_price) || 0;
     const size   = parseFloat(p.size)        || 0;
     const margin = parseFloat(p.margin)      || 0;
-    // [v2.55 FIX] Cross mode: ใช้ liq_price_map จาก GAS (คำนวณด้วย equity รวม) แทน p.liq_price (isolated formula เก่า)
-    const liqP   = parseFloat(_liqMap[p.id] !== undefined ? _liqMap[p.id] : p.liq_price) || 0;
+    // [v2.57 FIX-LIQ] ลำดับความสำคัญ: GAS liq_map → client formula → p.liq_price (last resort)
+    const _mmrA     = 0.005;
+    const _liqCalcA = p.side === 'long'
+      ? (entryP - margin / size + _mmrA * entryP)
+      : (entryP + margin / size - _mmrA * entryP);
+    const _liqRawA  = _liqMap[p.id] !== undefined ? parseFloat(_liqMap[p.id]) : null;
+    const liqP      = (_liqRawA !== null && _liqRawA > 0) ? _liqRawA
+                    : (entryP > 0 && size > 0 && margin > 0 ? _liqCalcA : parseFloat(p.liq_price) || 0);
     const markP  = (FUTD.prices && FUTD.prices[coin]) || 0;
 
     let upnl = 0;
@@ -37084,9 +37090,21 @@ function futdRenderPositions(positions) {
     const entryP    = parseFloat(p.entry_price) || 0;
     const size      = parseFloat(p.size) || 0;
     const margin    = parseFloat(p.margin) || 0;
-    // [v2.55 FIX] Cross mode: ใช้ liq_price_map จาก GAS (คำนวณด้วย equity รวม) แทน p.liq_price (isolated formula เก่า)
+    // [v2.57 FIX-LIQ] ลำดับความสำคัญของ liq_price:
+    // 1) liq_price_map จาก GAS (SSOT — คำนวณด้วย equity รวมบัญชี) → เชื่อถือได้สุด
+    // 2) client-side formula (isolated per-position) → ถูกต้องสำหรับ isolated & cross approx
+    //    Formula: liq_long  = entry - margin/size + mmr*entry
+    //             liq_short = entry + margin/size - mmr*entry
+    //    (Hyperliquid standard: position liq'd when unrealized_loss = margin - mmr_notional)
+    // 3) p.liq_price จาก GAS sheet → อาจผิด ใช้เป็น last resort เท่านั้น
     const _liqMap   = (FUTD.status && FUTD.status.liq_price_map) || {};
-    const liqP      = parseFloat(_liqMap[p.id] !== undefined ? _liqMap[p.id] : p.liq_price) || 0;
+    const _mmr      = 0.005; // Hyperliquid maintenance margin rate
+    const _liqCalc  = p.side === 'long'
+      ? (entryP - margin / size + _mmr * entryP)   // LONG: liq below entry
+      : (entryP + margin / size - _mmr * entryP);  // SHORT: liq above entry
+    const _liqRaw   = _liqMap[p.id] !== undefined ? parseFloat(_liqMap[p.id]) : null;
+    const liqP      = (_liqRaw !== null && _liqRaw > 0) ? _liqRaw
+                    : (entryP > 0 && size > 0 && margin > 0 ? _liqCalc : parseFloat(p.liq_price) || 0);
     const markP     = FUTD.prices[coin] || 0;
 
     // Unrealized PnL
@@ -37328,8 +37346,16 @@ function futdOpenMarginSheet(posId) {
   const entryP = parseFloat(pos.entry_price) || 0;
   const size   = parseFloat(pos.size) || 0;
   const margin = parseFloat(pos.margin) || 0;
-  const liqP   = parseFloat(pos.liq_price) || 0;
   const avail  = parseFloat((FUTD.status || {}).avail_margin) || 0;
+  // [v2.57 FIX-LIQ] ใช้ formula เดียวกับ futdRenderPositions
+  const _mmrMg    = 0.005;
+  const _liqMapMg = (FUTD.status && FUTD.status.liq_price_map) || {};
+  const _liqCalcMg = pos.side === 'long'
+    ? (entryP - margin / size + _mmrMg * entryP)
+    : (entryP + margin / size - _mmrMg * entryP);
+  const _liqRawMg  = _liqMapMg[pos.id] !== undefined ? parseFloat(_liqMapMg[pos.id]) : null;
+  const liqP = (_liqRawMg !== null && _liqRawMg > 0) ? _liqRawMg
+             : (entryP > 0 && size > 0 && margin > 0 ? _liqCalcMg : parseFloat(pos.liq_price) || 0);
 
   // ค่า effective lev ปัจจุบัน
   const effLev = (entryP > 0 && size > 0 && margin > 0)
@@ -37475,11 +37501,20 @@ function futdOpenTpslSheet(posId) {
 
   const coin   = (pos.symbol || '').replace('USDT', '');
   const markP  = FUTD.prices[coin] || 0;
-  const liqP   = parseFloat(pos.liq_price) || 0;
   const entryP = parseFloat(pos.entry_price) || 0;
   const size   = parseFloat(pos.size) || 0;
+  const margin = parseFloat(pos.margin) || 0;
   const tp     = parseFloat(pos.tp) || 0;
   const sl     = parseFloat(pos.sl) || 0;
+  // [v2.57 FIX-LIQ] ใช้ formula เดียวกับ futdRenderPositions
+  const _liqMapTs  = (FUTD.status && FUTD.status.liq_price_map) || {};
+  const _mmrTs     = 0.005;
+  const _liqCalcTs = pos.side === 'long'
+    ? (entryP - margin / size + _mmrTs * entryP)
+    : (entryP + margin / size - _mmrTs * entryP);
+  const _liqRawTs  = _liqMapTs[pos.id] !== undefined ? parseFloat(_liqMapTs[pos.id]) : null;
+  const liqP = (_liqRawTs !== null && _liqRawTs > 0) ? _liqRawTs
+             : (entryP > 0 && size > 0 && margin > 0 ? _liqCalcTs : parseFloat(pos.liq_price) || 0);
 
   // Populate info header
   const symEl = document.getElementById('futdTpslSym');

@@ -37024,7 +37024,18 @@ async function futdRefreshAccountStatus() {
   FUTD._astInFlight = true; // [FIX-POLL-LOCK] ล็อก
   try {
     const status = await dbCallRaw('getFuturesAccountStatus', { uid });
+    // [v2.59-LIQ] set FUTD.status ก่อน render เสมอ — futdRenderPositions อ่าน liq_price_map จาก FUTD.status
+    // ลำดับสำคัญ: FUTD.status = status → futdRenderPositions() → _futdClientCrossLiq fallback จะได้ข้อมูลใหม่
     FUTD.status = status;
+
+    // [v2.59-LIQ] debug log: แสดงจำนวน liq entries ที่ GAS ส่งมา
+    const _liqEntries = Object.keys(status.liq_price_map || {}).length;
+    const _crossCount = (status.positions || []).filter(p => String(p.mode||'').toLowerCase() === 'cross').length;
+    if (_crossCount > 0) {
+      console.warn('[futdRefreshAccountStatus] liq_price_map entries:', _liqEntries,
+                   '| cross positions:', _crossCount,
+                   _liqEntries > 0 ? '✅ GAS Cross formula OK' : '⚠️ liq_price_map empty — client fallback active');
+    }
 
     // [v2.50] อัปเดต Balance bar ใหม่
     if (typeof futdUpdateBalanceBar === 'function') futdUpdateBalanceBar(status);
@@ -37056,14 +37067,21 @@ async function futdRefreshAccountStatus() {
     // [v2.57 FIX-POS-CACHE] GAS fail → ถ้ามี cache เดิม ให้ render positions จาก cache
     // ป้องกันปัญหา: GAS timeout ทำให้ positions ว่างเปล่า ทั้งที่มี position จริง
     if (FUTD.status && (FUTD.status.positions || []).length > 0) {
+      // [v2.60-LIQ-FIX] GAS timeout → liq_price_map ที่ cache อาจเป็นค่าเก่า (ก่อน fix)
+      // ล้าง liq_price_map ออกชั่วคราว เพื่อ force futdRenderPositions ให้ใช้ client fallback
+      // (_futdClientCrossLiq สำหรับ Cross / isolated formula สำหรับ Isolated) แทนค่า stale
+      // FUTD.status.positions + futures_balance ยังใช้ได้ — เพียงแต่ liq ต้องคำนวณใหม่ฝั่ง client
+      const _savedLiqMap = FUTD.status.liq_price_map;
+      FUTD.status.liq_price_map = {};  // clear ชั่วคราว → priority 1 ใน futdRenderPositions ถูก bypass
       futdRenderPositions(FUTD.status.positions);
+      FUTD.status.liq_price_map = _savedLiqMap; // restore กลับ (ไม่ทิ้งข้อมูลเดิมถาวร)
       futdRenderOrders(FUTD.status.orders || []);
       // แสดง warning banner เล็กๆ บน positions list
       const _posEl = document.getElementById('futd-positions-list');
       if (_posEl) {
         const _warn = document.createElement('div');
         _warn.style.cssText = 'font-size:10px;color:var(--y);text-align:center;padding:4px 8px;opacity:.75';
-        _warn.textContent = '⚠ ข้อมูลจาก cache (GAS ไม่ตอบสนอง)';
+        _warn.textContent = '⚠ ข้อมูลจาก cache — Liq. คำนวณ client (GAS ไม่ตอบสนอง)';
         _posEl.insertBefore(_warn, _posEl.firstChild);
       }
     }
@@ -37095,6 +37113,54 @@ async function futdRefreshAccountStatus() {
 }
 
 // ── Render Positions (enhanced) ───────────────────────────────────
+// [v2.59-LIQ] _futdClientCrossLiq — คำนวณ Cross liq ฝั่ง client
+// ใช้เป็น fallback เมื่อ GAS liq_price_map ไม่มีค่าสำหรับ position นั้น (GAS timeout / first load)
+// ⚠️ ไม่ใช่ SSOT — ใช้แสดงค่าประมาณเท่านั้น GAS liq_price_map จะ override ทันทีที่ได้รับ
+// สูตร Binance Cross (ประมาณ — ไม่มี live unrealizedPnL ฝั่ง client ณ จุดนี้):
+//   wb_loss   = futures_balance − Σ(mmr × entryP_i × size_i)
+//   sumAll    = Σ(dir_i × entryP_i × size_i)
+//   sumOthers = sumAll − (dir_this × entryP_this × size_this)
+//   Long:  liq = (wb_loss − sumOthers) / (size × (1 − mmr))
+//   Short: liq = (wb_loss − sumOthers) / (size × (1 + mmr))
+function _futdClientCrossLiq(targetId, allPositions, balance, mmr) {
+  // กรองเฉพาะ Active cross positions
+  const crossPos = (allPositions || []).filter(p => {
+    const s = String(p.status || '').toLowerCase();
+    const m = String(p.mode   || '').toLowerCase();
+    return m === 'cross' && (s === 'active' || s === 'partially closed' || !s);
+  });
+  if (!crossPos.length) return 0;
+
+  let wbLoss = parseFloat(balance) || 0;
+  let sumAll  = 0;
+  crossPos.forEach(p => {
+    const ep = parseFloat(p.entry_price) || 0;
+    const sz = parseFloat(p.size)        || 0;
+    const dir = String(p.side || '').toLowerCase() === 'long' ? 1 : -1;
+    wbLoss -= mmr * ep * sz;
+    sumAll += dir * ep * sz;
+  });
+
+  const target = crossPos.find(p => p.id === targetId);
+  if (!target) return 0;
+
+  const ep  = parseFloat(target.entry_price) || 0;
+  const sz  = parseFloat(target.size)        || 0;
+  const dir = String(target.side || '').toLowerCase() === 'long' ? 1 : -1;
+  if (ep <= 0 || sz <= 0) return 0;
+
+  const sumOthers = sumAll - (dir * ep * sz);
+  const numerator = wbLoss - sumOthers;
+  let liqRaw;
+  if (dir === 1) {
+    liqRaw = numerator / (sz * (1 - mmr));
+  } else {
+    liqRaw = numerator / (sz * (1 + mmr));
+  }
+  // sanity: ต้องเป็นบวก
+  return (isFinite(liqRaw) && liqRaw > 0) ? liqRaw : 0;
+}
+
 function futdRenderPositions(positions) {
   const el = document.getElementById('futd-positions-list');
   if (!el) return;
@@ -37121,24 +37187,38 @@ function futdRenderPositions(positions) {
     const entryP    = parseFloat(p.entry_price) || 0;
     const size      = parseFloat(p.size) || 0;
     const margin    = parseFloat(p.margin) || 0;
-    // [v2.58-LIQ] ลำดับความสำคัญของ liq_price:
-    // 1) liq_price_map จาก GAS (SSOT — Binance Cross formula รวม hedge offset) → เชื่อถือได้สุด
+    const posMode   = String(p.mode || 'isolated').toLowerCase();
+    // [v2.59-LIQ] ลำดับความสำคัญของ liq_price:
+    // 1) GAS liq_price_map (SSOT — Binance Cross formula รวม hedge offset จาก server)
     //    Cross: liq = (wb_loss − Σ_others(dir×entry×size)) / (size × (1∓mmr))
     //    Isolated: liq = entry × (1 ∓ 1/lev ± mmr)
-    // 2) client-side isolated formula → ใช้เฉพาะตอน GAS ยังไม่ส่ง liq_price_map (เช่น first load)
-    //    Formula: liq_long  = entry - margin/size + mmr*entry
-    //             liq_short = entry + margin/size - mmr*entry
-    //    ⚠️ สำหรับ Cross mode fallback นี้จะไม่ได้ hedge offset → แสดงผลห่างกว่าจริง
-    //       (conservative / ปลอดภัยกว่าแสดงน้อยไป) — GAS map จะ override ทันทีที่มา
-    // 3) p.liq_price จาก GAS sheet → isolated fallback เมื่อเปิด position ใหม่ (ก่อน map มา)
-    const _liqMap   = (FUTD.status && FUTD.status.liq_price_map) || {};
-    const _mmr      = 0.005;
-    const _liqCalc  = p.side === 'long'
-      ? (entryP - margin / size + _mmr * entryP)   // LONG: liq below entry
-      : (entryP + margin / size - _mmr * entryP);  // SHORT: liq above entry
-    const _liqRaw   = _liqMap[p.id] !== undefined ? parseFloat(_liqMap[p.id]) : null;
-    const liqP      = (_liqRaw !== null && _liqRaw > 0) ? _liqRaw
-                    : (entryP > 0 && size > 0 && margin > 0 ? _liqCalc : parseFloat(p.liq_price) || 0);
+    // 2a) Cross fallback: _futdClientCrossLiq — สูตร Binance Cross ฝั่ง client
+    //     (ประมาณ เพราะไม่มี live unrealizedPnL → wb_loss ใช้ futures_balance ล้วนๆ)
+    //     แสดงค่าประมาณไว้ก่อน GAS map มา — ดีกว่าแสดง "—" ค้าง
+    // 2b) Isolated fallback: per-position isolated formula (entry − margin/size ± mmr×entry)
+    // 3) p.liq_price จาก Sheet — fallback สุดท้าย (ก่อน GAS map มา)
+    const _liqMap = (FUTD.status && FUTD.status.liq_price_map) || {};
+    const _mmr    = 0.005;
+    const _liqRaw = _liqMap[p.id] !== undefined ? parseFloat(_liqMap[p.id]) : null;
+    let liqP;
+    if (_liqRaw !== null && _liqRaw > 0) {
+      // priority 1: GAS SSOT
+      liqP = _liqRaw;
+    } else if (posMode === 'cross' && entryP > 0 && size > 0) {
+      // priority 2a: Cross client fallback — ใช้ FUTD.status.positions ทั้งหมดเพื่อ hedge offset
+      const _allPos = (FUTD.status && FUTD.status.positions) || positions;
+      const _bal    = parseFloat((FUTD.status || {}).futures_balance) || 0;
+      const _cLiq   = _futdClientCrossLiq(p.id, _allPos, _bal, _mmr);
+      liqP = _cLiq > 0 ? _cLiq : (parseFloat(p.liq_price) || 0);
+    } else if (entryP > 0 && size > 0 && margin > 0) {
+      // priority 2b: Isolated per-position formula
+      liqP = p.side === 'long'
+        ? (entryP - margin / size + _mmr * entryP)
+        : (entryP + margin / size - _mmr * entryP);
+    } else {
+      // priority 3: Sheet liq_price
+      liqP = parseFloat(p.liq_price) || 0;
+    }
     const markP     = FUTD.prices[coin] || 0;
 
     // Unrealized PnL
@@ -37155,7 +37235,7 @@ function futdRenderPositions(positions) {
     // Isolated: maintenance_margin / isolated_margin ของ position นี้เท่านั้น
     //           maintenance_margin = mmr × notional = 0.005 × entryP × size
     // Cross:    margin_used / futures_balance รวมทั้งบัญชี (เหมือนเดิม)
-    const posMode     = String(p.mode || 'isolated').toLowerCase();
+    // posMode declared above in [v2.59-LIQ] block — ไม่ต้อง redeclare
     let mrPct = 0;
     if (posMode === 'isolated') {
       // Isolated: (mmr × entryP × size) / margin  ← ความเสี่ยงเป็น % ของ margin ที่วางไว้

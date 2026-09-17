@@ -36376,12 +36376,27 @@ function futdInit() {
   futdSwitchSubTab('pos');
   if (typeof futdUpdateMarginModeBtn === 'function') futdUpdateMarginModeBtn(); // [v2.53]
 
+  // [v2.60-OB-FIX] sync symbolCoin จาก topbar (S.coin) ก่อนทุกอย่าง
+  // ป้องกัน: เปิด Direct tab ขณะ topbar แสดง ETH → FUTD.symbolCoin ยังเป็น BTC default
+  // → futdStartOrderBook() subscribe BTC WS → order book แสดงข้อมูล BTC แทน ETH
+  // หมายเหตุ: futdSyncCoinFromTopbar() จะเรียก futdStartOrderBook() + futdFetchFunding() + futdFetch24h()
+  //           ด้วยตัวเองอยู่แล้ว — ดังนั้นในบล็อกนี้ skip การเรียกซ้ำหลังจาก sync เสร็จแล้ว
+  const _initCoin = (typeof S !== 'undefined' && S.coin) ? S.coin : null;
+  if (_initCoin && _initCoin !== FUTD.symbolCoin) {
+    FUTD.symbolCoin = _initCoin;
+    // sync unit labels ทันที (ก่อน render ใดๆ)
+    const _unitEl    = document.getElementById('futdObAmtUnit');
+    const _amtUnitEl = document.getElementById('futdAmtUnit');
+    if (_unitEl) _unitEl.textContent = '(' + _initCoin + ')';
+    if (_amtUnitEl && FUTD.amtUnit !== 'USDT') { FUTD.amtUnit = _initCoin; _amtUnitEl.textContent = _initCoin; }
+  }
+
   futdRefreshAccountStatus();
   futdRefreshPrice();
   futdStopPolling();
   futdChartInit();
 
-  // เริ่ม Order Book WebSocket สำหรับ Direct tab
+  // เริ่ม Order Book WebSocket สำหรับ Direct tab (ใช้ FUTD.symbolCoin ที่ sync แล้ว)
   futdStartOrderBook();
 
   // [v2.51] เริ่ม Funding rate + Countdown timer
@@ -37113,16 +37128,26 @@ async function futdRefreshAccountStatus() {
 }
 
 // ── Render Positions (enhanced) ───────────────────────────────────
-// [v2.59-LIQ] _futdClientCrossLiq — คำนวณ Cross liq ฝั่ง client
+// [v2.60-LIQ] _futdClientCrossLiq — คำนวณ Cross liq ฝั่ง client
 // ใช้เป็น fallback เมื่อ GAS liq_price_map ไม่มีค่าสำหรับ position นั้น (GAS timeout / first load)
 // ⚠️ ไม่ใช่ SSOT — ใช้แสดงค่าประมาณเท่านั้น GAS liq_price_map จะ override ทันทีที่ได้รับ
-// สูตร Binance Cross (ประมาณ — ไม่มี live unrealizedPnL ฝั่ง client ณ จุดนี้):
-//   wb_loss   = futures_balance − Σ(mmr × entryP_i × size_i)
-//   sumAll    = Σ(dir_i × entryP_i × size_i)
-//   sumOthers = sumAll − (dir_this × entryP_this × size_this)
-//   Long:  liq = (wb_loss − sumOthers) / (size × (1 − mmr))
-//   Short: liq = (wb_loss − sumOthers) / (size × (1 + mmr))
-function _futdClientCrossLiq(targetId, allPositions, balance, mmr) {
+//
+// สูตร Binance Cross — mirror ของ GAS getFuturesAccountStatus (v2.58-LIQ):
+//   equity   = cross_equity (GAS ส่งมา = balance + Σ unrealizedPnL_cross)
+//              หรือ fallback ไปใช้ futures_balance ถ้า GAS ยังไม่ส่ง cross_equity
+//   wb_loss  = equity − Σ(mmr × entry_i × size_i)    ← หัก maintenance reserve ทุก cross pos
+//   sumAll   = Σ(dir_i × entry_i × size_i)           ← dir: +1=Long, −1=Short
+//   per-position:
+//     sumOthers = sumAll − (dir_this × entry_this × size_this)
+//     Long:  liq = (wb_loss − sumOthers) / (size × (1 − mmr))
+//     Short: liq = (wb_loss − sumOthers) / (size × (1 + mmr))
+//
+// [v2.60 KEY FIX] เปลี่ยน balance parameter → equity (cross_equity จาก FUTD.status)
+// เพื่อให้ hedge offset Long/Short ทำงานถูกต้อง:
+//   - GAS ส่ง cross_equity = futures_balance + unrealizedPnL(Cross)
+//   - การใช้ futures_balance ล้วนๆ ทำให้ wb_loss สูงเกินจริง → liq ห่างเกินจริง
+//   - Long+Short hedge: sumOthers ของแต่ละ position จะ offset กัน ทำให้ liq ใกล้ entry มากขึ้น
+function _futdClientCrossLiq(targetId, allPositions, equity, mmr) {
   // กรองเฉพาะ Active cross positions
   const crossPos = (allPositions || []).filter(p => {
     const s = String(p.status || '').toLowerCase();
@@ -37131,14 +37156,15 @@ function _futdClientCrossLiq(targetId, allPositions, balance, mmr) {
   });
   if (!crossPos.length) return 0;
 
-  let wbLoss = parseFloat(balance) || 0;
+  // wb_loss = equity − Σ(mmr × entry_i × size_i)  [mirror GAS formula]
+  let wbLoss = parseFloat(equity) || 0;
   let sumAll  = 0;
   crossPos.forEach(p => {
-    const ep = parseFloat(p.entry_price) || 0;
-    const sz = parseFloat(p.size)        || 0;
+    const ep  = parseFloat(p.entry_price) || 0;
+    const sz  = parseFloat(p.size)        || 0;
     const dir = String(p.side || '').toLowerCase() === 'long' ? 1 : -1;
     wbLoss -= mmr * ep * sz;
-    sumAll += dir * ep * sz;
+    sumAll  += dir * ep * sz;
   });
 
   const target = crossPos.find(p => p.id === targetId);
@@ -37149,6 +37175,7 @@ function _futdClientCrossLiq(targetId, allPositions, balance, mmr) {
   const dir = String(target.side || '').toLowerCase() === 'long' ? 1 : -1;
   if (ep <= 0 || sz <= 0) return 0;
 
+  // sumOthers = hedge contribution ของ positions อื่น (Long offset Short และกลับกัน)
   const sumOthers = sumAll - (dir * ep * sz);
   const numerator = wbLoss - sumOthers;
   let liqRaw;
@@ -37188,13 +37215,14 @@ function futdRenderPositions(positions) {
     const size      = parseFloat(p.size) || 0;
     const margin    = parseFloat(p.margin) || 0;
     const posMode   = String(p.mode || 'isolated').toLowerCase();
-    // [v2.59-LIQ] ลำดับความสำคัญของ liq_price:
+    // [v2.60-LIQ] ลำดับความสำคัญของ liq_price:
     // 1) GAS liq_price_map (SSOT — Binance Cross formula รวม hedge offset จาก server)
     //    Cross: liq = (wb_loss − Σ_others(dir×entry×size)) / (size × (1∓mmr))
     //    Isolated: liq = entry × (1 ∓ 1/lev ± mmr)
     // 2a) Cross fallback: _futdClientCrossLiq — สูตร Binance Cross ฝั่ง client
-    //     (ประมาณ เพราะไม่มี live unrealizedPnL → wb_loss ใช้ futures_balance ล้วนๆ)
-    //     แสดงค่าประมาณไว้ก่อน GAS map มา — ดีกว่าแสดง "—" ค้าง
+    //     ใช้ cross_equity (= balance + unrealizedPnL ของ Cross) จาก GAS ถ้ามี
+    //     ถ้าไม่มี cross_equity → ใช้ futures_balance (ค่าประมาณ — liq อาจห่างเกินจริงเล็กน้อย)
+    //     Long+Short hedge offset ทำงานถูกต้องผ่าน sumOthers ใน _futdClientCrossLiq
     // 2b) Isolated fallback: per-position isolated formula (entry − margin/size ± mmr×entry)
     // 3) p.liq_price จาก Sheet — fallback สุดท้าย (ก่อน GAS map มา)
     const _liqMap = (FUTD.status && FUTD.status.liq_price_map) || {};
@@ -37205,10 +37233,13 @@ function futdRenderPositions(positions) {
       // priority 1: GAS SSOT
       liqP = _liqRaw;
     } else if (posMode === 'cross' && entryP > 0 && size > 0) {
-      // priority 2a: Cross client fallback — ใช้ FUTD.status.positions ทั้งหมดเพื่อ hedge offset
-      const _allPos = (FUTD.status && FUTD.status.positions) || positions;
-      const _bal    = parseFloat((FUTD.status || {}).futures_balance) || 0;
-      const _cLiq   = _futdClientCrossLiq(p.id, _allPos, _bal, _mmr);
+      // priority 2a: Cross client fallback — ใช้ cross_equity เพื่อ hedge offset ถูกต้อง
+      // [v2.60-LIQ KEY FIX] cross_equity = futures_balance + unrealizedPnL(Cross) จาก GAS
+      // การใช้ cross_equity แทน futures_balance ทำให้ wbLoss และ liq_price ตรงกับ GAS
+      const _allPos  = (FUTD.status && FUTD.status.positions) || positions;
+      const _equity  = parseFloat((FUTD.status || {}).cross_equity)
+                    || parseFloat((FUTD.status || {}).futures_balance) || 0;
+      const _cLiq    = _futdClientCrossLiq(p.id, _allPos, _equity, _mmr);
       liqP = _cLiq > 0 ? _cLiq : (parseFloat(p.liq_price) || 0);
     } else if (entryP > 0 && size > 0 && margin > 0) {
       // priority 2b: Isolated per-position formula

@@ -13194,7 +13194,11 @@ function navTo(page) {
       // (navTo ก่อนหน้าตั้ง display:none + classList.remove('active') ไว้)
       if (_activeTab === 'direct') {
         futdPanel.style.display = '';
-        if (typeof futdChartInit === 'function') futdChartInit();
+        // [FIX-OB-NAVBACK v2.61] กลับจากหน้าอื่น (assets/home/markets ฯลฯ) → tab ยังเป็น direct
+        // navTo ก่อนหน้าเรียก futdStopPolling() → futdStopOrderBook() → OB WS ถูก close
+        // ต้องเรียก futdInit() เต็มๆ เพื่อ restart OB WS + poll + chart + account status
+        // (ไม่ใช่แค่ futdChartInit() เพราะ chart init ไม่ได้ start OB WS)
+        if (typeof futdInit === 'function') futdInit();
       }
     }
     if (spPanel)   spPanel.style.display   = 'none';

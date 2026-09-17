@@ -37042,6 +37042,9 @@ async function futdRefreshAccountStatus() {
     // [v2.59-LIQ] set FUTD.status ก่อน render เสมอ — futdRenderPositions อ่าน liq_price_map จาก FUTD.status
     // ลำดับสำคัญ: FUTD.status = status → futdRenderPositions() → _futdClientCrossLiq fallback จะได้ข้อมูลใหม่
     FUTD.status = status;
+    // [v2.61-LIQ FIX-STALE-EQUITY] timestamp ของ sync สำเร็จล่าสุด — ใช้เช็ค staleness ก่อนใช้
+    // FUTD.status.futures_balance/cross_equity เป็น fallback ตอน GAS timeout (ดู catch ด้านล่าง)
+    FUTD._statusSyncedAt = Date.now();
 
     // [v2.59-LIQ] debug log: แสดงจำนวน liq entries ที่ GAS ส่งมา
     const _liqEntries = Object.keys(status.liq_price_map || {}).length;
@@ -37082,21 +37085,37 @@ async function futdRefreshAccountStatus() {
     // [v2.57 FIX-POS-CACHE] GAS fail → ถ้ามี cache เดิม ให้ render positions จาก cache
     // ป้องกันปัญหา: GAS timeout ทำให้ positions ว่างเปล่า ทั้งที่มี position จริง
     if (FUTD.status && (FUTD.status.positions || []).length > 0) {
-      // [v2.60-LIQ-FIX] GAS timeout → liq_price_map ที่ cache อาจเป็นค่าเก่า (ก่อน fix)
-      // ล้าง liq_price_map ออกชั่วคราว เพื่อ force futdRenderPositions ให้ใช้ client fallback
-      // (_futdClientCrossLiq สำหรับ Cross / isolated formula สำหรับ Isolated) แทนค่า stale
-      // FUTD.status.positions + futures_balance ยังใช้ได้ — เพียงแต่ liq ต้องคำนวณใหม่ฝั่ง client
-      const _savedLiqMap = FUTD.status.liq_price_map;
-      FUTD.status.liq_price_map = {};  // clear ชั่วคราว → priority 1 ใน futdRenderPositions ถูก bypass
-      futdRenderPositions(FUTD.status.positions);
-      FUTD.status.liq_price_map = _savedLiqMap; // restore กลับ (ไม่ทิ้งข้อมูลเดิมถาวร)
+      // [v2.61-LIQ FIX-STALE-EQUITY] ปัญหาที่พบ: ตอน GAS timeout ต่อเนื่องหลายรอบ (เช่นในภาพ
+      // console) โค้ดเดิมล้าง liq_price_map แล้ว force ให้ futdRenderPositions ใช้
+      // _futdClientCrossLiq คำนวณจาก FUTD.status.cross_equity/futures_balance — แต่ค่าพวกนี้เป็นค่า
+      // ณ ตอน sync สำเร็จ "ครั้งล่าสุด" เท่านั้น ถ้า sync ล้มเหลวมานาน (mark price/position อื่น
+      // เปลี่ยนไปมากแล้ว) ตัวเลข Liq. Price ที่ได้จะดูแม่นยำ (มีทศนิยม) แต่จริงๆ ผิดไกลจากความ
+      // เป็นจริง — อันตรายเพราะ user อาจเข้าใจผิดว่ายังห่างจุด liquidate มากกว่าที่เป็นจริง
+      //
+      // แก้: เช็ค staleness ก่อน — ถ้า sync ล่าสุดเกิน STALE_MS ให้ "ไม่" ล้าง liq_price_map
+      // (คงค่า GAS SSOT ล่าสุดที่มีไว้แสดงแบบ frozen แทนการคำนวณใหม่ด้วย equity ที่ล้าสมัยไปแล้ว)
+      // ค่า frozen ยังคลาดเคลื่อนได้ (mark price ขยับ) แต่ปลอดภัยกว่าเลขที่คำนวณจาก equity ผิดยุค
+      const STALE_MS = 90000; // 90s — ยาวกว่า poll interval ปกติ (15s) หลายเท่า ถือว่า sync ขาดจริง
+      const _age = FUTD._statusSyncedAt ? (Date.now() - FUTD._statusSyncedAt) : Infinity;
+      if (_age <= STALE_MS) {
+        // sync ล่าสุดยังไม่นานเกินไป — ใช้ client fallback ได้ตามเดิม (equity ยังพอเชื่อถือได้)
+        const _savedLiqMap = FUTD.status.liq_price_map;
+        FUTD.status.liq_price_map = {};  // clear ชั่วคราว → priority 1 ใน futdRenderPositions ถูก bypass
+        futdRenderPositions(FUTD.status.positions);
+        FUTD.status.liq_price_map = _savedLiqMap; // restore กลับ (ไม่ทิ้งข้อมูลเดิมถาวร)
+      } else {
+        // sync ขาดหายนานเกินไป — คง liq_price_map เดิมไว้ (frozen SSOT) แทนการคำนวณด้วย equity เก่า
+        futdRenderPositions(FUTD.status.positions);
+      }
       futdRenderOrders(FUTD.status.orders || []);
       // แสดง warning banner เล็กๆ บน positions list
       const _posEl = document.getElementById('futd-positions-list');
       if (_posEl) {
         const _warn = document.createElement('div');
         _warn.style.cssText = 'font-size:10px;color:var(--y);text-align:center;padding:4px 8px;opacity:.75';
-        _warn.textContent = '⚠ ข้อมูลจาก cache — Liq. คำนวณ client (GAS ไม่ตอบสนอง)';
+        _warn.textContent = _age <= STALE_MS
+          ? '⚠ ข้อมูลจาก cache — Liq. คำนวณ client (GAS ไม่ตอบสนอง)'
+          : '⚠ ข้อมูลเก่ามาก (' + Math.round(_age / 1000) + 's) — Liq. Price อาจไม่ตรงราคาปัจจุบัน';
         _posEl.insertBefore(_warn, _posEl.firstChild);
       }
     }

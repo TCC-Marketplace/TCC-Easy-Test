@@ -5507,6 +5507,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
     <div class="cls-row">
       <!-- [v2.53] Margin Mode toggle: Cross / Isolated -->
       <div class="cls-btn" id="futdMarginModeBtn" onclick="futdToggleMarginMode()" title="กดเพื่อสลับ Cross / Isolated Margin">Cross</div>
+      <!-- [v2.63-HEDGE] Position Mode toggle: One-way / Hedge -->
+      <div class="cls-btn" id="futdHedgeModeBtn" onclick="futdToggleHedgeMode()" title="One-way: Long/Short รวม Position เดียว | Hedge: แยก Long/Short บน Symbol เดียวกันได้" style="font-size:10px">One-way</div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
         <div class="lev-btn" id="futdLevBtn" onclick="futdCycleLev()">50x</div>
       </div>
@@ -15368,6 +15370,13 @@ async function _astRefreshBalanceIfStale() {
     if (dash.positions)    _mergeIntoHIST('positionHistory',    dash.positions.filter(p => p.status !== 'Active'));
     if (dash.orderHistory) _mergeIntoHIST('orderHistory',       dash.orderHistory); // [v8.9 NEW]
     if (dash.spotTrades)   _mergeIntoHIST('spotTradeHistory',   dash.spotTrades);
+    // [v2.63-HEDGE] Futures-Direct history populate
+    if (dash.futdClosedPos)   _mergeIntoHIST('futdPositionHistory',    dash.futdClosedPos);
+    if (dash.futdLiqPos)      _mergeIntoHIST('futdLiquidationHistory', dash.futdLiqPos);
+    if (dash.futdOrdHistory)  _mergeIntoHIST('futdOrderHistory',       dash.futdOrdHistory);
+    if (dash.futdTrades)      _mergeIntoHIST('futdTradeHistory',       dash.futdTrades);
+    if (dash.futdTrans)       _mergeIntoHIST('futdTransactionHistory', dash.futdTrans);
+    if (dash.futdFunding)     _mergeIntoHIST('futdFundingFee',         dash.futdFunding);
     if (typeof mytRefreshIfOpen === 'function') mytRefreshIfOpen();
   };
 
@@ -15423,8 +15432,15 @@ async function _astFetchTransactionsIfEmpty() {
       if (!isNaN(_b)) { mainWalletBalance = _b; updateSysWalletDisplay(); updateOverviewBalances(); }
     }
     _applyTransactions(uid, dash.transactions); // [FIX-TX-CLEAR]
-    if (dash.trades)       _mergeIntoHIST('tradeHistory',       dash.trades);
-    if (dash.funding)      _mergeIntoHIST('fundingFee',         dash.funding);
+    if (dash.trades)          _mergeIntoHIST('tradeHistory',          dash.trades);
+    if (dash.funding)         _mergeIntoHIST('fundingFee',            dash.funding);
+    // [v2.63-HEDGE] Futures-Direct
+    if (dash.futdClosedPos)   _mergeIntoHIST('futdPositionHistory',    dash.futdClosedPos);
+    if (dash.futdLiqPos)      _mergeIntoHIST('futdLiquidationHistory', dash.futdLiqPos);
+    if (dash.futdOrdHistory)  _mergeIntoHIST('futdOrderHistory',       dash.futdOrdHistory);
+    if (dash.futdTrades)      _mergeIntoHIST('futdTradeHistory',       dash.futdTrades);
+    if (dash.futdTrans)       _mergeIntoHIST('futdTransactionHistory', dash.futdTrans);
+    if (dash.futdFunding)     _mergeIntoHIST('futdFundingFee',         dash.futdFunding);
     // re-render My Trades ถ้าเปิดอยู่
     if (typeof mytRefreshIfOpen === 'function') mytRefreshIfOpen();
   } catch(e) {
@@ -15458,11 +15474,18 @@ async function _astFetchAllHistoryIfEmpty() {
 
     // merge ทุก history type
     _applyTransactions(uid, dash.transactions); // [FIX-TX-CLEAR]
-    if (dash.trades)       _mergeIntoHIST('tradeHistory',       dash.trades);
-    if (dash.funding)      _mergeIntoHIST('fundingFee',         dash.funding);
-    if (dash.positions)    _mergeIntoHIST('positionHistory',    dash.positions.filter(p => p.status !== 'Active'));
-    if (dash.orderHistory) _mergeIntoHIST('orderHistory',       dash.orderHistory); // [v8.9 NEW]
-    if (dash.spotTrades)   _mergeIntoHIST('spotTradeHistory',   dash.spotTrades);
+    if (dash.trades)          _mergeIntoHIST('tradeHistory',          dash.trades);
+    if (dash.funding)         _mergeIntoHIST('fundingFee',            dash.funding);
+    if (dash.positions)       _mergeIntoHIST('positionHistory',       dash.positions.filter(p => p.status !== 'Active'));
+    if (dash.orderHistory)    _mergeIntoHIST('orderHistory',          dash.orderHistory); // [v8.9 NEW]
+    if (dash.spotTrades)      _mergeIntoHIST('spotTradeHistory',      dash.spotTrades);
+    // [v2.63-HEDGE] Futures-Direct
+    if (dash.futdClosedPos)   _mergeIntoHIST('futdPositionHistory',    dash.futdClosedPos);
+    if (dash.futdLiqPos)      _mergeIntoHIST('futdLiquidationHistory', dash.futdLiqPos);
+    if (dash.futdOrdHistory)  _mergeIntoHIST('futdOrderHistory',       dash.futdOrdHistory);
+    if (dash.futdTrades)      _mergeIntoHIST('futdTradeHistory',       dash.futdTrades);
+    if (dash.futdTrans)       _mergeIntoHIST('futdTransactionHistory', dash.futdTrans);
+    if (dash.futdFunding)     _mergeIntoHIST('futdFundingFee',         dash.futdFunding);
 
     // re-render My Trades ถ้าเปิดอยู่
     if (typeof mytRefreshIfOpen === 'function') mytRefreshIfOpen();
@@ -15497,11 +15520,18 @@ async function _astForceRefreshBalance() {
       if (typeof updateOverviewBalances  === 'function') updateOverviewBalances();
     }
     _applyTransactions(uid, dash && dash.transactions); // [FIX-TX-CLEAR]
-    if (dash && dash.trades)       _mergeIntoHIST('tradeHistory',       dash.trades);
-    if (dash && dash.funding)      _mergeIntoHIST('fundingFee',         dash.funding);
-    if (dash && dash.positions)    _mergeIntoHIST('positionHistory',    dash.positions.filter(p => p.status !== 'Active')); // [v7 FIX]
-    if (dash && dash.orderHistory) _mergeIntoHIST('orderHistory',       dash.orderHistory); // [v8.9 NEW]
-    if (dash && dash.spotTrades)   _mergeIntoHIST('spotTradeHistory',   dash.spotTrades); // [v7 FIX]
+    if (dash && dash.trades)          _mergeIntoHIST('tradeHistory',          dash.trades);
+    if (dash && dash.funding)         _mergeIntoHIST('fundingFee',            dash.funding);
+    if (dash && dash.positions)       _mergeIntoHIST('positionHistory',       dash.positions.filter(p => p.status !== 'Active')); // [v7 FIX]
+    if (dash && dash.orderHistory)    _mergeIntoHIST('orderHistory',          dash.orderHistory); // [v8.9 NEW]
+    if (dash && dash.spotTrades)      _mergeIntoHIST('spotTradeHistory',      dash.spotTrades); // [v7 FIX]
+    // [v2.63-HEDGE] Futures-Direct
+    if (dash && dash.futdClosedPos)   _mergeIntoHIST('futdPositionHistory',    dash.futdClosedPos);
+    if (dash && dash.futdLiqPos)      _mergeIntoHIST('futdLiquidationHistory', dash.futdLiqPos);
+    if (dash && dash.futdOrdHistory)  _mergeIntoHIST('futdOrderHistory',       dash.futdOrdHistory);
+    if (dash && dash.futdTrades)      _mergeIntoHIST('futdTradeHistory',       dash.futdTrades);
+    if (dash && dash.futdTrans)       _mergeIntoHIST('futdTransactionHistory', dash.futdTrans);
+    if (dash && dash.futdFunding)     _mergeIntoHIST('futdFundingFee',         dash.futdFunding);
     if (typeof mytRefreshIfOpen === 'function') mytRefreshIfOpen();
     showToast(tccT('toast_balance_updated'));
   } catch(e) {
@@ -22915,25 +22945,40 @@ const HIST = {
 // ══════════════════════════════════════
 const MYT = {
   currentTab: 'open-orders',
-  context: 'futures', // 'futures' | 'spot' | 'assets'
+  context: 'futures', // 'futures' | 'spot' | 'assets' | 'futures_direct'
   filters: {
-    'open-orders':        { basicCond:'basic', symbol:'All',  orderType:'All' },
-    'order-history':      { basicCond:'basic', symbol:'All',  orderType:'All', direction:'All', status:'Filled, Partially Filled' },
-    'position-history':   { symbol:'All', mode:'All', status:'All' },
-    'trade-history':      { symbol:'All', direction:'All' },
-    'transaction-history':{ asset:'All', type:'All' },
-    'funding-fee':        { asset:'All' },
-    'spot-order-history': { symbol:'All', direction:'All', status:'All' },
-    'spot-trade-history': { symbol:'All', direction:'All' },
+    'open-orders':               { basicCond:'basic', symbol:'All',  orderType:'All' },
+    'order-history':             { basicCond:'basic', symbol:'All',  orderType:'All', direction:'All', status:'Filled, Partially Filled' },
+    'position-history':          { symbol:'All', mode:'All', status:'All' },
+    'trade-history':             { symbol:'All', direction:'All' },
+    'transaction-history':       { asset:'All', type:'All' },
+    'funding-fee':               { asset:'All' },
+    'spot-order-history':        { symbol:'All', direction:'All', status:'All' },
+    'spot-trade-history':        { symbol:'All', direction:'All' },
+    // [v2.63-HEDGE] Futures-Direct filters
+    'futd-open-orders':          { basicCond:'basic', symbol:'All', orderType:'All' },
+    'futd-order-history':        { symbol:'All', orderType:'All', direction:'All', status:'All' },
+    'futd-position-history':     { symbol:'All', mode:'All', status:'All' },
+    'futd-trade-history':        { symbol:'All', direction:'All' },
+    'futd-transaction-history':  { asset:'All', type:'All' },
+    'futd-funding-fee':          { asset:'All' },
+    'futd-liquidation-history':  { symbol:'All', mode:'All' },
   },
   advFilter: {
-    'order-history':      { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
-    'spot-order-history': { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
-    'position-history':   { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
-    'trade-history':      { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
-    'spot-trade-history': { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
-    'transaction-history':{ datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
-    'funding-fee':        { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    'order-history':             { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    'spot-order-history':        { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    'position-history':          { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    'trade-history':             { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    'spot-trade-history':        { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    'transaction-history':       { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    'funding-fee':               { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    // [v2.63-HEDGE] Futures-Direct advFilter
+    'futd-order-history':        { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    'futd-position-history':     { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    'futd-trade-history':        { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    'futd-transaction-history':  { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    'futd-funding-fee':          { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
+    'futd-liquidation-history':  { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
   },
   ddCurrent: null,
 
@@ -23020,6 +23065,14 @@ const MYT = {
     if(tab === 'funding-fee')        return _sortDesc(HIST.fundingFee.filter(d => matchAsset(d.asset)));
     if(tab === 'spot-order-history') return _sortDesc(HIST.spotOrderHistory.filter(d => matchSym(d.coin) && matchDir(d.dir) && matchSt(d.status)));
     if(tab === 'spot-trade-history') return _sortDesc(HIST.spotTradeHistory.filter(d => matchSym(d.coin) && matchDir(d.dir)));
+    // [v2.63-HEDGE] Futures-Direct tabs — แหล่งข้อมูลแยกจาก Earn Futures
+    if(tab === 'futd-open-orders')         return (HIST.futdOpenOrders        || []).filter(d => matchSym(d.coin));
+    if(tab === 'futd-order-history')       return _sortDesc((HIST.futdOrderHistory      || []).filter(d => matchSym(d.coin) && matchOT(d.orderType) && matchDir(d.dir) && matchSt(d.status)));
+    if(tab === 'futd-position-history')    return _sortDesc((HIST.futdPositionHistory   || []).filter(d => matchSym(d.coin) && matchMode(d.mode) && matchSt(d.status)));
+    if(tab === 'futd-trade-history')       return _sortDesc((HIST.futdTradeHistory      || []).filter(d => matchSym(d.coin) && matchDir(d.dir)));
+    if(tab === 'futd-transaction-history') return _sortDesc((HIST.futdTransactionHistory|| []).filter(d => matchAsset(d.asset) && matchType(d.type)));
+    if(tab === 'futd-funding-fee')         return _sortDesc((HIST.futdFundingFee        || []).filter(d => matchAsset(d.asset)));
+    if(tab === 'futd-liquidation-history') return _sortDesc((HIST.futdLiquidationHistory|| []).filter(d => matchSym(d.coin)));
     return [];
   },
 };
@@ -23298,6 +23351,63 @@ function _origMytRenderFilter(tab){
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--t2);cursor:pointer" onclick="openMytAdvFilter('funding-fee')"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
       </div>
     </div>`;
+
+  // ══════════════════════════════════════════════════════
+  // [v2.63-HEDGE] Futures-Direct filter bars
+  // ══════════════════════════════════════════════════════
+  } else if(tab === 'futd-open-orders'){
+    html = `<div class="myt-filter-bar"><span style="font-size:12px;color:var(--t2)">Futures-Direct — Active & Pending</span></div>`;
+  } else if(tab === 'futd-order-history'){
+    html = `
+    <div class="myt-filter-bar">
+      <div class="myt-filter-btn" onclick="openMytDD('futd-order-history','orderType',['All','Market','Limit','TP/SL Market','TP/SL Limit','Stop-Limit'])">
+        Order Type <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="myt-filter-btn" onclick="openMytDD('futd-order-history','direction',['All','Open Long','Close Long','Open Short','Close Short'])">
+        Direction <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="myt-filter-btn" onclick="openMytDD('futd-order-history','status',['All','Filled','Cancelled','Partially Filled'])">
+        Status <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>`;
+  } else if(tab === 'futd-position-history'){
+    html = `
+    <div class="myt-filter-bar">
+      <div class="myt-filter-btn" onclick="openMytDD('futd-position-history','mode',['All','Cross','Isolated'])">
+        Margin Mode <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="myt-filter-btn" onclick="openMytDD('futd-position-history','status',['All','Closed','Liquidated'])">
+        Status <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>`;
+  } else if(tab === 'futd-trade-history'){
+    html = `
+    <div class="myt-filter-bar">
+      <div class="myt-filter-btn" onclick="openMytDD('futd-trade-history','direction',['All','Open Long','Close Long','Open Short','Close Short'])">
+        Direction <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>`;
+  } else if(tab === 'futd-transaction-history'){
+    html = `
+    <div class="myt-filter-bar">
+      <div class="myt-filter-btn" onclick="openMytDD('futd-transaction-history','type',['All','Futures Direct PNL','Futures Direct Liquidation','Futures Direct Funding Fee','Transfer'])">
+        Type <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>`;
+  } else if(tab === 'futd-funding-fee'){
+    html = `
+    <div class="myt-filter-bar">
+      <div class="myt-filter-btn" onclick="openMytDD('futd-funding-fee','asset',['All','USDT'])">
+        Asset <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>`;
+  } else if(tab === 'futd-liquidation-history'){
+    html = `
+    <div class="myt-filter-bar">
+      <div class="myt-filter-btn" onclick="openMytDD('futd-liquidation-history','mode',['All','Cross','Isolated'])">
+        Margin Mode <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>`;
   }
   area.innerHTML = html;
 }
@@ -23440,6 +23550,140 @@ function _origMytRenderContent(tab){
         <div class="myt-row"><span class="myt-lbl">Amount</span><span class="myt-val ${amtClass}">${d.amount}</span></div>
       </div>`;
     });
+
+  // ══════════════════════════════════════════════════════
+  // [v2.63-HEDGE] Futures-Direct history render cases
+  // แยก tab ทุกอัน reuse template เดิม (position/order/trade/tx/funding) + เพิ่ม Liq tab
+  // ══════════════════════════════════════════════════════
+  } else if(tab === 'futd-open-orders'){
+    // Futures-Direct Open Orders: ดึงจาก FUTD.status.positions + orders
+    const futdPos  = (FUTD.status && FUTD.status.positions) || [];
+    const futdOrds = (FUTD.status && FUTD.status.orders)    || [];
+    if(!futdPos.length && !futdOrds.length){ el.innerHTML = `<div class="myt-empty"><span>No open orders</span></div>`; return; }
+    [...futdPos.map(p=>({...p,_type:'pos'})), ...futdOrds.map(o=>({...o,_type:'ord'}))].forEach(d => {
+      const isPos   = d._type === 'pos';
+      const sideStr = String(d.side||'').toLowerCase();
+      const ps      = String(d.position_side||'BOTH').toUpperCase();
+      const psBadge = (ps==='LONG'||ps==='SHORT') ? `<span style="font-size:9px;color:#7289da;border:1px solid rgba(114,137,218,.4);border-radius:3px;padding:1px 4px;margin-left:4px">HEDGE</span>` : '';
+      html += `<div class="myt-item">
+        <div class="myt-item-header">
+          <span class="myt-coin">${d.symbol||''}</span>
+          <span class="myt-badge">${isPos?'Active':'Pending'}</span>${psBadge}
+          <span class="myt-timestamp" style="margin-left:auto">${d.opened_at||d.created_at||''}</span>
+        </div>
+        <div class="myt-direction ${sideStr==='long'?'open-long':'open-short'}">${sideStr==='long'?'Open Long':'Open Short'} x${d.lev||''}</div>
+        <div class="myt-row"><span class="myt-lbl">Size / Margin</span><span class="myt-val">${d.size||0} / ${parseFloat(d.margin||0).toFixed(2)} USDT</span></div>
+        <div class="myt-row"><span class="myt-lbl">Mode</span><span class="myt-val">${String(d.mode||'cross').toUpperCase()}</span></div>
+        ${isPos ? `<div class="myt-row"><span class="myt-lbl">Liq. Price</span><span class="myt-val red">${parseFloat(d.liq_price||0).toLocaleString('en',{maximumFractionDigits:4})}</span></div>` : `<div class="myt-row"><span class="myt-lbl">Limit Price</span><span class="myt-val">${parseFloat(d.limit_price||0).toLocaleString('en',{maximumFractionDigits:4})}</span></div>`}
+        <div class="myt-row" style="margin-top:4px">
+          ${isPos
+            ? `<div class="myt-cancel-btn" onclick="futdCloseposition('${d.id}')">Close Position</div>`
+            : `<div class="myt-cancel-btn" onclick="futdCancelorder('${d.order_id}')">Cancel Order</div>`}
+        </div>
+      </div>`;
+    });
+  } else if(tab === 'futd-order-history'){
+    items.forEach(d => {
+      html += `<div class="myt-item">
+        <div class="myt-item-header">
+          <span class="myt-coin">${d.coin||d.symbol||''}</span>
+          <span class="myt-badge">${d.orderType||'Market'}</span>
+          <span class="myt-timestamp">${d.time||''}</span>
+        </div>
+        <div class="myt-direction ${d.dirClass||''}">${d.dir||''}</div>
+        <div class="myt-row"><span class="myt-lbl">Size / Margin</span><span class="myt-val">${d.size||''} / ${d.margin||''} USDT</span></div>
+        <div class="myt-row"><span class="myt-lbl">Price</span><span class="myt-val">${d.price||''}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Status</span><span class="myt-val myt-status filled">${d.status||''}</span></div>
+        ${d.positionSide && d.positionSide!=='BOTH' ? `<div class="myt-row"><span class="myt-lbl">Position Side</span><span class="myt-val" style="color:#7289da">${d.positionSide} [Hedge]</span></div>` : ''}
+      </div>`;
+    });
+  } else if(tab === 'futd-position-history'){
+    html += `<div style="padding:8px 12px;font-size:11px;color:var(--t2);border-bottom:1px solid var(--border)">Futures-Direct Position History</div>`;
+    items.forEach(d => {
+      const pnlClass = parseFloat(d.realizedPnl||0) >= 0 ? 'green' : 'red';
+      const roiClass = parseFloat(d.roi||0) >= 0 ? 'green' : 'red';
+      const liqBadge = d.isLiquidated ? `<span style="font-size:9px;font-weight:700;color:var(--r);border:1px solid rgba(246,70,93,.4);border-radius:3px;padding:1px 4px;margin-left:4px">LIQ</span>` : '';
+      html += `<div class="myt-item">
+        <div class="myt-pos-header">
+          <div class="myt-side-badge ${d.side||''}">${d.side==='short'?'S':'L'}</div>
+          <span class="myt-coin">${d.coin||d.symbol||''}</span>
+          <span class="myt-badge">${d.badge||'Direct'}</span>
+          <span class="myt-lev-badge">${d.mode||''}</span>${liqBadge}
+          <span style="margin-left:auto;font-size:12px;color:var(--t2)">${d.status||''}</span>
+        </div>
+        <div class="myt-grid">
+          <div class="myt-grid-item"><span class="myt-lbl">Realized PNL (USDT)</span><span class="myt-lbl" style="font-size:11px">ROI</span></div>
+          <div class="myt-grid-item center"><span class="myt-val ${pnlClass}" style="font-size:14px;font-weight:700">${parseFloat(d.realizedPnl||0)>=0?'+':''}${d.realizedPnl||'0'}</span><span class="myt-val ${roiClass}">${parseFloat(d.roi||0)>=0?'+':''}${d.roi||'0'}%</span></div>
+        </div>
+        <div class="myt-row"><span class="myt-lbl">Avg. Entry</span><span class="myt-val">${d.avgEntry||'—'}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Avg. Close</span><span class="myt-val">${d.avgClose||'—'}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Size</span><span class="myt-val">${d.size||'—'}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Opened</span><span class="myt-val">${d.opened||'—'}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Closed (${d.lasting||''})</span><span class="myt-val">${d.closed||'—'}</span></div>
+        ${d.positionSide && d.positionSide!=='BOTH' ? `<div class="myt-row"><span class="myt-lbl">Position Side</span><span class="myt-val" style="color:#7289da">${d.positionSide} [Hedge]</span></div>` : ''}
+      </div>`;
+    });
+  } else if(tab === 'futd-trade-history'){
+    items.forEach(d => {
+      html += `<div class="myt-item">
+        <div class="myt-item-header">
+          <span class="myt-coin">${d.coin||''}</span>
+          <span class="myt-badge">Direct</span>
+          <span class="myt-timestamp">${d.time||''}</span>
+        </div>
+        <div class="myt-direction ${d.dirClass||''}">${d.dir||''}</div>
+        <div class="myt-row"><span class="myt-lbl">Price</span><span class="myt-val">${d.price||''}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Size</span><span class="myt-val">${d.size||d.filled||''}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Fee (USDT)</span><span class="myt-val">${d.fee||'0'}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Realized PNL</span><span class="myt-val ${parseFloat(d.realizedPnl||0)>0?'green':''}">${parseFloat(d.realizedPnl||0)>=0?'+':''}${d.realizedPnl||'0'}</span></div>
+      </div>`;
+    });
+  } else if(tab === 'futd-transaction-history'){
+    items.forEach(d => {
+      const amtClass = String(d.amount||'').startsWith('+') ? 'green' : 'red';
+      const isLiq    = d.type === 'Futures Direct Liquidation';
+      html += `<div class="myt-item">
+        <div class="myt-row" style="margin-bottom:6px">
+          <span class="myt-fund-asset">${d.asset||'USDT'}</span>
+          ${isLiq ? `<span style="font-size:10px;font-weight:700;color:var(--r);margin-left:6px">⚡ LIQ</span>` : ''}
+          <span class="myt-timestamp" style="margin-left:auto">${d.time||''}</span>
+        </div>
+        <div class="myt-row"><span class="myt-lbl">Type</span><span class="myt-val">${d.type||''}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Symbol</span><span class="myt-val">${d.symbol||'—'}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Amount</span><span class="myt-val ${amtClass}">${d.amount||''}</span></div>
+      </div>`;
+    });
+  } else if(tab === 'futd-funding-fee'){
+    items.forEach(d => {
+      const amtClass = String(d.amount||'').startsWith('+') ? 'green' : 'red';
+      html += `<div class="myt-item">
+        <div class="myt-row" style="margin-bottom:6px">
+          <span class="myt-fund-asset">${d.asset||'USDT'}</span>
+          <span class="myt-timestamp">${d.time||''}</span>
+        </div>
+        <div class="myt-row"><span class="myt-lbl">Symbol</span><span class="myt-val">${d.symbol||''}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Amount</span><span class="myt-val ${amtClass}">${d.amount||''}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Rate</span><span class="myt-val">${d.rate||'—'}</span></div>
+      </div>`;
+    });
+  } else if(tab === 'futd-liquidation-history'){
+    html += `<div style="padding:8px 12px;font-size:11px;color:var(--r);border-bottom:1px solid var(--border)">⚡ Liquidation History — Futures-Direct</div>`;
+    items.forEach(d => {
+      html += `<div class="myt-item">
+        <div class="myt-pos-header">
+          <div class="myt-side-badge ${d.side||''}">${d.side==='short'?'S':'L'}</div>
+          <span class="myt-coin">${d.coin||d.symbol||''}</span>
+          <span class="myt-badge" style="color:var(--r)">Liquidated</span>
+          <span class="myt-lev-badge">${d.mode||''}</span>
+          <span style="margin-left:auto;font-size:12px;color:var(--r)">Closed</span>
+        </div>
+        <div class="myt-row"><span class="myt-lbl">Avg. Entry Price</span><span class="myt-val">${d.avgEntry||'—'}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Liq. Price</span><span class="myt-val red">${d.liqPrice||'—'}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Margin Lost (USDT)</span><span class="myt-val red">${d.marginLost||'—'}</span></div>
+        <div class="myt-row"><span class="myt-lbl">Closed At</span><span class="myt-val">${d.closed||'—'}</span></div>
+        ${d.positionSide && d.positionSide!=='BOTH' ? `<div class="myt-row"><span class="myt-lbl">Position Side</span><span class="myt-val" style="color:#7289da">${d.positionSide} [Hedge]</span></div>` : ''}
+      </div>`;
+    });
   }
   el.innerHTML = html;
 }
@@ -23472,9 +23716,20 @@ function _dynOpts(tab, key, staticFallback) {
     // funding-fee
     'funding-fee|asset':             () => HIST.fundingFee.map(d => d.asset).filter(Boolean),
     // spot
-    'spot-order-history|status':     () => HIST.spotOrderHistory.map(d => d.status).filter(Boolean),
-    'spot-order-history|direction':  () => HIST.spotOrderHistory.map(d => d.dir).filter(Boolean),
-    'spot-trade-history|direction':  () => HIST.spotTradeHistory.map(d => d.dir).filter(Boolean),
+    'spot-order-history|status':              () => HIST.spotOrderHistory.map(d => d.status).filter(Boolean),
+    'spot-order-history|direction':           () => HIST.spotOrderHistory.map(d => d.dir).filter(Boolean),
+    'spot-trade-history|direction':           () => HIST.spotTradeHistory.map(d => d.dir).filter(Boolean),
+    // [v2.63-HEDGE] Futures-Direct dynamic options
+    'futd-order-history|orderType':           () => (HIST.futdOrderHistory      || []).map(d => d.orderType).filter(Boolean),
+    'futd-order-history|direction':           () => (HIST.futdOrderHistory      || []).map(d => d.dir).filter(Boolean),
+    'futd-order-history|status':              () => (HIST.futdOrderHistory      || []).map(d => d.status).filter(Boolean),
+    'futd-position-history|mode':             () => (HIST.futdPositionHistory   || []).map(d => d.mode).filter(Boolean),
+    'futd-position-history|status':           () => (HIST.futdPositionHistory   || []).map(d => d.status).filter(Boolean),
+    'futd-trade-history|direction':           () => (HIST.futdTradeHistory      || []).map(d => d.dir).filter(Boolean),
+    'futd-transaction-history|asset':         () => (HIST.futdTransactionHistory|| []).map(d => d.asset).filter(Boolean),
+    'futd-transaction-history|type':          () => (HIST.futdTransactionHistory|| []).map(d => d.type).filter(Boolean),
+    'futd-funding-fee|asset':                 () => (HIST.futdFundingFee        || []).map(d => d.asset).filter(Boolean),
+    'futd-liquidation-history|mode':          () => (HIST.futdLiquidationHistory|| []).map(d => d.mode).filter(Boolean),
   };
   const srcKey = tab + '|' + key;
   const fromData = sources[srcKey] ? sources[srcKey]() : [];
@@ -23635,6 +23890,20 @@ const MYT_CONTEXTS = {
     ],
     defaultTab: 'transaction-history',
   },
+  // [v2.63-HEDGE] Futures-Direct context
+  futures_direct: {
+    label: 'Futures-Direct',
+    tabs: [
+      { id:'futd-open-orders',         label:'Open Orders',         count:'futdOOCount' },
+      { id:'futd-order-history',       label:'Order History' },
+      { id:'futd-position-history',    label:'Position History' },
+      { id:'futd-trade-history',       label:'Trade History' },
+      { id:'futd-transaction-history', label:'Transaction History' },
+      { id:'futd-funding-fee',         label:'Funding Fee' },
+      { id:'futd-liquidation-history', label:'Liquidation History' },
+    ],
+    defaultTab: 'futd-open-orders',
+  },
 };
 
 function mytToggleContextMenu() {
@@ -23662,9 +23931,11 @@ function mytToggleContextMenu() {
 function mytCtxShowRight(ctx) {
   const right = document.getElementById('mytCtxRight');
   // For My Trades (left1): show Futures / Spot options
-  if (ctx === 'futures' || ctx === 'spot') {
+  if (ctx === 'futures' || ctx === 'spot' || ctx === 'futures_direct') {
+    // [v2.63-HEDGE] เพิ่ม Futures-Direct context ใน dropdown
     right.innerHTML = `
       <div onclick="mytSetContext('futures')" style="padding:14px 20px;font-size:14px;cursor:pointer;color:${MYT.context==='futures'?'var(--y)':'var(--t2)'};font-weight:${MYT.context==='futures'?'600':'400'}">USD⑤-M Futures</div>
+      <div onclick="mytSetContext('futures_direct')" style="padding:14px 20px;font-size:14px;cursor:pointer;color:${MYT.context==='futures_direct'?'var(--y)':'var(--t2)'};font-weight:${MYT.context==='futures_direct'?'600':'400'}">Futures-Direct</div>
       <div onclick="mytSetContext('spot')" style="padding:14px 20px;font-size:14px;cursor:pointer;color:${MYT.context==='spot'?'var(--y)':'var(--t2)'};font-weight:${MYT.context==='spot'?'600':'400'}">Spot</div>
     `;
   } else {
@@ -30178,11 +30449,18 @@ async function loadDashboard() {
     _applyMemberToProfile(dash.member);
   }
 
-  if (dash && dash.trades)       _mergeIntoHIST('tradeHistory',       dash.trades);
-  if (dash && dash.spotTrades)   _mergeIntoHIST('spotTradeHistory',   dash.spotTrades);
-  if (dash && dash.positions)    _mergeIntoHIST('positionHistory',    dash.positions.filter(p => p.status !== 'Active'));
-  if (dash && dash.orderHistory) _mergeIntoHIST('orderHistory',       dash.orderHistory); // [v8.9 NEW] — เดิมไม่มี endpoint/merge ใดส่ง Order History กลับมาเลย
-  if (dash && dash.funding)      _mergeIntoHIST('fundingFee',         dash.funding);
+  if (dash && dash.trades)          _mergeIntoHIST('tradeHistory',          dash.trades);
+  if (dash && dash.spotTrades)      _mergeIntoHIST('spotTradeHistory',      dash.spotTrades);
+  if (dash && dash.positions)       _mergeIntoHIST('positionHistory',       dash.positions.filter(p => p.status !== 'Active'));
+  if (dash && dash.orderHistory)    _mergeIntoHIST('orderHistory',          dash.orderHistory); // [v8.9 NEW]
+  if (dash && dash.funding)         _mergeIntoHIST('fundingFee',            dash.funding);
+  // [v2.63-HEDGE] Futures-Direct
+  if (dash && dash.futdClosedPos)   _mergeIntoHIST('futdPositionHistory',    dash.futdClosedPos);
+  if (dash && dash.futdLiqPos)      _mergeIntoHIST('futdLiquidationHistory', dash.futdLiqPos);
+  if (dash && dash.futdOrdHistory)  _mergeIntoHIST('futdOrderHistory',       dash.futdOrdHistory);
+  if (dash && dash.futdTrades)      _mergeIntoHIST('futdTradeHistory',       dash.futdTrades);
+  if (dash && dash.futdTrans)       _mergeIntoHIST('futdTransactionHistory', dash.futdTrans);
+  if (dash && dash.futdFunding)     _mergeIntoHIST('futdFundingFee',         dash.futdFunding);
 
   // [FIX-TX-CLEAR] ถ้า GAS คืน transactions field (แม้จะเป็น array ว่าง) = GAS บอกว่าไม่มีข้อมูล
   // → ล้าง HIST.transactionHistory และ cache trans_ ก่อน merge เพื่อป้องกัน cache เก่าค้างแสดง
@@ -30558,6 +30836,187 @@ function _mapGasTransaction(r) {
   };
 }
 
+// ══════════════════════════════════════════════════════════════════
+// [v2.63-HEDGE] _mapGasFutd* — mapper สำหรับ Futures-Direct history
+// แยกจาก Earn mappers เพราะ:
+//   1) source sheet ต่างกัน (FUT_POS/FUT_ORD/TRANS แทน POSITIONS/OpenOrders)
+//   2) field เพิ่มขึ้น: position_side, is_liquidated, reduce_only
+//   3) badge = 'Direct' (แทน 'Perp')
+// ══════════════════════════════════════════════════════════════════
+
+/** map FUT_POS row (closed) → HIST.futdPositionHistory shape */
+function _mapGasFutdPositionHistory(r) {
+  const sym        = r.symbol || '';
+  const coin       = sym.replace(/USDT$/i,'').replace(/-PERP$/i,'') || sym || '—';
+  const lev        = parseFloat(r.lev)  || 1;
+  const size       = parseFloat(r.size) || 0;
+  const modeRaw    = (r.mode || 'Cross').replace(/\s*\d+x\s*$/i,'').trim() || 'Cross';
+  const posSide    = String(r.position_side || 'BOTH').toUpperCase();
+  const isLiq      = String(r.is_liquidated || '').toLowerCase() === 'true';
+
+  // lasting จาก lasting_ms หรือ diff opened_at/closed_at
+  let lastingStr = '';
+  const lastingMs = parseFloat(r.lasting_ms) || 0;
+  if (lastingMs > 0) {
+    const mins = Math.floor(lastingMs / 60000);
+    if (mins < 60)   lastingStr = mins + 'm';
+    else if (mins < 1440) lastingStr = Math.floor(mins/60) + 'h ' + (mins%60) + 'm';
+    else lastingStr = Math.floor(mins/1440) + 'd ' + Math.floor((mins%1440)/60) + 'h';
+  } else if (r.opened_at && r.closed_at) {
+    const diff = Date.parse(r.closed_at) - Date.parse(r.opened_at);
+    if (diff > 0) {
+      const mins = Math.floor(diff/60000);
+      if (mins < 60)   lastingStr = mins + 'm';
+      else if (mins < 1440) lastingStr = Math.floor(mins/60) + 'h ' + (mins%60) + 'm';
+      else lastingStr = Math.floor(mins/1440) + 'd';
+    }
+  }
+
+  return {
+    id:           r.id,
+    coin,  symbol: sym,
+    badge:        'Direct',
+    mode:         modeRaw + ' ' + lev + 'x',
+    lev,
+    side:         (r.side || 'long').toLowerCase(),
+    realizedPnl:  parseFloat(parseFloat(r.realized_pnl)||0).toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:4}),
+    roi:          (parseFloat(r.roi)||0).toFixed(2),
+    closedVol:    HIST.fmtNum(size),
+    size:         HIST.fmtNum(size),
+    avgEntry:     HIST.fmtPrice(r.entry_price),
+    avgClose:     HIST.fmtPrice(r.avg_close || r.exit_price),
+    maxOI:        HIST.fmtNum(size),
+    opened:       _isoToHistTime(r.opened_at),
+    openedTs:     r.opened_at ? Date.parse(r.opened_at) : Date.now(),
+    closed:       _isoToHistTime(r.closed_at),
+    closedTs:     r.closed_at ? Date.parse(r.closed_at) : Date.now(),
+    ts:           r.closed_at ? Date.parse(r.closed_at) : Date.now(),
+    lasting:      lastingStr || '—',
+    status:       isLiq ? 'Liquidated' : (r.status || 'Closed'),
+    isLiquidated: isLiq,
+    positionSide: posSide,
+  };
+}
+
+/** map FUT_ORD row (Filled/Cancelled) → HIST.futdOrderHistory shape */
+function _mapGasFutdOrderHistory(r) {
+  const sym     = r.symbol || '';
+  const coin    = sym.replace(/USDT$/i,'').replace(/-PERP$/i,'') || sym || '—';
+  const side    = (r.side || 'long').toLowerCase();
+  const isLong  = side === 'long';
+  const ot      = r.order_type || 'Market';
+  const isClose = String(r.reduce_only || '').toLowerCase() === 'true';
+  const dirLabel = (isClose ? 'Close ' : 'Open ') + (isLong ? 'Long' : 'Short');
+  const dirClass = isLong ? (isClose ? 'close-long' : 'open-long') : (isClose ? 'close-short' : 'open-short');
+  const size    = parseFloat(r.size)  || 0;
+  const margin  = parseFloat(r.margin)|| 0;
+  const lp      = parseFloat(r.limit_price) || 0;
+  const tsSrc   = r.updated_at || r.created_at;
+  const posSide = String(r.position_side || 'BOTH').toUpperCase();
+  return {
+    id:           'futdOrd_' + (r.order_id || tsSrc || Math.random()),
+    coin,  symbol: sym,
+    badge:        'Direct',
+    orderType:    ot,
+    dir:          ot + ' / ' + dirLabel,
+    dirClass,
+    time:         _isoToHistTime(tsSrc),
+    ts:           tsSrc ? Date.parse(tsSrc) : Date.now(),
+    size:         HIST.fmtNum(size),
+    margin:       margin.toFixed(2),
+    price:        HIST.fmtPrice(lp),
+    status:       r.status === 'Cancelled' ? 'Cancelled' : (r.status || 'Filled'),
+    positionSide: posSide,
+    reduceOnly:   isClose ? 'True' : 'False',
+  };
+}
+
+/** map TRADES row (Futures-Direct direction) → HIST.futdTradeHistory shape */
+function _mapGasFutdTradeHistory(r) {
+  const sym     = r.symbol || '';
+  const coin    = sym.replace(/USDT$/i,'').replace(/-PERP$/i,'') || sym || '—';
+  const lower   = String(r.dir || '').toLowerCase();
+  const isLong  = lower.includes('long');
+  const isClose = lower.includes('close');
+  const dirLabel = (isClose ? 'Close ' : 'Open ') + (isLong ? 'Long' : 'Short');
+  const dirClass = isLong ? (isClose ? 'close-long' : 'open-long') : (isClose ? 'close-short' : 'open-short');
+  const posSide  = String(r.position_side || 'BOTH').toUpperCase();
+  return {
+    id:           r.id,
+    coin,  symbol: sym,
+    badge:        'Direct',
+    dir:          'Market / ' + dirLabel,
+    dirClass,
+    time:         _isoToHistTime(r.created_at),
+    ts:           r.created_at ? Date.parse(r.created_at) : Date.now(),
+    price:        HIST.fmtPrice(r.price),
+    size:         HIST.fmtNum(parseFloat(r.filled)||parseFloat(r.size)||0),
+    filled:       HIST.fmtNum(parseFloat(r.filled)||0),
+    fee:          (parseFloat(r.fee)||0).toFixed(6),
+    role:         r.role ? (r.role.charAt(0).toUpperCase()+r.role.slice(1)) : 'Taker',
+    realizedPnl:  parseFloat(parseFloat(r.realized_pnl)||0).toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:4}),
+    positionSide: posSide,
+  };
+}
+
+/** map TRANS row (Futures Direct Funding Fee) → HIST.futdFundingFee shape */
+function _mapGasFutdFundingFee(r) {
+  let amt = String(r.amount != null ? r.amount : '0');
+  if (amt && !amt.startsWith('+') && !amt.startsWith('-') && parseFloat(amt) >= 0) amt = '+' + amt;
+  // ดึง rate จาก note field ถ้ามี "Rate: X%"
+  const rateMatch = String(r.note||'').match(/Rate:\s*([\d.]+%?)/i);
+  return {
+    id:     r.id || ('futdFf_' + (r.created_at || Math.random())),
+    asset:  r.asset  || 'USDT',
+    symbol: r.symbol || '',
+    amount: amt,
+    rate:   rateMatch ? rateMatch[1] : '—',
+    time:   _isoToHistTime(r.created_at),
+    ts:     r.created_at ? Date.parse(r.created_at) : Date.now(),
+  };
+}
+
+/** map TRANS row (Futures Direct PNL / Liquidation) → HIST.futdTransactionHistory shape */
+function _mapGasFutdTransaction(r) {
+  let amt = String(r.amount != null ? r.amount : '0');
+  if (amt && !amt.startsWith('+') && !amt.startsWith('-') && parseFloat(amt) >= 0) amt = '+' + amt;
+  return {
+    id:     r.id || ('futdTx_' + (r.created_at || Math.random())),
+    asset:  r.asset  || 'USDT',
+    type:   r.type   || 'Futures Direct PNL',
+    symbol: r.symbol || '',
+    amount: amt,
+    time:   _isoToHistTime(r.created_at),
+    ts:     r.created_at ? Date.parse(r.created_at) : Date.now(),
+  };
+}
+
+/** map FUT_POS row (Liquidated) → HIST.futdLiquidationHistory shape */
+function _mapGasFutdLiquidation(r) {
+  const sym     = r.symbol || '';
+  const coin    = sym.replace(/USDT$/i,'').replace(/-PERP$/i,'') || sym || '—';
+  const lev     = parseFloat(r.lev) || 1;
+  const modeRaw = (r.mode || 'Cross').replace(/\s*\d+x\s*$/i,'').trim() || 'Cross';
+  const rpnl    = parseFloat(r.realized_pnl) || 0;
+  const margin  = parseFloat(r.margin)        || 0;
+  const posSide = String(r.position_side || 'BOTH').toUpperCase();
+  return {
+    id:           r.id,
+    coin,  symbol: sym,
+    badge:        'Direct',
+    mode:         modeRaw + ' ' + lev + 'x',
+    lev,
+    side:         (r.side || 'long').toLowerCase(),
+    positionSide: posSide,
+    avgEntry:     HIST.fmtPrice(r.entry_price),
+    liqPrice:     HIST.fmtPrice(r.liq_price),
+    marginLost:   (Math.abs(rpnl) > margin ? margin : Math.abs(rpnl)).toFixed(4),
+    closed:       _isoToHistTime(r.closed_at),
+    ts:           r.closed_at ? Date.parse(r.closed_at) : Date.now(),
+    status:       'Liquidated',
+  };
+}
+
 // [FIX-TX-CLEAR] ใช้แทน _mergeIntoHIST('transactionHistory', ...) ทุกจุด
 // ถ้า GAS คืน array (แม้ว่าง) = ยืนยันว่าไม่มีข้อมูล → clear ก่อน merge
 // ถ้า GAS คืน undefined/null = GAS ไม่ตอบ → ไม่ clear (ไม่รู้ว่าว่างหรือ error)
@@ -30636,6 +31095,19 @@ function _mergeIntoHIST(key, rows) {
   } else if (key === 'transactionHistory') {
     // [v9.1] map GAS raw rows → UI shape (เพิ่ม time/ts/type field)
     newRows = newRows.map(_mapGasTransaction);
+  // [v2.63-HEDGE] Futures-Direct mappers
+  } else if (key === 'futdPositionHistory') {
+    newRows = newRows.map(_mapGasFutdPositionHistory);
+  } else if (key === 'futdOrderHistory') {
+    newRows = newRows.map(_mapGasFutdOrderHistory);
+  } else if (key === 'futdTradeHistory') {
+    newRows = newRows.map(_mapGasFutdTradeHistory);
+  } else if (key === 'futdFundingFee') {
+    newRows = newRows.map(_mapGasFutdFundingFee);
+  } else if (key === 'futdTransactionHistory') {
+    newRows = newRows.map(_mapGasFutdTransaction);
+  } else if (key === 'futdLiquidationHistory') {
+    newRows = newRows.map(_mapGasFutdLiquidation);
   }
 
   HIST[key] = [...(HIST[key] || []), ...newRows];
@@ -32647,14 +33119,22 @@ function lgLogout() {
   // ทำให้ _mergeIntoHIST() เข้าโหมด append ทับ ไม่ใช่ replace → ข้อมูลปนกัน
   try {
     if (typeof HIST !== 'undefined') {
-      HIST.orderHistory       = [];
-      HIST.positionHistory    = [];
-      HIST.tradeHistory       = [];
-      HIST.transactionHistory = [];
-      HIST.fundingFee         = [];
-      HIST.spotOrderHistory   = [];
-      HIST.spotTradeHistory   = [];
-      HIST._openPosRegistry   = {};
+      HIST.orderHistory            = [];
+      HIST.positionHistory         = [];
+      HIST.tradeHistory            = [];
+      HIST.transactionHistory      = [];
+      HIST.fundingFee              = [];
+      HIST.spotOrderHistory        = [];
+      HIST.spotTradeHistory        = [];
+      HIST._openPosRegistry        = {};
+      // [v2.63-HEDGE] Futures-Direct history arrays
+      HIST.futdOpenOrders          = [];
+      HIST.futdOrderHistory        = [];
+      HIST.futdPositionHistory     = [];
+      HIST.futdTradeHistory        = [];
+      HIST.futdTransactionHistory  = [];
+      HIST.futdFundingFee          = [];
+      HIST.futdLiquidationHistory  = [];
     }
   } catch(e) {}
   try {
@@ -36339,6 +36819,12 @@ const FUTD = {
   hideOtherPairs: true,
   subTab: 'pos',           // 'pos' | 'ord'
   marginMode: 'cross',     // [v2.53] 'cross' | 'isolated' — ผู้ใช้เลือกก่อน open position
+  // [v2.63-HEDGE] Hedge Mode state
+  hedgeMode: false,        // false = One-way Mode, true = Hedge Mode
+  // positionSide คำนวณจาก hedgeMode+side:
+  //   hedgeMode=false → 'BOTH'   (One-way: Long/Short รวมกัน)
+  //   hedgeMode=true+side=long  → 'LONG'
+  //   hedgeMode=true+side=short → 'SHORT'
   obWs: null,              // WebSocket สำหรับ L2 orderbook
   asks: [],                // order book asks (Direct)
   bids: [],                // order book bids (Direct)
@@ -36399,6 +36885,8 @@ function futdInit() {
   futdRefreshPrice();
   futdStopPolling();
   futdChartInit();
+  // [v2.63-HEDGE] sync Hedge Mode button ให้ตรงกับ state ปัจจุบัน
+  if (typeof futdUpdateHedgeModeBtn === 'function') futdUpdateHedgeModeBtn();
 
   // เริ่ม Order Book WebSocket สำหรับ Direct tab (ใช้ FUTD.symbolCoin ที่ sync แล้ว)
   futdStartOrderBook();
@@ -37080,6 +37568,17 @@ async function futdRefreshAccountStatus() {
     if (cntPos) cntPos.textContent = (status.positions || []).length || 0;
     if (cntOrd) cntOrd.textContent = (status.orders    || []).length || 0;
 
+    // [v2.63-HEDGE] sync hedge_mode_active badge จาก server
+    if (status.hedge_mode_active && !FUTD.hedgeMode) {
+      // ถ้า server บอกว่ามี Hedge positions อยู่ แต่ client ยังเป็น One-way → sync state
+      FUTD.hedgeMode = true;
+      if (typeof futdUpdateHedgeModeBtn === 'function') futdUpdateHedgeModeBtn();
+    }
+
+    // [v2.63-HEDGE] populate futd-open-orders ใน HIST ด้วย active positions จาก server
+    // (ใช้ futdOpenOrders array แยกจาก Earn positions)
+    HIST.futdOpenOrders = (status.positions || []).slice();
+
     // [FIX-POS-LINES] วาดกราฟใหม่หลังได้ positions — เพื่อให้ Position Lines (Entry/TP/SL)
     // แสดงทันทีโดยไม่ต้องรอให้ user กดเปลี่ยน TF
     if (FUTD.chart.candles.length) futdChartDraw();
@@ -37320,12 +37819,17 @@ function futdRenderPositions(positions) {
     const modeBadge = posMode === 'isolated'
       ? `<span style="font-size:9px;background:rgba(240,185,11,.15);color:var(--y);border:1px solid rgba(240,185,11,.3);border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:700">ISO</span>`
       : `<span style="font-size:9px;background:rgba(14,203,129,.12);color:var(--g);border:1px solid rgba(14,203,129,.3);border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:700">CROSS</span>`;
+    // [v2.63-HEDGE] Hedge Mode badge — แสดงเฉพาะ position ที่เป็น Hedge (positionSide != 'BOTH')
+    const _posSide   = String(p.position_side || 'BOTH').toUpperCase();
+    const hedgeBadge = (_posSide === 'LONG' || _posSide === 'SHORT')
+      ? `<span style="font-size:9px;background:rgba(114,137,218,.15);color:#7289da;border:1px solid rgba(114,137,218,.4);border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:700">HEDGE</span>`
+      : '';
 
     return `<div class="futd-pos-row" id="futd-pos-${p.id}">
       <div class="futd-pos-top">
         <div>
           <span class="futd-pos-sym">${p.symbol}</span>
-          <span class="futd-pos-side ${p.side}">${p.side === 'long' ? 'LONG' : 'SHORT'} x${p.lev}</span>${modeBadge}
+          <span class="futd-pos-side ${p.side}">${p.side === 'long' ? 'LONG' : 'SHORT'} x${p.lev}</span>${modeBadge}${hedgeBadge}
         </div>
         <div style="text-align:right">
           <div class="futd-pos-pnl" style="color:${upnlColor}" id="futd-upnl-${p.id}">
@@ -37431,13 +37935,20 @@ async function futdSubmitOpen() {
   if (!size || size <= 0) { showToast('กรุณาระบุ Size'); return; }
   if (!FUTD.lastPrice)    { showToast('รอราคาตลาดสักครู่แล้วลองใหม่'); return; }
 
+  // [v2.63-HEDGE] คำนวณ position_side จาก hedgeMode state
+  const positionSide = FUTD.hedgeMode
+    ? (FUTD.side === 'long' ? 'LONG' : 'SHORT')
+    : 'BOTH';
+
   try {
     await dbCallRaw('openFuturesPosition', {
       uid, symbol: FUTD.symbolCoin + 'USDT', side: FUTD.side, lev, size,
       entry_price: FUTD.lastPrice, mode: FUTD.marginMode || 'cross', // [v2.53]
       tp: tp || '', sl: sl || '',
+      hedge_mode: FUTD.hedgeMode,   // [v2.63-HEDGE] ส่ง hedge_mode flag
+      position_side: positionSide,  // [v2.63-HEDGE] 'BOTH'|'LONG'|'SHORT'
     });
-    showToast('✅ เปิด Position สำเร็จ');
+    showToast('✅ เปิด Position สำเร็จ' + (FUTD.hedgeMode ? ' [Hedge: ' + positionSide + ']' : ''));
     document.getElementById('futd-size').value = '';
     document.getElementById('futd-tp').value = '';
     document.getElementById('futd-sl').value = '';
@@ -37488,6 +37999,47 @@ function futdUpdateMarginModeBtn() {
     btn.style.borderColor  = 'rgba(240,185,11,.5)';
   } else {
     btn.textContent = 'Cross';
+    btn.style.color        = '';
+    btn.style.borderColor  = '';
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// [v2.63-HEDGE] Hedge Mode Toggle (One-way / Hedge)
+// ──────────────────────────────────────────────────────────
+// One-way Mode: Long + Short บน symbol เดียวกัน → merge เป็น position เดียว (BOTH)
+// Hedge Mode:   Long + Short แยกกัน ถือคู่กันได้ (LONG / SHORT)
+// ⚠️ ไม่อนุญาตเปลี่ยน mode ถ้ามี Active position อยู่ (เหมือน Binance)
+// ══════════════════════════════════════════════════════════
+
+/** สลับ One-way ↔ Hedge Mode */
+function futdToggleHedgeMode() {
+  // ตรวจว่ามี Active position อยู่ไหม — ถ้ามีห้ามเปลี่ยน
+  const activePosCount = ((FUTD.status && FUTD.status.positions) || []).length;
+  if (activePosCount > 0) {
+    showToast('⚠️ ปิด Position ทั้งหมดก่อนเปลี่ยน Position Mode');
+    return;
+  }
+  FUTD.hedgeMode = !FUTD.hedgeMode;
+  futdUpdateHedgeModeBtn();
+  futdUpdateTradeBtnLabels(); // อัปเดตปุ่ม Buy/Long, Sell/Short ให้แสดง side badge ถูกต้อง
+  if (FUTD.hedgeMode) {
+    showToast('⚡ Hedge Mode — Long/Short แยก Position ได้บน Symbol เดียวกัน');
+  } else {
+    showToast('🔁 One-way Mode — Long/Short ยืนอยู่ Position เดียวต่อ Symbol');
+  }
+}
+
+/** อัปเดตปุ่ม Hedge Mode badge */
+function futdUpdateHedgeModeBtn() {
+  const btn = document.getElementById('futdHedgeModeBtn');
+  if (!btn) return;
+  if (FUTD.hedgeMode) {
+    btn.textContent        = 'Hedge';
+    btn.style.color        = 'var(--accent,#f0b90b)';
+    btn.style.borderColor  = 'rgba(240,185,11,.5)';
+  } else {
+    btn.textContent        = 'One-way';
     btn.style.color        = '';
     btn.style.borderColor  = '';
   }
@@ -37643,12 +38195,133 @@ async function futdCloseposition(posId) {
     }
     if (!exitPrice) { showToast('ไม่สามารถดึงราคาปัจจุบันได้ ลองใหม่อีกครั้ง'); return; }
 
-    await dbCallRaw('closeFuturesPosition', { id: posId, uid, exit_price: exitPrice });
+    const result = await dbCallRaw('closeFuturesPosition', { id: posId, uid, exit_price: exitPrice });
+
+    // [v2.63-HEDGE] populate futd history arrays หลังปิด position สำเร็จ
+    _futdLogCloseToHist(pos, exitPrice, result || {});
+
     showToast('✅ ปิด Position สำเร็จ');
     futdRefreshAccountStatus();
   } catch (e) {
     showToast('❌ ' + (e.message || 'ปิด Position ไม่สำเร็จ'));
   }
+}
+
+/**
+ * [v2.63-HEDGE] _futdLogCloseToHist — บันทึก close event เข้า futd history arrays
+ * เรียกหลัง closeFuturesPosition สำเร็จ
+ * @param {Object} pos       — position object จาก FUTD.status.positions
+ * @param {number} exitPrice — ราคาที่ปิด
+ * @param {Object} result    — response จาก GAS { realized_pnl, roi, tx_type }
+ */
+function _futdLogCloseToHist(pos, exitPrice, result) {
+  try {
+    const now        = Date.now();
+    const sym        = pos.symbol || '';
+    const coin       = sym.replace('USDT','');
+    const side       = String(pos.side || '').toLowerCase();
+    const entryP     = parseFloat(pos.entry_price) || 0;
+    const size       = parseFloat(pos.size)        || 0;
+    const margin     = parseFloat(pos.margin)      || 0;
+    const lev        = pos.lev || 1;
+    const modeStr    = String(pos.mode || 'Cross').toUpperCase() + ' ' + lev + 'x';
+    const posSide    = String(pos.position_side || 'BOTH').toUpperCase();
+    const isLiq      = (result.tx_type === 'Futures Direct Liquidation') || false;
+
+    // คำนวณ realized PnL (ฝั่ง client — ใช้ค่าจาก server ถ้ามี)
+    const rpnl       = result.realized_pnl !== undefined
+      ? parseFloat(result.realized_pnl)
+      : (side === 'long' ? (exitPrice - entryP) * size : (entryP - exitPrice) * size);
+    const roi        = result.roi !== undefined
+      ? parseFloat(result.roi)
+      : (margin > 0 ? (rpnl / margin) * 100 : 0);
+
+    const fmtTs      = HIST.fmtTime(now);
+    const fmtEntry   = HIST.fmtPrice(entryP);
+    const fmtExit    = HIST.fmtPrice(exitPrice);
+    const fmtRpnl    = rpnl.toFixed(4);
+    const fmtRoi     = roi.toFixed(2);
+    const dirClass   = side === 'long' ? 'close-long' : 'close-short';
+    const dirLabel   = side === 'long' ? 'Close Long' : 'Close Short';
+    const openedAt   = pos.opened_at || '';
+    const liqPrice   = parseFloat((FUTD.status && FUTD.status.liq_price_map && FUTD.status.liq_price_map[pos.id]) || pos.liq_price || 0);
+
+    // 1. futdPositionHistory
+    const posHistEntry = {
+      id: HIST.genId(), coin: sym, symbol: sym, badge: 'Direct',
+      mode: modeStr, side, lev,
+      realizedPnl: fmtRpnl, roi: fmtRoi,
+      closedVol: HIST.fmtNum(size), size: HIST.fmtNum(size),
+      avgEntry: fmtEntry, avgClose: fmtExit,
+      maxOI: HIST.fmtNum(size),
+      opened: openedAt, openedTs: openedAt ? new Date(openedAt).getTime() : now,
+      closed: fmtTs,    closedTs: now,
+      lasting: _futdCalcLasting(openedAt ? new Date(openedAt).getTime() : now, now),
+      status: isLiq ? 'Liquidated' : 'Closed',
+      isLiquidated: isLiq,
+      positionSide: posSide,
+      ts: now,
+    };
+    if (!HIST.futdPositionHistory) HIST.futdPositionHistory = [];
+    HIST.futdPositionHistory.unshift(posHistEntry);
+
+    // 2. futdTradeHistory
+    if (!HIST.futdTradeHistory) HIST.futdTradeHistory = [];
+    HIST.futdTradeHistory.unshift({
+      id: HIST.genId(), coin: sym, badge: 'Direct',
+      dir: 'Market / ' + dirLabel, dirClass, time: fmtTs, ts: now,
+      price: fmtExit, size: HIST.fmtNum(size), filled: HIST.fmtNum(size),
+      fee: (exitPrice * size * 0.0005).toFixed(6), role: 'Taker',
+      realizedPnl: fmtRpnl,
+      positionSide: posSide,
+    });
+
+    // 3. futdTransactionHistory (Futures Direct PNL หรือ Liquidation)
+    if (!HIST.futdTransactionHistory) HIST.futdTransactionHistory = [];
+    HIST.futdTransactionHistory.unshift({
+      id: HIST.genId(), asset: 'USDT', time: fmtTs, ts: now,
+      type: isLiq ? 'Futures Direct Liquidation' : 'Futures Direct PNL',
+      symbol: sym,
+      amount: (rpnl >= 0 ? '+' : '') + fmtRpnl,
+    });
+
+    // 4. futdLiquidationHistory — เฉพาะกรณีถูก Liquidate
+    if (isLiq) {
+      if (!HIST.futdLiquidationHistory) HIST.futdLiquidationHistory = [];
+      HIST.futdLiquidationHistory.unshift({
+        id: HIST.genId(), coin: sym, symbol: sym, badge: 'Direct',
+        mode: modeStr, side, lev, positionSide: posSide,
+        avgEntry: fmtEntry, liqPrice: liqPrice > 0 ? HIST.fmtPrice(liqPrice) : '—',
+        marginLost: Math.abs(rpnl) > margin ? margin.toFixed(4) : Math.abs(rpnl).toFixed(4),
+        closed: fmtTs, ts: now, status: 'Liquidated',
+      });
+    }
+
+    // 5. futdOrderHistory — log Market close order
+    if (!HIST.futdOrderHistory) HIST.futdOrderHistory = [];
+    HIST.futdOrderHistory.unshift({
+      id: HIST.genId(), coin: sym, symbol: sym, badge: 'Direct',
+      orderType: isLiq ? 'Liquidation' : 'Market',
+      dir: 'Market / ' + dirLabel, dirClass, time: fmtTs, ts: now,
+      size: HIST.fmtNum(size), margin: margin.toFixed(2),
+      price: fmtExit, status: 'Filled',
+      positionSide: posSide,
+    });
+
+  } catch (e) {
+    console.warn('[_futdLogCloseToHist] error:', e.message);
+  }
+}
+
+/** คำนวณ lasting string เช่น "2d 3h 15m" */
+function _futdCalcLasting(openMs, closeMs) {
+  let diff = Math.max(0, closeMs - openMs);
+  const d  = Math.floor(diff / 86400000); diff -= d * 86400000;
+  const h  = Math.floor(diff / 3600000);  diff -= h * 3600000;
+  const m  = Math.floor(diff / 60000);
+  if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
+  if (h > 0) return h + 'h ' + m + 'm';
+  return m + 'm';
 }
 
 async function futdCancelorder(orderId) {

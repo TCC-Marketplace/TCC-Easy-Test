@@ -23577,7 +23577,7 @@ function _origMytRenderContent(tab){
         ${isPos ? `<div class="myt-row"><span class="myt-lbl">Liq. Price</span><span class="myt-val red">${parseFloat(d.liq_price||0).toLocaleString('en',{maximumFractionDigits:4})}</span></div>` : `<div class="myt-row"><span class="myt-lbl">Limit Price</span><span class="myt-val">${parseFloat(d.limit_price||0).toLocaleString('en',{maximumFractionDigits:4})}</span></div>`}
         <div class="myt-row" style="margin-top:4px">
           ${isPos
-            ? `<div class="myt-cancel-btn" onclick="futdCloseposition('${d.id}')">Close Position</div>`
+            ? `<div class="myt-cancel-btn" onclick="futdOpenCloseConfirm('${d.id}')">Close Position</div>`
             : `<div class="myt-cancel-btn" onclick="futdCancelorder('${d.order_id}')">Cancel Order</div>`}
         </div>
       </div>`;
@@ -37859,7 +37859,7 @@ function futdRenderPositions(positions) {
         <div class="futd-btn-sm" onclick="futdAdjLeverage('${p.id}')">Leverage</div>
         <div class="futd-btn-sm warn" onclick="futdOpenTpslSheet('${p.id}')">TP/SL</div>
         ${posMode === 'isolated' ? `<div class="futd-btn-sm" style="color:var(--y);border-color:rgba(240,185,11,.4)" onclick="futdOpenMarginSheet('${p.id}')">+Margin</div>` : ''}
-        <div class="futd-btn-sm danger" onclick="futdCloseposition('${p.id}')">Close</div>
+        <div class="futd-btn-sm danger" onclick="futdOpenCloseConfirm('${p.id}')">Close</div>
       </div>
     </div>`;
   }).join('');
@@ -38206,6 +38206,75 @@ async function futdCloseposition(posId) {
     showToast('❌ ' + (e.message || 'ปิด Position ไม่สำเร็จ'));
   }
 }
+
+// ── [v2.63-CLOSE-CONFIRM] futd Close Position Confirm ──────────────────────
+// ใช้ closeConfirmSheet เดียวกับ Contract tab แต่ trigger futdCloseposition แทน posClose
+let _futdCloseConfirmPosId = null;
+
+function futdOpenCloseConfirm(posId) {
+  const p = ((FUTD.status && FUTD.status.positions) || []).find(x => x.id === posId);
+  if (!p) return;
+  _futdCloseConfirmPosId = posId;
+
+  const coin    = (p.symbol || '').replace('USDT', '');
+  const markP   = FUTD.prices[coin] || parseFloat(p.entry_price) || 0;
+  const entryP  = parseFloat(p.entry_price) || 0;
+  const size    = parseFloat(p.size) || 0;
+  const priceDiff = p.side === 'long' ? markP - entryP : entryP - markP;
+  const estPnl    = priceDiff * size;
+  const pnlSign   = estPnl >= 0 ? '+' : '';
+  const pnlColor  = estPnl >= 0 ? 'var(--g)' : 'var(--r)';
+
+  // เติมข้อมูลเข้า closeConfirmSheet (ใช้ element เดียวกับ Contract tab)
+  const symEl = document.getElementById('ccs-sym');
+  if (symEl) symEl.textContent = p.symbol || '';
+  const sideEl = document.getElementById('ccs-side');
+  if (sideEl) {
+    sideEl.textContent = p.side === 'long' ? 'Long ▲' : 'Short ▼';
+    sideEl.style.color = p.side === 'long' ? 'var(--g)' : 'var(--r)';
+  }
+  const sizeEl = document.getElementById('ccs-size');
+  if (sizeEl) sizeEl.textContent = size.toFixed(4) + ' ' + coin;
+  const entryEl = document.getElementById('ccs-entry');
+  if (entryEl) entryEl.textContent = entryP.toLocaleString('en', { maximumFractionDigits: 4 });
+  const markEl = document.getElementById('ccs-mark');
+  if (markEl) markEl.textContent = markP.toLocaleString('en', { maximumFractionDigits: 4 });
+  const pnlEl = document.getElementById('ccs-pnl');
+  if (pnlEl) {
+    pnlEl.textContent = pnlSign + estPnl.toFixed(4) + ' USDT';
+    pnlEl.style.color = pnlColor;
+  }
+
+  // สลับ confirm action ไปยัง futd version
+  // patch confirmClosePos ชั่วคราวให้ทำงานกับ futd
+  window._futdCloseConfirmActive = true;
+  document.getElementById('closeConfirmSheet').classList.add('open');
+}
+
+// override confirmClosePos เพื่อรองรับทั้ง Contract และ Futures Direct
+(function _patchConfirmClosePos() {
+  const _origConfirm = window.confirmClosePos;
+  window.confirmClosePos = function() {
+    if (window._futdCloseConfirmActive && _futdCloseConfirmPosId != null) {
+      const id = _futdCloseConfirmPosId;
+      _futdCloseConfirmPosId = null;
+      window._futdCloseConfirmActive = false;
+      document.getElementById('closeConfirmSheet').classList.remove('open');
+      futdCloseposition(id);
+    } else {
+      window._futdCloseConfirmActive = false;
+      if (typeof _origConfirm === 'function') _origConfirm();
+    }
+  };
+  // patch cancelClosePos ด้วยเพื่อ reset flag
+  const _origCancel = window.cancelClosePos;
+  window.cancelClosePos = function() {
+    _futdCloseConfirmPosId = null;
+    window._futdCloseConfirmActive = false;
+    if (typeof _origCancel === 'function') _origCancel();
+  };
+})();
+// ────────────────────────────────────────────────────────────────────────────
 
 /**
  * [v2.63-HEDGE] _futdLogCloseToHist — บันทึก close event เข้า futd history arrays

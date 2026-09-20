@@ -37413,9 +37413,14 @@ async function futdPlaceOrder(side) {
     if (priceRaw > 0) entryPrice = priceRaw;
   }
 
+  // [v2.63-HEDGE] คำนวณ position_side จาก hedgeMode state — mirror ของ futdSubmitOpen()
+  const _positionSide = FUTD.hedgeMode
+    ? (side === 'long' ? 'LONG' : 'SHORT')
+    : 'BOTH';
+
   _futdSetBtnLoading(side, true);
   try {
-    await dbCallRaw('openFuturesPosition', {
+    const _res = await dbCallRaw('openFuturesPosition', {
       uid,
       symbol: FUTD.symbolCoin + 'USDT',
       side,
@@ -37426,8 +37431,25 @@ async function futdPlaceOrder(side) {
       order_type: FUTD.orderType,
       tp: tp || '',
       sl: sl || '',
+      hedge_mode: FUTD.hedgeMode,    // [v2.63-HEDGE] ส่ง hedge_mode flag
+      position_side: _positionSide,  // [v2.63-HEDGE] 'BOTH'|'LONG'|'SHORT'
     });
-    showToast('✅ ' + (FUTD.orderType === 'Limit' ? 'Limit Order' : 'เปิด Position') + ' สำเร็จ');
+    // [v2.68-NET] แสดงผลลัพธ์ตามจริง (netting / flip / new) — mirror ของ futdSubmitOpen()
+    const _act = (_res || {}).action;
+    let _msg = '✅ ' + (FUTD.orderType === 'Limit' ? 'Limit Order' : 'เปิด Position') + ' สำเร็จ' +
+               (FUTD.hedgeMode ? ' [Hedge: ' + _positionSide + ']' : '');
+    if (_act === 'netted_reduce') {
+      _msg = '✅ ลด Position ฝั่งตรงข้ามบางส่วนสำเร็จ (เหลือ ' +
+             (parseFloat(_res.remaining_size) || 0) + ') PnL ' +
+             ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2)) + ' USDT';
+    } else if (_act === 'netted_close') {
+      _msg = '✅ ปิด Position ฝั่งตรงข้ามสำเร็จ PnL ' +
+             ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2)) + ' USDT';
+    } else if (_act === 'netted_flip') {
+      _msg = '✅ ปิด Position ฝั่งตรงข้ามแล้วเปิดใหม่สำเร็จ (Flip) PnL ' +
+             ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2)) + ' USDT';
+    }
+    showToast(_msg);
     const inp = document.getElementById('futd-size');
     if (inp) inp.value = '';
     const tpInp = document.getElementById('futd-tp');

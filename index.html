@@ -5510,7 +5510,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       <!-- [v2.63-HEDGE] Position Mode toggle: One-way / Hedge -->
       <div class="cls-btn" id="futdHedgeModeBtn" onclick="futdToggleHedgeMode()" title="One-way: Long/Short รวม Position เดียว | Hedge: แยก Long/Short บน Symbol เดียวกันได้" style="font-size:10px">One-way</div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-        <div class="lev-btn" id="futdLevBtn" onclick="futdCycleLev()">50x</div>
+        <div class="lev-btn" id="futdLevBtn" onclick="futdOpenLevSheet()">50x</div>
       </div>
       <div class="side-btn" id="futdSideBtn" onclick="futdToggleSide()">S</div>
     </div>
@@ -8524,6 +8524,122 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
     <div style="height:20px"></div>
   </div>
 </div><!-- /futdMarginSheet -->
+
+<!-- ════ [v2.69-LEV] FUTURES-DIRECT: Adjust Leverage Sheet ════ -->
+<style>
+/* Leverage Sheet */
+#futdLevSheet{position:fixed;inset:0;z-index:1060;pointer-events:none}
+#futdLevSheet.open{pointer-events:all}
+#futdLevSheetBg{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;transition:opacity .3s}
+#futdLevSheet.open #futdLevSheetBg{opacity:1}
+#futdLevSheetPanel{
+  position:absolute;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);
+  width:100%;max-width:480px;
+  background:var(--bg2);border-radius:16px 16px 0 0;
+  transition:transform .35s cubic-bezier(.32,1,.23,1);
+  max-height:90vh;overflow-y:auto;
+  padding:0 0 max(24px,env(safe-area-inset-bottom));
+}
+#futdLevSheet.open #futdLevSheetPanel{transform:translateX(-50%) translateY(0)}
+
+/* Lev display row (−  120x  +) */
+.futd-lev-disp{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--bg3);border-radius:6px;padding:12px 16px;margin:0 16px 20px;
+  user-select:none;
+}
+.futd-lev-pm{
+  width:32px;height:32px;background:var(--bg4);border:none;border-radius:4px;
+  color:var(--t1);font-size:22px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0;
+}
+.futd-lev-pm:active{background:var(--bl)}
+#futdLevValue{font-size:26px;font-weight:700;color:var(--t1);letter-spacing:-0.5px;font-family:var(--mono)}
+
+/* Slider wrap */
+.futd-lev-slider-wrap{position:relative;padding:8px 0 26px;margin:0 16px 14px}
+.futd-lev-track{position:relative;height:3px;background:var(--bg4);border-radius:2px;margin:0 8px}
+.futd-lev-fill{position:absolute;left:0;top:0;height:3px;background:var(--y);border-radius:2px;pointer-events:none;transition:width .1s}
+.futd-lev-ticks{position:absolute;top:2px;left:8px;right:8px;pointer-events:none}
+.futd-lev-tick{
+  width:10px;height:10px;background:var(--bg4);border-radius:50%;border:2px solid var(--bg4);
+  margin-top:-3.5px;position:absolute;transform:translateX(-50%);z-index:1;
+}
+.futd-lev-tick.on{background:var(--y);border-color:var(--y)}
+.futd-lev-thumb{
+  position:absolute;top:-5px;width:14px;height:14px;
+  background:#fff;border-radius:50%;border:2px solid var(--y);
+  cursor:grab;transform:translateX(-50%);z-index:5;
+  box-shadow:0 1px 4px rgba(0,0,0,.4);transition:left .1s;
+}
+.futd-lev-thumb:active{cursor:grabbing}
+.futd-lev-input{
+  position:absolute;top:0;left:8px;right:8px;width:calc(100% - 16px);height:100%;
+  opacity:0;cursor:pointer;z-index:6;-webkit-appearance:none;appearance:none;
+}
+.futd-lev-labels{position:absolute;bottom:0;left:8px;right:8px}
+.futd-lev-lbl{
+  font-size:10px;color:var(--t3);position:absolute;transform:translateX(-50%);white-space:nowrap;
+}
+.futd-lev-lbl:first-child{transform:none}
+.futd-lev-lbl:last-child{transform:translateX(-100%)}
+
+/* Info bullets */
+.futd-lev-bullets{margin:0 16px 20px;display:flex;flex-direction:column;gap:10px}
+.futd-lev-bullet{display:flex;gap:8px;font-size:11px;line-height:1.5;color:var(--t2)}
+.futd-lev-dot{flex-shrink:0;width:5px;height:5px;border-radius:50%;background:var(--t3);margin-top:5px}
+</style>
+
+<div id="futdLevSheet">
+  <div id="futdLevSheetBg" onclick="futdCloseLevSheet()"></div>
+  <div id="futdLevSheetPanel">
+    <!-- Drag handle -->
+    <div style="width:36px;height:4px;background:var(--bl);border-radius:2px;margin:10px auto 14px"></div>
+    <!-- Title -->
+    <div style="font-size:16px;font-weight:700;padding:0 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <span>Adjust Leverage</span>
+      <span id="futdLevSheetSymBadge" style="font-size:11px;background:rgba(240,185,11,.12);color:var(--y);border:1px solid rgba(240,185,11,.3);border-radius:4px;padding:2px 8px">—</span>
+    </div>
+
+    <!-- − / value / + -->
+    <div class="futd-lev-disp">
+      <button class="futd-lev-pm" id="futdLevMinus">−</button>
+      <span id="futdLevValue">50x</span>
+      <button class="futd-lev-pm" id="futdLevPlus">+</button>
+    </div>
+
+    <!-- Custom slider -->
+    <div class="futd-lev-slider-wrap" id="futdLevSliderWrap">
+      <div class="futd-lev-track" id="futdLevTrack">
+        <div class="futd-lev-fill" id="futdLevFill"></div>
+        <div class="futd-lev-ticks" id="futdLevTickMarks"></div>
+        <div class="futd-lev-thumb" id="futdLevThumb"></div>
+      </div>
+      <div class="futd-lev-labels" id="futdLevTickLabels"></div>
+      <input type="range" class="futd-lev-input" id="futdLevSliderInp" min="1" max="150" step="1" value="50">
+    </div>
+
+    <!-- Info bullets -->
+    <div class="futd-lev-bullets">
+      <div class="futd-lev-bullet">
+        <div class="futd-lev-dot"></div>
+        <div>Maximum position at current leverage: <strong style="color:var(--t1);font-family:var(--mono)" id="futdLevMaxPos">—</strong></div>
+      </div>
+      <div class="futd-lev-bullet">
+        <div class="futd-lev-dot"></div>
+        <div>Selecting higher leverage increases your liquidation risk. Always manage your risk levels.</div>
+      </div>
+    </div>
+
+    <!-- Confirm -->
+    <div style="padding:0 16px">
+      <button id="futdLevConfirmBtn" onclick="futdConfirmLev()"
+        style="display:block;width:100%;padding:14px 0;background:var(--y);color:#000;font-size:15px;font-weight:700;border:none;border-radius:8px;cursor:pointer">Confirm</button>
+      <div onclick="futdCloseLevSheet()" style="text-align:center;padding:12px 0 4px;font-size:13px;color:var(--t2);cursor:pointer">ยกเลิก</div>
+    </div>
+    <div style="height:8px"></div>
+  </div>
+</div><!-- /futdLevSheet -->
 
 <!-- ════════════════════════════════
      PAGE: PROFILE
@@ -36986,21 +37102,151 @@ function futdUpdateFundingVal() {
   el.style.color = FUTD.funding.rate >= 0 ? 'var(--g)' : 'var(--r)';
 }
 
-// ── Leverage cycle (Direct: 5x–150x) ──────────────────────────
+// ── Leverage (Direct: 1x–150x) ─────────────────────────────────
+// [v2.69-LEV] เปลี่ยนจาก cycle-toast เป็น Bottom Sheet แบบ Binance
+// levCycleDirect ยังคงไว้เพื่อ futdAdjLeverage (Position card) ที่ใช้อยู่
 const levCycleDirect = [5, 10, 25, 50, 75, 100, 125, 150];
 
-function futdCycleLev() {
-  FUTD.levIdx = (FUTD.levIdx + 1) % levCycleDirect.length;
-  FUTD.lev = levCycleDirect[FUTD.levIdx];
-  futdUpdateLevBtn();
-  showToast('Leverage: ' + FUTD.lev + 'x');
-  futdUpdateMaxCost();
-}
-
+/** อัปเดตตัวเลข leverage บนปุ่มใน UI bar (เรียกจากทุกที่ที่เปลี่ยน FUTD.lev) */
 function futdUpdateLevBtn() {
   const btn = document.getElementById('futdLevBtn');
   if (btn) btn.textContent = FUTD.lev + 'x';
 }
+
+// ── [v2.69-LEV] Leverage Bottom Sheet ──────────────────────────
+(function() {
+  const LEV_MIN  = 1;
+  const LEV_MAX  = 150;
+  const LEV_TICKS = [1, 30, 60, 90, 120, 150];
+
+  // working value ภายใน sheet (ยังไม่ confirm)
+  let _sheetLev = 50;
+  let _ticksBuilt = false;
+
+  function _getMaxPos(lev) {
+    if (lev <= 10)  return '50,000,000 USDT';
+    if (lev <= 25)  return '20,000,000 USDT';
+    if (lev <= 50)  return '10,000,000 USDT';
+    if (lev <= 75)  return '5,000,000 USDT';
+    if (lev <= 100) return '1,000,000 USDT';
+    if (lev <= 120) return '300,000 USDT';
+    return '100,000 USDT';
+  }
+
+  function _buildTicks() {
+    if (_ticksBuilt) return;
+    _ticksBuilt = true;
+    const tickMarks  = document.getElementById('futdLevTickMarks');
+    const tickLabels = document.getElementById('futdLevTickLabels');
+    if (!tickMarks || !tickLabels) return;
+    LEV_TICKS.forEach((val, i) => {
+      const pct = (val - LEV_MIN) / (LEV_MAX - LEV_MIN) * 100;
+      // dot
+      const dot = document.createElement('div');
+      dot.className = 'futd-lev-tick';
+      dot.id = 'futdLevTick_' + i;
+      dot.style.left = pct + '%';
+      tickMarks.appendChild(dot);
+      // label
+      const lbl = document.createElement('div');
+      lbl.className = 'futd-lev-lbl';
+      lbl.id = 'futdLevLbl_' + i;
+      lbl.textContent = val + 'x';
+      lbl.style.left = pct + '%';
+      if (i === 0)                     lbl.style.transform = 'none';
+      else if (i === LEV_TICKS.length - 1) lbl.style.transform = 'translateX(-100%)';
+      else                             lbl.style.transform = 'translateX(-50%)';
+      tickLabels.appendChild(lbl);
+    });
+  }
+
+  function _renderSheetLev(val) {
+    _sheetLev = Math.max(LEV_MIN, Math.min(LEV_MAX, Math.round(val)));
+    const pct = (_sheetLev - LEV_MIN) / (LEV_MAX - LEV_MIN) * 100;
+    const fill  = document.getElementById('futdLevFill');
+    const thumb = document.getElementById('futdLevThumb');
+    const inp   = document.getElementById('futdLevSliderInp');
+    const valEl = document.getElementById('futdLevValue');
+    const maxEl = document.getElementById('futdLevMaxPos');
+    if (fill)  fill.style.width  = pct + '%';
+    if (thumb) thumb.style.left  = pct + '%';
+    if (inp)   inp.value         = _sheetLev;
+    if (valEl) valEl.textContent = _sheetLev + 'x';
+    if (maxEl) maxEl.textContent = _getMaxPos(_sheetLev);
+    // tick active state
+    LEV_TICKS.forEach((tv, i) => {
+      const dot = document.getElementById('futdLevTick_' + i);
+      if (dot) dot.classList.toggle('on', tv <= _sheetLev);
+    });
+  }
+
+  /** เปิด sheet */
+  window.futdOpenLevSheet = function() {
+    _buildTicks();
+    _renderSheetLev(FUTD.lev || 50);
+    // symbol badge
+    const badge = document.getElementById('futdLevSheetSymBadge');
+    if (badge) badge.textContent = (FUTD.symbolCoin || 'BTC') + 'USDT';
+    document.getElementById('futdLevSheet').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  /** ปิด sheet */
+  window.futdCloseLevSheet = function() {
+    document.getElementById('futdLevSheet').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  /** Confirm — บันทึกลง FUTD.lev */
+  window.futdConfirmLev = function() {
+    FUTD.lev = _sheetLev;
+    // sync levIdx ให้ใกล้ที่สุดสำหรับ compatibility กับ levCycleDirect
+    const closest = levCycleDirect.reduce((a, b) =>
+      Math.abs(b - _sheetLev) < Math.abs(a - _sheetLev) ? b : a);
+    FUTD.levIdx = levCycleDirect.indexOf(closest);
+
+    futdUpdateLevBtn();
+    if (typeof futdUpdateMaxCost === 'function') futdUpdateMaxCost();
+    futdCloseLevSheet();
+    showToast('✅ Leverage: ' + _sheetLev + 'x');
+  };
+
+  // wire events หลัง DOM ready
+  function _wireEvents() {
+    const inp   = document.getElementById('futdLevSliderInp');
+    const minus = document.getElementById('futdLevMinus');
+    const plus  = document.getElementById('futdLevPlus');
+    if (!inp || !minus || !plus) return;
+
+    inp.addEventListener('input', () => _renderSheetLev(parseInt(inp.value)));
+
+    minus.addEventListener('click', () => _renderSheetLev(_sheetLev - 1));
+    plus.addEventListener('click',  () => _renderSheetLev(_sheetLev + 1));
+
+    // hold-to-repeat
+    [minus, plus].forEach(btn => {
+      const dir = btn === plus ? 1 : -1;
+      let _t, _iv;
+      const start = () => {
+        _renderSheetLev(_sheetLev + dir);
+        _t = setTimeout(() => { _iv = setInterval(() => _renderSheetLev(_sheetLev + dir), 80); }, 400);
+      };
+      const stop = () => { clearTimeout(_t); clearInterval(_iv); };
+      btn.addEventListener('mousedown', start);
+      btn.addEventListener('touchstart', e => { e.preventDefault(); start(); }, { passive: false });
+      ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev => btn.addEventListener(ev, stop));
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _wireEvents);
+  } else {
+    _wireEvents();
+  }
+})();
+
+// futdCycleLev ยังคงไว้เผื่อ legacy call (ไม่มีใน UI แล้ว แต่ป้องกัน error)
+function futdCycleLev() { futdOpenLevSheet(); }
 
 // ── Open/Close toggle ─────────────────────────────────────────
 function futdSetOC(v) {

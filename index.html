@@ -37999,14 +37999,29 @@ async function futdSubmitOpen() {
     : 'BOTH';
 
   try {
-    await dbCallRaw('openFuturesPosition', {
+    const _res = await dbCallRaw('openFuturesPosition', {
       uid, symbol: FUTD.symbolCoin + 'USDT', side: FUTD.side, lev, size,
       entry_price: FUTD.lastPrice, mode: FUTD.marginMode || 'cross', // [v2.53]
       tp: tp || '', sl: sl || '',
       hedge_mode: FUTD.hedgeMode,   // [v2.63-HEDGE] ส่ง hedge_mode flag
       position_side: positionSide,  // [v2.63-HEDGE] 'BOTH'|'LONG'|'SHORT'
     });
-    showToast('✅ เปิด Position สำเร็จ' + (FUTD.hedgeMode ? ' [Hedge: ' + positionSide + ']' : ''));
+    // [v2.68-NET] ถ้า GAS ตอบกลับว่าเป็นการ net กับ position ฝั่งตรงข้าม (One-way Mode) ให้แจ้ง
+    // ผลลัพธ์ตามจริง (ลดบางส่วน / ปิดเต็ม / ปิดแล้วเปิดใหม่) แทนข้อความ "เปิด Position สำเร็จ" เดิม
+    const _act = (_res || {}).action;
+    let _msg = '✅ เปิด Position สำเร็จ' + (FUTD.hedgeMode ? ' [Hedge: ' + positionSide + ']' : '');
+    if (_act === 'netted_reduce') {
+      _msg = '✅ ลด Position ฝั่งตรงข้ามบางส่วนสำเร็จ (เหลือ ' +
+             (parseFloat(_res.remaining_size) || 0) + ') PnL ' +
+             ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2)) + ' USDT';
+    } else if (_act === 'netted_close') {
+      _msg = '✅ ปิด Position ฝั่งตรงข้ามสำเร็จ PnL ' +
+             ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2)) + ' USDT';
+    } else if (_act === 'netted_flip') {
+      _msg = '✅ ปิด Position ฝั่งตรงข้ามแล้วเปิดใหม่สำเร็จ (Flip) PnL ' +
+             ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2)) + ' USDT';
+    }
+    showToast(_msg);
     document.getElementById('futd-size').value = '';
     document.getElementById('futd-tp').value = '';
     document.getElementById('futd-sl').value = '';

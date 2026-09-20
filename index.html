@@ -13421,6 +13421,18 @@ function futSwitchTab(tab) {
 function futdSyncCoinFromTopbar(coin) {
   if (!coin) return;
   FUTD.symbolCoin = coin;
+
+  // [v2.69-LEV-PERSIST] restore leverage ของ coin ใหม่จาก localStorage
+  const _savedLevCoin = _futdLoadLev(coin);
+  if (_savedLevCoin !== null) {
+    FUTD.lev = _savedLevCoin;
+    const _cl = levCycleDirect.reduce((a, b) =>
+      Math.abs(b - _savedLevCoin) < Math.abs(a - _savedLevCoin) ? b : a);
+    FUTD.levIdx = levCycleDirect.indexOf(_cl);
+    futdUpdateLevBtn();
+    if (typeof futdUpdateMaxCost === 'function') futdUpdateMaxCost();
+  }
+
   futdRefreshPrice();
   futdChartLoad();
   futdStartOrderBook();
@@ -36986,6 +36998,18 @@ function _futdCurrentUid() {
 function futdInit() {
   // [v2.50] Init new layout elements
   futdSetOC('open');
+
+  // [v2.69-LEV-PERSIST] restore leverage ของ coin ปัจจุบันจาก localStorage
+  // ต้อง sync symbolCoin ก่อน เพื่อให้ _futdLoadLev ใช้ coin ที่ถูก
+  const _initCoinEarly = (typeof S !== 'undefined' && S.coin) ? S.coin : FUTD.symbolCoin;
+  const _savedLev = _futdLoadLev(_initCoinEarly);
+  if (_savedLev !== null) {
+    FUTD.lev = _savedLev;
+    const _closest = levCycleDirect.reduce((a, b) =>
+      Math.abs(b - _savedLev) < Math.abs(a - _savedLev) ? b : a);
+    FUTD.levIdx = levCycleDirect.indexOf(_closest);
+  }
+
   futdUpdateLevBtn();
   futdUpdateOrderTypeUI();
   futdUpdateTradeBtnLabels();
@@ -37107,6 +37131,18 @@ function futdUpdateFundingVal() {
 // levCycleDirect ยังคงไว้เพื่อ futdAdjLeverage (Position card) ที่ใช้อยู่
 const levCycleDirect = [5, 10, 25, 50, 75, 100, 125, 150];
 
+// [v2.69-LEV-PERSIST] บันทึก / โหลด leverage per-coin ลง localStorage
+// key: tcc_futd_lev_{COIN}  value: number (1-150)
+function _futdSaveLev(coin, lev) {
+  try { localStorage.setItem('tcc_futd_lev_' + (coin || 'BTC'), String(lev)); } catch(e) {}
+}
+function _futdLoadLev(coin) {
+  try {
+    const v = parseInt(localStorage.getItem('tcc_futd_lev_' + (coin || 'BTC')));
+    return (v >= 1 && v <= 150) ? v : null;
+  } catch(e) { return null; }
+}
+
 /** อัปเดตตัวเลข leverage บนปุ่มใน UI bar (เรียกจากทุกที่ที่เปลี่ยน FUTD.lev) */
 function futdUpdateLevBtn() {
   const btn = document.getElementById('futdLevBtn');
@@ -37197,13 +37233,16 @@ function futdUpdateLevBtn() {
     document.body.style.overflow = '';
   };
 
-  /** Confirm — บันทึกลง FUTD.lev */
+  /** Confirm — บันทึกลง FUTD.lev + persist per-coin */
   window.futdConfirmLev = function() {
     FUTD.lev = _sheetLev;
     // sync levIdx ให้ใกล้ที่สุดสำหรับ compatibility กับ levCycleDirect
     const closest = levCycleDirect.reduce((a, b) =>
       Math.abs(b - _sheetLev) < Math.abs(a - _sheetLev) ? b : a);
     FUTD.levIdx = levCycleDirect.indexOf(closest);
+
+    // [v2.69-LEV-PERSIST] บันทึก leverage ของเหรียญนี้ลง localStorage
+    _futdSaveLev(FUTD.symbolCoin, _sheetLev);
 
     futdUpdateLevBtn();
     if (typeof futdUpdateMaxCost === 'function') futdUpdateMaxCost();

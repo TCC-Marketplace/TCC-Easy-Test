@@ -39167,6 +39167,7 @@ async function futdConfirmTpsl() {
 const FUTD_CHART = {
   pollTimer:     null,   // candle refresh interval
   countdownTimer: null,  // 1-second tick สำหรับ countdown bar
+  drawTimer:     null,   // [v2.69-RT] fast redraw timer สำหรับ 1s/1m TF
   resizeObs:     null,
 };
 
@@ -39291,6 +39292,30 @@ function futdChartInit() {
     if (last) futdUpdateCandleCountdown(last);
   }, 1000);
 
+  // [v2.69-RT] Fast redraw timer — อัปเดต current-price line + position lines แบบ real-time
+  // ทำให้กราฟ "ขยับ" ตามราคา Mark Price ที่ futdRefreshPrice() อัปเดตไว้ใน FUTD.prices
+  // โดยไม่ต้องรอ candleLoad รอบถัดไป (poll ช้า 60s)
+  if (FUTD_CHART.drawTimer) clearInterval(FUTD_CHART.drawTimer);
+  FUTD_CHART.drawTimer = setInterval(() => {
+    if (FUTD.chart.candles.length && FUTD.chart.open) {
+      // อัปเดต last candle close ด้วย mark price ล่าสุด (real-time wicks)
+      const mp = FUTD.prices[FUTD.symbolCoin] || 0;
+      if (mp > 0 && FUTD.chart.candles.length) {
+        const last = FUTD.chart.candles[FUTD.chart.candles.length - 1];
+        const lastC = parseFloat(last.c || last.close) || 0;
+        // อัปเดต close + high/low ของ candle ปัจจุบันด้วยราคาล่าสุด (live wick)
+        if (lastC > 0) {
+          last.c = mp;
+          const curH = parseFloat(last.h || last.high) || 0;
+          const curL = parseFloat(last.l || last.low) || 0;
+          if (mp > curH) last.h = mp;
+          if (mp < curL) last.l = mp;
+        }
+      }
+      futdChartDraw();
+    }
+  }, 1000);
+
   // Update chart header symbol
   const symEl = document.getElementById('futdChartHdrSym');
   if (symEl) symEl.textContent = FUTD.symbolCoin + 'USDT';
@@ -39299,6 +39324,7 @@ function futdChartInit() {
 function futdChartStop() {
   if (FUTD_CHART.pollTimer)      { clearInterval(FUTD_CHART.pollTimer);      FUTD_CHART.pollTimer      = null; }
   if (FUTD_CHART.countdownTimer) { clearInterval(FUTD_CHART.countdownTimer); FUTD_CHART.countdownTimer = null; }
+  if (FUTD_CHART.drawTimer)      { clearInterval(FUTD_CHART.drawTimer);      FUTD_CHART.drawTimer      = null; }
   const panel = document.getElementById('futdChartPanel');
   if (panel) panel.classList.remove('active');
   futdChartRecalcPad();
@@ -39309,6 +39335,8 @@ function futdChartSetH(h) {
   FUTD.chart.wrapH = h;
   const wrap = document.getElementById('futdChartWrap');
   if (wrap) wrap.style.height = h + 'px';
+  // [v2.69-DRAG-REDRAW] redraw ทันทีหลัง resize เพื่อให้ indicator/OHLC/volume ไม่หลุด
+  if (FUTD.chart.candles.length) futdChartDraw();
 }
 
 function futdChartRecalcPad() {
@@ -39336,6 +39364,8 @@ function futdSetTF(el, tf) {
   if (el) el.classList.add('active');
   const symEl = document.getElementById('futdChartHdrSym');
   if (symEl) symEl.textContent = FUTD.symbolCoin + 'USDT';
+  // [v2.69-RT] reset pollTimer ให้ตรงกับ TF ใหม่ (pollTimer ถูก set ใหม่ใน futdChartLoad finally)
+  if (FUTD_CHART.pollTimer) { clearInterval(FUTD_CHART.pollTimer); FUTD_CHART.pollTimer = null; }
   futdChartLoad();
 }
 
@@ -39352,7 +39382,7 @@ function futdIndToggle(ind) {
 }
 
 async function futdChartLoad() {
-  const intervals = { '1m':60000,'3m':180000,'5m':300000,'15m':900000,'30m':1800000,'1h':3600000,'2h':7200000 };
+  const intervals = { '1s':3000,'1m':60000,'3m':180000,'5m':300000,'15m':900000,'30m':1800000,'1h':3600000,'2h':7200000 };
   const ms = intervals[FUTD.chart.tf] || 300000;
   // [v2.69-CHART-STALE] snapshot coin ณ เวลาเริ่ม fetch — ใช้ guard ป้องกัน stale response
   // (user เปลี่ยนเหรียญระหว่าง fetch → async เดิมเสร็จแล้ว coin เปลี่ยนไปแล้ว → ทิ้งผลทันที)
@@ -39867,7 +39897,7 @@ function futdDrawIndicator(closesAll, start, vis) {
 function futdUpdateCandleCountdown(lastCandle) {
   const el = document.getElementById('futdCandleCountdown');
   if (!el || !lastCandle) return;
-  const intervals = { '1m':60,'3m':180,'5m':300,'15m':900,'30m':1800,'1h':3600,'2h':7200 };
+  const intervals = { '1s':1,'1m':60,'3m':180,'5m':300,'15m':900,'30m':1800,'1h':3600,'2h':7200 };
   const tfSec = intervals[FUTD.chart.tf] || 300;
   const openT  = parseInt(lastCandle.t || lastCandle.time || 0);
   const closeT = openT + tfSec * 1000;

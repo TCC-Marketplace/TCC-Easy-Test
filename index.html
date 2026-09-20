@@ -36786,7 +36786,7 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
       </div>
       <div class="futd-pos-detail">
         <div>Size (${coin})<b>${size}</b></div>
-        <div>Margin (USDT)<b>${margin.toFixed(2)} (≈$${margin.toFixed(2)})</b></div>
+        <div>Margin (USDT)<b>${margin.toFixed(2)} <span style="font-size:9px;color:var(--t3)">(≈$${(size * (markP || entryP)).toFixed(2)})</span></b></div>
         <div>Margin Ratio<b style="color:${mrColor}">${mrPctGlobal.toFixed(1)}%</b></div>
       </div>
       <div class="futd-pos-detail2">
@@ -37901,7 +37901,7 @@ function futdRenderPositions(positions) {
       </div>
       <div class="futd-pos-detail">
         <div>Size (${coin})<b>${size}</b></div>
-        <div>Margin (USDT)<b>${margin.toFixed(2)} (≈$${margin.toFixed(2)})</b></div>
+        <div>Margin (USDT)<b>${margin.toFixed(2)} <span style="font-size:9px;color:var(--t3)">(≈$${(size * (markP || entryP)).toFixed(2)})</span></b></div>
         <div>Margin Ratio<b style="color:${mrColor}">${mrPct.toFixed(1)}%</b></div>
       </div>
       <div class="futd-pos-detail2">

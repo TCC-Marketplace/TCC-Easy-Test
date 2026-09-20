@@ -13433,6 +13433,10 @@ function futdSyncCoinFromTopbar(coin) {
   if (typeof futdUpdateMaxCost === 'function') futdUpdateMaxCost();
 
   futdRefreshPrice();
+  // [v2.69-CHART-RACE] หยุด pollTimer เก่าก่อน load chart ใหม่
+  // ป้องกัน pollTimer เก่าที่ยัง active อยู่ ยิง futdChartLoad ซ้อนกันระหว่าง fetch ใหม่
+  if (FUTD_CHART.pollTimer) { clearInterval(FUTD_CHART.pollTimer); FUTD_CHART.pollTimer = null; }
+  FUTD.chart.candles = [];   // ล้างแท่งเทียนเก่าทันที ป้องกันกราฟค้างระหว่างโหลด
   futdChartLoad();
   futdStartOrderBook();
   // [v2.51] re-fetch funding rate เมื่อเปลี่ยนเหรียญ
@@ -37595,7 +37599,11 @@ async function futdFetch24h() {
     if (!ctx || !ctx[0] || !ctx[1]) return;
     const universe = ctx[0].universe || [];
     const ctxs     = ctx[1];
-    const idx = universe.findIndex(u => u.name === coin);
+    // [v2.69-METAL-24H] metal universe ส่ง name เป็น 'xyz:GOLD' → normalize ก่อน compare
+    const idx = universe.findIndex(u => {
+      const uName = u.name && u.name.includes(':') ? u.name.split(':').pop() : u.name;
+      return uName === coin;
+    });
     if (idx === -1) return;
     const c       = ctxs[idx] || {};
     const markPx  = parseFloat(FUTD.prices[coin]) || parseFloat(c.markPx) || 0;
@@ -37786,10 +37794,24 @@ function futdSetSide(side) {
 /** ดึงราคาทุกเหรียญที่ต้องการ (form symbol + ทุก position ที่เปิดอยู่) */
 async function futdRefreshPrice() {
   try {
-    const mids = await hlPost({ type: 'allMids' });
+    // [v2.69-METAL-PRICE] ดึง allMids ทั้ง main + metal dex พร้อมกัน
+    // metal coins (GOLD, SILVER …) ไม่อยู่ใน allMids ปกติ ต้องดึง dex:xyz แยก
+    const [mids, metalMids] = await Promise.all([
+      hlPost({ type: 'allMids' }),
+      hlPost({ type: 'allMids', dex: METAL_DEX }).catch(() => null)
+    ]);
     // เก็บราคาทุกเหรียญใน map
     FUTD.prices = {};
     Object.keys(mids).forEach(k => { FUTD.prices[k] = parseFloat(mids[k]) || 0; });
+    // merge metal prices — key เป็น 'xyz:GOLD' หรือ 'GOLD' ขึ้นกับ API → normalize เป็น 'GOLD'
+    if (metalMids) {
+      Object.keys(metalMids).forEach(k => {
+        const normK = k.includes(':') ? k.split(':').pop() : k;
+        if (!FUTD.prices[normK] || FUTD.prices[normK] === 0) {
+          FUTD.prices[normK] = parseFloat(metalMids[k]) || 0;
+        }
+      });
+    }
 
     // อัปเดตราคาเหรียญที่เลือกในฟอร์ม
     const price = FUTD.prices[FUTD.symbolCoin] || 0;
@@ -39265,9 +39287,12 @@ function futdIndToggle(ind) {
 async function futdChartLoad() {
   const intervals = { '1m':60000,'3m':180000,'5m':300000,'15m':900000,'30m':1800000,'1h':3600000,'2h':7200000 };
   const ms = intervals[FUTD.chart.tf] || 300000;
+  // [v2.69-CHART-STALE] snapshot coin ณ เวลาเริ่ม fetch — ใช้ guard ป้องกัน stale response
+  // (user เปลี่ยนเหรียญระหว่าง fetch → async เดิมเสร็จแล้ว coin เปลี่ยนไปแล้ว → ทิ้งผลทันที)
+  const _loadCoin = FUTD.symbolCoin;
   try {
     const now  = Date.now();
-    const coin = FUTD.symbolCoin;
+    const coin = _loadCoin;
     // [v2.69-METAL-CHART] Metal coins (GOLD, SILVER …) ต้องใช้ _wsCoinName → 'xyz:GOLD'
     // และส่ง dex:'xyz' ระดับ top-level ไม่เช่นนั้น Hyperliquid ตอบ 500
     const d = await hlPost({
@@ -39275,6 +39300,8 @@ async function futdChartLoad() {
       req: { coin: _wsCoinName(coin), interval: FUTD.chart.tf, startTime: now - ms * 120, endTime: now },
       ..._dexParam(coin)
     });
+    // [v2.69-CHART-STALE] ถ้า coin เปลี่ยนระหว่าง fetch → ทิ้ง response ทันที ไม่วาดกราฟ
+    if (_loadCoin !== FUTD.symbolCoin) return;
     FUTD.chart.candles = Array.isArray(d) ? d : [];
     futdChartDraw();
   } catch (e) {

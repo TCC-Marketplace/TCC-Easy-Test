@@ -37469,6 +37469,9 @@ function futdStartOrderBook() {
       try {
         const d = JSON.parse(evt.data);
         if (d.channel === 'l2Book' && d.data) {
+          // [v2.69-OB-GUARD] ป้องกัน stale/in-flight message จากเหรียญก่อนหน้า
+          // (WS เก่าอาจส่ง message มาหลัง close() เล็กน้อย → ทำให้ OB กะพริบเป็นเหรียญผิด)
+          if (d.data.coin && _normWsCoin(d.data.coin) !== FUTD.symbolCoin) return;
           const levels = d.data.levels || [];
           // levels[0] = bids, levels[1] = asks  (Hyperliquid format)
           const bids = (levels[0] || []).slice(0, 12).map(x => ({ p: parseFloat(x.px), s: parseFloat(x.sz) }));

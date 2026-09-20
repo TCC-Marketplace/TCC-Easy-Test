@@ -8204,6 +8204,10 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   <div id="futdChartSec">
     <!-- TF bar -->
     <div class="futd-tf-bar" id="futdTFBar">
+      <!-- ⤡ Expand fullscreen — leftmost (เหมือน Contract tab) -->
+      <span onclick="futdExpandChart()" style="margin-left:0;margin-right:2px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;padding:2px 3px;opacity:.7" title="เต็มจอ">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      </span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'1s')">1s</span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'1m')">1m</span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'3m')">3m</span>
@@ -8212,9 +8216,11 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       <span class="futd-tf-label" onclick="futdSetTF(this,'30m')">30m</span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'1h')">1h</span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'2h')">2h</span>
-      <!-- Countdown -->
-      <span id="futdCandleCountdown" style="font-size:10px;font-family:var(--mono);flex-shrink:0;padding:2px 7px;margin:0 2px;border-radius:10px;white-space:nowrap;background:rgba(14,203,129,.18);color:#0ecb81;font-weight:700;border:1px solid rgba(14,203,129,.3);min-width:42px;text-align:center">--:--</span>
-      <!-- Toggle -->
+      <!-- Countdown pill (wall-clock based เหมือน Contract tab) -->
+      <span id="futdCandleCountdown" style="font-size:10px;font-family:var(--mono);flex-shrink:0;padding:2px 7px;margin:0 2px;border-radius:10px;white-space:nowrap;background:rgba(14,203,129,.18);color:#0ecb81;font-weight:700;border:1px solid rgba(14,203,129,.3);min-width:42px;text-align:center;letter-spacing:.5px;font-variant-numeric:tabular-nums">--:--</span>
+      <!-- LIVE badge (shown when panned away) -->
+      <span id="futdLiveTag" onclick="event.stopPropagation();futdChartResetView()" style="display:none;font-size:9px;padding:2px 5px;border-radius:3px;background:rgba(14,203,129,.15);color:var(--g);border:1px solid rgba(14,203,129,.3);cursor:pointer;font-family:var(--mono);font-weight:700;flex-shrink:0;margin-right:2px">← LIVE</span>
+      <!-- Toggle ▲ — rightmost -->
       <span onclick="futdToggleChart()" style="font-size:12px;color:var(--t3);cursor:pointer;padding:2px 8px 6px 4px;flex-shrink:0;margin-left:auto">▲</span>
     </div>
     <!-- MA row -->
@@ -8224,13 +8230,38 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       <span style="color:#26c6da">MA(99):<span id="futdMa99"> —</span></span>
     </div>
     <!-- Canvas -->
-    <div class="futd-chart-canvas-wrap" id="futdChartWrap">
+    <div class="chart-wrap futd-chart-canvas-wrap" id="futdChartWrap">
       <canvas id="futdChartCanvas"></canvas>
       <!-- current-price line/tag -->
       <div style="position:absolute;right:0;top:0;bottom:0;pointer-events:none">
         <div id="futdCurLine" style="position:absolute;right:0;left:0;height:1px;border-top:1px dashed var(--y);opacity:.6;pointer-events:none"></div>
         <div id="futdCurTag" style="position:absolute;right:0;background:var(--y);color:#000;font-size:9px;font-family:var(--mono);font-weight:700;padding:1px 4px;border-radius:2px 0 0 2px;pointer-events:none">—</div>
       </div>
+      <!-- Crosshair elements (เหมือน Contract tab futChartWrap) -->
+      <div class="ch-vline" id="futdChVLine"></div>
+      <div class="ch-hline" id="futdChHLine"></div>
+      <div class="ch-price-tag" id="futdChPriceTag"></div>
+      <div class="ch-time-tag" id="futdChTimeTag"></div>
+      <div class="ch-dot" id="futdChDot"></div>
+      <div class="ch-lp-ring" id="futdChLpRing"><svg viewBox="0 0 36 36"><circle class="ch-lp-arc" id="futdChLpArc" cx="18" cy="18" r="15"/></svg></div>
+      <div class="ch-hint" id="futdChHint"><span>กดค้างเพื่อดูข้อมูลแท่งเทียน</span></div>
+      <!-- OHLC mini box (hidden — replaced by tooltip below) -->
+      <div class="ch-ohlc-box" id="futdChOhlcBox" style="display:none"><span class="ch-o" id="futdChOBox">O: —</span><span class="ch-h" id="futdChHBox">H: —</span><span class="ch-l" id="futdChLBox">L: —</span><span class="ch-c" id="futdChCBox">C: —</span><span class="ch-v" id="futdChVBox">V: —</span></div>
+      <!-- Candle Detail Tooltip (เหมือน Contract tab) -->
+      <div class="ch-tooltip" id="futdChTooltip">
+        <div class="ch-tooltip-time" id="futdChTTTime">—</div>
+        <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">Open</span><span class="ch-tooltip-val" id="futdChTTOpen">—</span></div>
+        <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">High</span><span class="ch-tooltip-val up" id="futdChTTHigh">—</span></div>
+        <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">Low</span><span class="ch-tooltip-val dn" id="futdChTTLow">—</span></div>
+        <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">Close</span><span class="ch-tooltip-val" id="futdChTTClose">—</span></div>
+        <hr class="ch-tooltip-divider">
+        <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">Chg</span><span class="ch-tooltip-val" id="futdChTTChg">—</span></div>
+        <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">%Chg</span><span class="ch-tooltip-val" id="futdChTTPchg">—</span></div>
+        <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">Range</span><span class="ch-tooltip-val" id="futdChTTRange">—</span></div>
+        <hr class="ch-tooltip-divider">
+        <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">Vol</span><span class="ch-tooltip-val" id="futdChTTVol">—</span></div>
+      </div>
+      <!-- Legacy inline OHLC (top-left, always visible) -->
       <div id="futdChOhlc" style="position:absolute;top:4px;left:6px;display:flex;gap:6px;font-size:9px;font-family:var(--mono);color:var(--t2);pointer-events:none">
         <span id="futdChO">O:—</span><span id="futdChH" style="color:var(--g)">H:—</span>
         <span id="futdChL" style="color:var(--r)">L:—</span><span id="futdChC">C:—</span>
@@ -39285,11 +39316,15 @@ function futdChartInit() {
   // Load candles
   futdChartLoad();
 
-  // Countdown ticker — tick ทุกวินาทีเพื่ออัปเดต countdown pill
+  // [FIX-CROSSHAIR] Init crosshair interaction (เหมือน _initCanvasPan ของ Contract)
+  futdInitCrosshair();
+
+  // [FIX-COUNTDOWN] Countdown ticker — tick ทุกวินาที โดยใช้ wall-clock (ไม่ต้องรอ candle)
+  // เหมือน startFutCountdown() ของ Contract tab ที่ใช้ _barCloseTime แทน lastCandle.t
   if (FUTD_CHART.countdownTimer) clearInterval(FUTD_CHART.countdownTimer);
+  futdUpdateCandleCountdown(); // tick ทันที
   FUTD_CHART.countdownTimer = setInterval(() => {
-    const last = FUTD.chart.candles[FUTD.chart.candles.length - 1];
-    if (last) futdUpdateCandleCountdown(last);
+    futdUpdateCandleCountdown();
   }, 1000);
 
   // [v2.69-RT] Fast redraw timer — อัปเดต current-price line + position lines แบบ real-time
@@ -39313,6 +39348,8 @@ function futdChartInit() {
         }
       }
       futdChartDraw();
+      // อัปเดต LIVE badge (แสดงเมื่อ user pan ออกจาก live view)
+      _futdUpdateLiveTag();
     }
   }, 1000);
 
@@ -39325,9 +39362,277 @@ function futdChartStop() {
   if (FUTD_CHART.pollTimer)      { clearInterval(FUTD_CHART.pollTimer);      FUTD_CHART.pollTimer      = null; }
   if (FUTD_CHART.countdownTimer) { clearInterval(FUTD_CHART.countdownTimer); FUTD_CHART.countdownTimer = null; }
   if (FUTD_CHART.drawTimer)      { clearInterval(FUTD_CHART.drawTimer);      FUTD_CHART.drawTimer      = null; }
+  if (FUTD_CHART.crosshairInited) {
+    // [FIX-CROSSHAIR] Stop crosshair timers เมื่อ chart stop
+    FUTD_CHART.crosshairInited = false;
+  }
   const panel = document.getElementById('futdChartPanel');
   if (panel) panel.classList.remove('active');
   futdChartRecalcPad();
+}
+
+// ── LIVE badge helper (เหมือน _chartUpdateLiveTag ของ Contract) ──
+function _futdUpdateLiveTag() {
+  const tag = document.getElementById('futdLiveTag');
+  if (!tag) return;
+  const isManual = FUTD.chart.viewStart !== null;
+  tag.style.display = isManual ? '' : 'none';
+}
+
+// ── Reset to live (latest) view ──
+function futdChartResetView() {
+  FUTD.chart.viewStart = null;
+  FUTD.chart.visCount = 80;
+  _futdUpdateLiveTag();
+  futdChartDraw();
+}
+
+// ── Fullscreen expand (เปิด chartFullOverlay เหมือน Contract tab) ──
+function futdExpandChart() {
+  // ใช้ cfoCandles จาก FUTD.chart.candles แทน S.candles
+  if (typeof expandChart === 'function') {
+    // Temporarily patch cfoCandles source to use FUTD data
+    const _origCandles = (typeof S !== 'undefined') ? S.candles : [];
+    if (typeof S !== 'undefined') {
+      S._futdCandlesBak = S.candles;
+      S.candles = FUTD.chart.candles.slice();
+    }
+    // Sync symbol
+    const cfoSymEl = document.getElementById('cfoSym');
+    if (cfoSymEl) cfoSymEl.textContent = FUTD.symbolCoin + '/USDT';
+    // Sync active TF
+    const activeTF = document.querySelector('#futdTFBar .futd-tf-label.active');
+    if (typeof cfoTF !== 'undefined') window.cfoTF = activeTF ? activeTF.textContent : FUTD.chart.tf;
+    expandChart('futures');
+    // Restore S.candles after expandChart sets up cfoCandles
+    setTimeout(() => {
+      if (typeof S !== 'undefined' && S._futdCandlesBak !== undefined) {
+        S.candles = S._futdCandlesBak;
+        delete S._futdCandlesBak;
+      }
+    }, 100);
+  }
+}
+
+// ── [FIX-CROSSHAIR] Init crosshair for futdChartWrap (เหมือน _initCanvasPan ของ Contract) ──
+function futdInitCrosshair() {
+  const wrap = document.getElementById('futdChartWrap');
+  if (!wrap || wrap._futdCrosshairInited) return;
+  wrap._futdCrosshairInited = true;
+
+  const chVLine    = document.getElementById('futdChVLine');
+  const chHLine    = document.getElementById('futdChHLine');
+  const chPriceTag = document.getElementById('futdChPriceTag');
+  const chTimeTag  = document.getElementById('futdChTimeTag');
+  const chDot      = document.getElementById('futdChDot');
+  const chLpRing   = document.getElementById('futdChLpRing');
+  const chLpArc    = document.getElementById('futdChLpArc');
+  const chHint     = document.getElementById('futdChHint');
+  const chTooltip  = document.getElementById('futdChTooltip');
+  const chTTTime   = document.getElementById('futdChTTTime');
+  const chTTOpen   = document.getElementById('futdChTTOpen');
+  const chTTHigh   = document.getElementById('futdChTTHigh');
+  const chTTLow    = document.getElementById('futdChTTLow');
+  const chTTClose  = document.getElementById('futdChTTClose');
+  const chTTChg    = document.getElementById('futdChTTChg');
+  const chTTPchg   = document.getElementById('futdChTTPchg');
+  const chTTRange  = document.getElementById('futdChTTRange');
+  const chTTVol    = document.getElementById('futdChTTVol');
+
+  const ARC_C = 94.2;
+  const LONG_PRESS_MS = 320;
+  const PAN_THRESHOLD = 6;
+  const PAD_R = 44, PAD_T = 16, PAD_B = 16, PAD_L = 2;
+
+  let _lpTimer = null, _lpActive = false, _lpAnimFrame = null, _lpAnimStart = 0;
+  let _touchMode = '', _touchCommitted = false;
+  let _touchStartX = 0, _touchStartY = 0;
+
+  function _startLpAnim(x, y) {
+    if (chLpRing) { chLpRing.style.display = 'block'; chLpRing.style.left = x + 'px'; chLpRing.style.top = y + 'px'; }
+    if (chLpArc)  chLpArc.style.strokeDasharray = '0 ' + ARC_C;
+    if (chHint)   { chHint.style.display = 'block'; chHint.style.opacity = '1'; }
+    _lpAnimStart = performance.now();
+    function _step(now) {
+      const pct = Math.min(1, (now - _lpAnimStart) / LONG_PRESS_MS);
+      if (chLpArc) chLpArc.style.strokeDasharray = (pct * ARC_C) + ' ' + ARC_C;
+      if (pct < 1) _lpAnimFrame = requestAnimationFrame(_step);
+    }
+    _lpAnimFrame = requestAnimationFrame(_step);
+  }
+
+  function _stopLpAnim() {
+    if (_lpAnimFrame) { cancelAnimationFrame(_lpAnimFrame); _lpAnimFrame = null; }
+    if (chLpRing) chLpRing.style.display = 'none';
+    if (chHint)   chHint.style.display = 'none';
+  }
+
+  function _cancelLp() {
+    if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; }
+  }
+
+  function _hideCrosshair() {
+    [chVLine, chHLine, chPriceTag, chTimeTag].forEach(el => { if (el) el.style.display = 'none'; });
+    if (chTooltip) chTooltip.style.display = 'none';
+    if (chDot)     chDot.style.display = 'none';
+  }
+
+  function _showCrosshair(clientX, clientY) {
+    if (!chVLine) return;
+    const candles = FUTD.chart.candles;
+    if (!candles.length) return;
+
+    const rect = wrap.getBoundingClientRect();
+    const mx = clientX - rect.left;
+    const my = clientY - rect.top;
+    const wrapW = wrap.clientWidth || 375;
+    const wrapH = FUTD.chart.wrapH || 180;
+
+    const vis = FUTD.chart.visCount;
+    const total = candles.length;
+    const start = FUTD.chart.viewStart !== null
+      ? Math.max(0, Math.min(total - vis, FUTD.chart.viewStart))
+      : Math.max(0, total - vis);
+    const slice = candles.slice(start, start + vis);
+    if (!slice.length) return;
+
+    const CW = wrapW - PAD_R - PAD_L;
+    const slotW = CW / slice.length;
+    const slotIdx = Math.max(0, Math.min(slice.length - 1, Math.floor((mx - PAD_L) / slotW)));
+    const c = slice[slotIdx];
+    if (!c) return;
+
+    const cx = PAD_L + (slotIdx + 0.5) * slotW;
+
+    // Price range (same as futdChartDraw)
+    const highs = slice.map(cd => parseFloat(cd.h || cd.high));
+    const lows  = slice.map(cd => parseFloat(cd.l || cd.low));
+    const maxP  = Math.max(...highs);
+    const minP  = Math.min(...lows);
+    const range = maxP - minP || 1;
+    const CH = wrapH - PAD_T - PAD_B;
+    const price = maxP - ((my - PAD_T) / CH) * range;
+
+    // Position crosshair lines
+    if (chVLine) { chVLine.style.display = ''; chVLine.style.left = cx + 'px'; }
+    if (chHLine) { chHLine.style.display = ''; chHLine.style.top = my + 'px'; }
+    if (chPriceTag) {
+      chPriceTag.style.display = '';
+      chPriceTag.style.top = my + 'px';
+      chPriceTag.textContent = (typeof fmtP === 'function') ? fmtP(price) : price.toFixed(2);
+    }
+    if (chTimeTag) {
+      chTimeTag.style.display = '';
+      chTimeTag.style.left = cx + 'px';
+      const d = new Date(parseInt(c.t || c.time || 0));
+      chTimeTag.textContent = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    }
+
+    // Dot at close price Y
+    if (chDot) {
+      const closePx = parseFloat(c.c || c.close);
+      const dotY = PAD_T + ((maxP - closePx) / range) * CH;
+      chDot.style.display = 'block';
+      chDot.style.left = cx + 'px';
+      chDot.style.top  = dotY + 'px';
+      chDot.classList.remove('pulse'); void chDot.offsetWidth; chDot.classList.add('pulse');
+    }
+
+    // Candle detail tooltip
+    if (chTooltip && c) {
+      const o = parseFloat(c.o || c.open), h = parseFloat(c.h || c.high);
+      const l = parseFloat(c.l || c.low), cl = parseFloat(c.c || c.close);
+      const v = parseFloat(c.v || c.volume || 0);
+      const chg = cl - o, pchg = o !== 0 ? (chg / o) * 100 : 0;
+      const rangePct = h !== 0 ? ((h - l) / h) * 100 : 0;
+      const isUp = cl >= o;
+      const chgColor = isUp ? '#0ecb81' : '#f6465d';
+      const chgSign = isUp ? '+' : '';
+      const _fmt = (typeof fmtP === 'function') ? fmtP : (v => v.toFixed(2));
+      const _fmtV = (typeof _fmtVol === 'function') ? _fmtVol : (v => {
+        if (v >= 1e9) return (v/1e9).toFixed(2)+'B';
+        if (v >= 1e6) return (v/1e6).toFixed(2)+'M';
+        if (v >= 1e3) return (v/1e3).toFixed(2)+'K';
+        return v.toFixed(2);
+      });
+      const d2 = new Date(parseInt(c.t || c.time || 0));
+      const timeStr = String(d2.getMonth()+1).padStart(2,'0')+'-'+String(d2.getDate()).padStart(2,'0')+' '+
+                      String(d2.getHours()).padStart(2,'0')+':'+String(d2.getMinutes()).padStart(2,'0');
+      if (chTTTime)  chTTTime.textContent = timeStr;
+      if (chTTOpen)  { chTTOpen.textContent = _fmt(o); chTTOpen.style.color = 'var(--t1)'; }
+      if (chTTHigh)  chTTHigh.textContent = _fmt(h);
+      if (chTTLow)   chTTLow.textContent  = _fmt(l);
+      if (chTTClose) { chTTClose.textContent = _fmt(cl); chTTClose.style.color = chgColor; }
+      if (chTTChg)   { chTTChg.textContent = chgSign + _fmt(chg); chTTChg.style.color = chgColor; }
+      if (chTTPchg)  { chTTPchg.textContent = chgSign + pchg.toFixed(2) + '%'; chTTPchg.style.color = chgColor; }
+      if (chTTRange) chTTRange.textContent = rangePct.toFixed(2) + '%';
+      if (chTTVol)   chTTVol.textContent = _fmtV(v);
+
+      // Smart positioning: flip to opposite side
+      chTooltip.style.display = 'block';
+      const ttW = chTooltip.offsetWidth  || 152;
+      const ttH = chTooltip.offsetHeight || 160;
+      const MARGIN = 8;
+      let tx = cx < wrapW / 2 ? cx + 14 : cx - ttW - 14;
+      if (tx + ttW > wrapW - PAD_R - MARGIN) tx = cx - ttW - 6;
+      if (tx < PAD_L + MARGIN) tx = cx + 6;
+      const ty = Math.max(PAD_T, Math.min(wrapH - PAD_B - ttH - MARGIN, my - ttH / 2));
+      chTooltip.style.left = tx + 'px';
+      chTooltip.style.top  = ty + 'px';
+    }
+  }
+
+  // ── Mouse crosshair (desktop) ──
+  let _isPanning = false;
+  wrap.addEventListener('mousemove', e => {
+    if (_isPanning) { _hideCrosshair(); return; }
+    _showCrosshair(e.clientX, e.clientY);
+  });
+  wrap.addEventListener('mouseleave', _hideCrosshair);
+
+  // ── Touch: long-press → crosshair (เหมือน Contract tab) ──
+  wrap.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) { _cancelLp(); return; }
+    _touchStartX = e.touches[0].clientX;
+    _touchStartY = e.touches[0].clientY;
+    _touchCommitted = false;
+    _touchMode = '';
+    _lpActive = false;
+    const rect = wrap.getBoundingClientRect();
+    _startLpAnim(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
+    _lpTimer = setTimeout(() => {
+      if (!_touchCommitted) {
+        _lpActive = true; _touchMode = 'crosshair'; _touchCommitted = true;
+        _stopLpAnim();
+        wrap.classList.add('crosshair-mode');
+        if (navigator.vibrate) navigator.vibrate(30);
+        _showCrosshair(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, LONG_PRESS_MS);
+  }, { passive: true });
+
+  wrap.addEventListener('touchmove', e => {
+    if (e.touches.length !== 1) return;
+    const dx = Math.abs(e.touches[0].clientX - _touchStartX);
+    const dy = Math.abs(e.touches[0].clientY - _touchStartY);
+    if (!_touchCommitted && (dx > PAN_THRESHOLD || dy > PAN_THRESHOLD)) {
+      _cancelLp(); _stopLpAnim(); _touchMode = 'pan'; _touchCommitted = true;
+    }
+    if (_touchMode === 'crosshair') _showCrosshair(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+
+  wrap.addEventListener('touchend', e => {
+    _cancelLp(); _stopLpAnim();
+    wrap.classList.remove('crosshair-mode');
+    if (_touchMode === 'crosshair') setTimeout(_hideCrosshair, 800);
+    _touchMode = ''; _touchCommitted = false; _lpActive = false;
+  });
+
+  wrap.addEventListener('touchcancel', () => {
+    _cancelLp(); _stopLpAnim(); _hideCrosshair();
+    wrap.classList.remove('crosshair-mode');
+    _touchMode = ''; _touchCommitted = false;
+  });
 }
 
 function futdChartSetH(h) {
@@ -39458,6 +39763,8 @@ function futdChartDraw() {
   if (FUTD.chart.viewStart !== null && start >= candles.length - vis) {
     FUTD.chart.viewStart = null;
   }
+  // อัปเดต LIVE badge ทุกครั้งที่ draw
+  if (typeof _futdUpdateLiveTag === 'function') _futdUpdateLiveTag();
   const slice = candles.slice(start, start + vis);
   if (!slice.length) return;
 
@@ -39646,8 +39953,8 @@ function futdChartDraw() {
   // เป็น null ไปกินพื้นที่ครึ่งซ้ายของกราฟ indicator)
   if (FUTD.chart.indicator) futdDrawIndicator(closes, start, vis);
 
-  // Candle countdown
-  futdUpdateCandleCountdown(last);
+  // Candle countdown (wall-clock based — ไม่ต้องส่ง last)
+  futdUpdateCandleCountdown();
 }
 
 function futdDrawVolume(slice) {
@@ -39894,17 +40201,31 @@ function futdDrawIndicator(closesAll, start, vis) {
   }
 }
 
-function futdUpdateCandleCountdown(lastCandle) {
+function futdUpdateCandleCountdown() {
+  // [FIX-COUNTDOWN] ใช้ wall-clock _barCloseTime เหมือน Contract tab
+  // ไม่ใช้ lastCandle.t ซึ่งทำให้ countdown หยุดเดินข้ามแท่ง
   const el = document.getElementById('futdCandleCountdown');
-  if (!el || !lastCandle) return;
-  const intervals = { '1s':1,'1m':60,'3m':180,'5m':300,'15m':900,'30m':1800,'1h':3600,'2h':7200 };
-  const tfSec = intervals[FUTD.chart.tf] || 300;
-  const openT  = parseInt(lastCandle.t || lastCandle.time || 0);
-  const closeT = openT + tfSec * 1000;
-  const remaining = Math.max(0, Math.floor((closeT - Date.now()) / 1000));
-  const m = Math.floor(remaining / 60);
-  const s = remaining % 60;
-  el.textContent = m + ':' + String(s).padStart(2, '0');
+  if (!el) return;
+  const tfMs = { '1s':1000,'1m':60000,'3m':180000,'5m':300000,'15m':900000,'30m':1800000,'1h':3600000,'2h':7200000 }[FUTD.chart.tf] || 300000;
+  if (typeof _barCloseTime === 'function' && typeof _fmtCountdown === 'function') {
+    // ใช้ logic เหมือน Contract tab startFutCountdown → _updateCountdownEl
+    const closeTime = _barCloseTime(tfMs);
+    const remaining = closeTime - Date.now();
+    el.textContent = _fmtCountdown(Math.max(0, remaining));
+    if (remaining <= 10000 && remaining > 0) {
+      el.classList.add('cd-pulse');
+    } else {
+      el.classList.remove('cd-pulse');
+    }
+  } else {
+    // Fallback: คำนวณเอง (ใช้ floor เหมือน _barCloseTime)
+    const now = Date.now();
+    const barOpen = Math.floor(now / tfMs) * tfMs;
+    const closeT  = barOpen + tfMs;
+    const rem = Math.max(0, Math.ceil((closeT - now) / 1000));
+    const m = Math.floor(rem / 60), s = rem % 60;
+    el.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
 }
 </script>
 </body>

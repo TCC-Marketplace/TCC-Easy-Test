@@ -8204,6 +8204,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   <div id="futdChartSec">
     <!-- TF bar -->
     <div class="futd-tf-bar" id="futdTFBar">
+      <span class="futd-tf-label" onclick="futdSetTF(this,'1s')">1s</span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'1m')">1m</span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'3m')">3m</span>
       <span class="futd-tf-label active" onclick="futdSetTF(this,'5m')">5m</span>
@@ -23125,6 +23126,27 @@ const MYT = {
       || t === f.type
       || (f.type === 'Loan History' && typeof t === 'string' && t.startsWith('Loan'));
     const matchMode = (m)    => !f.mode     || f.mode     === 'All' || m.toLowerCase().includes(f.mode.toLowerCase());
+    // [v2.68-DATE] Date Range filter — อ่านจาก advFilter[tab]
+    const _af = this.advFilter[tab] || {};
+    const _matchDate = (d) => {
+      const ts = d.ts || d.opened_at || d.created_at || 0;
+      if (!ts) return true; // ไม่มี timestamp = ผ่านทุกกรณี
+      const itemDate = new Date(typeof ts === 'number' ? ts : Number(ts));
+      // คำนวณ dateFrom จาก preset ถ้ายังไม่มี custom range
+      let fromMs = 0, toMs = Date.now() + 86400000;
+      if (_af.dateFrom) {
+        fromMs = new Date(_af.dateFrom + 'T00:00:00').getTime();
+      } else {
+        const preset = _af.datePreset || '1W';
+        const presetDays = { '1D':1,'3D':3,'1W':7,'1M':30,'3M':90,'6M':180,'1Y':365 };
+        const days = presetDays[preset] || 7;
+        fromMs = Date.now() - days * 86400000;
+      }
+      if (_af.dateTo) {
+        toMs = new Date(_af.dateTo + 'T23:59:59').getTime();
+      }
+      return itemDate.getTime() >= fromMs && itemDate.getTime() <= toMs;
+    };
 
     if(tab === 'open-orders') {
       // live positions as pending orders
@@ -23198,12 +23220,13 @@ const MYT = {
     if(tab === 'spot-trade-history') return _sortDesc(HIST.spotTradeHistory.filter(d => matchSym(d.coin) && matchDir(d.dir)));
     // [v2.63-HEDGE] Futures-Direct tabs — แหล่งข้อมูลแยกจาก Earn Futures
     if(tab === 'futd-open-orders')         return (HIST.futdOpenOrders        || []).filter(d => matchSym(d.coin));
-    if(tab === 'futd-order-history')       return _sortDesc((HIST.futdOrderHistory      || []).filter(d => matchSym(d.coin) && matchOT(d.orderType) && matchDir(d.dir) && matchSt(d.status)));
-    if(tab === 'futd-position-history')    return _sortDesc((HIST.futdPositionHistory   || []).filter(d => matchSym(d.coin) && matchMode(d.mode) && matchSt(d.status)));
-    if(tab === 'futd-trade-history')       return _sortDesc((HIST.futdTradeHistory      || []).filter(d => matchSym(d.coin) && matchDir(d.dir)));
-    if(tab === 'futd-transaction-history') return _sortDesc((HIST.futdTransactionHistory|| []).filter(d => matchAsset(d.asset) && matchType(d.type)));
-    if(tab === 'futd-funding-fee')         return _sortDesc((HIST.futdFundingFee        || []).filter(d => matchAsset(d.asset)));
-    if(tab === 'futd-liquidation-history') return _sortDesc((HIST.futdLiquidationHistory|| []).filter(d => matchSym(d.coin)));
+    // [v2.68-DATE] เพิ่ม _matchDate filter ใน futd history tabs ทุก tab
+    if(tab === 'futd-order-history')       return _sortDesc((HIST.futdOrderHistory      || []).filter(d => _matchDate(d) && matchSym(d.coin) && matchOT(d.orderType) && matchDir(d.dir) && matchSt(d.status)));
+    if(tab === 'futd-position-history')    return _sortDesc((HIST.futdPositionHistory   || []).filter(d => _matchDate(d) && matchSym(d.coin) && matchMode(d.mode) && matchSt(d.status)));
+    if(tab === 'futd-trade-history')       return _sortDesc((HIST.futdTradeHistory      || []).filter(d => _matchDate(d) && matchSym(d.coin) && matchDir(d.dir)));
+    if(tab === 'futd-transaction-history') return _sortDesc((HIST.futdTransactionHistory|| []).filter(d => _matchDate(d) && matchAsset(d.asset) && matchType(d.type)));
+    if(tab === 'futd-funding-fee')         return _sortDesc((HIST.futdFundingFee        || []).filter(d => _matchDate(d) && matchAsset(d.asset)));
+    if(tab === 'futd-liquidation-history') return _sortDesc((HIST.futdLiquidationHistory|| []).filter(d => _matchDate(d) && matchSym(d.coin)));
     return [];
   },
 };
@@ -37876,7 +37899,7 @@ async function futdRefreshAccountStatus() {
     const status = await dbCallRaw('getFuturesAccountStatus', { uid });
     // [v2.59-LIQ] set FUTD.status ก่อน render เสมอ — futdRenderPositions อ่าน liq_price_map จาก FUTD.status
     // ลำดับสำคัญ: FUTD.status = status → futdRenderPositions() → _futdClientCrossLiq fallback จะได้ข้อมูลใหม่
-    FUTD.status = status;
+    // [v2.68-TRAIL] ย้าย FUTD.status = status ไปหลัง trailing merge block ด้านล่าง
     // [v2.61-LIQ FIX-STALE-EQUITY] timestamp ของ sync สำเร็จล่าสุด — ใช้เช็ค staleness ก่อนใช้
     // FUTD.status.futures_balance/cross_equity เป็น fallback ตอน GAS timeout (ดู catch ด้านล่าง)
     FUTD._statusSyncedAt = Date.now();
@@ -37901,6 +37924,29 @@ async function futdRefreshAccountStatus() {
     if (muEl) muEl.textContent = (status.margin_used  || 0).toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
     const maEl = document.getElementById('futd-margin-avail');
     if (maEl) maEl.textContent = (status.avail_margin || 0).toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
+
+    // [v2.68-TRAIL] merge trailing state จาก Sheet (server) กลับ local positions
+    // server เป็น SSOT สำหรับ trailing_cb / trailing_active
+    // trailing_peak: ใช้ค่า server เสมอ (GAS อัปเดต peak ทุก trigger cycle)
+    const _prevPos = (FUTD.status && FUTD.status.positions) || [];
+    const _incomingPos = (status.positions || []).map(sp => {
+      const prev = _prevPos.find(pp => pp.id === sp.id);
+      // ถ้า server มี trailing_cb → ใช้ server (persist แล้ว)
+      // ถ้า server ไม่มี (column ยังไม่ถูก migrate) → fallback local
+      if (sp.trailing_cb !== undefined && sp.trailing_cb !== '') {
+        sp.trailingCb     = parseFloat(sp.trailing_cb) || 0;
+        sp.trailingActive = String(sp.trailing_active || '').toLowerCase() === 'true';
+        sp.trailingPeak   = parseFloat(sp.trailing_peak) || 0;
+      } else if (prev) {
+        // fallback: คงค่า local ไว้ (ยังไม่ได้ persist จาก session นี้)
+        sp.trailingCb     = prev.trailingCb     || 0;
+        sp.trailingActive = prev.trailingActive  || false;
+        sp.trailingPeak   = prev.trailingPeak    || 0;
+      }
+      return sp;
+    });
+    status.positions = _incomingPos;
+    FUTD.status = status;
 
     futdRenderPositions(status.positions || []);
     futdRenderOrders(status.orders || []);
@@ -38203,6 +38249,14 @@ function futdRenderPositions(positions) {
       ? `<span class="futd-tpsl-chip sl">SL: ${sl.toLocaleString('en',{maximumFractionDigits:4})}</span>`
       : `<span class="futd-tpsl-chip none">SL: —</span>`;
 
+    // [v2.68-TRAIL] Trailing Stop chip
+    const _trailCb   = parseFloat(p.trailingCb || p.trailing_cb) || 0;
+    const _trailOn   = (p.trailingActive || String(p.trailing_active||'').toLowerCase()==='true') && _trailCb > 0;
+    const _trailPeak = parseFloat(p.trailingPeak || p.trailing_peak) || 0;
+    const trailChip  = _trailOn
+      ? `<span class="futd-tpsl-chip" style="background:rgba(114,137,218,.15);color:#7289da;border:1px solid rgba(114,137,218,.4)">⟳ Trail ${_trailCb}%${_trailPeak > 0 ? ' | Peak:'+_trailPeak.toLocaleString('en',{maximumFractionDigits:4}) : ''}</span>`
+      : '';
+
     const markStr = markP > 0 ? markP.toLocaleString('en',{maximumFractionDigits:4}) : '—';
     const liqStr  = liqP  > 0 ? liqP.toLocaleString('en',{maximumFractionDigits:4})  : '—';
 
@@ -38245,7 +38299,7 @@ function futdRenderPositions(positions) {
         <div class="futd-mr-label"><span>Margin Ratio</span><span style="color:${mrColor}">${mrPct.toFixed(1)}%</span></div>
         <div class="futd-mr-bar-bg"><div class="futd-mr-bar-fill" style="width:${mrPct.toFixed(1)}%;background:${mrColor}"></div></div>
       </div>
-      <div class="futd-pos-tpsl-row">${tpChip}${slChip}</div>
+      <div class="futd-pos-tpsl-row">${tpChip}${slChip}${trailChip}</div>
       <div class="futd-pos-actions">
         <div class="futd-btn-sm" onclick="futdAdjLeverage('${p.id}')">Leverage</div>
         <div class="futd-btn-sm warn" onclick="futdOpenTpslSheet('${p.id}')">TP/SL</div>
@@ -39025,20 +39079,32 @@ async function futdConfirmTpslFromPositionTab() {
   await futdConfirmTpsl();
 }
 
-/** [v2.55] Confirm Trailing Stop — บันทึก trailingCb ใน FUTD.status.positions */
+/** [v2.68-TRAIL] Confirm Trailing Stop — persist trailingCb ใน FUTD.status.positions และ GAS Sheet */
 async function futdConfirmTrailingStop() {
   const uid = _futdCurrentUid();
   if (!uid || !FUTD.tpslPosId) return;
   const cb = parseFloat(document.getElementById('futdTsshCbInp')?.value);
   if (!cb || cb <= 0) { showToast('กรุณาระบุ Callback Ratio (%)'); return; }
-  const idx = (FUTD.status && FUTD.status.positions || []).findIndex(p => p.id === FUTD.tpslPosId);
+  const posId = FUTD.tpslPosId;
+  const idx   = (FUTD.status && FUTD.status.positions || []).findIndex(p => p.id === posId);
   if (idx >= 0) {
     FUTD.status.positions[idx].trailingCb     = cb;
     FUTD.status.positions[idx].trailingActive = true;
+    FUTD.status.positions[idx].trailingPeak   = 0; // reset peak — GAS จะอัปเดตเองจาก mktPrice รอบแรก
   }
   futdRenderPositions(FUTD.status.positions || []);
   futdCloseTpslSheet();
-  showToast('✅ Trailing Stop (' + cb + '%) ตั้งค่าเรียบร้อย');
+  showToast('✅ Trailing Stop (' + cb + '%) ตั้งค่าเรียบร้อย — กำลังบันทึก...');
+  // [v2.68-TRAIL] persist ไป GAS Sheet ผ่าน updateFuturesTpSl
+  try {
+    await dbCallRaw('updateFuturesTpSl', {
+      uid, id: posId,
+      trailing_cb: cb, trailing_peak: 0, trailing_active: true,
+    });
+    showToast('✅ Trailing Stop (' + cb + '%) บันทึกแล้ว');
+  } catch (e) {
+    showToast('⚠️ Trailing Stop บันทึกไม่สำเร็จ: ' + (e.message || 'server error'), 'warn');
+  }
 }
 
 // [DEPRECATED v2.55] ฟังก์ชันเก่า — ยังคงไว้เพื่อ backward compat แต่ redirect ไปยัง futdTsshUpdateHints

@@ -37072,7 +37072,8 @@ function futdStopPolling() {
 async function futdFetchFunding() {
   try {
     const coin = FUTD.symbolCoin || 'BTC';
-    const d = await hlPost({ type: 'fundingHistory', coin, startTime: Date.now() - 28800000 });
+    // [v2.69-METAL-FUNDING] Metal coins ต้องใช้ _wsCoinName + _dexParam เหมือน candleSnapshot
+    const d = await hlPost({ type: 'fundingHistory', coin: _wsCoinName(coin), startTime: Date.now() - 28800000, ..._dexParam(coin) });
     if (d && d.length) {
       const latest = d[d.length - 1];
       FUTD.funding.rate = parseFloat(latest.fundingRate) * 100; // convert to %
@@ -39267,9 +39268,12 @@ async function futdChartLoad() {
   try {
     const now  = Date.now();
     const coin = FUTD.symbolCoin;
+    // [v2.69-METAL-CHART] Metal coins (GOLD, SILVER …) ต้องใช้ _wsCoinName → 'xyz:GOLD'
+    // และส่ง dex:'xyz' ระดับ top-level ไม่เช่นนั้น Hyperliquid ตอบ 500
     const d = await hlPost({
       type: 'candleSnapshot',
-      req: { coin, interval: FUTD.chart.tf, startTime: now - ms * 120, endTime: now }
+      req: { coin: _wsCoinName(coin), interval: FUTD.chart.tf, startTime: now - ms * 120, endTime: now },
+      ..._dexParam(coin)
     });
     FUTD.chart.candles = Array.isArray(d) ? d : [];
     futdChartDraw();

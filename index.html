@@ -23604,9 +23604,13 @@ function _origMytRenderFilter(tab){
     </div>`;
   } else if(tab === 'futd-transaction-history'){
     const f_ftrx = MYT.filters['futd-transaction-history'];
+    const assetLbl_ftrx = f_ftrx.asset && f_ftrx.asset !== 'All' ? f_ftrx.asset : 'Asset';
     const typeLbl_ftrx = f_ftrx.type && f_ftrx.type !== 'All' ? f_ftrx.type : 'Type';
     html = `
     <div class="myt-filter-bar">
+      <div class="myt-filter-btn" onclick="openMytDD('futd-transaction-history','asset',['All','USDT','BNB','BTC','ETH'])">
+        ${assetLbl_ftrx} <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
       <div class="myt-filter-btn" onclick="openMytDD('futd-transaction-history','type',['All','Futures Direct PNL','Futures Direct Liquidation','Futures Direct Funding Fee','Transfer','Deposit','Withdraw','Fee','Rebate'])">
         ${typeLbl_ftrx} <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
       </div>

@@ -6045,7 +6045,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
     /* ══════════════════════════════════════════
        CLAIM BUTTONS v8 — Premium redesign
        ══════════════════════════════════════════ */
-    .earn-modal-btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 0 12px}
+    .earn-modal-btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 0 12px;align-items:start}
 
     /* ── Base card ── */
     .earn-modal-btn-sub{
@@ -6053,14 +6053,24 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       border-radius:14px;cursor:pointer;text-align:left;
       display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;
       transition:transform .15s,box-shadow .15s,background .15s,border-color .15s;
-      position:relative;overflow:hidden;
+      /* [FIX-APT-CD] เปลี่ยน overflow:hidden → overflow:visible
+         เพื่อไม่ให้ clip countdown boxes (D:H:M:S) ที่สูงกว่า min-height:88px
+         shimmer ::before ยังคง clip ได้ด้วย clip-path แทน */
+      position:relative;overflow:visible;height:auto;
+    }
+    /* [FIX-APT-CD] shimmer ใช้ clip-path แทน overflow:hidden ของ parent */
+    .earn-modal-btn-sub::after{
+      content:'';position:absolute;inset:0;border-radius:14px;
+      pointer-events:none;z-index:0;
     }
     .earn-modal-btn-sub:not(:disabled):active{transform:scale(.97)}
     /* shimmer overlay on hover */
     .earn-modal-btn-sub::before{
-      content:'';position:absolute;inset:0;
+      content:'';position:absolute;inset:0;border-radius:14px;
       background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.04) 50%,transparent 70%);
       opacity:0;transition:opacity .2s;pointer-events:none;
+      /* clip shimmer inside button border-radius instead of parent overflow:hidden */
+      clip-path:inset(0 round 14px);
     }
     .earn-modal-btn-sub:not(:disabled):hover::before{opacity:1}
 
@@ -18880,6 +18890,9 @@ function _updateClaimSubButtons(c) {
       // เคลมได้แล้ว — แสดงยอด APT ซ่อน countdown
       if (aptAmtEl) { aptAmtEl.textContent = '+' + fmtM(aptYield, 4) + ' USDT'; aptAmtEl.style.display = 'block'; }
       if (aptCdRow) aptCdRow.style.display = 'none';
+      // [FIX-APT-CD] แสดง label "APT Yield · 100%" เมื่อ canApt=true (countdown ซ่อน)
+      const cdLabelEl = document.getElementById('claimAptCountdown');
+      if (cdLabelEl) cdLabelEl.style.display = '';
     } else {
       // ยังไม่ถึงรอบ — แสดงยอดสะสม + countdown
       if (aptAmtEl) {
@@ -18887,23 +18900,28 @@ function _updateClaimSubButtons(c) {
         aptAmtEl.style.display = aptYield > 0 ? 'block' : 'none';
       }
       if (aptCdRow) aptCdRow.style.display = 'flex';
-      if (cdD) cdD.textContent = String(dLeft).padStart(2, '0');
-      if (cdH) cdH.textContent = String(hLeft).padStart(2, '0');
-      if (cdM) cdM.textContent = String(Math.floor((msLeft % 3600000) / 60000)).padStart(2, '0');
-      if (cdS) cdS.textContent = String(Math.floor((msLeft % 60000) / 1000)).padStart(2, '0');
+      // [FIX-APT-CD] ซ่อน label "APT Yield · 100%" เมื่อแสดง countdown (ไม่ซ้อนกัน)
+      const cdLabelEl = document.getElementById('claimAptCountdown');
+      if (cdLabelEl) cdLabelEl.style.display = 'none';
+      // ── tick ทันทีก่อน setInterval (ไม่รอ 1s แรก) ──
+      function _aptTick() {
+        const rem = Math.max(0, nextAptMs - Date.now());
+        const dd = Math.floor(rem / 86400000);
+        const hh = Math.floor((rem % 86400000) / 3600000);
+        const mm = Math.floor((rem % 3600000) / 60000);
+        const ss = Math.floor((rem % 60000) / 1000);
+        if (cdD) cdD.textContent = String(dd).padStart(2,'0');
+        if (cdH) cdH.textContent = String(hh).padStart(2,'0');
+        if (cdM) cdM.textContent = String(mm).padStart(2,'0');
+        if (cdS) cdS.textContent = String(ss).padStart(2,'0');
+        return rem;
+      }
+      _aptTick(); // แสดงค่าทันทีโดยไม่รอ 1s
       // [FIX] live tick ทุก 1s (เดิม 60s ทำให้นาฬิกาดูหยุดนิ่ง)
       // [FIX] คำนวณ rem จาก nextAptMs โดยตรง ไม่ใช่จาก msLeft snapshot เก่า
       if (!aptBtn._cdTick) {
         aptBtn._cdTick = setInterval(function() {
-          const rem = Math.max(0, nextAptMs - Date.now());
-          const dd = Math.floor(rem / 86400000);
-          const hh = Math.floor((rem % 86400000) / 3600000);
-          const mm = Math.floor((rem % 3600000) / 60000);
-          const ss = Math.floor((rem % 60000) / 1000);
-          if (cdD) cdD.textContent = String(dd).padStart(2,'0');
-          if (cdH) cdH.textContent = String(hh).padStart(2,'0');
-          if (cdM) cdM.textContent = String(mm).padStart(2,'0');
-          if (cdS) cdS.textContent = String(ss).padStart(2,'0');
+          const rem = _aptTick();
           if (rem <= 0) { clearInterval(aptBtn._cdTick); aptBtn._cdTick = null; }
         }, 1000);
       }

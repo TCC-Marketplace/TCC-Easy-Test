@@ -5667,6 +5667,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 <div class="tabs-bar">
   <div class="tab active" id="futdTabPos" onclick="futdSwitchSubTab('pos')">Positions<span class="cnt" id="futdCntPos">0</span></div>
   <div class="tab"        id="futdTabOrd" onclick="futdSwitchSubTab('ord')">Open Orders<span class="cnt" id="futdCntOrd">0</span></div>
+  <div class="tab"        id="futdTabBot" onclick="futdSwitchSubTab('bot')">Bots</div>
   <div class="tab-hdr-r">
     <span class="ico" onclick="showToast('Sort')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg></span>
     <span class="ico" onclick="mytSetContext('futures_direct');openMyTrades()" style="cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg></span>
@@ -5679,10 +5680,11 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   <button class="btn-ca" onclick="futdCloseAll()">Close All</button>
 </div>
 
-<!-- SCROLLABLE (Direct positions / orders) -->
+<!-- SCROLLABLE (Direct positions / orders / bots) -->
 <div class="scrollable" id="futdScrollable">
   <div id="futd-positions-list"></div>
   <div id="futd-orders-list" style="display:none"></div>
+  <div id="futd-bots-list" style="display:none"><div class="futd-empty" style="padding:32px 0;color:var(--t3);font-size:12px;text-align:center">ยังไม่มี Bot สำหรับ Direct<br><span style="font-size:10px;color:var(--t3);margin-top:4px;display:block">ฟีเจอร์ Bot จะเพิ่มในอนาคต</span></div></div>
 </div>
 
 <!-- spacer ให้ chart panel ไม่บัง content -->
@@ -8217,9 +8219,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   <!-- Collapsed header (shown when chart is collapsed) -->
   <div class="futd-chart-collapsed-hdr" id="futdChartHdr" onclick="futdToggleChart()">
     <span id="futdChartHdrSym" style="font-size:11px;font-weight:600;color:var(--t2);font-family:var(--mono)">BTCUSDT</span>
-    <span style="font-size:10px;color:var(--t3)">Perp</span>
-    <span style="flex:1"></span>
-    <span style="font-size:12px;color:var(--t3);padding:0 8px">▲</span>
+    <span style="font-size:10px;color:var(--t3);padding:0 4px;font-weight:400">Perp</span>
+    <span id="futdCollapsedChg" class="tb-chg" style="font-size:11px;font-family:var(--mono);font-weight:700;flex:1">—</span>
+    <span id="futdChartArr" style="font-size:12px;color:var(--t3);padding:2px 8px 2px 4px;flex-shrink:0">▲</span>
   </div>
   <!-- Chart body -->
   <div id="futdChartSec">
@@ -8231,8 +8233,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       </span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'1s')">1s</span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'1m')">1m</span>
-      <span class="futd-tf-label" onclick="futdSetTF(this,'3m')">3m</span>
-      <span class="futd-tf-label active" onclick="futdSetTF(this,'5m')">5m</span>
+      <span class="futd-tf-label active" onclick="futdSetTF(this,'3m')">3m</span>
+      <span class="futd-tf-label" onclick="futdSetTF(this,'5m')">5m</span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'15m')">15m</span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'30m')">30m</span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'1h')">1h</span>
@@ -8241,8 +8243,10 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       <span id="futdCandleCountdown" style="font-size:10px;font-family:var(--mono);flex-shrink:0;padding:2px 7px;margin:0 2px;border-radius:10px;white-space:nowrap;background:rgba(14,203,129,.18);color:#0ecb81;font-weight:700;border:1px solid rgba(14,203,129,.3);min-width:42px;text-align:center;letter-spacing:.5px;font-variant-numeric:tabular-nums">--:--</span>
       <!-- LIVE badge (shown when panned away) -->
       <span id="futdLiveTag" onclick="event.stopPropagation();futdChartResetView()" style="display:none;font-size:9px;padding:2px 5px;border-radius:3px;background:rgba(14,203,129,.15);color:var(--g);border:1px solid rgba(14,203,129,.3);cursor:pointer;font-family:var(--mono);font-weight:700;flex-shrink:0;margin-right:2px">← LIVE</span>
-      <!-- Toggle ▲ — rightmost -->
-      <span onclick="futdToggleChart()" style="font-size:12px;color:var(--t3);cursor:pointer;padding:2px 8px 6px 4px;flex-shrink:0;margin-left:auto">▲</span>
+      <!-- Toggle ▲ — rightmost (id สำหรับ JS เปลี่ยน arrow state เหมือน Contract futTFTitle/chartArrOpen) -->
+      <span id="futdTFTitle" onclick="futdToggleChart()" style="font-size:12px;color:var(--t3);cursor:pointer;padding:2px 8px 6px 4px;display:flex;align-items:center;flex-shrink:0;line-height:1;margin-left:auto">
+        <span id="futdChartArrOpen">▲</span>
+      </span>
     </div>
     <!-- MA row -->
     <div class="futd-ma-row">
@@ -8281,6 +8285,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">Range</span><span class="ch-tooltip-val" id="futdChTTRange">—</span></div>
         <hr class="ch-tooltip-divider">
         <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">Vol</span><span class="ch-tooltip-val" id="futdChTTVol">—</span></div>
+        <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">Txn</span><span class="ch-tooltip-val" id="futdChTTTxn">—</span></div>
       </div>
       <!-- Legacy inline OHLC (top-left, always visible) -->
       <div id="futdChOhlc" style="position:absolute;top:4px;left:6px;display:flex;gap:6px;font-size:9px;font-family:var(--mono);color:var(--t2);pointer-events:none">
@@ -8289,21 +8294,28 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       </div>
     </div>
     <!-- Volume -->
-    <div class="futd-vol-wrap" id="futdVolWrap">
-      <canvas id="futdVolCanvas" style="width:100%;height:100%;display:block"></canvas>
+    <!-- Volume panel — เพิ่ม height 44px + hover tooltip เหมือน Contract -->
+    <div id="futdVolWrap" style="position:relative;width:100%;height:44px;background:var(--bg);border-top:1px solid rgba(43,49,57,0.5);flex-shrink:0;">
+      <canvas id="futdVolCanvas" style="width:100%;height:100%;display:block;"></canvas>
+      <div id="futdVolHover" style="position:absolute;left:0;bottom:0;pointer-events:none;display:none;background:rgba(20,24,29,0.9);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:9px;font-family:var(--mono);color:var(--t2);white-space:nowrap;z-index:5;"></div>
     </div>
-    <!-- Indicator toggle -->
+    <!-- Indicator toggle — เพิ่ม IND master toggle button เหมือน Contract -->
     <div class="futd-ind-bar" id="futdIndBar">
-      <span class="futd-ind-btn" id="futdIndRSI" onclick="futdIndToggle('RSI')">RSI</span>
-      <span class="futd-ind-btn" id="futdIndMACD" onclick="futdIndToggle('MACD')">MACD</span>
-      <span class="futd-ind-btn" id="futdIndBB" onclick="futdIndToggle('BB')">BB</span>
-      <span class="futd-ind-btn" id="futdIndEMA" onclick="futdIndToggle('EMA')">EMA</span>
+      <span class="futd-ind-btn" id="futdIndBtnIND" onclick="futdIndToggle('IND')" style="color:var(--t2);letter-spacing:.5px;">IND</span>
+      <span class="futd-ind-btn" id="futdIndBtnRSI" onclick="futdIndToggle('RSI')">RSI</span>
+      <span class="futd-ind-btn" id="futdIndBtnMACD" onclick="futdIndToggle('MACD')">MACD</span>
+      <span class="futd-ind-btn" id="futdIndBtnBB" onclick="futdIndToggle('BB')">BB</span>
+      <span class="futd-ind-btn" id="futdIndBtnEMA" onclick="futdIndToggle('EMA')">EMA</span>
     </div>
-    <!-- Indicator panel -->
-    <div id="futdIndPanel" style="display:none;position:relative;padding:2px 8px;background:var(--bg)">
-      <span style="font-size:10px;color:var(--t2)" id="futdIndLabel">RSI(14)</span>
-      <span style="font-size:10px;font-family:var(--mono);color:var(--t1);margin-left:6px" id="futdIndVal">—</span>
-      <canvas id="futdIndCanvas" style="width:100%;height:60px;display:block"></canvas>
+    <!-- Indicator panel — ใช้ class-based เหมือน Contract (ind-panel-label/val) -->
+    <div class="ind-panel-wrap" id="futdIndPanel" style="display:none;">
+      <span class="ind-panel-label" id="futdIndLabel">RSI(14)</span>
+      <span class="ind-panel-val" id="futdIndVal">—</span>
+      <canvas id="futdIndCanvas"></canvas>
+    </div>
+    <!-- Chart Time Row — แถว timestamp ด้านล่าง canvas เหมือน Contract -->
+    <div class="chart-time-row" id="futdChartTimeRow">
+      <span class="ct-lbl">—</span><span class="ct-lbl">—</span>
     </div>
   </div>
 </div><!-- /futdChartPanel -->
@@ -37128,7 +37140,7 @@ const FUTD = {
   tpslOn: false,           // TP/SL toggle
   amtUnit: 'BTC',          // unit ของ amount input
   hideOtherPairs: true,
-  subTab: 'pos',           // 'pos' | 'ord'
+  subTab: 'pos',           // 'pos' | 'ord' | 'bot'
   marginMode: 'cross',     // [v2.53] 'cross' | 'isolated' — ผู้ใช้เลือกก่อน open position
   // [v2.63-HEDGE] Hedge Mode state
   hedgeMode: false,        // false = One-way Mode, true = Hedge Mode
@@ -37141,7 +37153,7 @@ const FUTD = {
   bids: [],                // order book bids (Direct)
   // Chart state
   chart: {
-    tf: '5m',
+    tf: '3m',  // [PATCH] default 3m เหมือน Contract tab
     candles: [],
     open: true,
     wrapH: 180,
@@ -37598,17 +37610,21 @@ function futdFillPrice(p) {
   if (inp) { inp.value = p.toFixed(1); futdUpdateMaxCost(); }
 }
 
-// ── Sub-tab: Positions / Open Orders ─────────────────────────
+// ── Sub-tab: Positions / Open Orders / Bots ─────────────────────────
 function futdSwitchSubTab(tab) {
   FUTD.subTab = tab;
   const posList = document.getElementById('futd-positions-list');
   const ordList = document.getElementById('futd-orders-list');
+  const botList = document.getElementById('futd-bots-list');
   const tabPos  = document.getElementById('futdTabPos');
   const tabOrd  = document.getElementById('futdTabOrd');
+  const tabBot  = document.getElementById('futdTabBot');
   if (posList) posList.style.display = tab === 'pos' ? '' : 'none';
   if (ordList) ordList.style.display = tab === 'ord' ? '' : 'none';
+  if (botList) botList.style.display = tab === 'bot' ? '' : 'none';
   if (tabPos)  tabPos.classList.toggle('active',  tab === 'pos');
   if (tabOrd)  tabOrd.classList.toggle('active',  tab === 'ord');
+  if (tabBot)  tabBot.classList.toggle('active',  tab === 'bot');
 }
 
 // ── Hide Other Pairs toggle ───────────────────────────────────
@@ -37991,6 +38007,17 @@ async function futdRefreshPrice() {
     // [v2.50] อัปเดต ticker strip — mark price
     const tkMark = document.getElementById('futd-tk-mark');
     if (tkMark && price > 0) tkMark.textContent = fmtP(price);
+
+    // [PATCH] Mirror price change % to collapsed header (เหมือน Contract updateTopBar → futCollapsedChg)
+    if (price > 0 && FUTD.chart.candles.length) {
+      const baseC = FUTD.chart.candles[0];
+      const baseP = parseFloat(baseC.o || baseC.open) || price;
+      const chgPct = baseP ? ((price - baseP) / baseP * 100) : 0;
+      const chgStr = (chgPct >= 0 ? '+' : '') + chgPct.toFixed(2) + '%';
+      const chgCls = 'tb-chg ' + (chgPct >= 0 ? 'up' : 'dn');
+      const collChg = document.getElementById('futdCollapsedChg');
+      if (collChg) { collChg.textContent = chgStr; collChg.className = chgCls; }
+    }
 
     // Legacy: futd-mkprice element (ถ้ายังมีอยู่)
     const el = document.getElementById('futd-mkprice');
@@ -39472,6 +39499,35 @@ function futdChartInit() {
   // Update chart header symbol
   const symEl = document.getElementById('futdChartHdrSym');
   if (symEl) symEl.textContent = FUTD.symbolCoin + 'USDT';
+
+  // [PATCH] Volume Hover tooltip — mousemove บน futdVolWrap แสดง volume ของแท่งที่ตรงกับ x (เหมือน Contract futVolHover)
+  const volWrap   = document.getElementById('futdVolWrap');
+  const volHover  = document.getElementById('futdVolHover');
+  if (volWrap && volHover && !volWrap._futdHoverInited) {
+    volWrap._futdHoverInited = true;
+    volWrap.addEventListener('mousemove', e => {
+      const candles = FUTD.chart.candles;
+      if (!candles.length) return;
+      const rect  = volWrap.getBoundingClientRect();
+      const xRel  = e.clientX - rect.left;
+      const W     = rect.width;
+      const vis   = FUTD.chart.visCount;
+      const start = FUTD.chart.viewStart !== null
+        ? Math.max(0, Math.min(candles.length - vis, FUTD.chart.viewStart))
+        : Math.max(0, candles.length - vis);
+      const cW    = W / vis;
+      const idx   = Math.floor(xRel / cW);
+      const candle = candles[start + idx];
+      if (!candle) return;
+      const vol = parseFloat(candle.v || candle.volume || 0);
+      const _fv = v => v >= 1e9 ? (v/1e9).toFixed(2)+'B' : v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? (v/1e3).toFixed(1)+'K' : v.toFixed(0);
+      volHover.textContent = 'Vol: ' + _fv(vol);
+      volHover.style.display = 'block';
+      const hx = Math.min(xRel, W - volHover.offsetWidth - 4);
+      volHover.style.left = Math.max(0, hx) + 'px';
+    });
+    volWrap.addEventListener('mouseleave', () => { volHover.style.display = 'none'; });
+  }
 }
 
 function futdChartStop() {
@@ -39554,6 +39610,7 @@ function futdInitCrosshair() {
   const chTTPchg   = document.getElementById('futdChTTPchg');
   const chTTRange  = document.getElementById('futdChTTRange');
   const chTTVol    = document.getElementById('futdChTTVol');
+  const chTTTxn    = document.getElementById('futdChTTTxn');
 
   const ARC_C = 94.2;
   const LONG_PRESS_MS = 320;
@@ -39683,6 +39740,11 @@ function futdInitCrosshair() {
       if (chTTPchg)  { chTTPchg.textContent = chgSign + pchg.toFixed(2) + '%'; chTTPchg.style.color = chgColor; }
       if (chTTRange) chTTRange.textContent = rangePct.toFixed(2) + '%';
       if (chTTVol)   chTTVol.textContent = _fmtV(v);
+      // [PATCH] Txn — จำนวน transaction (field 'n' จาก Hyperliquid candleSnapshot)
+      if (chTTTxn) {
+        const txnCount = parseInt(c.n || c.numTrades || c.txn || 0);
+        chTTTxn.textContent = txnCount > 0 ? txnCount.toLocaleString() : '—';
+      }
 
       // Smart positioning: flip to opposite side
       chTooltip.style.display = 'block';
@@ -39772,8 +39834,13 @@ function futdToggleChart() {
   FUTD.chart.open = !FUTD.chart.open;
   const sec     = document.getElementById('futdChartSec');
   const hdr     = document.getElementById('futdChartHdr');
+  const arrOpen = document.getElementById('futdChartArrOpen');
+  const arrHdr  = document.getElementById('futdChartArr');
   if (sec) sec.style.display = FUTD.chart.open ? '' : 'none';
   if (hdr) hdr.classList.toggle('show', !FUTD.chart.open);
+  // อัปเดต arrow state — ▲ เมื่อเปิด, ▼ เมื่อปิด (เหมือน Contract chartArrOpen)
+  if (arrOpen) arrOpen.textContent = FUTD.chart.open ? '▲' : '▼';
+  if (arrHdr)  arrHdr.textContent  = FUTD.chart.open ? '▲' : '▼';
   setTimeout(() => { futdChartRecalcPad(); if (FUTD.chart.open) futdChartDraw(); }, 50);
 }
 
@@ -39791,11 +39858,21 @@ function futdSetTF(el, tf) {
 }
 
 function futdIndToggle(ind) {
-  FUTD.chart.indicator = FUTD.chart.indicator === ind ? null : ind;
+  if (ind === 'IND') {
+    // IND master: ถ้ามี indicator เปิดอยู่ → ปิดทั้งหมด, ถ้าไม่มี → เปิด RSI (เหมือน Contract _indToggle)
+    FUTD.chart.indicator = FUTD.chart.indicator ? null : 'RSI';
+  } else {
+    FUTD.chart.indicator = FUTD.chart.indicator === ind ? null : ind;
+  }
+  const anyActive = !!FUTD.chart.indicator;
+  // อัปเดตปุ่มทั้งหมด (ใช้ id ใหม่ futdIndBtnXxx)
   ['RSI','MACD','BB','EMA'].forEach(k => {
-    const btn = document.getElementById('futdInd' + k);
+    const btn = document.getElementById('futdIndBtn' + k);
     if (btn) btn.classList.toggle('active', FUTD.chart.indicator === k);
   });
+  // IND master button — active เมื่อมี indicator ใดเปิดอยู่
+  const btnIND = document.getElementById('futdIndBtnIND');
+  if (btnIND) btnIND.classList.toggle('active', anyActive);
   const panel = document.getElementById('futdIndPanel');
   if (panel) panel.style.display = FUTD.chart.indicator ? '' : 'none';
   futdChartDraw();
@@ -40071,6 +40148,16 @@ function futdChartDraw() {
 
   // Candle countdown (wall-clock based — ไม่ต้องส่ง last)
   futdUpdateCandleCountdown();
+
+  // [PATCH] Chart Time Row — อัปเดต timestamp แรก/สุดท้ายของ slice (เหมือน Contract chartTimeRow)
+  const tRow = document.getElementById('futdChartTimeRow');
+  if (tRow && slice.length > 0) {
+    const ft = t => {
+      const d = new Date(t);
+      return d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false });
+    };
+    tRow.innerHTML = `<span class="ct-lbl">${ft(slice[0].t)}</span><span class="ct-lbl">${ft(slice[slice.length-1].t)}</span>`;
+  }
 }
 
 function futdDrawVolume(slice) {

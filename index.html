@@ -8177,6 +8177,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .futd-tf-label.active{background:var(--y);color:#000;font-weight:700}
 .futd-ma-row{display:flex;gap:10px;padding:2px 8px;font-size:10px;font-family:var(--mono)}
 .futd-chart-canvas-wrap{position:relative;width:100%}
+/* [FIX-TXN-TOOLTIP] futdChTooltip ถูกย้ายออกนอก chart-wrap → ใช้ position:fixed เพื่อลอยเหนือทุก layer */
+#futdChTooltip{position:fixed!important;z-index:1200!important}
 .futd-vol-wrap{position:relative;width:100%;height:44px;background:var(--bg);border-top:1px solid rgba(43,49,57,.5);flex-shrink:0}
 .futd-ind-bar{display:flex;align-items:center;gap:4px;padding:3px 8px;border-top:1px solid var(--border)}
 .futd-ind-btn{font-size:10px;font-weight:600;font-family:var(--mono);color:var(--t3);padding:3px 6px;border-radius:4px;cursor:pointer;transition:all .15s;user-select:none;border:1px solid transparent}
@@ -36982,9 +36984,24 @@ async function aftdRefreshDirectSummary() {
     if (_wbalEl) _wbalEl.textContent = _fmt2(_wbal);
     if (_wusdEl) _wusdEl.textContent = '≈ $' + _fmt2(_wbal);
 
-    // Unrealized PNL = คำนวณจาก positions (sum of unrealized pnl)
+    // [FIX-AFTD-PNL] Unrealized PNL — คำนวณจาก live price เสมอ
+    // FUTD.prices อาจว่างถ้า Direct tab ยังไม่ถูกเปิด → fallback S.coinPrices (Contract/Spot WS)
+    // ไม่ใช้ p.pnl / p.unrealized_pnl เพราะ GAS เก็บค่า ณ เวลา open เท่านั้น (มักเป็น 0)
     const _positions = status.positions || [];
-    const _upnl = _positions.reduce((s, p) => s + (parseFloat(p.pnl || p.unrealized_pnl || 0)), 0);
+    const _upnl = _positions.reduce((s, p) => {
+      const coin    = (p.symbol || '').replace('USDT', '');
+      const entryP  = parseFloat(p.entry_price) || 0;
+      const size    = parseFloat(p.size) || 0;
+      // priority: FUTD.prices (Direct WS) → S.coinPrices (Contract/Spot WS) → p.mark fallback
+      const markP   = (FUTD.prices && FUTD.prices[coin])
+                   || (typeof S !== 'undefined' && S.coinPrices && parseFloat(S.coinPrices[coin]))
+                   || parseFloat(p.mark) || 0;
+      if (!markP || !entryP || !size) return s;
+      const pnl = p.side === 'long'
+        ? (markP - entryP) * size
+        : (entryP - markP) * size;
+      return s + pnl;
+    }, 0);
     const _upnlEl  = document.getElementById('aftd-unrealized-pnl');
     const _uusdEl  = document.getElementById('aftd-unrealized-usd');
     if (_upnlEl) {
@@ -37063,7 +37080,11 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
     const _liqRawA  = _liqMap[p.id] !== undefined ? parseFloat(_liqMap[p.id]) : null;
     const liqP      = (_liqRawA !== null && _liqRawA > 0) ? _liqRawA
                     : (entryP > 0 && size > 0 && margin > 0 ? _liqCalcA : parseFloat(p.liq_price) || 0);
-    const markP  = (FUTD.prices && FUTD.prices[coin]) || 0;
+    // [FIX-AFTD-MARK] ใช้ fallback chain: FUTD.prices → S.coinPrices → p.mark
+    // FUTD.prices ว่างถ้า Direct tab ยังไม่ถูก init → ใช้ S.coinPrices (Contract/Spot WS) แทน
+    const markP  = (FUTD.prices && FUTD.prices[coin])
+                || (typeof S !== 'undefined' && S.coinPrices && parseFloat(S.coinPrices[coin]))
+                || parseFloat(p.mark) || 0;
 
     let upnl = 0;
     if (markP > 0 && entryP > 0 && size > 0) {
@@ -39381,9 +39402,10 @@ function futdChartInit() {
   futdChartSetH(FUTD.chart.wrapH);
   futdChartRecalcPad();
 
-  // Drag-to-resize
+  // [FIX-HANDLE] Drag-to-resize — guard ด้วย _futdHandleInited ป้องกัน event stack ซ้ำเมื่อ switch tab
   const handle = document.getElementById('futdDragHandle');
-  if (handle) {
+  if (handle && !handle._futdHandleInited) {
+    handle._futdHandleInited = true;
     let startY = 0, startH = 0, dragging = false;
     const onMove = e => {
       if (!dragging) return;
@@ -39401,20 +39423,23 @@ function futdChartInit() {
     document.addEventListener('touchend', onEnd);
   }
 
-  // Pan / Zoom on chart canvas
+  // [FIX-PAN] Pan / Zoom on chart canvas — guard ด้วย _futdCanvasInited เพื่อกัน event stack ซ้ำ
+  // เมื่อ user switch tab กลับมา futdChartInit ถูกเรียกใหม่แต่ canvas เดิมยังอยู่ → ต้อง guard
   const canvas = document.getElementById('futdChartCanvas');
-  if (canvas) {
+  if (canvas && !canvas._futdCanvasInited) {
+    canvas._futdCanvasInited = true;
     let panning = false, panStartX = 0, panVisStart = null;
     let pinchDist = 0;
 
-    // Mouse drag pan
+    // Mouse drag pan — mouseup ผูกกับ document เพื่อจับกรณี mouse ออกนอก canvas ระหว่าง drag
     canvas.addEventListener('mousedown', e => {
+      e.preventDefault();
       panning = true; panStartX = e.clientX;
       panVisStart = FUTD.chart.viewStart !== null
         ? FUTD.chart.viewStart
         : Math.max(0, FUTD.chart.candles.length - FUTD.chart.visCount);
     });
-    canvas.addEventListener('mousemove', e => {
+    document.addEventListener('mousemove', e => {
       if (!panning) return;
       const dx = e.clientX - panStartX;
       const cW = (canvas.clientWidth || 375) / FUTD.chart.visCount;
@@ -39424,8 +39449,8 @@ function futdChartInit() {
       FUTD.chart.viewStart = Math.max(0, Math.min(total - vis, panVisStart - delta));
       futdChartDraw();
     });
-    canvas.addEventListener('mouseup',   () => { panning = false; });
-    canvas.addEventListener('mouseleave',() => { panning = false; });
+    // [FIX-PAN] ย้าย mouseup ไป document → จับได้แม้ user ลาก mouse ออกนอก canvas แล้วปล่อย
+    document.addEventListener('mouseup', () => { panning = false; });
 
     // Touch drag pan
     canvas.addEventListener('touchstart', e => {
@@ -39452,7 +39477,7 @@ function futdChartInit() {
         // Pinch zoom
         const newDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
         if (pinchDist > 0) {
-          const factor = pinchDist / newDist; // zoom out if pulling apart
+          const factor = pinchDist / newDist;
           const newVis = Math.round(Math.max(10, Math.min(500, FUTD.chart.visCount * factor)));
           if (newVis !== FUTD.chart.visCount) {
             const center = (FUTD.chart.viewStart || 0) + FUTD.chart.visCount / 2;
@@ -39500,8 +39525,12 @@ function futdChartInit() {
   if (FUTD_CHART.drawTimer) clearInterval(FUTD_CHART.drawTimer);
   FUTD_CHART.drawTimer = setInterval(() => {
     if (FUTD.chart.candles.length && FUTD.chart.open) {
-      // อัปเดต last candle close ด้วย mark price ล่าสุด (real-time wicks)
-      const mp = FUTD.prices[FUTD.symbolCoin] || 0;
+      // [FIX-CANDLE-FREEZE] อัปเดต last candle close ด้วย mark price ล่าสุด (real-time wicks)
+      // ใช้ fallback chain: FUTD.prices → S.coinPrices → ข้ามไม่อัปเดต
+      // เดิมใช้แค่ FUTD.prices[FUTD.symbolCoin] ซึ่งว่างถ้า WebSocket ยังไม่ connect → candle ค้าง
+      const mp = (FUTD.prices && FUTD.prices[FUTD.symbolCoin])
+              || (typeof S !== 'undefined' && S.coinPrices && parseFloat(S.coinPrices[FUTD.symbolCoin]))
+              || 0;
       if (mp > 0 && FUTD.chart.candles.length) {
         const last = FUTD.chart.candles[FUTD.chart.candles.length - 1];
         const lastC = parseFloat(last.c || last.close) || 0;
@@ -39770,17 +39799,27 @@ function futdInitCrosshair() {
         chTTTxn.textContent = txnCount > 0 ? txnCount.toLocaleString() : '—';
       }
 
-      // Smart positioning: flip to opposite side
+      // [FIX-TXN-TOOLTIP] tooltip ใช้ position:fixed → คำนวณด้วย viewport coords
+      // ป้องกัน tooltip ถูกตัดโดย overflow:hidden ของ .chart-wrap
       chTooltip.style.display = 'block';
       const ttW = chTooltip.offsetWidth  || 152;
-      const ttH = chTooltip.offsetHeight || 160;
+      const ttH = chTooltip.offsetHeight || 175; // เผื่อ Txn row
       const MARGIN = 8;
-      let tx = cx < wrapW / 2 ? cx + 14 : cx - ttW - 14;
-      if (tx + ttW > wrapW - PAD_R - MARGIN) tx = cx - ttW - 6;
-      if (tx < PAD_L + MARGIN) tx = cx + 6;
-      const ty = Math.max(PAD_T, Math.min(wrapH - PAD_B - ttH - MARGIN, my - ttH / 2));
-      chTooltip.style.left = tx + 'px';
-      chTooltip.style.top  = ty + 'px';
+      const wrapRect = wrap.getBoundingClientRect();
+      // cx, my เป็น offset จาก wrap → แปลงเป็น viewport
+      const vx = wrapRect.left + cx;
+      const vy = wrapRect.top  + my;
+      // flip ซ้าย/ขวาตาม cursor
+      let ftx = vx < wrapRect.left + wrapW / 2 ? vx + 14 : vx - ttW - 14;
+      if (ftx + ttW > window.innerWidth - MARGIN) ftx = vx - ttW - 6;
+      if (ftx < MARGIN) ftx = vx + 6;
+      // clamp บน/ล่าง: อย่าให้ทับ bottom nav (52px) และอย่าให้เกินขอบบน
+      const bottomNavH = 52;
+      let fty = vy - ttH / 2;
+      if (fty + ttH > window.innerHeight - bottomNavH - MARGIN) fty = window.innerHeight - bottomNavH - ttH - MARGIN;
+      if (fty < MARGIN) fty = MARGIN;
+      chTooltip.style.left = ftx + 'px';
+      chTooltip.style.top  = fty + 'px';
     }
   }
 
@@ -39851,7 +39890,9 @@ function futdChartRecalcPad() {
   const spacer = document.getElementById('futd-chart-spacer');
   if (!panel || !spacer) return;
   const ph = (FUTD.chart.open && panel.classList.contains('active')) ? panel.offsetHeight : 0;
-  spacer.style.height = (ph + 68) + 'px';
+  // [FIX-TXN-CLIPPED] เพิ่ม padding จาก 68 → 80 เพื่อให้ scrollable area ไม่ถูก chart panel บัง
+  // รวม bottom nav (52px) + chart drag handle (10px) + buffer (18px)
+  spacer.style.height = (ph + 80) + 'px';
 }
 
 function futdToggleChart() {

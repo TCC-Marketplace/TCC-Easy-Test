@@ -5940,48 +5940,63 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 
     <!-- ═══ FUTURES-DIRECT VIEW (ใหม่ทั้งหมด — margin/position/order แยกจากด้านบนโดยสิ้นเชิง) ═══ -->
     <div class="aft-subview" id="aft-view-direct">
-      <div class="aft-header">
-        <div class="aft-margin-row">
-          <div class="aft-margin-lbl">
-            Margin Balance (Futures-Direct)
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          </div>
-          <div class="aft-icons">
-            <div class="ast-icon-btn">⇄</div>
-            <div class="ast-icon-btn" onclick="mytSetContext('futures_direct');openMyTrades()" title="Trade History">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg>
-            </div>
-          </div>
+
+    <!-- Header: Margin Balance + stats -->
+    <div class="aft-header">
+      <div class="aft-margin-row">
+        <div class="aft-margin-lbl">
+          Margin Balance (Futures-Direct)
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </div>
-        <div class="aft-big-bal ast-hideable">
-          <span id="aftd-margin-bal">0.00</span><span class="unit">USDT</span>
-        </div>
-        <div class="aft-usd ast-hideable" id="aftd-margin-usd">ไม่มีประกันทุน — เทรดตรงแบบ Binance</div>
-        <div class="aft-stats-row">
-          <div class="aft-stat">
-            <div>Margin ที่ใช้ไปแล้ว (USDT)</div>
-            <div class="aft-stat-val ast-hideable" id="aftd-margin-used">0.00</div>
+        <div class="aft-icons">
+          <div class="ast-icon-btn">🎁</div>
+          <div class="ast-icon-btn">⇄</div>
+          <div class="ast-icon-btn" onclick="mytSetContext('futures_direct');openMyTrades()" title="Trade History">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg>
           </div>
-          <div class="aft-stat">
-            <div>Margin ที่ว่าง (USDT)</div>
-            <div class="aft-stat-val ast-hideable" id="aftd-margin-avail" style="color:var(--t1)">0.00</div>
+          <div class="ast-icon-btn" onclick="_aftdOpenPnlShare()" title="Share PNL" style="color:var(--y)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </div>
+          <div class="ast-icon-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           </div>
         </div>
       </div>
-
-      <div class="ast-action-row" style="padding-top:12px">
-        <button class="ast-btn-primary" onclick="navTo('futures');requestAnimationFrame(()=>futSwitchTab('direct'))">Trade</button>
-        <button class="ast-btn-secondary" onclick="openTransfer(null,'usdm')">Transfer</button>
+      <div class="aft-big-bal ast-hideable">
+        <span id="aftd-margin-bal">0.00</span><span class="unit">USDT</span>
       </div>
-
-      <div class="aft-summary-bar">
-        <div class="aft-summary-chips">
-          <div class="aft-chip">Positions <b id="aftd-pos-count">0</b></div>
-          <div class="aft-chip">Orders <b id="aftd-order-count">0</b></div>
+      <div class="aft-usd ast-hideable" id="aftd-margin-usd">≈ $0.00</div>
+      <div class="aft-pnl-today"><span data-i18n="today_pnl">Today's PNL</span> &nbsp;<span id="aftd-today-pnl">$0.00 (0.00%)</span> ›</div>
+      <div class="aft-stats-row">
+        <div class="aft-stat">
+          <div>Wallet Balance (USDT)</div>
+          <div class="aft-stat-val ast-hideable" id="aftd-wallet-bal">0.00</div>
+          <div class="aft-stat-sub ast-hideable" id="aftd-wallet-usd">≈ $0.00</div>
+        </div>
+        <div class="aft-stat">
+          <div>Unrealized PNL (USDT)</div>
+          <div class="aft-stat-val ast-hideable" id="aftd-unrealized-pnl" style="color:var(--t1)">0.00</div>
+          <div class="aft-stat-sub ast-hideable" id="aftd-unrealized-usd" style="color:var(--t1)">≈ $0.00</div>
         </div>
       </div>
+    </div>
 
-      <div id="astFutDirectPosList"></div>
+    <!-- Action buttons -->
+    <div class="ast-action-row" style="padding-top:12px">
+      <button class="ast-btn-primary" onclick="navTo('futures');requestAnimationFrame(()=>futSwitchTab('direct'))">Trade</button>
+      <button class="ast-btn-secondary" onclick="showToast('Swap')">Swap</button>
+      <button class="ast-btn-secondary" onclick="openTransfer(null,'usdm')">Transfer</button>
+    </div>
+
+    <!-- Summary bar: position count + order count -->
+    <div class="aft-summary-bar">
+      <div class="aft-summary-chips">
+        <div class="aft-chip">Positions <b id="aftd-pos-count">0</b></div>
+        <div class="aft-chip">Orders <b id="aftd-order-count">0</b></div>
+      </div>
+    </div>
+
+    <div id="astFutDirectPosList"></div>
     </div><!-- /aft-view-direct -->
   </div>
 
@@ -23604,13 +23619,9 @@ function _origMytRenderFilter(tab){
     </div>`;
   } else if(tab === 'futd-transaction-history'){
     const f_ftrx = MYT.filters['futd-transaction-history'];
-    const assetLbl_ftrx = f_ftrx.asset && f_ftrx.asset !== 'All' ? f_ftrx.asset : 'Asset';
     const typeLbl_ftrx = f_ftrx.type && f_ftrx.type !== 'All' ? f_ftrx.type : 'Type';
     html = `
     <div class="myt-filter-bar">
-      <div class="myt-filter-btn" onclick="openMytDD('futd-transaction-history','asset',['All','USDT','BNB','BTC','ETH'])">
-        ${assetLbl_ftrx} <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </div>
       <div class="myt-filter-btn" onclick="openMytDD('futd-transaction-history','type',['All','Futures Direct PNL','Futures Direct Liquidation','Futures Direct Funding Fee','Transfer','Deposit','Withdraw','Fee','Rebate'])">
         ${typeLbl_ftrx} <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
@@ -25194,6 +25205,41 @@ function _aftOpenPnlShare() {
   let period = '—';
   if (typeof HIST !== 'undefined' && HIST.positionHistory && HIST.positionHistory.length > 0) {
     const dates = HIST.positionHistory.map(h => h.opened || h.closed || '').filter(Boolean).sort();
+    if (dates.length > 0) {
+      const d1 = dates[0].substring(0,10);
+      const d2 = dates[dates.length-1].substring(0,10);
+      period = d1 + (d1 !== d2 ? ' - ' + d2 : '');
+    }
+  }
+
+  openPnlShareCard({ pct, usd: totalPnl, winRate: total > 0 ? winRate : null, period, chartData });
+}
+
+// ── Share PNL สำหรับ Futures-Direct (ใช้ HIST.futdPositionHistory) ──
+function _aftdOpenPnlShare() {
+  let totalPnl = 0, wins = 0, total = 0;
+  const chartData = [];
+  if (typeof HIST !== 'undefined' && HIST.futdPositionHistory) {
+    let running = 0;
+    HIST.futdPositionHistory.forEach(h => {
+      const pnl = parseFloat(h.realizedPnl || 0);
+      totalPnl += pnl;
+      running += pnl;
+      chartData.push(running);
+      total++;
+      if (pnl > 0) wins++;
+    });
+  }
+  // Wallet Balance ≈ futures_balance จาก FUTD.status (ถ้า sync แล้ว) หรือ fallback 1000
+  const walletBal = (typeof FUTD !== 'undefined' && FUTD.status && FUTD.status.futures_balance)
+    ? parseFloat(FUTD.status.futures_balance) || 1000 : 1000;
+  const pct = walletBal > 0 ? (totalPnl / walletBal * 100) : 0;
+  const winRate = total > 0 ? (wins / total * 100) : 0;
+
+  // หาช่วงวันที่
+  let period = '—';
+  if (typeof HIST !== 'undefined' && HIST.futdPositionHistory && HIST.futdPositionHistory.length > 0) {
+    const dates = HIST.futdPositionHistory.map(h => h.opened || h.closed || '').filter(Boolean).sort();
     if (dates.length > 0) {
       const d1 = dates[0].substring(0,10);
       const d2 = dates[dates.length-1].substring(0,10);
@@ -36885,12 +36931,39 @@ async function aftdRefreshDirectSummary() {
 
   try {
     const status = await dbCallRaw('getFuturesAccountStatus', { uid });
-    document.getElementById('aftd-margin-bal').textContent   = (status.futures_balance || 0).toLocaleString('en', { minimumFractionDigits: 2 });
-    document.getElementById('aftd-margin-used').textContent  = (status.margin_used  || 0).toLocaleString('en', { minimumFractionDigits: 2 });
-    document.getElementById('aftd-margin-avail').textContent = (status.avail_margin || 0).toLocaleString('en', { minimumFractionDigits: 2 });
-    document.getElementById('aftd-pos-count').textContent    = (status.positions || []).length;
-    document.getElementById('aftd-order-count').textContent  = (status.orders    || []).length;
-    aftdRenderDirectPosList(status.positions || [], status.liq_price_map || {});
+    const _fmt2 = v => (parseFloat(v) || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const _fmtSign = v => (v >= 0 ? '+' : '') + _fmt2(v);
+
+    // Margin Balance (= futures_balance จาก GAS)
+    const _mbal = parseFloat(status.futures_balance) || 0;
+    document.getElementById('aftd-margin-bal').textContent = _fmt2(_mbal);
+    document.getElementById('aftd-margin-usd').textContent = '≈ $' + _fmt2(_mbal);
+
+    // Wallet Balance = futures_balance - margin_used (avail margin ที่ไม่ได้วาง)
+    const _wbal = parseFloat(status.avail_margin) || _mbal;
+    const _wbalEl = document.getElementById('aftd-wallet-bal');
+    const _wusdEl = document.getElementById('aftd-wallet-usd');
+    if (_wbalEl) _wbalEl.textContent = _fmt2(_wbal);
+    if (_wusdEl) _wusdEl.textContent = '≈ $' + _fmt2(_wbal);
+
+    // Unrealized PNL = คำนวณจาก positions (sum of unrealized pnl)
+    const _positions = status.positions || [];
+    const _upnl = _positions.reduce((s, p) => s + (parseFloat(p.pnl || p.unrealized_pnl || 0)), 0);
+    const _upnlEl  = document.getElementById('aftd-unrealized-pnl');
+    const _uusdEl  = document.getElementById('aftd-unrealized-usd');
+    if (_upnlEl) {
+      _upnlEl.textContent = _fmtSign(_upnl);
+      _upnlEl.style.color = _upnl >= 0 ? 'var(--g)' : 'var(--r)';
+    }
+    if (_uusdEl) {
+      _uusdEl.textContent = '≈ $' + _fmtSign(_upnl);
+      _uusdEl.style.color = _upnl >= 0 ? 'var(--g)' : 'var(--r)';
+    }
+
+    // Position / Order counts
+    document.getElementById('aftd-pos-count').textContent   = _positions.length;
+    document.getElementById('aftd-order-count').textContent = (status.orders || []).length;
+    aftdRenderDirectPosList(_positions, status.liq_price_map || {});
   } catch (e) {
     console.warn('[aftdRefreshDirectSummary] fail:', e.message);
     // [v2.47-FD FIX-FD-3] แสดง error state ใน UI แทนที่จะปล่อยว่างเปล่า

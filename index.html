@@ -9692,7 +9692,8 @@ function _parseCandles(raw) {
     t: Number(c.t),
     o: parseFloat(c.o), h: parseFloat(c.h),
     l: parseFloat(c.l), c: parseFloat(c.c),
-    v: parseFloat(c.v || 0)
+    v: parseFloat(c.v || 0),
+    n: parseInt(c.n || c.numTrades || c.txn || 0)  // [PATCH-v2.69] จำนวน transactions (Hyperliquid field 'n')
   })).filter(c =>
     isFinite(c.o) && isFinite(c.h) && isFinite(c.l) && isFinite(c.c)
     && c.h >= c.l && c.h > 0 && c.l > 0
@@ -10623,11 +10624,13 @@ function drawChart() {
 //  VOLUME HISTOGRAM — Futures Chart (v10)
 // ══════════════════════════════════════════════════════════════
 function _fmtVol(v) {
-  if (!v) return '—';
-  if (v >= 1e9) return (v/1e9).toFixed(2) + 'B';
-  if (v >= 1e6) return (v/1e6).toFixed(2) + 'M';
-  if (v >= 1e3) return (v/1e3).toFixed(1) + 'K';
-  return v.toFixed(0);
+  // [PATCH-v2.69-FIX] guard: ถ้า v เป็น string (raw candle ก่อน parse) → coerce ก่อน
+  const n = (typeof v === 'string') ? parseFloat(v) : v;
+  if (!n || !isFinite(n)) return '—';
+  if (n >= 1e9) return (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return n.toFixed(0);
 }
 
 function drawVolume(all, vs, vis) {
@@ -20769,6 +20772,7 @@ setTimeout(() => updateOverviewBalances(), 500);
       <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">Range</span><span class="ch-tooltip-val" id="cfoChTTRange">—</span></div>
       <hr class="ch-tooltip-divider">
       <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">Vol</span><span class="ch-tooltip-val" id="cfoChTTVol">—</span></div>
+      <div class="ch-tooltip-row"><span class="ch-tooltip-lbl">Txn</span><span class="ch-tooltip-val" id="cfoChTTTxn">—</span></div>
     </div>
   </div>
   <!-- Fullscreen Volume Histogram -->
@@ -20920,8 +20924,17 @@ function _initCfoPanZoom() {
   const cfoChTTPchg  = document.getElementById('cfoChTTPchg');
   const cfoChTTRange = document.getElementById('cfoChTTRange');
   const cfoChTTVol   = document.getElementById('cfoChTTVol');
+  const cfoChTTTxn   = document.getElementById('cfoChTTTxn');  // [PATCH-v2.69] Txn field
 
-  const _cfFmtV = v => !v ? '—' : v >= 1e9 ? (v/1e9).toFixed(2)+'B' : v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? (v/1e3).toFixed(1)+'K' : v.toFixed(0);
+  const _cfFmtV = v => {
+    // [PATCH-v2.69-FIX] guard: ถ้า v ยัง string (raw candle) → parseFloat ก่อน
+    const n = (typeof v === 'string') ? parseFloat(v) : v;
+    if (!n || !isFinite(n)) return '—';
+    if (n >= 1e9) return (n/1e9).toFixed(2)+'B';
+    if (n >= 1e6) return (n/1e6).toFixed(2)+'M';
+    if (n >= 1e3) return (n/1e3).toFixed(1)+'K';
+    return n.toFixed(0);
+  };
   const _cfFmtT = ms => { if (!ms) return '—'; const d = new Date(ms); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
 
   function _showCfoCrosshair(clientX) {
@@ -20983,6 +20996,11 @@ function _initCfoPanZoom() {
       if (cfoChTTPchg)  { cfoChTTPchg.textContent = sign + pchg.toFixed(2) + '%'; cfoChTTPchg.style.color = chgCol; }
       if (cfoChTTRange) cfoChTTRange.textContent = (typeof fmtP === 'function') ? fmtP(c.h - c.l) : (c.h - c.l).toFixed(2);
       if (cfoChTTVol)   cfoChTTVol.textContent = _cfFmtV(c.v);
+      // [PATCH-v2.69] Txn — จำนวน transactions (field 'n' จาก Hyperliquid candleSnapshot, parsed by _parseCandles)
+      if (cfoChTTTxn) {
+        const txnN = parseInt(c.n || c.numTrades || c.txn || 0);
+        cfoChTTTxn.textContent = txnN > 0 ? txnN.toLocaleString() : '—';
+      }
 
       // Position tooltip to left or right of cursor
       const tooltipW = 130;
@@ -39904,7 +39922,9 @@ async function futdChartLoad() {
     // [v2.69-CHART-STALE] ถ้า coin เปลี่ยนระหว่าง fetch → ทิ้ง response ทันที ไม่ set candles ไม่วาด
     // (ไม่ใช้ return เพราะ finally ยังต้องรัน เพื่อตั้ง pollTimer รอบถัดไปสำหรับ coin ใหม่)
     if (_loadCoin === FUTD.symbolCoin) {
-      FUTD.chart.candles = Array.isArray(d) ? d : [];
+      // [PATCH-v2.69-FIX] ผ่าน _parseCandles() เสมอ เพื่อให้ทุก field เป็น number
+      // (raw Hyperliquid response มี string fields → .toFixed() crash ใน crosshair/tooltip → กราฟค้าง)
+      FUTD.chart.candles = Array.isArray(d) ? _parseCandles(d) : [];
       futdChartDraw();
     }
   } catch (e) {

@@ -38159,13 +38159,19 @@ async function futdRefreshAccountStatus() {
     // FUTD.status.futures_balance/cross_equity เป็น fallback ตอน GAS timeout (ดู catch ด้านล่าง)
     FUTD._statusSyncedAt = Date.now();
 
-    // [v2.59-LIQ] debug log: แสดงจำนวน liq entries ที่ GAS ส่งมา
+    // [v2.59-LIQ] debug log: แสดงเฉพาะเมื่อ liq_price_map ว่างและมี cross position (ลด noise)
     const _liqEntries = Object.keys(status.liq_price_map || {}).length;
     const _crossCount = (status.positions || []).filter(p => String(p.mode||'').toLowerCase() === 'cross').length;
-    if (_crossCount > 0) {
-      console.warn('[futdRefreshAccountStatus] liq_price_map entries:', _liqEntries,
-                   '| cross positions:', _crossCount,
-                   _liqEntries > 0 ? '✅ GAS Cross formula OK' : '⚠️ liq_price_map empty — client fallback active');
+    if (_crossCount > 0 && _liqEntries === 0) {
+      // warn ครั้งแรกเท่านั้น (ทุก 10 poll) ไม่ spam ทุก poll
+      FUTD._liqWarnCount = (FUTD._liqWarnCount || 0) + 1;
+      if (FUTD._liqWarnCount === 1 || FUTD._liqWarnCount % 10 === 0) {
+        console.warn('[futdRefreshAccountStatus] liq_price_map entries:', _liqEntries,
+                     '| cross positions:', _crossCount,
+                     '⚠️ liq_price_map empty — client fallback active');
+      }
+    } else if (_crossCount > 0 && _liqEntries > 0) {
+      FUTD._liqWarnCount = 0; // reset เมื่อ GAS ส่งมาแล้ว
     }
 
     // [v2.50] อัปเดต Balance bar ใหม่
@@ -40143,7 +40149,7 @@ function futdChartDraw() {
     const lblCount = 5;
     const labels = [0, 0.25, 0.5, 0.75, 1].map(f => {
       const price = maxP - f * range;
-      return _fmtPrice ? _fmtPrice(price) : price.toFixed(2);
+      return (typeof fmtP === 'function') ? fmtP(price) : price.toFixed(2);
     });
     priceLblWrap.innerHTML = labels.map(l => `<span class="c-price-lbl">${l}</span>`).join('');
   } else {

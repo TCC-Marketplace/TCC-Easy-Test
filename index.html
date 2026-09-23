@@ -12939,7 +12939,6 @@ document.addEventListener('click', e => {
 function fmtP(v) {
   if (!v || isNaN(v)) return '—';
   const n = parseFloat(v);
-  if (n > 1000) return n.toLocaleString('en',{minimumFractionDigits:1,maximumFractionDigits:1});
   if (n > 10) return n.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
   return n.toLocaleString('en',{minimumFractionDigits:4,maximumFractionDigits:4});
 }
@@ -37237,7 +37236,7 @@ const FUTD = {
     tf: '3m',  // [PATCH] default 3m เหมือน Contract tab
     candles: [],
     open: true,
-    wrapH: 180,
+    wrapH: 200,
     indicator: null,       // 'RSI' | 'MACD' | 'BB' | 'EMA' | null
     viewStart: null,
     visCount: 80,
@@ -37841,7 +37840,10 @@ function futdRenderOrderBook() {
   if (mid && FUTD.asks.length && FUTD.bids.length) {
     const midPrice = (FUTD.bids[0].p + FUTD.asks[FUTD.asks.length - 1].p) / 2;
     mid.textContent = fmtP(midPrice);
-    mid.className = 'ob-mid-price up';
+    // [FIX-2] dynamic up/dn เหมือน Contract renderOrderBook() — ไม่ hardcode 'up' เสมอ
+    const _prevMid = FUTD._prevMidPrice || 0;
+    mid.className = 'ob-mid-price ' + (midPrice >= _prevMid ? 'up' : 'dn');
+    FUTD._prevMidPrice = midPrice;
   }
   if (mark && FUTD.asks.length && FUTD.bids.length) {
     const spread = FUTD.asks[FUTD.asks.length - 1].p - FUTD.bids[0].p;
@@ -39553,7 +39555,7 @@ function futdChartInit() {
       }
       if (_yDragging) {
         const dy = e.clientY - _yDragStartY;
-        const H  = FUTD.chart.wrapH || 180;
+        const H  = FUTD.chart.wrapH || 200;
         FUTD.chart.yOffset = _yDragStartOff + dy / H * 2;
         futdChartDraw();
       }
@@ -39708,11 +39710,18 @@ function futdChartInit() {
           if (mp < curL) last.l = mp;
         }
       }
-      futdChartDraw();
-      // อัปเดต LIVE badge (แสดงเมื่อ user pan ออกจาก live view)
-      _futdUpdateLiveTag();
+      // [FIX-3] RAF throttle เหมือน Contract — ป้องกัน draw ซ้อนกัน
+      if (!FUTD._chartRafPending) {
+        FUTD._chartRafPending = true;
+        requestAnimationFrame(() => {
+          FUTD._chartRafPending = false;
+          if (FUTD.chart.open && typeof futdChartDraw === 'function') futdChartDraw();
+          // อัปเดต LIVE badge (แสดงเมื่อ user pan ออกจาก live view)
+          if (typeof _futdUpdateLiveTag === 'function') _futdUpdateLiveTag();
+        });
+      }
     }
-  }, 1000);
+  }, 500); // [FIX-3] 500ms แทน 1000ms — อัปเดตเร็วขึ้น 2x เหมือน Contract
 
   // Update chart header symbol
   const symEl = document.getElementById('futdChartHdrSym');
@@ -39884,7 +39893,7 @@ function futdInitCrosshair() {
     const mx = clientX - rect.left;
     const my = clientY - rect.top;
     const wrapW = wrap.clientWidth || 375;
-    const wrapH = FUTD.chart.wrapH || 180;
+    const wrapH = FUTD.chart.wrapH || 200;
 
     const vis   = FUTD.chart.visCount;
     const total = candles.length;
@@ -39911,21 +39920,31 @@ function futdInitCrosshair() {
     // cx ใช้ virtual slot เหมือน futdChartDraw: (ai - vs + 0.5) * slotW
     const cx = PAD_L + (candleIdx - vs + 0.5) * slotW;
 
-    // [FIX-BUG8] Price range — p05/p95 + yPadFactor + yOffset (เหมือน futdChartDraw)
-    const allHighs = slice.map(cd => parseFloat(cd.h || cd.high)).filter(v => isFinite(v));
-    const allLows  = slice.map(cd => parseFloat(cd.l || cd.low)).filter(v => isFinite(v));
-    const sorted_h = allHighs.slice().sort((a, b) => a - b);
-    const sorted_l = allLows.slice().sort((a, b) => a - b);
-    const p95 = sorted_h[Math.floor(sorted_h.length * 0.95)] || sorted_h[sorted_h.length - 1];
-    const p05 = sorted_l[Math.floor(sorted_l.length * 0.05)] || sorted_l[0];
+    // [FIX-5] Price range — ใช้ algorithm เดียวกับ futdChartDraw (p05/p95 of closes + expand h/l + cap outlier wicks)
+    // ไม่ใช้ allHighs/allLows โดยตรง → crosshair dot จะตรงกับแท่งเทียนพอดี
+    const allCloses_ch = slice.map(cd => parseFloat(cd.c || cd.close)).filter(v => isFinite(v));
+    const sorted_c_ch  = allCloses_ch.slice().sort((a, b) => a - b);
+    const p05 = sorted_c_ch[Math.max(0, Math.floor(sorted_c_ch.length * 0.05))];
+    const p95 = sorted_c_ch[Math.min(sorted_c_ch.length - 1, Math.floor(sorted_c_ch.length * 0.95))];
+    const spread_ch = (p95 - p05) || p05 * 0.02 || 1;
     const yPad     = FUTD.chart.yPadFactor !== undefined ? FUTD.chart.yPadFactor : 0.15;
     const yOffset  = FUTD.chart.yOffset    !== undefined ? FUTD.chart.yOffset    : 0;
-    const rawRange = p95 - p05 || 1;
-    const paddedRange = rawRange * (1 + yPad * 2);
-    const _minPv  = p05 - rawRange * yPad - yOffset * rawRange;
-    const _maxPv  = _minPv + paddedRange;
-    const price   = _maxPv - ((my - PAD_T) / CH) * paddedRange;
-    const scY     = p => PAD_T + ((_maxPv - p) / paddedRange) * CH;
+    const pad_ch   = spread_ch * yPad;
+    let minP_ch = p05 - pad_ch;
+    let maxP_ch = p95 + pad_ch;
+    // expand to actual h/l but cap extreme outlier wicks (>50% of body range) — เหมือน futdChartDraw
+    slice.forEach(cd => {
+      const capH = Math.min(parseFloat(cd.h || cd.high),  maxP_ch + spread_ch * 0.5);
+      const capL = Math.max(parseFloat(cd.l || cd.low),   minP_ch - spread_ch * 0.5);
+      if (capH > maxP_ch) maxP_ch = capH;
+      if (capL < minP_ch) minP_ch = capL;
+    });
+    const range_ch  = maxP_ch - minP_ch || 1;
+    const _priceShift_ch = yOffset * range_ch;
+    const _minPv = minP_ch + _priceShift_ch;
+    const _maxPv = maxP_ch + _priceShift_ch;
+    const price  = _maxPv - ((my - PAD_T) / CH) * range_ch;
+    const scY    = p => PAD_T + (1 - (p - _minPv) / range_ch) * CH;
 
     // Position crosshair lines
     if (chVLine) { chVLine.style.display = ''; chVLine.style.left = cx + 'px'; }

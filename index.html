@@ -8171,18 +8171,21 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .futd-chart-drag::after{content:'';width:36px;height:4px;border-radius:2px;background:var(--bl)}
 .futd-chart-collapsed-hdr{display:flex;align-items:center;gap:4px;padding:4px 10px;cursor:pointer;min-height:28px;display:none}
 .futd-chart-collapsed-hdr.show{display:flex}
-.futd-tf-bar{display:flex;align-items:center;gap:1px;padding:4px 8px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.futd-tf-bar{display:flex;align-items:center;padding:6px 6px 0;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);background:var(--bg)}
 .futd-tf-bar::-webkit-scrollbar{display:none}
-.futd-tf-label{padding:3px 7px;border-radius:4px;font-size:11px;font-family:var(--mono);color:var(--t2);cursor:pointer;white-space:nowrap;flex-shrink:0}
-.futd-tf-label.active{background:var(--y);color:#000;font-weight:700}
-.futd-ma-row{display:flex;gap:10px;padding:2px 8px;font-size:10px;font-family:var(--mono)}
+/* .futd-tf-label เหมือน .tf-label — สีและ style เดียวกัน เพื่อ visual consistency ข้าม tab */
+.futd-tf-label{font-size:11px;color:var(--t2);padding:4px 5px;border-radius:var(--rsm);cursor:pointer;white-space:nowrap;user-select:none;flex-shrink:0;transition:all .15s;font-weight:500}
+.futd-tf-label:hover{color:var(--t1);background:var(--bg4)}
+.futd-tf-label.active{color:var(--t1);background:var(--bg4);font-weight:600}
+/* .futd-ma-row: ใช้ class .ma-row เป็นหลักแล้ว — คลาสนี้แค่ override padding เล็กน้อย */
+.futd-ma-row{padding:2px 8px}
 .futd-chart-canvas-wrap{position:relative;width:100%}
 /* [FIX-TXN-TOOLTIP] futdChTooltip ถูกย้ายออกนอก chart-wrap → ใช้ position:fixed เพื่อลอยเหนือทุก layer */
 #futdChTooltip{position:fixed!important;z-index:1200!important}
 .futd-vol-wrap{position:relative;width:100%;height:44px;background:var(--bg);border-top:1px solid rgba(43,49,57,.5);flex-shrink:0}
-.futd-ind-bar{display:flex;align-items:center;gap:4px;padding:3px 8px;border-top:1px solid var(--border)}
-.futd-ind-btn{font-size:10px;font-weight:600;font-family:var(--mono);color:var(--t3);padding:3px 6px;border-radius:4px;cursor:pointer;transition:all .15s;user-select:none;border:1px solid transparent}
-.futd-ind-btn.active{color:var(--y);background:var(--y-10);border-color:var(--y-25)}
+/* .futd-ind-bar: ใช้ class .ind-toggle-bar เป็นหลักแล้ว — override gap เล็กน้อย */
+.futd-ind-bar{gap:1px}
+/* .futd-ind-btn: ใช้ class .ind-toggle-btn เป็นหลักแล้ว — ไม่ต้อง override (shared style) */
 
 /* ══════════════════════════════
    Direct Tab — New Layout CSS (v2.50)
@@ -8230,8 +8233,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
     <!-- TF bar -->
     <div class="futd-tf-bar" id="futdTFBar">
       <!-- ⤡ Expand fullscreen — leftmost (เหมือน Contract tab) -->
-      <span onclick="futdExpandChart()" style="margin-left:0;margin-right:2px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;padding:2px 3px;opacity:.7" title="เต็มจอ">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      <span class="tf-exp" onclick="futdExpandChart()" style="margin-left:0;margin-right:2px" title="เต็มจอ">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
       </span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'1s')">1s</span>
       <span class="futd-tf-label" onclick="futdSetTF(this,'1m')">1m</span>
@@ -8250,15 +8253,17 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <span id="futdChartArrOpen">▲</span>
       </span>
     </div>
-    <!-- MA row -->
-    <div class="futd-ma-row">
-      <span style="color:#f0a500">MA(7):<span id="futdMa7"> —</span></span>
-      <span style="color:#e040fb">MA(25):<span id="futdMa25"> —</span></span>
-      <span style="color:#26c6da">MA(99):<span id="futdMa99"> —</span></span>
+    <!-- MA row — เหมือน Contract (.ma-row .ma-item .ma-sq) -->
+    <div class="ma-row futd-ma-row">
+      <div class="ma-item"><div class="ma-sq" style="background:#f0a500"></div><span style="color:#f0a500">MA(7):<span id="futdMa7"> —</span></span></div>
+      <div class="ma-item"><div class="ma-sq" style="background:#e040fb"></div><span style="color:#e040fb">MA(25):<span id="futdMa25"> —</span></span></div>
+      <div class="ma-item"><div class="ma-sq" style="background:#26c6da"></div><span style="color:#26c6da">MA(99):<span id="futdMa99"> —</span></span></div>
     </div>
     <!-- Canvas -->
     <div class="chart-wrap futd-chart-canvas-wrap" id="futdChartWrap">
       <canvas id="futdChartCanvas"></canvas>
+      <!-- Price labels แกน Y (DOM-based เหมือน Contract .c-price-labels) -->
+      <div class="c-price-labels" id="futdPriceLbls"></div>
       <!-- current-price line/tag -->
       <div style="position:absolute;right:0;top:0;bottom:0;pointer-events:none">
         <div id="futdCurLine" style="position:absolute;right:0;left:0;height:1px;border-top:1px dashed var(--y);opacity:.6;pointer-events:none"></div>
@@ -8272,8 +8277,6 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       <div class="ch-dot" id="futdChDot"></div>
       <div class="ch-lp-ring" id="futdChLpRing"><svg viewBox="0 0 36 36"><circle class="ch-lp-arc" id="futdChLpArc" cx="18" cy="18" r="15"/></svg></div>
       <div class="ch-hint" id="futdChHint"><span>กดค้างเพื่อดูข้อมูลแท่งเทียน</span></div>
-      <!-- OHLC mini box (hidden — replaced by tooltip below) -->
-      <div class="ch-ohlc-box" id="futdChOhlcBox" style="display:none"><span class="ch-o" id="futdChOBox">O: —</span><span class="ch-h" id="futdChHBox">H: —</span><span class="ch-l" id="futdChLBox">L: —</span><span class="ch-c" id="futdChCBox">C: —</span><span class="ch-v" id="futdChVBox">V: —</span></div>
       <!-- Candle Detail Tooltip (เหมือน Contract tab) -->
       <div class="ch-tooltip" id="futdChTooltip">
         <div class="ch-tooltip-time" id="futdChTTTime">—</div>
@@ -8301,13 +8304,13 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       <canvas id="futdVolCanvas" style="width:100%;height:100%;display:block;"></canvas>
       <div id="futdVolHover" style="position:absolute;left:0;bottom:0;pointer-events:none;display:none;background:rgba(20,24,29,0.9);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:9px;font-family:var(--mono);color:var(--t2);white-space:nowrap;z-index:5;"></div>
     </div>
-    <!-- Indicator toggle — เพิ่ม IND master toggle button เหมือน Contract -->
-    <div class="futd-ind-bar" id="futdIndBar">
-      <span class="futd-ind-btn" id="futdIndBtnIND" onclick="futdIndToggle('IND')" style="color:var(--t2);letter-spacing:.5px;">IND</span>
-      <span class="futd-ind-btn" id="futdIndBtnRSI" onclick="futdIndToggle('RSI')">RSI</span>
-      <span class="futd-ind-btn" id="futdIndBtnMACD" onclick="futdIndToggle('MACD')">MACD</span>
-      <span class="futd-ind-btn" id="futdIndBtnBB" onclick="futdIndToggle('BB')">BB</span>
-      <span class="futd-ind-btn" id="futdIndBtnEMA" onclick="futdIndToggle('EMA')">EMA</span>
+    <!-- Indicator toggle — unified class เหมือน Contract (.ind-toggle-bar / .ind-toggle-btn) -->
+    <div class="ind-toggle-bar futd-ind-bar" id="futdIndBar">
+      <span class="ind-toggle-btn futd-ind-btn" id="futdIndBtnIND" onclick="futdIndToggle('IND')" style="color:var(--t2);letter-spacing:.5px;">IND</span>
+      <span class="ind-toggle-btn futd-ind-btn" id="futdIndBtnRSI" onclick="futdIndToggle('RSI')">RSI</span>
+      <span class="ind-toggle-btn futd-ind-btn" id="futdIndBtnMACD" onclick="futdIndToggle('MACD')">MACD</span>
+      <span class="ind-toggle-btn futd-ind-btn" id="futdIndBtnBB" onclick="futdIndToggle('BB')">BB</span>
+      <span class="ind-toggle-btn futd-ind-btn" id="futdIndBtnEMA" onclick="futdIndToggle('EMA')">EMA</span>
     </div>
     <!-- Indicator panel — ใช้ class-based เหมือน Contract (ind-panel-label/val) -->
     <div class="ind-panel-wrap" id="futdIndPanel" style="display:none;">
@@ -29759,8 +29762,19 @@ function setActiveUID(uid) {
 }
 
 function _syncProfileToShare() {
-  if (USER_PROFILE.avatar && typeof SHARE_PROFILE !== 'undefined') {
-    SHARE_PROFILE.avatar = USER_PROFILE.avatar;
+  if (typeof SHARE_PROFILE === 'undefined') return;
+  // [FIX-SHARE-SYNC] sync ครบทุก field: avatar + username + refCode + refUrl
+  if (USER_PROFILE.avatar)   SHARE_PROFILE.avatar   = USER_PROFILE.avatar;
+  if (USER_PROFILE.username) SHARE_PROFILE.username  = USER_PROFILE.username;
+  // refCode = USER_PROFILE.uid (ใช้เป็น referral code)
+  if (USER_PROFILE.uid) {
+    SHARE_PROFILE.refCode = 'TCC-' + String(USER_PROFILE.uid).padStart(5, '0');
+    // refUrl: ใช้ qrCode จาก GAS ถ้ามี มิฉะนั้น build จาก uid
+    if (USER_PROFILE.qrCode && USER_PROFILE.qrCode.startsWith('http')) {
+      SHARE_PROFILE.refUrl = USER_PROFILE.qrCode;
+    } else {
+      SHARE_PROFILE.refUrl = 'https://tradercafeclub.com/ref/' + SHARE_PROFILE.refCode;
+    }
   }
 }
 
@@ -39548,10 +39562,12 @@ function futdChartInit() {
   FUTD_CHART.drawTimer = setInterval(() => {
     if (FUTD.chart.candles.length && FUTD.chart.open) {
       // [FIX-CANDLE-FREEZE] อัปเดต last candle close ด้วย mark price ล่าสุด (real-time wicks)
-      // ใช้ fallback chain: FUTD.prices → S.coinPrices → ข้ามไม่อัปเดต
-      // เดิมใช้แค่ FUTD.prices[FUTD.symbolCoin] ซึ่งว่างถ้า WebSocket ยังไม่ connect → candle ค้าง
+      // fallback chain: FUTD.prices (Direct WS) → S.coinPrices (Contract/Spot WS)
+      //                 → FUTD.lastPrice (OB WS mid) → ข้ามไม่อัปเดต
+      // FUTD.lastPrice มาจาก Order Book WebSocket ซึ่ง start พร้อมกับ Direct tab เสมอ
       const mp = (FUTD.prices && FUTD.prices[FUTD.symbolCoin])
               || (typeof S !== 'undefined' && S.coinPrices && parseFloat(S.coinPrices[FUTD.symbolCoin]))
+              || (FUTD.lastPrice > 0 ? FUTD.lastPrice : 0)
               || 0;
       if (mp > 0 && FUTD.chart.candles.length) {
         const last = FUTD.chart.candles[FUTD.chart.candles.length - 1];
@@ -39636,29 +39652,29 @@ function futdChartResetView() {
 
 // ── Fullscreen expand (เปิด chartFullOverlay เหมือน Contract tab) ──
 function futdExpandChart() {
-  // ใช้ cfoCandles จาก FUTD.chart.candles แทน S.candles
-  if (typeof expandChart === 'function') {
-    // Temporarily patch cfoCandles source to use FUTD data
-    const _origCandles = (typeof S !== 'undefined') ? S.candles : [];
-    if (typeof S !== 'undefined') {
-      S._futdCandlesBak = S.candles;
-      S.candles = FUTD.chart.candles.slice();
-    }
-    // Sync symbol
-    const cfoSymEl = document.getElementById('cfoSym');
-    if (cfoSymEl) cfoSymEl.textContent = FUTD.symbolCoin + '/USDT';
-    // Sync active TF
-    const activeTF = document.querySelector('#futdTFBar .futd-tf-label.active');
-    if (typeof cfoTF !== 'undefined') window.cfoTF = activeTF ? activeTF.textContent : FUTD.chart.tf;
-    expandChart('futures');
-    // Restore S.candles after expandChart sets up cfoCandles
-    setTimeout(() => {
-      if (typeof S !== 'undefined' && S._futdCandlesBak !== undefined) {
-        S.candles = S._futdCandlesBak;
-        delete S._futdCandlesBak;
-      }
-    }, 100);
-  }
+  // [FIX-EXPAND] ไม่ใช้ setTimeout + S.candles swap เพื่อป้องกัน race condition
+  // แทนด้วย: inject FUTD.chart.candles เข้า cfoCandles โดยตรง หรือส่ง via S.candles
+  if (typeof expandChart !== 'function') return;
+
+  // (1) Backup S.candles — swap ชั่วคราว
+  const _bak = (typeof S !== 'undefined') ? S.candles : null;
+  const _hadBak = (typeof S !== 'undefined');
+
+  if (_hadBak) S.candles = FUTD.chart.candles.slice();
+
+  // (2) Sync symbol label ใน fullscreen overlay ก่อนเปิด
+  const cfoSymEl = document.getElementById('cfoSym');
+  if (cfoSymEl) cfoSymEl.textContent = FUTD.symbolCoin + '/USDT';
+
+  // (3) Sync active TF
+  const activeTF = document.querySelector('#futdTFBar .futd-tf-label.active');
+  window.cfoTF = activeTF ? activeTF.textContent : (FUTD.chart.tf || '3m');
+
+  // (4) เปิด fullscreen (expandChart ทำ cfoCandles = S.candles.slice() ภายในทันที synchronously)
+  expandChart('futures');
+
+  // (5) Restore S.candles ทันที (synchronous — ไม่มี async/setTimeout)
+  if (_hadBak && _bak !== null) S.candles = _bak;
 }
 
 // ── [FIX-CROSSHAIR] Init crosshair for futdChartWrap (เหมือน _initCanvasPan ของ Contract) ──
@@ -39952,7 +39968,7 @@ function futdIndToggle(ind) {
     FUTD.chart.indicator = FUTD.chart.indicator === ind ? null : ind;
   }
   const anyActive = !!FUTD.chart.indicator;
-  // อัปเดตปุ่มทั้งหมด (ใช้ id ใหม่ futdIndBtnXxx)
+  // อัปเดตปุ่มทั้งหมด — ใช้ id futdIndBtnXxx (class เป็นทั้ง .ind-toggle-btn + .futd-ind-btn)
   ['RSI','MACD','BB','EMA'].forEach(k => {
     const btn = document.getElementById('futdIndBtn' + k);
     if (btn) btn.classList.toggle('active', FUTD.chart.indicator === k);
@@ -39960,6 +39976,10 @@ function futdIndToggle(ind) {
   // IND master button — active เมื่อมี indicator ใดเปิดอยู่
   const btnIND = document.getElementById('futdIndBtnIND');
   if (btnIND) btnIND.classList.toggle('active', anyActive);
+  // อัปเดต label ใน panel เหมือน Contract (RSI(14) / MACD(12,26,9) / BB(20) / EMA(9))
+  const labelMap = { RSI:'RSI(14)', MACD:'MACD(12,26,9)', BB:'BB(20)', EMA:'EMA(9)' };
+  const lblEl = document.getElementById('futdIndLabel');
+  if (lblEl && FUTD.chart.indicator) lblEl.textContent = labelMap[FUTD.chart.indicator] || FUTD.chart.indicator;
   const panel = document.getElementById('futdIndPanel');
   if (panel) panel.style.display = FUTD.chart.indicator ? '' : 'none';
   futdChartDraw();
@@ -40116,13 +40136,25 @@ function futdChartDraw() {
     ctx.fillRect(x + (cW - bW) / 2, bodyTop, bW, bH);
   });
 
-  // Price axis
-  ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
-  [0, 0.25, 0.5, 0.75, 1].forEach(f => {
-    const price = maxP - f * range;
-    const y     = toY(price);
-    ctx.fillText(price.toFixed(1), W - 2, y + 3);
-  });
+  // Price axis — อัปเดต DOM c-price-labels (เหมือน Contract) + วาดบน canvas เป็น fallback
+  const priceLblWrap = document.getElementById('futdPriceLbls');
+  if (priceLblWrap) {
+    // DOM price labels (ใน .c-price-labels เหมือน Contract)
+    const lblCount = 5;
+    const labels = [0, 0.25, 0.5, 0.75, 1].map(f => {
+      const price = maxP - f * range;
+      return _fmtPrice ? _fmtPrice(price) : price.toFixed(2);
+    });
+    priceLblWrap.innerHTML = labels.map(l => `<span class="c-price-lbl">${l}</span>`).join('');
+  } else {
+    // Fallback: วาดบน canvas (ถ้าไม่มี DOM element)
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+    [0, 0.25, 0.5, 0.75, 1].forEach(f => {
+      const price = maxP - f * range;
+      const y     = toY(price);
+      ctx.fillText(price.toFixed(2), W - 2, y + 3);
+    });
+  }
 
   // Current price line
   const lastClose = parseFloat(slice[slice.length - 1].c || slice[slice.length - 1].close);

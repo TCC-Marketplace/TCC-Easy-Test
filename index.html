@@ -37070,16 +37070,38 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
     const entryP = parseFloat(p.entry_price) || 0;
     const size   = parseFloat(p.size)        || 0;
     const margin = parseFloat(p.margin)      || 0;
-    // [v2.58-LIQ] Priority: GAS liq_map (Binance Cross formula) → isolated fallback → Sheet liq_price
-    // Cross positions: GAS คำนวณ liq ด้วย wb_loss + sumOthers (hedge offset) ส่งใน liq_price_map
-    // Isolated + fallback ก่อน map มา: ใช้ per-position isolated formula
-    const _mmrA     = 0.005;
-    const _liqCalcA = p.side === 'long'
-      ? (entryP - margin / size + _mmrA * entryP)
-      : (entryP + margin / size - _mmrA * entryP);
-    const _liqRawA  = _liqMap[p.id] !== undefined ? parseFloat(_liqMap[p.id]) : null;
-    const liqP      = (_liqRawA !== null && _liqRawA > 0) ? _liqRawA
-                    : (entryP > 0 && size > 0 && margin > 0 ? _liqCalcA : parseFloat(p.liq_price) || 0);
+    // [FIX-AFTD-LIQ] Priority เหมือน futdRenderPositions ทุกประการ:
+    // 1) GAS liq_price_map (SSOT)
+    // 2a) Cross: _futdClientCrossLiq (mirror สูตร Binance Cross — รองรับ Hedge+One-way)
+    //     [KEY FIX] เดิมขาด branch นี้ → ตกลงไปใช้ Isolated formula ผิด → liq ผิดไกล
+    // 2b) Isolated: per-position formula (entry ± margin/size ± mmr×entry)
+    // 3) Sheet liq_price fallback สุดท้าย
+    const _mmrA    = 0.005;
+    const posMode  = String(p.mode || 'isolated').toLowerCase();
+    const _liqRawA = _liqMap[p.id] !== undefined ? parseFloat(_liqMap[p.id]) : null;
+    let liqP;
+    if (_liqRawA !== null && _liqRawA > 0) {
+      // priority 1: GAS SSOT
+      liqP = _liqRawA;
+    } else if (posMode === 'cross' && entryP > 0 && size > 0) {
+      // priority 2a: Cross client fallback — เหมือน futdRenderPositions
+      // ใช้ cross_equity (futures_balance + unrealizedPnL Cross) เพื่อ hedge offset ถูกต้อง
+      const _allPos = (FUTD.status && FUTD.status.positions) || positions;
+      const _equity = parseFloat((FUTD.status || {}).cross_equity)
+                   || parseFloat((FUTD.status || {}).futures_balance) || 0;
+      const _cLiq   = (typeof _futdClientCrossLiq === 'function')
+                    ? _futdClientCrossLiq(p.id, _allPos, _equity, _mmrA)
+                    : 0;
+      liqP = _cLiq > 0 ? _cLiq : (parseFloat(p.liq_price) || 0);
+    } else if (entryP > 0 && size > 0 && margin > 0) {
+      // priority 2b: Isolated per-position formula
+      liqP = p.side === 'long'
+        ? (entryP - margin / size + _mmrA * entryP)
+        : (entryP + margin / size - _mmrA * entryP);
+    } else {
+      // priority 3: Sheet liq_price
+      liqP = parseFloat(p.liq_price) || 0;
+    }
     // [FIX-AFTD-MARK] ใช้ fallback chain: FUTD.prices → S.coinPrices → p.mark
     // FUTD.prices ว่างถ้า Direct tab ยังไม่ถูก init → ใช้ S.coinPrices (Contract/Spot WS) แทน
     const markP  = (FUTD.prices && FUTD.prices[coin])
@@ -37096,7 +37118,7 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
     // [v2.64-MARGIN-RATIO] Binance Official: Margin Ratio = Maintenance Margin / Margin Balance × 100%
     //   Isolated: maintMargin(pos) / margin(pos)
     //   Cross:    total_maintenance_margin(account) / cross_equity
-    const posMode = String(p.mode || 'isolated').toLowerCase();
+    // posMode declared above (ในส่วน liq calculation) — ไม่ต้อง redeclare
     const _mmrAft = 0.005;
     let mrPctGlobal = 0;
     if (posMode === 'isolated') {

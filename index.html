@@ -9530,7 +9530,7 @@ textarea.tc-inp{resize:vertical;min-height:72px;}
     <img class="lg-logo"
          src="https://i.ibb.co/NbQpSTX/TCC-Logo.png"
          alt="TCC"
-         onerror="this.src='https://cdn3.iconfinder.com/data/icons/logos-and-brands/512/44_Binance_logo_logos-512.png'">
+         onerror="if(!this._errHandled){this._errHandled=true;this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 80 80%22%3E%3Ccircle cx=%2240%22 cy=%2240%22 r=%2238%22 fill=%22%23f0a500%22/%3E%3Ctext x=%2240%22 y=%2248%22 text-anchor=%22middle%22 font-size=%2228%22 font-weight=%22bold%22 font-family=%22monospace%22 fill=%22%23000%22%3ETCC%3C/text%3E%3C/svg%3E';}">
     <div class="lg-title">TRADER CAFE CLUB</div>
     <div class="lg-sub" data-i18n="login_sub">เข้าสู่ระบบด้วยบัญชีสมาชิก TCC</div>
   </div>
@@ -37243,6 +37243,7 @@ const FUTD = {
     visCount: 80,
     drawTimer: null,
   },
+  _chartRafPending: false, // [FIX-10] RAF throttle flag สำหรับ realtime draw (เหมือน Contract)
   // TP/SL sheet state
   tpslPosId: null,
   // [v2.51] Funding rate state (mirror of S.funding for Direct tab)
@@ -37754,6 +37755,21 @@ function futdStartOrderBook() {
           if (bids.length && asks.length) {
             const mid = (bids[0].p + asks[asks.length - 1].p) / 2;
             FUTD.lastPrice = mid;
+            // [FIX-10] อัปเดต last candle ด้วย OB mid price แล้ว schedule draw ผ่าน RAF
+            // (เหมือน Contract updateChart — ป้องกันแท่งเทียนค้าง รอ drawTimer 1s)
+            if (FUTD.chart && FUTD.chart.candles.length) {
+              const _lc = FUTD.chart.candles[FUTD.chart.candles.length - 1];
+              _lc.c = mid;
+              if (mid > _lc.h) _lc.h = mid;
+              if (mid < _lc.l) _lc.l = mid;
+              if (!FUTD._chartRafPending) {
+                FUTD._chartRafPending = true;
+                requestAnimationFrame(() => {
+                  FUTD._chartRafPending = false;
+                  if (FUTD.chart.open && typeof futdChartDraw === 'function') futdChartDraw();
+                });
+              }
+            }
           }
           futdRenderOrderBook();
         }
@@ -38111,10 +38127,22 @@ async function futdRefreshPrice() {
     // อัปเดต PnL realtime บน position cards ที่แสดงอยู่ (ถ้ามี status)
     if (FUTD.status) futdUpdatePnlCards();
 
-    // [FIX-POS-LINES] วาดกราฟใหม่หลังได้ราคา — เพื่อให้ Position Lines (Entry/TP/SL) + Mark Price
-    // แสดงทันทีโดยไม่ต้องรอให้ user กดเปลี่ยน TF
-    // (futdChartDraw ตรวจ candles.length ก่อนวาด ถ้าแท่งเทียนยังไม่โหลดจะ return เอง)
-    if (FUTD.chart.candles.length) futdChartDraw();
+    // [FIX-11] วาดกราฟหลังได้ราคาใหม่ — ผ่าน RAF throttle ป้องกัน draw ซ้ำทุก 1s poll
+    if (FUTD.chart.candles.length) {
+      const _lc2 = FUTD.chart.candles[FUTD.chart.candles.length - 1];
+      if (price > 0) {
+        _lc2.c = price;
+        if (price > _lc2.h) _lc2.h = price;
+        if (price < _lc2.l) _lc2.l = price;
+      }
+      if (!FUTD._chartRafPending) {
+        FUTD._chartRafPending = true;
+        requestAnimationFrame(() => {
+          FUTD._chartRafPending = false;
+          if (FUTD.chart.open && typeof futdChartDraw === 'function') futdChartDraw();
+        });
+      }
+    }
 
     // [v2.57] Refresh 24h stats ทุก 4 รอบ (~60s) — ไม่ดึงทุก poll เพราะ metaAndAssetCtxs หนัก
     FUTD._priceTickCount = (FUTD._priceTickCount || 0) + 1;
@@ -40164,21 +40192,41 @@ function futdChartDraw() {
   canvas.style.width  = W + 'px';
   canvas.style.height = H + 'px';
   const ctx = canvas.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.scale(devicePixelRatio, devicePixelRatio);
-  ctx.clearRect(0, 0, W, H);
+  // [FIX-1] เติม background สีดำก่อน (Contract ใช้ #0b0e11 — Direct ต้องเหมือนกัน ป้องกันใส on mobile)
+  ctx.fillStyle = '#0b0e11';
+  ctx.fillRect(0, 0, W, H);
 
-  // [FIX-4] Watermark Logo
+  // [FIX-4] Watermark Logo + radial glow + "Trader Cafe Club" text (เหมือน Contract chart)
   if (typeof _chartLogoReady !== 'undefined' && _chartLogoReady && _chartLogoImg.complete) {
     const logoSize = Math.min(W, H) * 0.48;
     const logoX = W / 2 - logoSize / 2;
     const logoY = H / 2 - logoSize / 2;
     ctx.save();
+    // Outer soft radial glow — premium gold aura (เหมือน Contract)
+    const glow = ctx.createRadialGradient(W/2, H/2, logoSize*0.1, W/2, H/2, logoSize*0.62);
+    glow.addColorStop(0,   'rgba(212,168,84, 0.07)');
+    glow.addColorStop(0.5, 'rgba(180,140,60, 0.03)');
+    glow.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(W/2, H/2, logoSize*0.62, 0, Math.PI*2);
+    ctx.fill();
     ctx.globalAlpha = 0.055;
     ctx.filter = 'blur(0.5px)';
     ctx.drawImage(_chartLogoImg, logoX, logoY, logoSize, logoSize);
     ctx.filter = 'none';
     ctx.globalAlpha = 0.07;
     ctx.drawImage(_chartLogoImg, logoX, logoY, logoSize, logoSize);
+    // [FIX-4b] "Trader Cafe Club" text ใต้ logo (เหมือน Contract)
+    ctx.globalAlpha = 0.10;
+    ctx.font = `bold ${Math.round(logoSize * 0.135)}px Georgia, 'Times New Roman', serif`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#d4a854';
+    ctx.letterSpacing = `${Math.round(logoSize * 0.025)}px`;
+    ctx.fillText('Trader Cafe Club', W/2, logoY + logoSize + logoSize*0.22);
+    ctx.letterSpacing = '0px';
     ctx.restore();
   }
 
@@ -40205,47 +40253,62 @@ function futdChartDraw() {
   const CH = H - PAD_T - PAD_B;
   const slotW = CW / vis; // [FIX-BUG6] slot width ใช้ vis ไม่ใช่ slice.length
 
-  // ── [FIX-BUG5] Y-scale: percentile p05/p95 + yPadFactor + yOffset ──
-  const allHighs = slice.map(c => parseFloat(c.h || c.high)).filter(v => isFinite(v));
-  const allLows  = slice.map(c => parseFloat(c.l || c.low)).filter(v => isFinite(v));
-  if (!allHighs.length) return;
-  const sorted_h = allHighs.slice().sort((a, b) => a - b);
-  const sorted_l = allLows.slice().sort((a, b) => a - b);
-  const p95 = sorted_h[Math.floor(sorted_h.length * 0.95)] || sorted_h[sorted_h.length - 1];
-  const p05 = sorted_l[Math.floor(sorted_l.length * 0.05)] || sorted_l[0];
-  const yPad     = FUTD.chart.yPadFactor !== undefined ? FUTD.chart.yPadFactor : 0.15;
-  const yOffset  = FUTD.chart.yOffset    !== undefined ? FUTD.chart.yOffset    : 0;
-  const rawRange = p95 - p05 || 1;
-  const paddedRange = rawRange * (1 + yPad * 2);
-  // yOffset: บวก → เลื่อนหน้าต่างขึ้น (เห็นราคาต่ำลง), ลบ → ลง
-  const _minPv = p05 - rawRange * yPad - yOffset * rawRange;
-  const _maxPv = _minPv + paddedRange;
+  // ── [FIX-2] Y-scale: ใช้ algorithm เหมือน Contract chart ──
+  // p05/p95 ของ closes ก่อน แล้ว expand ด้วย actual h/l แต่ cap outlier wicks >50% of spread
+  const allCloses_ys = slice.map(c => parseFloat(c.c || c.close)).filter(v => isFinite(v));
+  if (!allCloses_ys.length) return;
+  const sorted_c = allCloses_ys.slice().sort((a, b) => a - b);
+  const p05 = sorted_c[Math.max(0, Math.floor(sorted_c.length * 0.05))];
+  const p95 = sorted_c[Math.min(sorted_c.length - 1, Math.floor(sorted_c.length * 0.95))];
+  const spread = (p95 - p05) || p05 * 0.02 || 1;
+  const yPad    = FUTD.chart.yPadFactor !== undefined ? FUTD.chart.yPadFactor : 0.15;
+  const yOffset = FUTD.chart.yOffset    !== undefined ? FUTD.chart.yOffset    : 0;
+  const pad = spread * yPad;
+  let minP = p05 - pad;
+  let maxP = p95 + pad;
+  // expand to actual h/l but cap extreme outlier wicks (>50% from body range) เหมือน Contract
+  slice.forEach(c => {
+    const capH = Math.min(parseFloat(c.h || c.high), maxP + spread * 0.5);
+    const capL = Math.max(parseFloat(c.l || c.low),  minP - spread * 0.5);
+    if (capH > maxP) maxP = capH;
+    if (capL < minP) minP = capL;
+  });
+  const range = maxP - minP || 1;
+  // yOffset shifts the visible price window up/down (เหมือน Contract)
+  const _priceShift = yOffset * range;
+  const _minPv = minP + _priceShift;
+  const _maxPv = maxP + _priceShift;
 
-  // scY: แปลง price → pixel Y (clamp ไม่ให้เกิน canvas)
-  const scY = price => PAD_T + ((_maxPv - price) / paddedRange) * CH;
+  // scY: แปลง price → pixel Y
+  const scY = price => PAD_T + (1 - (price - _minPv) / range) * CH;
 
-  // ── Price grid lines (nice levels) ──
-  const _niceStep = range => {
-    const rough = range / 5;
-    const mag   = Math.pow(10, Math.floor(Math.log10(rough)));
-    const norm  = rough / mag;
-    const nice  = norm < 1.5 ? 1 : norm < 3.5 ? 2 : norm < 7.5 ? 5 : 10;
-    return nice * mag;
-  };
-  const gridStep = _niceStep(paddedRange);
-  const gridStart = Math.ceil(_minPv / gridStep) * gridStep;
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-  ctx.lineWidth   = 1;
-  ctx.setLineDash([2, 4]);
-  ctx.fillStyle   = 'rgba(255,255,255,0.45)';
-  ctx.font        = '9px monospace';
-  ctx.textAlign   = 'right';
-  for (let gp = gridStart; gp <= _maxPv + gridStep * 0.5; gp += gridStep) {
+  // ── Price grid lines (nice levels) — เหมือน Contract chart ──
+  ctx.font = '9px Roboto Mono, monospace';
+  ctx.textAlign = 'right';
+  const _futdGridLevels = (typeof _niceGridLevels === 'function')
+    ? _niceGridLevels(_minPv, _maxPv, 5)
+    : (() => {
+        const rough = ((_maxPv - _minPv) / 5);
+        const mag   = Math.pow(10, Math.floor(Math.log10(rough || 1)));
+        const norm  = rough / mag;
+        const nice  = norm < 1.5 ? 1 : norm < 3.5 ? 2 : norm < 7.5 ? 5 : 10;
+        const step  = nice * mag;
+        const start = Math.ceil(_minPv / step) * step;
+        const levels = [];
+        for (let g = start; g <= _maxPv + step * 0.5; g += step) levels.push(g);
+        return levels;
+      })();
+  _futdGridLevels.forEach(gp => {
+    if (gp < _minPv || gp > _maxPv) return;
     const gy = scY(gp);
-    if (gy < PAD_T - 2 || gy > H - PAD_B + 2) continue;
+    if (gy < PAD_T - 2 || gy > H - PAD_B + 2) return;
+    ctx.strokeStyle = 'rgba(43,49,57,0.6)';
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([]);
     ctx.beginPath(); ctx.moveTo(PAD_L, gy); ctx.lineTo(W - PAD_R, gy); ctx.stroke();
-    ctx.fillText((typeof fmtP === 'function') ? fmtP(gp) : gp.toFixed(2), W - 2, gy + 3);
-  }
+    ctx.fillStyle = '#848e9c';
+    ctx.fillText(fmtP(gp), W - 2, gy + 3);
+  });
   ctx.setLineDash([]);
 
   const closes = candles.map(c => ({ c: c.c || c.close }));
@@ -40273,11 +40336,11 @@ function futdChartDraw() {
       first = false;
     }
     ctx.stroke();
-    // label: ค่าล่าสุดใน view
+    // label: ค่าล่าสุดใน view — ใช้ fmtP (มี comma เหมือน Contract)
     const lastMA = maFull[realEnd - 1] || maFull.slice(0, realEnd).filter(v => v !== null).pop();
     if (lastMA) {
       const lbl = document.getElementById(lblId);
-      if (lbl) lbl.textContent = ' ' + lastMA.toFixed(1);
+      if (lbl) lbl.textContent = ' ' + (typeof fmtP === 'function' ? fmtP(lastMA) : lastMA.toFixed(1));
     }
   });
 
@@ -40304,13 +40367,76 @@ function futdChartDraw() {
     ctx.fillRect(cx - bodyW / 2, bodyTop, bodyW, bH);
   }
 
-  // ── Current price line ──
-  const lastClose = parseFloat(slice[slice.length - 1].c || slice[slice.length - 1].close);
-  const curY = scY(lastClose);
+  // ── Current price line (เหมือน Contract — fmtP + visibility ──
+  const lastC_futd = candles[candles.length - 1];
+  // ใช้ FUTD.lastPrice (realtime จาก OB WS / poll) ถ้ามี, fallback lastClose
+  const lastClose = parseFloat(lastC_futd.c || lastC_futd.close);
+  const _priceDiffFutd = FUTD.lastPrice > 0 ? Math.abs(FUTD.lastPrice - lastClose) / (lastClose || 1) : 1;
+  const curP_futd = (FUTD.lastPrice > 0 && _priceDiffFutd < 0.15) ? FUTD.lastPrice : lastClose;
+  const curY = scY(curP_futd);
+  // dashed overlay บน canvas (เหมือน Contract)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(240,185,11,0.55)';
+  ctx.lineWidth   = 0.8;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(PAD_L, curY); ctx.lineTo(W - PAD_R, curY); ctx.stroke();
+  ctx.restore();
+  ctx.setLineDash([]);
+  const _cyMin = PAD_T, _cyMax = PAD_T + CH;
+  const _cyVisible = curY >= _cyMin - 2 && curY <= _cyMax + 2;
   const curLine = document.getElementById('futdCurLine');
   const curTag  = document.getElementById('futdCurTag');
-  if (curLine) curLine.style.top = curY + 'px';
-  if (curTag)  { curTag.style.top = (curY - 8) + 'px'; curTag.textContent = lastClose.toFixed(2); }
+  if (curLine) { curLine.style.top = curY + 'px'; curLine.style.display = _cyVisible ? '' : 'none'; }
+  if (curTag)  { curTag.style.top = (curY - 9) + 'px'; curTag.textContent = fmtP(curP_futd); curTag.style.display = _cyVisible ? '' : 'none'; }
+
+  // ── [FIX-6] High / Low price markers (Binance style เหมือน Contract chart) ──
+  {
+    let hiIdx = realStart, loIdx = realStart;
+    let hiVal = -Infinity, loVal = Infinity;
+    for (let ai = realStart; ai < realEnd; ai++) {
+      const _ch = parseFloat(candles[ai].h || candles[ai].high);
+      const _cl = parseFloat(candles[ai].l || candles[ai].low);
+      if (_ch > hiVal) { hiVal = _ch; hiIdx = ai; }
+      if (_cl < loVal) { loVal = _cl; loIdx = ai; }
+    }
+    const hiX = PAD_L + (hiIdx - vs + 0.5) * slotW;
+    const loX = PAD_L + (loIdx - vs + 0.5) * slotW;
+    const hiY = scY(hiVal);
+    const loY = scY(loVal);
+    ctx.save();
+    ctx.font = 'bold 10px Roboto Mono, monospace';
+    // High marker
+    const hiLabel = fmtP(hiVal);
+    const hiLabelW = ctx.measureText(hiLabel).width;
+    ctx.beginPath(); ctx.arc(hiX, hiY, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff'; ctx.fill();
+    const hiOnLeft = hiX > (W - PAD_R) * 0.55;
+    const hiLX = hiOnLeft ? hiX - 6 - hiLabelW - 8 : hiX + 6;
+    const hiLY = Math.max(PAD_T + 12, hiY - 4);
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 0.7; ctx.setLineDash([2, 2]);
+    ctx.beginPath(); ctx.moveTo(hiX, hiY); ctx.lineTo(hiOnLeft ? hiX - 5 : hiX + 5, hiLY + 4); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(30,34,40,0.82)';
+    ctx.fillRect(hiLX - 2, hiLY - 11, hiLabelW + 12, 15);
+    ctx.fillStyle = '#e0e0e0'; ctx.textAlign = 'left';
+    ctx.fillText(hiLabel, hiLX + 2, hiLY);
+    // Low marker
+    const loLabel = fmtP(loVal);
+    const loLabelW = ctx.measureText(loLabel).width;
+    ctx.beginPath(); ctx.arc(loX, loY, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff'; ctx.fill();
+    const loOnLeft = loX > (W - PAD_R) * 0.55;
+    const loLX = loOnLeft ? loX - 6 - loLabelW - 8 : loX + 6;
+    const loLY = Math.min(PAD_T + CH - 4, loY + 14);
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 0.7; ctx.setLineDash([2, 2]);
+    ctx.beginPath(); ctx.moveTo(loX, loY); ctx.lineTo(loOnLeft ? loX - 5 : loX + 5, loLY - 4); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(30,34,40,0.82)';
+    ctx.fillRect(loLX - 2, loLY - 11, loLabelW + 12, 15);
+    ctx.fillStyle = '#e0e0e0'; ctx.textAlign = 'left';
+    ctx.fillText(loLabel, loLX + 2, loLY);
+    ctx.restore();
+  }
 
   // ── [FIX-BUG5 position] Position Lines — ใช้ scY/_minPv/_maxPv ──
   const futdPositions = (FUTD.status && FUTD.status.positions) || [];
@@ -40328,67 +40454,148 @@ function futdChartDraw() {
     if (markP > 0 && entryP > 0 && size > 0) {
       upnl = isLong ? (markP - entryP) * size : (entryP - markP) * size;
     }
-    const drawPriceTag = (price, bg, dash, textColor) => {
-      if (!price || price < _minPv || price > _maxPv) return null;
-      const y = scY(price);
+    ctx.save();
+    ctx.font = 'bold 9px Roboto Mono, monospace';
+    ctx.textAlign = 'right';
+
+    // ── Entry line (เหมือน Contract) ──
+    const ey_futd = scY(entryP);
+    if (entryP > 0 && ey_futd >= PAD_T - 2 && ey_futd <= H - PAD_B + 2) {
       ctx.save();
-      ctx.strokeStyle = bg;
-      ctx.lineWidth   = dash ? 0.9 : 1.2;
-      ctx.setLineDash(dash ? [4, 4] : [5, 3]);
-      ctx.globalAlpha = 0.85;
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W - PAD_R - 2, y); ctx.stroke();
+      ctx.setLineDash([5, 3]);
+      ctx.strokeStyle = entryCol; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.85;
+      ctx.beginPath(); ctx.moveTo(PAD_L, ey_futd); ctx.lineTo(W - PAD_R - 2, ey_futd); ctx.stroke();
       ctx.globalAlpha = 1; ctx.setLineDash([]);
-      ctx.font = 'bold 10px monospace';
-      const priceTxt = price.toLocaleString('en', { maximumFractionDigits: 2 });
-      const tagX = W - PAD_R + 2, tagW = PAD_R - 4, tagY = y - 9;
-      ctx.fillStyle = bg;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(tagX, tagY, tagW, 18, 3); else ctx.rect(tagX, tagY, tagW, 18);
-      ctx.fill();
-      ctx.fillStyle = textColor; ctx.textAlign = 'left';
-      ctx.fillText(priceTxt, tagX + 3, y + 4);
-      ctx.restore();
-      return y;
-    };
-    const ey = drawPriceTag(entryP, entryCol, false, isLong ? '#000' : '#fff');
-    if (ey !== null) {
-      ctx.save();
-      ctx.font = 'bold 9.5px monospace';
+      // PNL tag ซ้าย
+      ctx.font = 'bold 9.5px Roboto Mono, monospace';
       const pnlSign = upnl >= 0 ? '+' : '';
-      const pnlTxt  = 'PNL ' + pnlSign + upnl.toFixed(2);
-      const pnlBg   = upnl >= 0 ? 'rgba(14,203,129,0.88)' : 'rgba(246,70,93,0.88)';
+      const pnlTxt  = 'PNL ' + pnlSign + (typeof fmtNum === 'function' ? fmtNum(upnl, 2) : upnl.toFixed(2));
       const pnlW = ctx.measureText(pnlTxt).width + 10;
-      const tagH = 16, tagY = ey - tagH / 2;
+      const pnlBg = upnl >= 0 ? 'rgba(14,203,129,0.88)' : 'rgba(246,70,93,0.88)';
+      const tagH = 16, tagY = ey_futd - tagH / 2;
       ctx.fillStyle = pnlBg;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(PAD_L, tagY, pnlW, tagH, 3); else ctx.rect(PAD_L, tagY, pnlW, tagH);
+      if (ctx.roundRect) ctx.roundRect(PAD_L, tagY, pnlW, tagH, 3); else ctx.fillRect(PAD_L, tagY, pnlW, tagH);
       ctx.fill();
       ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
-      ctx.fillText(pnlTxt, PAD_L + 4, ey + 3.5);
-      ctx.font = 'bold 8.5px monospace';
+      ctx.fillText(pnlTxt, PAD_L + 5, ey_futd + 3.5);
+      // Leverage tag
+      ctx.font = 'bold 8.5px Roboto Mono, monospace';
       const levTxt = (p.lev || '') + 'x';
       const levW = ctx.measureText(levTxt).width + 8;
       const levX = PAD_L + pnlW + 2;
-      ctx.fillStyle = 'rgba(43,49,57,0.92)';
-      ctx.strokeStyle = entryCol; ctx.lineWidth = 0.8;
+      ctx.fillStyle = 'rgba(43,49,57,0.92)'; ctx.strokeStyle = entryCol; ctx.lineWidth = 0.8;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(levX, tagY, levW, tagH, 3); else ctx.rect(levX, tagY, levW, tagH);
+      if (ctx.roundRect) ctx.roundRect(levX, tagY, levW, tagH, 3); else ctx.fillRect(levX, tagY, levW, tagH);
       ctx.fill(); ctx.stroke();
+      ctx.fillStyle = entryCol; ctx.textAlign = 'left';
+      ctx.fillText(levTxt, levX + 4, ey_futd + 3.5);
+      // Entry price tag ขวา
+      ctx.font = 'bold 10px Roboto Mono, monospace';
       ctx.fillStyle = entryCol;
-      ctx.fillText(levTxt, levX + 4, ey + 3.5);
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(W - PAD_R + 2, ey_futd - 9, PAD_R - 4, 18, 3);
+      else ctx.rect(W - PAD_R + 2, ey_futd - 9, PAD_R - 4, 18);
+      ctx.fill();
+      ctx.fillStyle = isLong ? '#000' : '#fff'; ctx.textAlign = 'left';
+      ctx.fillText(fmtP(entryP), W - PAD_R + 3, ey_futd + 4);
       ctx.restore();
     }
-    if (tp > 0) drawPriceTag(tp, 'rgba(14,203,129,0.88)', true, '#000');
-    if (sl > 0) drawPriceTag(sl, 'rgba(246,70,93,0.88)', true, '#fff');
+
+    // ── TP line + right-side tag + LEFT mini badge (เหมือน Contract) ──
+    if (tp > 0) {
+      const ty = scY(tp);
+      if (ty >= PAD_T - 2 && ty <= H - PAD_B + 2) {
+        ctx.save();
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(14,203,129,0.6)'; ctx.lineWidth = 0.9;
+        ctx.beginPath(); ctx.moveTo(PAD_L, ty); ctx.lineTo(W - PAD_R - 2, ty); ctx.stroke();
+        ctx.setLineDash([]);
+        // Right price tag
+        ctx.font = 'bold 10px Roboto Mono, monospace';
+        ctx.fillStyle = 'rgba(14,203,129,0.88)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(W - PAD_R + 2, ty - 9, PAD_R - 4, 18, 3);
+        else ctx.rect(W - PAD_R + 2, ty - 9, PAD_R - 4, 18);
+        ctx.fill();
+        ctx.fillStyle = '#000'; ctx.textAlign = 'left';
+        ctx.fillText(fmtP(tp), W - PAD_R + 4, ty + 4);
+        // Left mini badge "TP"
+        ctx.font = 'bold 8.5px Roboto Mono, monospace';
+        const tpLblW = ctx.measureText('TP').width + 8;
+        ctx.fillStyle = 'rgba(14,203,129,0.82)';
+        ctx.fillRect(PAD_L, ty - 7, tpLblW, 14);
+        ctx.fillStyle = '#000';
+        ctx.fillText('TP', PAD_L + 4, ty + 3);
+        ctx.restore();
+      }
+    }
+
+    // ── SL line + right-side tag + LEFT mini badge (เหมือน Contract) ──
+    if (sl > 0) {
+      const sy = scY(sl);
+      if (sy >= PAD_T - 2 && sy <= H - PAD_B + 2) {
+        ctx.save();
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(246,70,93,0.6)'; ctx.lineWidth = 0.9;
+        ctx.beginPath(); ctx.moveTo(PAD_L, sy); ctx.lineTo(W - PAD_R - 2, sy); ctx.stroke();
+        ctx.setLineDash([]);
+        // Right price tag
+        ctx.font = 'bold 10px Roboto Mono, monospace';
+        ctx.fillStyle = 'rgba(246,70,93,0.88)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(W - PAD_R + 2, sy - 9, PAD_R - 4, 18, 3);
+        else ctx.rect(W - PAD_R + 2, sy - 9, PAD_R - 4, 18);
+        ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+        ctx.fillText(fmtP(sl), W - PAD_R + 4, sy + 4);
+        // Left mini badge "SL"
+        ctx.font = 'bold 8.5px Roboto Mono, monospace';
+        const slLblW = ctx.measureText('SL').width + 8;
+        ctx.fillStyle = 'rgba(246,70,93,0.82)';
+        ctx.fillRect(PAD_L, sy - 7, slLblW, 14);
+        ctx.fillStyle = '#fff';
+        ctx.fillText('SL', PAD_L + 4, sy + 3);
+        ctx.restore();
+      }
+    }
+
+    // ── [FIX-7] Liq. Price line (เพิ่มใหม่ใน Direct — เหมือน Contract) ──
+    const liqP = parseFloat(p.liq_price || p.liq) || 0;
+    if (liqP > 0) {
+      const ly = scY(liqP);
+      if (ly >= PAD_T - 2 && ly <= H - PAD_B + 2) {
+        ctx.save();
+        ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(255,255,80,0.55)'; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(PAD_L, ly); ctx.lineTo(W - PAD_R - 2, ly); ctx.stroke();
+        ctx.setLineDash([]);
+        // Right-side Liq tag
+        ctx.font = 'bold 9px Roboto Mono, monospace';
+        ctx.fillStyle = 'rgba(200,180,0,0.82)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(W - PAD_R + 2, ly - 9, PAD_R - 4, 18, 3);
+        else ctx.rect(W - PAD_R + 2, ly - 9, PAD_R - 4, 18);
+        ctx.fill();
+        ctx.fillStyle = '#000'; ctx.textAlign = 'left';
+        ctx.fillText(fmtP(liqP), W - PAD_R + 4, ly + 3.5);
+        // Left mini label "Liq"
+        const liqLblW = ctx.measureText('Liq').width + 8;
+        ctx.fillStyle = 'rgba(200,180,0,0.75)';
+        ctx.fillRect(PAD_L, ly - 7, liqLblW, 14);
+        ctx.fillStyle = '#000';
+        ctx.fillText('Liq', PAD_L + 4, ly + 3);
+        ctx.restore();
+      }
+    }
+
+    ctx.restore();
   });
 
-  // OHLC labels
-  const last = slice[slice.length - 1];
+  // OHLC labels — ใช้ fmtP (มี comma เหมือน Contract)
+  const last_ohlc = candles[candles.length - 1];
   const setOhlc = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  setOhlc('futdChO', 'O:' + parseFloat(last.o || last.open).toFixed(2));
-  setOhlc('futdChH', 'H:' + parseFloat(last.h || last.high).toFixed(2));
-  setOhlc('futdChL', 'L:' + parseFloat(last.l || last.low).toFixed(2));
-  setOhlc('futdChC', 'C:' + parseFloat(last.c || last.close).toFixed(2));
+  setOhlc('futdChO', 'O:' + fmtP(parseFloat(last_ohlc.o || last_ohlc.open)));
+  setOhlc('futdChH', 'H:' + fmtP(parseFloat(last_ohlc.h || last_ohlc.high)));
+  setOhlc('futdChL', 'L:' + fmtP(parseFloat(last_ohlc.l || last_ohlc.low)));
+  setOhlc('futdChC', 'C:' + fmtP(parseFloat(last_ohlc.c || last_ohlc.close)));
 
   // [FIX-BUG7] Volume histogram — ส่ง vs/vis ด้วย เพื่อ slot-based X
   futdDrawVolume(slice, vs, vis);
@@ -40399,60 +40606,99 @@ function futdChartDraw() {
   // Candle countdown
   futdUpdateCandleCountdown();
 
-  // Chart Time Row
+  // [FIX-8] Chart Time Row — แสดง full date+time เหมือน Contract chart (ไม่ใช่แค่เวลา)
   const tRow = document.getElementById('futdChartTimeRow');
   if (tRow && slice.length > 0) {
-    const ft = t => {
-      const d = new Date(t);
-      return d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const fmtT = ms => {
+      const d = new Date(ms);
+      return d.getFullYear() + '-'
+        + String(d.getMonth()+1).padStart(2,'0') + '-'
+        + String(d.getDate()).padStart(2,'0') + ' '
+        + String(d.getHours()).padStart(2,'0') + ':'
+        + String(d.getMinutes()).padStart(2,'0');
     };
-    tRow.innerHTML = `<span class="ct-lbl">${ft(slice[0].t)}</span><span class="ct-lbl">${ft(slice[slice.length-1].t)}</span>`;
+    tRow.innerHTML =
+      `<span class="ct-lbl">${fmtT(slice[0].t)}</span>` +
+      `<span class="ct-lbl">${fmtT(slice[slice.length-1].t)}</span>`;
   }
 }
 
 // [FIX-BUG7] futdDrawVolume รับ vs/vis → slot-based X align กับ candle เมื่อ pan
+// [FIX-9] futdDrawVolume — เหมือน Contract drawVolume: bg fill, MA-vol line, VOL + Max labels
 function futdDrawVolume(slice, vs, vis) {
   const canvas = document.getElementById('futdVolCanvas');
   if (!canvas) return;
   const volWrap = document.getElementById('futdVolWrap') || canvas.parentElement;
   const W = volWrap?.clientWidth || 375;
   const H = volWrap?.clientHeight || 44;
-  canvas.width  = W * devicePixelRatio;
-  canvas.height = H * devicePixelRatio;
+  if (W < 10 || H < 10) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
   canvas.style.width  = W + 'px';
   canvas.style.height = H + 'px';
-  const ctx = canvas.getContext('2d');
-  ctx.scale(devicePixelRatio, devicePixelRatio);
-  ctx.clearRect(0, 0, W, H);
+  const vc = canvas.getContext('2d');
+  vc.setTransform(1, 0, 0, 1, 0, 0);
+  vc.scale(dpr, dpr);
+  vc.clearRect(0, 0, W, H);
+  // [FIX-9a] Background fill (เหมือน Contract)
+  vc.fillStyle = '#0b0e11';
+  vc.fillRect(0, 0, W, H);
   if (!slice.length) return;
 
-  // ถ้าไม่ได้ส่ง vs/vis มา (เรียกแบบ legacy) ให้ fallback เหมือนเดิม
-  const _vis   = (vis  !== undefined && vis  > 0) ? vis  : slice.length;
-  const _vs    = (vs   !== undefined)             ? vs   : 0;
+  const _vis   = (vis !== undefined && vis > 0) ? vis : slice.length;
+  const _vs    = (vs  !== undefined)            ? vs  : 0;
 
   const PAD_L = 2, PAD_R = 64;
   const CW    = W - PAD_L - PAD_R;
+  const PAD_T = 3, PAD_B = 3;
+  const CH    = H - PAD_T - PAD_B;
   const slotW = CW / _vis;
   const barW  = Math.max(1, slotW * 0.65);
 
   const vols = slice.map(c => parseFloat(c.v || c.volume || 0));
-  const maxV = Math.max(...vols) || 1;
+  const maxV = Math.max(...vols, 1);
 
-  // หา realStart จาก vs (slot ที่ slice[0] อยู่)
-  const realStart = Math.max(0, Math.round(_vs));
+  const realStart_v = Math.max(0, Math.round(_vs));
+
+  // [FIX-9b] MA-vol line (5-bar avg) เหมือน Contract
+  const maVol5 = [];
+  for (let i = 0; i < slice.length; i++) {
+    const sl = slice.slice(Math.max(0, i - 4), i + 1);
+    maVol5.push(sl.reduce((s, c) => s + parseFloat(c.v || c.volume || 0), 0) / sl.length);
+  }
+  vc.beginPath();
+  vc.strokeStyle = 'rgba(240,185,11,0.35)';
+  vc.lineWidth = 1;
+  maVol5.forEach((mv, i) => {
+    const ai = realStart_v + i;
+    const x  = PAD_L + ((ai - _vs) + 0.5) * slotW;
+    const y  = PAD_T + (1 - mv / maxV) * CH;
+    i === 0 ? vc.moveTo(x, y) : vc.lineTo(x, y);
+  });
+  vc.stroke();
+
+  // Draw bars
   slice.forEach((c, i) => {
-    const ai      = realStart + i;           // absolute candle index
-    const slotIdx = ai - _vs;               // slot position (virtual)
-    const x       = PAD_L + slotIdx * slotW; // slot left edge
-    const bull    = parseFloat(c.c || c.close) >= parseFloat(c.o || c.open);
-    ctx.fillStyle = bull ? 'rgba(14,203,129,.5)' : 'rgba(246,70,93,.5)';
-    const bH = (vols[i] / maxV) * H;
-    ctx.fillRect(x + (slotW - barW) / 2, H - bH, barW, bH);
+    const ai      = realStart_v + i;
+    const slotIdx = ai - _vs;
+    const cx      = PAD_L + (slotIdx + 0.5) * slotW;
+    const vol     = vols[i];
+    const barH    = Math.max(1, (vol / maxV) * CH);
+    const isUp    = parseFloat(c.c || c.close) >= parseFloat(c.o || c.open);
+    vc.fillStyle  = isUp ? 'rgba(14,203,129,0.55)' : 'rgba(246,70,93,0.55)';
+    vc.fillRect(cx - barW / 2, PAD_T + CH - barH, barW, barH);
   });
 
-  // VOL label
-  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '8px monospace'; ctx.textAlign = 'left';
-  ctx.fillText('VOL', PAD_L + 2, 9);
+  // [FIX-9c] VOL label + Max vol label (เหมือน Contract)
+  vc.font = '8px Roboto Mono, monospace';
+  vc.fillStyle = 'rgba(132,142,156,0.6)';
+  vc.textAlign = 'left';
+  vc.fillText('VOL', PAD_L + 2, PAD_T + 9);
+  vc.textAlign = 'right';
+  vc.fillStyle = 'rgba(132,142,156,0.5)';
+  vc.fillText((typeof _fmtVol === 'function') ? _fmtVol(maxV) : maxV.toFixed(0), W - 2, PAD_T + 9);
 }
 
 function futdDrawIndicator(closesAll, start, vis) {

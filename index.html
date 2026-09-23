@@ -37229,6 +37229,7 @@ const FUTD = {
   //   hedgeMode=true+side=long  → 'LONG'
   //   hedgeMode=true+side=short → 'SHORT'
   obWs: null,              // WebSocket สำหรับ L2 orderbook
+  tradesWs: null,          // [FIX-RT] WebSocket สำหรับ trades feed (real-time candle update เหมือน Contract)
   asks: [],                // order book asks (Direct)
   bids: [],                // order book bids (Direct)
   // Chart state
@@ -37727,6 +37728,10 @@ async function futdCloseAll() {
 }
 
 // ── Order Book WebSocket (Direct) ─────────────────────────────
+// [FIX-RT] ใช้โครงสร้างเดียวกับ Contract WS:
+//   subscribe l2Book  → อัปเดต Order Book + mid price + candle (เหมือนเดิม)
+//   subscribe trades  → อัปเดต candle ทุก trade event = real-time เหมือน Contract
+// Contract ใช้ ws เดียว subscribe ทั้ง l2Book + trades → Direct ทำเหมือนกัน
 function futdStartOrderBook() {
   futdStopOrderBook();
   const coin = FUTD.symbolCoin || 'BTC';
@@ -37735,14 +37740,17 @@ function futdStartOrderBook() {
     const ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
     FUTD.obWs = ws;
     ws.onopen = () => {
+      // [FIX-RT] subscribe ทั้ง l2Book และ trades ในคราวเดียวกัน (เหมือน Contract)
       ws.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'l2Book', coin: wsCoin } }));
+      ws.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'trades', coin: wsCoin } }));
     };
     ws.onmessage = (evt) => {
       try {
         const d = JSON.parse(evt.data);
+
+        // ── l2Book handler: อัปเดต Order Book + mid price ──────────
         if (d.channel === 'l2Book' && d.data) {
           // [v2.69-OB-GUARD] ป้องกัน stale/in-flight message จากเหรียญก่อนหน้า
-          // (WS เก่าอาจส่ง message มาหลัง close() เล็กน้อย → ทำให้ OB กะพริบเป็นเหรียญผิด)
           if (d.data.coin && _normWsCoin(d.data.coin) !== FUTD.symbolCoin) return;
           const levels = d.data.levels || [];
           // levels[0] = bids, levels[1] = asks  (Hyperliquid format)
@@ -37750,12 +37758,11 @@ function futdStartOrderBook() {
           const asks = (levels[1] || []).slice(0, 12).map(x => ({ p: parseFloat(x.px), s: parseFloat(x.sz) }));
           FUTD.bids = bids;
           FUTD.asks = asks;
-          // อัปเดต mark price จาก mid
+          // อัปเดต mid price จาก OB (ใช้เป็น fallback เมื่อ trades ไม่มาถึง)
           if (bids.length && asks.length) {
             const mid = (bids[0].p + asks[asks.length - 1].p) / 2;
             FUTD.lastPrice = mid;
-            // [FIX-10] อัปเดต last candle ด้วย OB mid price แล้ว schedule draw ผ่าน RAF
-            // (เหมือน Contract updateChart — ป้องกันแท่งเทียนค้าง รอ drawTimer 1s)
+            // อัปเดต last candle ด้วย OB mid (fallback path)
             if (FUTD.chart && FUTD.chart.candles.length) {
               const _lc = FUTD.chart.candles[FUTD.chart.candles.length - 1];
               _lc.c = mid;
@@ -37772,6 +37779,54 @@ function futdStartOrderBook() {
           }
           futdRenderOrderBook();
         }
+
+        // ── [FIX-RT] trades handler: อัปเดตแท่งเทียน real-time เหมือน Contract ──
+        // Contract: trades → updateChart(S.markPrice) ทุก event → กราฟขยับทันทีทุก trade
+        // Direct (เดิม): ไม่มี trades → กราฟขยับจาก l2Book เท่านั้น (ช้ากว่ามาก)
+        if (d.channel === 'trades' && d.data && d.data.length) {
+          const t = d.data[0];
+          const tradeCoin = _normWsCoin(t.coin);
+          const tradePrice = parseFloat(t.px);
+          if (!tradeCoin || !tradePrice) return;
+          // ป้องกัน stale trade จากเหรียญก่อนหน้า
+          if (tradeCoin !== FUTD.symbolCoin) return;
+
+          // [FIX-RT] filter noise เหมือน Contract (deviation < 0.05% ถือว่า valid)
+          if (FUTD.lastPrice > 0) {
+            const deviation = Math.abs(tradePrice - FUTD.lastPrice) / FUTD.lastPrice;
+            if (deviation >= 0.005) return; // ข้าม spike ที่ผิดปกติ
+          }
+
+          // อัปเดต lastPrice จาก trade (แม่นยำกว่า mid price จาก OB)
+          FUTD.lastPrice = tradePrice;
+          if (!FUTD.prices) FUTD.prices = {};
+          FUTD.prices[tradeCoin] = tradePrice;
+
+          // [FIX-RT] อัปเดต last candle close/high/low ด้วย trade price — เหมือน Contract updateChart()
+          if (FUTD.chart && FUTD.chart.candles.length) {
+            const last = FUTD.chart.candles[FUTD.chart.candles.length - 1];
+            const lastC = parseFloat(last.c || last.close) || 0;
+            if (lastC > 0) {
+              last.c = tradePrice;
+              if (tradePrice > (parseFloat(last.h || last.high) || 0)) last.h = tradePrice;
+              if (tradePrice < (parseFloat(last.l || last.low)  || Infinity)) last.l = tradePrice;
+            }
+            // schedule redraw ผ่าน RAF throttle — เหมือน Contract updateChart() ทุกประการ
+            if (!FUTD._chartRafPending) {
+              FUTD._chartRafPending = true;
+              requestAnimationFrame(() => {
+                FUTD._chartRafPending = false;
+                if (FUTD.chart.open && typeof futdChartDraw === 'function') futdChartDraw();
+              });
+            }
+          }
+
+          // อัปเดต ticker mark price และ PnL cards ตาม trade price ใหม่
+          const tkMark = document.getElementById('futd-tk-mark');
+          if (tkMark) tkMark.textContent = fmtP(tradePrice);
+          if (FUTD.status) futdUpdatePnlCards();
+        }
+
       } catch (e) { /* ignore */ }
     };
     ws.onerror = () => {};

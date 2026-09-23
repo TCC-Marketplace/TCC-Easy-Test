@@ -39465,86 +39465,179 @@ function futdChartInit() {
     document.addEventListener('touchend', onEnd);
   }
 
-  // [FIX-PAN] Pan / Zoom on chart canvas — guard ด้วย _futdCanvasInited เพื่อกัน event stack ซ้ำ
-  // เมื่อ user switch tab กลับมา futdChartInit ถูกเรียกใหม่แต่ canvas เดิมยังอยู่ → ต้อง guard
-  const canvas = document.getElementById('futdChartCanvas');
-  if (canvas && !canvas._futdCanvasInited) {
-    canvas._futdCanvasInited = true;
-    let panning = false, panStartX = 0, panVisStart = null;
-    let pinchDist = 0;
+  // [FIX-BUG1,2,3,4] Pan / Zoom — ผูกกับ wrap (ไม่ใช่ canvas) เพื่อจับ price axis area ด้วย
+  // Bug1: เดิมผูกกับ canvas → touch บน price axis ไม่ถูกดักจับ
+  // Bug2: materialise viewStart ก่อน pan ทุกครั้ง ป้องกัน null → snap
+  // Bug3: clamp แบบ [-(vis/2), total-(vis/2)] อนุญาต negative viewStart (pan ซ้ายของแท่งแรก)
+  // Bug4: zoom รอบตำแหน่ง cursor (frac) แทนที่จะ zoom รอบกลางจอ
+  const _futdWrap = document.getElementById('futdChartWrap');
+  if (_futdWrap && !_futdWrap._futdPanZoomInited) {
+    _futdWrap._futdPanZoomInited = true;
+    const PAD_L_PZ = 2, PAD_R_PZ = 64;
 
-    // Mouse drag pan — mouseup ผูกกับ document เพื่อจับกรณี mouse ออกนอก canvas ระหว่าง drag
-    canvas.addEventListener('mousedown', e => {
-      e.preventDefault();
-      panning = true; panStartX = e.clientX;
-      panVisStart = FUTD.chart.viewStart !== null
-        ? FUTD.chart.viewStart
-        : Math.max(0, FUTD.chart.candles.length - FUTD.chart.visCount);
-    });
-    document.addEventListener('mousemove', e => {
-      if (!panning) return;
-      const dx = e.clientX - panStartX;
-      const cW = (canvas.clientWidth || 375) / FUTD.chart.visCount;
-      const delta = Math.round(dx / cW);
+    // Helper: materialise viewStart (null → total - vis)
+    function _materialiseVS() {
+      if (FUTD.chart.viewStart === null) {
+        FUTD.chart.viewStart = FUTD.chart.candles.length - FUTD.chart.visCount;
+      }
+    }
+    // Helper: clamp viewStart with half-screen negative allowance
+    function _clampVS() {
       const total = FUTD.chart.candles.length;
       const vis   = FUTD.chart.visCount;
-      FUTD.chart.viewStart = Math.max(0, Math.min(total - vis, panVisStart - delta));
-      futdChartDraw();
-    });
-    // [FIX-PAN] ย้าย mouseup ไป document → จับได้แม้ user ลาก mouse ออกนอก canvas แล้วปล่อย
-    document.addEventListener('mouseup', () => { panning = false; });
+      const minVS = -(vis / 2);
+      const maxVS = total - vis / 2;
+      FUTD.chart.viewStart = Math.max(minVS, Math.min(maxVS, FUTD.chart.viewStart));
+    }
 
-    // Touch drag pan
-    canvas.addEventListener('touchstart', e => {
-      if (e.touches.length === 1) {
-        panning = true; panStartX = e.touches[0].clientX;
-        panVisStart = FUTD.chart.viewStart !== null
-          ? FUTD.chart.viewStart
-          : Math.max(0, FUTD.chart.candles.length - FUTD.chart.visCount);
-      } else if (e.touches.length === 2) {
-        panning = false;
-        pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    let _panning = false, _panStartX = 0, _panVisStart = 0;
+    let _pinchDist = 0;
+    // vertical pan on price axis (right edge)
+    let _yDragging = false, _yDragStartY = 0, _yDragStartOff = 0;
+    // double-tap reset
+    let _lastTap = 0;
+
+    // ── Mouse ──
+    _futdWrap.addEventListener('mousedown', e => {
+      const rect = _futdWrap.getBoundingClientRect();
+      const xRel = e.clientX - rect.left;
+      const wW   = _futdWrap.clientWidth || 375;
+      if (xRel >= wW - PAD_R_PZ) {
+        // Price axis drag → vertical pan
+        e.preventDefault();
+        _yDragging = true; _yDragStartY = e.clientY; _yDragStartOff = FUTD.chart.yOffset || 0;
+      } else {
+        // Chart area → horizontal pan
+        e.preventDefault();
+        _panning = true; _panStartX = e.clientX;
+        _materialiseVS();
+        _panVisStart = FUTD.chart.viewStart;
       }
-    }, { passive: true });
-    canvas.addEventListener('touchmove', e => {
-      if (e.touches.length === 1 && panning) {
-        const dx = e.touches[0].clientX - panStartX;
-        const cW = (canvas.clientWidth || 375) / FUTD.chart.visCount;
-        const delta = Math.round(dx / cW);
+    });
+    document.addEventListener('mousemove', e => {
+      if (_panning) {
+        const wW   = _futdWrap.clientWidth || 375;
+        const slotW = (wW - PAD_L_PZ - PAD_R_PZ) / FUTD.chart.visCount;
+        const delta = (e.clientX - _panStartX) / slotW;
+        FUTD.chart.viewStart = _panVisStart - delta;
+        _clampVS();
+        futdChartDraw();
+      }
+      if (_yDragging) {
+        const dy = e.clientY - _yDragStartY;
+        const H  = FUTD.chart.wrapH || 180;
+        FUTD.chart.yOffset = _yDragStartOff + dy / H * 2;
+        futdChartDraw();
+      }
+    });
+    document.addEventListener('mouseup', () => {
+      if (_panning) {
+        // auto-reset ถ้า pan ไปชิดขวาสุด
         const total = FUTD.chart.candles.length;
         const vis   = FUTD.chart.visCount;
-        FUTD.chart.viewStart = Math.max(0, Math.min(total - vis, panVisStart - delta));
-        futdChartDraw();
-      } else if (e.touches.length === 2) {
-        // Pinch zoom
-        const newDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        if (pinchDist > 0) {
-          const factor = pinchDist / newDist;
-          const newVis = Math.round(Math.max(10, Math.min(500, FUTD.chart.visCount * factor)));
-          if (newVis !== FUTD.chart.visCount) {
-            const center = (FUTD.chart.viewStart || 0) + FUTD.chart.visCount / 2;
-            FUTD.chart.visCount  = newVis;
-            FUTD.chart.viewStart = Math.max(0, Math.min(FUTD.chart.candles.length - newVis, Math.round(center - newVis / 2)));
-            futdChartDraw();
-          }
+        if (FUTD.chart.viewStart !== null && FUTD.chart.viewStart >= total - vis - 0.5) {
+          FUTD.chart.viewStart = null;
         }
-        pinchDist = newDist;
       }
-    }, { passive: true });
-    canvas.addEventListener('touchend', () => { panning = false; pinchDist = 0; });
+      _panning = false; _yDragging = false;
+    });
 
-    // Scroll wheel zoom
-    canvas.addEventListener('wheel', e => {
+    // Scroll wheel zoom — cursor-based (Bug4 fix)
+    _futdWrap.addEventListener('wheel', e => {
       e.preventDefault();
+      const rect  = _futdWrap.getBoundingClientRect();
+      const mx    = e.clientX - rect.left;
+      const wW    = _futdWrap.clientWidth || 375;
+      const CW    = wW - PAD_L_PZ - PAD_R_PZ;
+      // frac: ตำแหน่ง cursor ใน chart area (0=ซ้าย, 1=ขวา)
+      const frac  = Math.max(0, Math.min(1, (mx - PAD_L_PZ) / CW));
       const factor = e.deltaY > 0 ? 1.15 : 0.87;
-      const newVis = Math.round(Math.max(10, Math.min(500, FUTD.chart.visCount * factor)));
-      if (newVis !== FUTD.chart.visCount) {
-        const center = (FUTD.chart.viewStart || 0) + FUTD.chart.visCount / 2;
+      const oldVis = FUTD.chart.visCount;
+      const newVis = Math.round(Math.max(10, Math.min(500, oldVis * factor)));
+      if (newVis !== oldVis) {
+        _materialiseVS();
+        // centerCandle = candle ที่ cursor ชี้อยู่ → คงตำแหน่งไว้หลัง zoom
+        const centerCandle = FUTD.chart.viewStart + frac * oldVis;
         FUTD.chart.visCount  = newVis;
-        FUTD.chart.viewStart = Math.max(0, Math.min(FUTD.chart.candles.length - newVis, Math.round(center - newVis / 2)));
+        FUTD.chart.viewStart = centerCandle - frac * newVis;
+        _clampVS();
         futdChartDraw();
       }
     }, { passive: false });
+
+    // ── Touch ──
+    _futdWrap.addEventListener('touchstart', e => {
+      const now = Date.now();
+      if (e.touches.length === 1) {
+        // double-tap → reset view
+        if (now - _lastTap < 300) {
+          e.preventDefault();
+          futdChartResetView();
+          _lastTap = 0;
+          return;
+        }
+        _lastTap = now;
+        _panning = true;
+        _panStartX = e.touches[0].clientX;
+        _materialiseVS();
+        _panVisStart = FUTD.chart.viewStart;
+      } else if (e.touches.length === 2) {
+        _panning = false;
+        _pinchDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+      }
+    }, { passive: false });
+
+    _futdWrap.addEventListener('touchmove', e => {
+      if (e.touches.length === 1 && _panning) {
+        e.preventDefault();
+        const wW    = _futdWrap.clientWidth || 375;
+        const slotW = (wW - PAD_L_PZ - PAD_R_PZ) / FUTD.chart.visCount;
+        const delta = (e.touches[0].clientX - _panStartX) / slotW;
+        FUTD.chart.viewStart = _panVisStart - delta;
+        _clampVS();
+        futdChartDraw();
+      } else if (e.touches.length === 2) {
+        e.preventDefault();
+        const newDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        if (_pinchDist > 0) {
+          // pinch center → cursor-based zoom (Bug4)
+          const cx    = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          const rect  = _futdWrap.getBoundingClientRect();
+          const wW    = _futdWrap.clientWidth || 375;
+          const CW    = wW - PAD_L_PZ - PAD_R_PZ;
+          const frac  = Math.max(0, Math.min(1, (cx - rect.left - PAD_L_PZ) / CW));
+          const factor  = _pinchDist / newDist;
+          const oldVis  = FUTD.chart.visCount;
+          const newVis  = Math.round(Math.max(10, Math.min(500, oldVis * factor)));
+          if (newVis !== oldVis) {
+            _materialiseVS();
+            const centerCandle = FUTD.chart.viewStart + frac * oldVis;
+            FUTD.chart.visCount  = newVis;
+            FUTD.chart.viewStart = centerCandle - frac * newVis;
+            _clampVS();
+            futdChartDraw();
+          }
+        }
+        _pinchDist = newDist;
+      }
+    }, { passive: false });
+
+    _futdWrap.addEventListener('touchend', () => {
+      if (_panning) {
+        const total = FUTD.chart.candles.length;
+        const vis   = FUTD.chart.visCount;
+        if (FUTD.chart.viewStart !== null && FUTD.chart.viewStart >= total - vis - 0.5) {
+          FUTD.chart.viewStart = null;
+        }
+      }
+      _panning = false; _pinchDist = 0;
+    });
   }
 
   // Load candles
@@ -39605,16 +39698,19 @@ function futdChartInit() {
     volWrap.addEventListener('mousemove', e => {
       const candles = FUTD.chart.candles;
       if (!candles.length) return;
-      const rect  = volWrap.getBoundingClientRect();
-      const xRel  = e.clientX - rect.left;
-      const W     = rect.width;
-      const vis   = FUTD.chart.visCount;
-      const start = FUTD.chart.viewStart !== null
-        ? Math.max(0, Math.min(candles.length - vis, FUTD.chart.viewStart))
-        : Math.max(0, candles.length - vis);
-      const cW    = W / vis;
-      const idx   = Math.floor(xRel / cW);
-      const candle = candles[start + idx];
+      const rect   = volWrap.getBoundingClientRect();
+      const xRel   = e.clientX - rect.left;
+      const W      = rect.width;
+      const vis    = FUTD.chart.visCount;
+      const total  = candles.length;
+      // [FIX-BUG9] virtual slot index — เหมือน futdDrawVolume (PAD_L=2, PAD_R=64)
+      const _PAD_L = 2, _PAD_R = 64;
+      const CW     = W - _PAD_L - _PAD_R;
+      const slotW  = CW / vis;
+      const vs     = FUTD.chart.viewStart !== null ? FUTD.chart.viewStart : total - vis;
+      const virtSlot  = (xRel - _PAD_L) / slotW; // float virtual slot
+      const candleIdx = Math.max(0, Math.min(total - 1, Math.floor(vs + virtSlot)));
+      const candle    = candles[candleIdx];
       if (!candle) return;
       const vol = parseFloat(candle.v || candle.volume || 0);
       const _fv = v => v >= 1e9 ? (v/1e9).toFixed(2)+'B' : v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? (v/1e3).toFixed(1)+'K' : v.toFixed(0);
@@ -39650,8 +39746,11 @@ function _futdUpdateLiveTag() {
 
 // ── Reset to live (latest) view ──
 function futdChartResetView() {
-  FUTD.chart.viewStart = null;
-  FUTD.chart.visCount = 80;
+  FUTD.chart.viewStart  = null;
+  FUTD.chart.visCount   = 80;
+  // [FIX-BUG9] reset vertical pan/zoom state ด้วย
+  FUTD.chart.yOffset    = 0;
+  FUTD.chart.yPadFactor = 0.15;
   _futdUpdateLiveTag();
   futdChartDraw();
 }
@@ -39712,7 +39811,8 @@ function futdInitCrosshair() {
   const ARC_C = 94.2;
   const LONG_PRESS_MS = 320;
   const PAN_THRESHOLD = 6;
-  const PAD_R = 44, PAD_T = 16, PAD_B = 16, PAD_L = 2;
+  // [FIX-BUG8] PAD ให้ตรงกับ futdChartDraw (PAD_B=22, PAD_R=64)
+  const PAD_R = 64, PAD_T = 12, PAD_B = 22, PAD_L = 2;
 
   let _lpTimer = null, _lpActive = false, _lpAnimFrame = null, _lpAnimStart = 0;
   let _touchMode = '', _touchCommitted = false;
@@ -39758,30 +39858,46 @@ function futdInitCrosshair() {
     const wrapW = wrap.clientWidth || 375;
     const wrapH = FUTD.chart.wrapH || 180;
 
-    const vis = FUTD.chart.visCount;
+    const vis   = FUTD.chart.visCount;
     const total = candles.length;
-    const start = FUTD.chart.viewStart !== null
-      ? Math.max(0, Math.min(total - vis, FUTD.chart.viewStart))
-      : Math.max(0, total - vis);
-    const slice = candles.slice(start, start + vis);
+    // [FIX-BUG8] virtual viewport — vs อาจ negative เหมือน futdChartDraw
+    const vs = FUTD.chart.viewStart !== null ? FUTD.chart.viewStart : total - vis;
+    const realStart = Math.max(0, Math.floor(vs));
+    const realEnd   = Math.min(total, Math.ceil(vs + vis));
+    const slice     = candles.slice(realStart, realEnd);
     if (!slice.length) return;
 
-    const CW = wrapW - PAD_R - PAD_L;
-    const slotW = CW / slice.length;
-    const slotIdx = Math.max(0, Math.min(slice.length - 1, Math.floor((mx - PAD_L) / slotW)));
-    const c = slice[slotIdx];
+    const CW    = wrapW - PAD_R - PAD_L;
+    const CH    = wrapH - PAD_T - PAD_B;
+    const slotW = CW / vis; // [FIX-BUG8] ใช้ vis ไม่ใช่ slice.length
+
+    // virtual slot จาก cursor position
+    const virtSlot    = (mx - PAD_L) / slotW; // float slot ใน virtual space
+    const virtSlotInt = Math.floor(virtSlot);
+    // map กลับไป candle index
+    const candleIdx = Math.max(realStart, Math.min(realEnd - 1, Math.round(vs + virtSlot)));
+    const localIdx  = candleIdx - realStart;
+    const c = slice[localIdx];
     if (!c) return;
 
-    const cx = PAD_L + (slotIdx + 0.5) * slotW;
+    // cx ใช้ virtual slot เหมือน futdChartDraw: (ai - vs + 0.5) * slotW
+    const cx = PAD_L + (candleIdx - vs + 0.5) * slotW;
 
-    // Price range (same as futdChartDraw)
-    const highs = slice.map(cd => parseFloat(cd.h || cd.high));
-    const lows  = slice.map(cd => parseFloat(cd.l || cd.low));
-    const maxP  = Math.max(...highs);
-    const minP  = Math.min(...lows);
-    const range = maxP - minP || 1;
-    const CH = wrapH - PAD_T - PAD_B;
-    const price = maxP - ((my - PAD_T) / CH) * range;
+    // [FIX-BUG8] Price range — p05/p95 + yPadFactor + yOffset (เหมือน futdChartDraw)
+    const allHighs = slice.map(cd => parseFloat(cd.h || cd.high)).filter(v => isFinite(v));
+    const allLows  = slice.map(cd => parseFloat(cd.l || cd.low)).filter(v => isFinite(v));
+    const sorted_h = allHighs.slice().sort((a, b) => a - b);
+    const sorted_l = allLows.slice().sort((a, b) => a - b);
+    const p95 = sorted_h[Math.floor(sorted_h.length * 0.95)] || sorted_h[sorted_h.length - 1];
+    const p05 = sorted_l[Math.floor(sorted_l.length * 0.05)] || sorted_l[0];
+    const yPad     = FUTD.chart.yPadFactor !== undefined ? FUTD.chart.yPadFactor : 0.15;
+    const yOffset  = FUTD.chart.yOffset    !== undefined ? FUTD.chart.yOffset    : 0;
+    const rawRange = p95 - p05 || 1;
+    const paddedRange = rawRange * (1 + yPad * 2);
+    const _minPv  = p05 - rawRange * yPad - yOffset * rawRange;
+    const _maxPv  = _minPv + paddedRange;
+    const price   = _maxPv - ((my - PAD_T) / CH) * paddedRange;
+    const scY     = p => PAD_T + ((_maxPv - p) / paddedRange) * CH;
 
     // Position crosshair lines
     if (chVLine) { chVLine.style.display = ''; chVLine.style.left = cx + 'px'; }
@@ -39801,7 +39917,7 @@ function futdInitCrosshair() {
     // Dot at close price Y
     if (chDot) {
       const closePx = parseFloat(c.c || c.close);
-      const dotY = PAD_T + ((maxP - closePx) / range) * CH;
+      const dotY = scY(closePx);
       chDot.style.display = 'block';
       chDot.style.left = cx + 'px';
       chDot.style.top  = dotY + 'px';
@@ -39954,9 +40070,13 @@ function futdToggleChart() {
 }
 
 function futdSetTF(el, tf) {
-  FUTD.chart.tf = tf;
-  FUTD.chart.candles = [];
-  FUTD.chart.viewStart = null;
+  FUTD.chart.tf         = tf;
+  FUTD.chart.candles    = [];
+  FUTD.chart.viewStart  = null;
+  FUTD.chart.visCount   = 80;
+  // [FIX-BUG9] reset vertical pan/zoom state เมื่อเปลี่ยน TF
+  FUTD.chart.yOffset    = 0;
+  FUTD.chart.yPadFactor = 0.15;
   document.querySelectorAll('.futd-tf-label').forEach(e => e.classList.remove('active'));
   if (el) el.classList.add('active');
   const symEl = document.getElementById('futdChartHdrSym');
@@ -40047,7 +40167,7 @@ function futdChartDraw() {
   ctx.scale(devicePixelRatio, devicePixelRatio);
   ctx.clearRect(0, 0, W, H);
 
-  // [FIX-4] Watermark Logo — เหมือน Contract ต้นฉบับ (ใช้ _chartLogoImg/_chartLogoReady ตัวเดียวกัน)
+  // [FIX-4] Watermark Logo
   if (typeof _chartLogoReady !== 'undefined' && _chartLogoReady && _chartLogoImg.complete) {
     const logoSize = Math.min(W, H) * 0.48;
     const logoX = W / 2 - logoSize / 2;
@@ -40062,163 +40182,174 @@ function futdChartDraw() {
     ctx.restore();
   }
 
-  // Visible slice — ใช้ viewStart สำหรับ pan; null = show latest
-  const vis   = Math.min(FUTD.chart.visCount, candles.length);
-  const start = FUTD.chart.viewStart !== null
-    ? Math.max(0, Math.min(candles.length - vis, FUTD.chart.viewStart))
-    : Math.max(0, candles.length - vis);
-  // auto-reset viewStart ถ้า pan มาถึงขวาสุดแล้ว
-  if (FUTD.chart.viewStart !== null && start >= candles.length - vis) {
+  // ── [FIX-BUG3] Virtual viewport — vs อาจเป็น negative (pan ซ้ายเกินแท่งแรก) ──
+  const total = candles.length;
+  const vis   = FUTD.chart.visCount;
+  // vs = viewStart จริง (อาจเป็น negative หรือ > total-vis)
+  const vs = FUTD.chart.viewStart !== null ? FUTD.chart.viewStart : total - vis;
+  // auto-reset เมื่อ pan กลับมาชิดขวาสุด
+  if (FUTD.chart.viewStart !== null && vs >= total - vis - 0.5) {
     FUTD.chart.viewStart = null;
   }
-  // อัปเดต LIVE badge ทุกครั้งที่ draw
+  // อัปเดต LIVE badge
   if (typeof _futdUpdateLiveTag === 'function') _futdUpdateLiveTag();
-  const slice = candles.slice(start, start + vis);
+
+  // realStart/realEnd = index ใน candles array ที่ visible จริง (clamp 0..total-1)
+  const realStart = Math.max(0, Math.floor(vs));
+  const realEnd   = Math.min(total, Math.ceil(vs + vis));
+  const slice     = candles.slice(realStart, realEnd);
   if (!slice.length) return;
 
-  const highs = slice.map(c => parseFloat(c.h || c.high));
-  const lows  = slice.map(c => parseFloat(c.l || c.low));
-  const maxP  = Math.max(...highs);
-  const minP  = Math.min(...lows);
-  const range = maxP - minP || 1;
-  const pad   = { t: 16, b: 16, l: 2, r: 44 };
-  const cW    = (W - pad.l - pad.r) / slice.length;
+  const PAD_L = 2, PAD_R = 64, PAD_T = 12, PAD_B = 22;
+  const CW = W - PAD_L - PAD_R;
+  const CH = H - PAD_T - PAD_B;
+  const slotW = CW / vis; // [FIX-BUG6] slot width ใช้ vis ไม่ใช่ slice.length
 
-  const toY = price => pad.t + ((maxP - price) / range) * (H - pad.t - pad.b);
+  // ── [FIX-BUG5] Y-scale: percentile p05/p95 + yPadFactor + yOffset ──
+  const allHighs = slice.map(c => parseFloat(c.h || c.high)).filter(v => isFinite(v));
+  const allLows  = slice.map(c => parseFloat(c.l || c.low)).filter(v => isFinite(v));
+  if (!allHighs.length) return;
+  const sorted_h = allHighs.slice().sort((a, b) => a - b);
+  const sorted_l = allLows.slice().sort((a, b) => a - b);
+  const p95 = sorted_h[Math.floor(sorted_h.length * 0.95)] || sorted_h[sorted_h.length - 1];
+  const p05 = sorted_l[Math.floor(sorted_l.length * 0.05)] || sorted_l[0];
+  const yPad     = FUTD.chart.yPadFactor !== undefined ? FUTD.chart.yPadFactor : 0.15;
+  const yOffset  = FUTD.chart.yOffset    !== undefined ? FUTD.chart.yOffset    : 0;
+  const rawRange = p95 - p05 || 1;
+  const paddedRange = rawRange * (1 + yPad * 2);
+  // yOffset: บวก → เลื่อนหน้าต่างขึ้น (เห็นราคาต่ำลง), ลบ → ลง
+  const _minPv = p05 - rawRange * yPad - yOffset * rawRange;
+  const _maxPv = _minPv + paddedRange;
 
-  // MA helper
+  // scY: แปลง price → pixel Y (clamp ไม่ให้เกิน canvas)
+  const scY = price => PAD_T + ((_maxPv - price) / paddedRange) * CH;
+
+  // ── Price grid lines (nice levels) ──
+  const _niceStep = range => {
+    const rough = range / 5;
+    const mag   = Math.pow(10, Math.floor(Math.log10(rough)));
+    const norm  = rough / mag;
+    const nice  = norm < 1.5 ? 1 : norm < 3.5 ? 2 : norm < 7.5 ? 5 : 10;
+    return nice * mag;
+  };
+  const gridStep = _niceStep(paddedRange);
+  const gridStart = Math.ceil(_minPv / gridStep) * gridStep;
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth   = 1;
+  ctx.setLineDash([2, 4]);
+  ctx.fillStyle   = 'rgba(255,255,255,0.45)';
+  ctx.font        = '9px monospace';
+  ctx.textAlign   = 'right';
+  for (let gp = gridStart; gp <= _maxPv + gridStep * 0.5; gp += gridStep) {
+    const gy = scY(gp);
+    if (gy < PAD_T - 2 || gy > H - PAD_B + 2) continue;
+    ctx.beginPath(); ctx.moveTo(PAD_L, gy); ctx.lineTo(W - PAD_R, gy); ctx.stroke();
+    ctx.fillText((typeof fmtP === 'function') ? fmtP(gp) : gp.toFixed(2), W - 2, gy + 3);
+  }
+  ctx.setLineDash([]);
+
+  const closes = candles.map(c => ({ c: c.c || c.close }));
+
+  // ── [FIX-BUG6] MA lines — ใช้ loop ai (absolute index) + slot index ──
   const ma = (arr, n) => arr.map((_, i) => {
     if (i < n - 1) return null;
     const s = arr.slice(i - n + 1, i + 1).map(c => parseFloat(c.c || c.close));
     return s.reduce((a, b) => a + b, 0) / n;
   });
-  const closes = candles.map(c => ({ c: c.c || c.close }));
-  const ma7  = ma(closes, 7).slice(start,  start + vis);
-  const ma25 = ma(closes, 25).slice(start, start + vis);
-  const ma99 = ma(closes, 99).slice(start, start + vis);
+  const ma7Full  = ma(closes, 7);
+  const ma25Full = ma(closes, 25);
+  const ma99Full = ma(closes, 99);
 
-  // Draw MA lines
-  [[ma7,'#f0a500','futdMa7'],[ma25,'#e040fb','futdMa25'],[ma99,'#26c6da','futdMa99']].forEach(([maArr, color, lblId]) => {
+  [[ma7Full,'#f0a500','futdMa7'],[ma25Full,'#e040fb','futdMa25'],[ma99Full,'#26c6da','futdMa99']].forEach(([maFull, color, lblId]) => {
     ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.beginPath();
     let first = true;
-    maArr.forEach((v, i) => {
-      if (v === null) return;
-      const x = pad.l + i * cW + cW / 2;
-      const y = toY(v);
+    for (let ai = realStart; ai < realEnd; ai++) {
+      const v = maFull[ai];
+      if (v === null || v === undefined) continue;
+      const slotIdx = ai - vs; // virtual slot position (may be fractional at edges)
+      const x = PAD_L + (slotIdx + 0.5) * slotW;
+      const y = scY(v);
       first ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       first = false;
-    });
+    }
     ctx.stroke();
-    const last = maArr.filter(v => v !== null).pop();
-    if (last) {
+    // label: ค่าล่าสุดใน view
+    const lastMA = maFull[realEnd - 1] || maFull.slice(0, realEnd).filter(v => v !== null).pop();
+    if (lastMA) {
       const lbl = document.getElementById(lblId);
-      if (lbl) lbl.textContent = ' ' + last.toFixed(1);
+      if (lbl) lbl.textContent = ' ' + lastMA.toFixed(1);
     }
   });
 
-  // Draw candles
-  slice.forEach((c, i) => {
-    const o = parseFloat(c.o || c.open);
-    const h = parseFloat(c.h || c.high);
-    const l = parseFloat(c.l || c.low);
+  // ── [FIX-BUG6] Draw candles — slot-based X ──
+  const bodyW = Math.max(1.5, Math.min(slotW * 0.65, 10));
+  for (let ai = realStart; ai < realEnd; ai++) {
+    const c  = candles[ai];
+    const o  = parseFloat(c.o || c.open);
+    const h  = parseFloat(c.h || c.high);
+    const l  = parseFloat(c.l || c.low);
     const cl = parseFloat(c.c || c.close);
-    const bull = cl >= o;
+    const bull  = cl >= o;
     const color = bull ? '#0ecb81' : '#f6465d';
     ctx.fillStyle = color; ctx.strokeStyle = color;
-
-    const x  = pad.l + i * cW;
-    const xm = x + cW / 2;
+    const slotIdx = ai - vs;
+    const cx  = PAD_L + (slotIdx + 0.5) * slotW;
     // Wick
-    ctx.beginPath();
-    ctx.moveTo(xm, toY(h));
-    ctx.lineTo(xm, toY(l));
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, scY(h)); ctx.lineTo(cx, scY(l));
+    ctx.lineWidth = 1; ctx.stroke();
     // Body
-    const bodyTop = toY(Math.max(o, cl));
-    const bodyBot = toY(Math.min(o, cl));
+    const bodyTop = scY(Math.max(o, cl));
+    const bodyBot = scY(Math.min(o, cl));
     const bH = Math.max(1, bodyBot - bodyTop);
-    const bW = Math.max(1, cW * 0.7);
-    ctx.fillRect(x + (cW - bW) / 2, bodyTop, bW, bH);
-  });
-
-  // Price axis — อัปเดต DOM c-price-labels (เหมือน Contract) + วาดบน canvas เป็น fallback
-  const priceLblWrap = document.getElementById('futdPriceLbls');
-  if (priceLblWrap) {
-    // DOM price labels (ใน .c-price-labels เหมือน Contract)
-    const lblCount = 5;
-    const labels = [0, 0.25, 0.5, 0.75, 1].map(f => {
-      const price = maxP - f * range;
-      return (typeof fmtP === 'function') ? fmtP(price) : price.toFixed(2);
-    });
-    priceLblWrap.innerHTML = labels.map(l => `<span class="c-price-lbl">${l}</span>`).join('');
-  } else {
-    // Fallback: วาดบน canvas (ถ้าไม่มี DOM element)
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
-    [0, 0.25, 0.5, 0.75, 1].forEach(f => {
-      const price = maxP - f * range;
-      const y     = toY(price);
-      ctx.fillText(price.toFixed(2), W - 2, y + 3);
-    });
+    ctx.fillRect(cx - bodyW / 2, bodyTop, bodyW, bH);
   }
 
-  // Current price line
+  // ── Current price line ──
   const lastClose = parseFloat(slice[slice.length - 1].c || slice[slice.length - 1].close);
-  const curY = toY(lastClose);
+  const curY = scY(lastClose);
   const curLine = document.getElementById('futdCurLine');
   const curTag  = document.getElementById('futdCurTag');
   if (curLine) curLine.style.top = curY + 'px';
   if (curTag)  { curTag.style.top = (curY - 8) + 'px'; curTag.textContent = lastClose.toFixed(2); }
 
-  // [FIX-3] Position Lines — Entry / TP / SL วาดเป็น filled pill เหมือน Contract ต้นฉบับ
-  // (เดิม: label เป็นตัวหนังสือธรรมดาชิดซ้าย ไม่มีพื้นหลัง — ไม่ตรงกับ 📋 Contract)
+  // ── [FIX-BUG5 position] Position Lines — ใช้ scY/_minPv/_maxPv ──
   const futdPositions = (FUTD.status && FUTD.status.positions) || [];
   futdPositions.forEach(p => {
     const coin  = (p.symbol || '').replace('USDT', '');
-    if (coin !== FUTD.symbolCoin) return; // แสดงเฉพาะเหรียญที่กำลังดูกราฟ
+    if (coin !== FUTD.symbolCoin) return;
     const entryP = parseFloat(p.entry_price) || 0;
     const tp     = parseFloat(p.tp)          || 0;
     const sl     = parseFloat(p.sl)          || 0;
     const size   = parseFloat(p.size)        || 0;
     const isLong = p.side === 'long';
     const entryCol = isLong ? '#0ecb81' : '#f6465d';
-
-    // Unrealized PNL — คำนวณแบบเดียวกับ futdRenderPositions
     const markP = (FUTD.prices && FUTD.prices[coin]) || 0;
     let upnl = 0;
     if (markP > 0 && entryP > 0 && size > 0) {
       upnl = isLong ? (markP - entryP) * size : (entryP - markP) * size;
     }
-
-    // Helper — เส้นแนวนอน + pill ราคาทึบสีชิดขวา (เหมือน Contract ต้นฉบับ)
     const drawPriceTag = (price, bg, dash, textColor) => {
-      if (!price || price < minP * 0.98 || price > maxP * 1.02) return null; // นอก range → ข้าม
-      const y = toY(price);
+      if (!price || price < _minPv || price > _maxPv) return null;
+      const y = scY(price);
       ctx.save();
       ctx.strokeStyle = bg;
       ctx.lineWidth   = dash ? 0.9 : 1.2;
       ctx.setLineDash(dash ? [4, 4] : [5, 3]);
       ctx.globalAlpha = 0.85;
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W - pad.r - 2, y); ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.setLineDash([]);
-
-      // Price tag — filled rounded rect ชิดขวา (แนว price axis)
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W - PAD_R - 2, y); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.setLineDash([]);
       ctx.font = 'bold 10px monospace';
       const priceTxt = price.toLocaleString('en', { maximumFractionDigits: 2 });
-      const tagX = W - pad.r + 2, tagW = pad.r - 4, tagY = y - 9;
+      const tagX = W - PAD_R + 2, tagW = PAD_R - 4, tagY = y - 9;
       ctx.fillStyle = bg;
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(tagX, tagY, tagW, 18, 3); else ctx.rect(tagX, tagY, tagW, 18);
       ctx.fill();
-      ctx.fillStyle = textColor;
-      ctx.textAlign = 'left';
+      ctx.fillStyle = textColor; ctx.textAlign = 'left';
       ctx.fillText(priceTxt, tagX + 3, y + 4);
       ctx.restore();
       return y;
     };
-
-    // Entry line — pill ราคาขวา + tag PNL/Leverage ฝั่งซ้าย (เหมือน Contract)
     const ey = drawPriceTag(entryP, entryCol, false, isLong ? '#000' : '#fff');
     if (ey !== null) {
       ctx.save();
@@ -40230,20 +40361,16 @@ function futdChartDraw() {
       const tagH = 16, tagY = ey - tagH / 2;
       ctx.fillStyle = pnlBg;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(2, tagY, pnlW, tagH, 3); else ctx.rect(2, tagY, pnlW, tagH);
+      if (ctx.roundRect) ctx.roundRect(PAD_L, tagY, pnlW, tagH, 3); else ctx.rect(PAD_L, tagY, pnlW, tagH);
       ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.textAlign = 'left';
-      ctx.fillText(pnlTxt, 6, ey + 3.5);
-
-      // Leverage tag — ติดกับ PNL
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+      ctx.fillText(pnlTxt, PAD_L + 4, ey + 3.5);
       ctx.font = 'bold 8.5px monospace';
       const levTxt = (p.lev || '') + 'x';
       const levW = ctx.measureText(levTxt).width + 8;
-      const levX = 2 + pnlW + 2;
+      const levX = PAD_L + pnlW + 2;
       ctx.fillStyle = 'rgba(43,49,57,0.92)';
-      ctx.strokeStyle = entryCol;
-      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = entryCol; ctx.lineWidth = 0.8;
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(levX, tagY, levW, tagH, 3); else ctx.rect(levX, tagY, levW, tagH);
       ctx.fill(); ctx.stroke();
@@ -40251,7 +40378,6 @@ function futdChartDraw() {
       ctx.fillText(levTxt, levX + 4, ey + 3.5);
       ctx.restore();
     }
-
     if (tp > 0) drawPriceTag(tp, 'rgba(14,203,129,0.88)', true, '#000');
     if (sl > 0) drawPriceTag(sl, 'rgba(246,70,93,0.88)', true, '#fff');
   });
@@ -40264,19 +40390,16 @@ function futdChartDraw() {
   setOhlc('futdChL', 'L:' + parseFloat(last.l || last.low).toFixed(2));
   setOhlc('futdChC', 'C:' + parseFloat(last.c || last.close).toFixed(2));
 
-  // Volume histogram
-  futdDrawVolume(slice);
+  // [FIX-BUG7] Volume histogram — ส่ง vs/vis ด้วย เพื่อ slot-based X
+  futdDrawVolume(slice, vs, vis);
 
-  // Indicator
-  // [FIX-2] ส่ง closes ทั้งหมด + start/vis แทนการตัด slice มาก่อน เพื่อให้ RSI/MACD/BB
-  // มี look-back period ที่ถูกต้อง (เดิมส่งแค่ closesSlice ที่ตัดมาแล้ว ทำให้ค่าต้นๆ ของ indicator
-  // เป็น null ไปกินพื้นที่ครึ่งซ้ายของกราฟ indicator)
-  if (FUTD.chart.indicator) futdDrawIndicator(closes, start, vis);
+  // Indicator — ส่ง closes ทั้งหมด + realStart/vis
+  if (FUTD.chart.indicator) futdDrawIndicator(closes, realStart, vis);
 
-  // Candle countdown (wall-clock based — ไม่ต้องส่ง last)
+  // Candle countdown
   futdUpdateCandleCountdown();
 
-  // [PATCH] Chart Time Row — อัปเดต timestamp แรก/สุดท้ายของ slice (เหมือน Contract chartTimeRow)
+  // Chart Time Row
   const tRow = document.getElementById('futdChartTimeRow');
   if (tRow && slice.length > 0) {
     const ft = t => {
@@ -40287,7 +40410,8 @@ function futdChartDraw() {
   }
 }
 
-function futdDrawVolume(slice) {
+// [FIX-BUG7] futdDrawVolume รับ vs/vis → slot-based X align กับ candle เมื่อ pan
+function futdDrawVolume(slice, vs, vis) {
   const canvas = document.getElementById('futdVolCanvas');
   if (!canvas) return;
   const volWrap = document.getElementById('futdVolWrap') || canvas.parentElement;
@@ -40300,15 +40424,35 @@ function futdDrawVolume(slice) {
   const ctx = canvas.getContext('2d');
   ctx.scale(devicePixelRatio, devicePixelRatio);
   ctx.clearRect(0, 0, W, H);
+  if (!slice.length) return;
+
+  // ถ้าไม่ได้ส่ง vs/vis มา (เรียกแบบ legacy) ให้ fallback เหมือนเดิม
+  const _vis   = (vis  !== undefined && vis  > 0) ? vis  : slice.length;
+  const _vs    = (vs   !== undefined)             ? vs   : 0;
+
+  const PAD_L = 2, PAD_R = 64;
+  const CW    = W - PAD_L - PAD_R;
+  const slotW = CW / _vis;
+  const barW  = Math.max(1, slotW * 0.65);
+
   const vols = slice.map(c => parseFloat(c.v || c.volume || 0));
   const maxV = Math.max(...vols) || 1;
-  const cW   = slice.length > 0 ? W / slice.length : 4;
+
+  // หา realStart จาก vs (slot ที่ slice[0] อยู่)
+  const realStart = Math.max(0, Math.round(_vs));
   slice.forEach((c, i) => {
-    const bull = parseFloat(c.c || c.close) >= parseFloat(c.o || c.open);
+    const ai      = realStart + i;           // absolute candle index
+    const slotIdx = ai - _vs;               // slot position (virtual)
+    const x       = PAD_L + slotIdx * slotW; // slot left edge
+    const bull    = parseFloat(c.c || c.close) >= parseFloat(c.o || c.open);
     ctx.fillStyle = bull ? 'rgba(14,203,129,.5)' : 'rgba(246,70,93,.5)';
     const bH = (vols[i] / maxV) * H;
-    ctx.fillRect(i * cW, H - bH, Math.max(1, cW * 0.8), bH);
+    ctx.fillRect(x + (slotW - barW) / 2, H - bH, barW, bH);
   });
+
+  // VOL label
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '8px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('VOL', PAD_L + 2, 9);
 }
 
 function futdDrawIndicator(closesAll, start, vis) {

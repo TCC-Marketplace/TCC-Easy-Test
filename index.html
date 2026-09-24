@@ -40270,9 +40270,11 @@ async function futdChartLoad() {
     const coin = _loadCoin;
     // [v2.69-METAL-CHART] Metal coins (GOLD, SILVER …) ต้องใช้ _wsCoinName → 'xyz:GOLD'
     // และส่ง dex:'xyz' ระดับ top-level ไม่เช่นนั้น Hyperliquid ตอบ 500
+    const _interval = _candleInterval(FUTD.chart.tf);
+    const _ms       = _candleMs(_interval);
     const d = await hlPost({
       type: 'candleSnapshot',
-      req: { coin: _wsCoinName(coin), interval: FUTD.chart.tf, startTime: now - ms * 120, endTime: now },
+      req: { coin: _wsCoinName(coin), interval: _interval, startTime: now - _ms * CANDLE_BATCH, endTime: now },
       ..._dexParam(coin)
     });
     // [v2.69-CHART-STALE] ถ้า coin เปลี่ยนระหว่าง fetch → ทิ้ง response ทันที ไม่ set candles ไม่วาด
@@ -40364,12 +40366,8 @@ function futdChartDraw() {
     const maxVS = total - Math.ceil(vis / 2);
     FUTD.chart.viewStart = Math.max(minVS, Math.min(maxVS, FUTD.chart.viewStart));
     vs = FUTD.chart.viewStart;
-    // snap กลับ null เฉพาะเมื่อ pan ชิดขวาถึง live edge จริงๆ
-    // (ไม่ใช่ auto-reset ทุกตำแหน่ง — นั่นทำให้ manual pan ไม่ทำงาน)
-    if (vs >= total - vis) {
-      FUTD.chart.viewStart = null;
-      vs = total - vis;
-    }
+    // [v2.70-FIX] ไม่ snap กลับ null ใน draw loop — snap ทำใน mouseup/touchend เท่านั้น
+    // (snap ใน draw ทำให้ทุกครั้งที่ pan ซ้ายมากกว่า total-vis ถูก reset กลับ live ทันที)
   }
   // อัปเดต LIVE badge
   if (typeof _futdUpdateLiveTag === 'function') _futdUpdateLiveTag();

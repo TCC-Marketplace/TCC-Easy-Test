@@ -39579,8 +39579,7 @@ function futdChartInit() {
     let _pinchDist = 0;
     // vertical pan on price axis (right edge)
     let _yDragging = false, _yDragStartY = 0, _yDragStartOff = 0;
-    // double-tap reset
-    let _lastTap = 0;
+    // note: double-tap state (_futdLastTap) อยู่ใน touch block ด้านล่าง
 
     // ── Mouse ──
     _futdWrap.addEventListener('mousedown', e => {
@@ -39668,108 +39667,206 @@ function futdChartInit() {
       }
     }, { passive: false });
 
-    // ── Touch ──
-    // [FIX-YTOUCH] Helper: ตรวจว่า touch อยู่ใน price axis zone (ขอบขวา PAD_R_PZ px)
-    // เหมือน _isInPriceAxis() ของ Contract tab — ป้องกัน touch บน price axis กลายเป็น horizontal pan
+    // ══════════════════════════════════════════════════════════════════════════
+    // TOUCH SYSTEM — mirror โครงสร้าง Contract tab (_initCanvasPan) ทุกส่วน
+    // ┌─ price axis zone (ขวา PAD_R_PZ px)  → vertical Y-drag (yOffset)
+    // ├─ 1 finger tap-and-hold (≥320ms)     → crosshair mode (ผ่าน futdInitCrosshair)
+    // ├─ 1 finger swipe (หลัง PAN_THRESHOLD) → horizontal pan (commit-based)
+    // ├─ 2 fingers                            → pinch zoom (cursor-based)
+    // └─ double-tap                           → reset view
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // ── Helper: price axis zone (เหมือน _isInPriceAxis ของ Contract) ──
     function _futdIsInPriceAxis(t) {
       const rect = _futdWrap.getBoundingClientRect();
       return (t.clientX - rect.left) > (rect.width - PAD_R_PZ);
     }
-    // [FIX-YTOUCH] State สำหรับ vertical drag บน price axis (เหมือน isYTouching ของ Contract)
+
+    // ── Y-touch state (เหมือน isYTouching / yTouchStart / yTouchStartPad ของ Contract) ──
+    // Direct ใช้ yOffset (เลื่อนขึ้น/ลง) แทน yPadFactor (ย่อ/ขยาย range) ของ Contract
     let _isYTouching = false, _yTouchStartY = 0, _yTouchStartOff = 0;
 
+    // ── Pan commit state (เหมือน _touchCommitted / _touchMode / PAN_THRESHOLD ของ Contract) ──
+    // ป้องกัน tap/swipe แนวตั้งกลายเป็น horizontal pan โดยไม่ตั้งใจ
+    const _FUTD_PAN_THRESHOLD = 6;  // px — ต้องเลื่อนเกิน threshold ก่อน commit pan
+    let _futdTouchStartX = 0, _futdTouchStartY = 0;
+    let _futdTouchCommitted = false;  // true = ตัดสินใจแล้วว่าจะ pan
+    let _futdTouchMode = '';          // 'pan' | 'pinch' | ''
+
+    // ── Pinch state (เหมือน pinchStartDist / pinchStartVis / pinchStartViewStart ของ Contract) ──
+    let _futdPinchStartDist = 0, _futdPinchStartVis = 0;
+    let _futdPinchStartVS = null, _futdPinchMidFrac = 0;
+    // ป้องกัน double-tap reset ทำงานหลัง pinch (เหมือน _pinchEndedAtCP ของ Contract)
+    let _futdPinchEndedAt = 0;
+
+    // ── Double-tap state ──
+    let _futdLastTap = 0;
+
+    // ────────────────────────────────────────────────────────────────────────
+    // touchstart
+    // ────────────────────────────────────────────────────────────────────────
     _futdWrap.addEventListener('touchstart', e => {
-      const now = Date.now();
+      e.preventDefault();
+
       if (e.touches.length === 1) {
-        // [FIX-YTOUCH] ตรวจ price axis zone ก่อน — ถ้าอยู่ใน zone → vertical drag, ไม่ใช่ horizontal pan
+        // 1) price axis zone → Y-drag เท่านั้น ไม่ pan ไม่ long-press
         if (_futdIsInPriceAxis(e.touches[0])) {
-          e.preventDefault();
-          _isYTouching  = true;
+          _isYTouching    = true;
           _yTouchStartY   = e.touches[0].clientY;
           _yTouchStartOff = FUTD.chart.yOffset || 0;
-          return; // ไม่ตั้ง _panning
-        }
-        // double-tap → reset view (เฉพาะ chart area)
-        if (now - _lastTap < 300) {
-          e.preventDefault();
-          futdChartResetView();
-          _lastTap = 0;
+          _futdTouchCommitted = true;  // committed → ป้องกัน threshold logic ทับซ้อน
+          _futdTouchMode  = 'yaxis';
           return;
         }
-        _lastTap = now;
-        _panning = true;
-        _panStartX = e.touches[0].clientX;
-        _materialiseVS();
-        _panVisStart = FUTD.chart.viewStart;
+
+        // 2) chart area → เริ่ม commit-based pan (เหมือน Contract ที่รอ PAN_THRESHOLD ก่อน)
+        _futdTouchStartX    = e.touches[0].clientX;
+        _futdTouchStartY    = e.touches[0].clientY;
+        _futdTouchCommitted = false;
+        _futdTouchMode      = '';
+        _panning            = false;   // ยังไม่ pan จนกว่าจะ commit
+
       } else if (e.touches.length === 2) {
-        _panning = false;
-        _isYTouching = false;
-        _pinchDist = Math.hypot(
+        // 3) two fingers → pinch zoom (เหมือน Contract)
+        _panning            = false;
+        _isYTouching        = false;
+        _futdTouchCommitted = true;
+        _futdTouchMode      = 'pinch';
+        _futdPinchStartDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
+        _futdPinchStartVis  = FUTD.chart.visCount;
+        _materialiseVS();
+        _futdPinchStartVS   = FUTD.chart.viewStart;
+        const _pRect = _futdWrap.getBoundingClientRect();
+        const _midX  = (e.touches[0].clientX + e.touches[1].clientX) / 2 - _pRect.left;
+        const _CWp   = (_futdWrap.clientWidth || 375) - PAD_L_PZ - PAD_R_PZ;
+        _futdPinchMidFrac = Math.max(0, Math.min(1, (_midX - PAD_L_PZ) / _CWp));
+        _pinchDist = _futdPinchStartDist; // keep legacy var in sync
       }
     }, { passive: false });
 
+    // ────────────────────────────────────────────────────────────────────────
+    // touchmove
+    // ────────────────────────────────────────────────────────────────────────
     _futdWrap.addEventListener('touchmove', e => {
-      // [FIX-YTOUCH] Single finger บน price axis → vertical pan (ปรับ yOffset)
-      if (e.touches.length === 1 && _isYTouching) {
-        e.preventDefault();
-        const dy = e.touches[0].clientY - _yTouchStartY;
-        const H  = FUTD.chart.wrapH || 200;
-        FUTD.chart.yOffset = Math.max(-0.6, Math.min(0.6, _yTouchStartOff + dy / H * 2));
-        futdChartDraw();
-        return;
-      }
-      if (e.touches.length === 1 && _panning) {
-        e.preventDefault();
-        const wW    = _futdWrap.clientWidth || 375;
-        const slotW = (wW - PAD_L_PZ - PAD_R_PZ) / FUTD.chart.visCount;
-        const delta = (e.touches[0].clientX - _panStartX) / slotW;
-        FUTD.chart.viewStart = _panVisStart - delta;
-        _clampVS();
-        futdChartDraw();
-      } else if (e.touches.length === 2) {
-        e.preventDefault();
+      e.preventDefault();
+
+      if (e.touches.length === 1) {
+        // Y-axis drag
+        if (_isYTouching && _futdTouchMode === 'yaxis') {
+          const dy = e.touches[0].clientY - _yTouchStartY;
+          const H  = FUTD.chart.wrapH || 200;
+          FUTD.chart.yOffset = Math.max(-0.6, Math.min(0.6, _yTouchStartOff + dy / H * 2));
+          futdChartDraw();
+          return;
+        }
+
+        // commit-based pan (เหมือน Contract — ต้องเลื่อนเกิน threshold ก่อน)
+        if (!_futdTouchCommitted) {
+          const dx = Math.abs(e.touches[0].clientX - _futdTouchStartX);
+          const dy = Math.abs(e.touches[0].clientY - _futdTouchStartY);
+          if (dx > _FUTD_PAN_THRESHOLD || dy > _FUTD_PAN_THRESHOLD) {
+            _futdTouchCommitted = true;
+            _futdTouchMode      = 'pan';
+            _panning            = true;
+            _panStartX          = _futdTouchStartX;
+            _materialiseVS();
+            _panVisStart = FUTD.chart.viewStart;
+          }
+          return; // รอ commit ก่อน ไม่เลื่อนกราฟ
+        }
+
+        if (_futdTouchMode === 'pan' && _panning) {
+          const wW    = _futdWrap.clientWidth || 375;
+          const slotW = (wW - PAD_L_PZ - PAD_R_PZ) / FUTD.chart.visCount;
+          const delta = (e.touches[0].clientX - _panStartX) / slotW;
+          FUTD.chart.viewStart = _panVisStart - delta;
+          _clampVS();
+          futdChartDraw();
+        }
+
+      } else if (e.touches.length === 2 && _futdTouchMode === 'pinch') {
+        // pinch zoom — cursor-based (เหมือน Contract)
         const newDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
-        if (_pinchDist > 0) {
-          // pinch center → cursor-based zoom (Bug4)
-          const cx    = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-          const rect  = _futdWrap.getBoundingClientRect();
-          const wW    = _futdWrap.clientWidth || 375;
-          const CW    = wW - PAD_L_PZ - PAD_R_PZ;
-          const frac  = Math.max(0, Math.min(1, (cx - rect.left - PAD_L_PZ) / CW));
-          const factor  = _pinchDist / newDist;
-          const oldVis  = FUTD.chart.visCount;
-          const newVis  = Math.round(Math.max(10, Math.min(500, oldVis * factor)));
-          if (newVis !== oldVis) {
-            _materialiseVS();
-            const centerCandle = FUTD.chart.viewStart + frac * oldVis;
+        if (_futdPinchStartDist > 0) {
+          const scale  = newDist / _futdPinchStartDist;
+          const oldVis = _futdPinchStartVis;
+          const newVis = Math.round(Math.max(10, Math.min(500, oldVis / scale)));
+          if (newVis !== FUTD.chart.visCount) {
+            const centerCandle = _futdPinchStartVS + _futdPinchMidFrac * oldVis;
             FUTD.chart.visCount  = newVis;
-            FUTD.chart.viewStart = centerCandle - frac * newVis;
+            FUTD.chart.viewStart = centerCandle - _futdPinchMidFrac * newVis;
             _clampVS();
             futdChartDraw();
           }
         }
-        _pinchDist = newDist;
+        _pinchDist = newDist; // keep legacy var in sync
       }
     }, { passive: false });
 
-    _futdWrap.addEventListener('touchend', () => {
-      // [FIX-YTOUCH] reset vertical pan state
-      _isYTouching = false;
-      if (_panning) {
-        // snap กลับ null เฉพาะเมื่อ pan ชิดขอบขวาถึง live edge จริงๆ (เหมือน Contract)
-        const total = FUTD.chart.candles.length;
-        const vis   = FUTD.chart.visCount;
-        if (FUTD.chart.viewStart !== null && FUTD.chart.viewStart >= total - vis) {
-          FUTD.chart.viewStart = null;
+    // ────────────────────────────────────────────────────────────────────────
+    // touchend (เหมือน Contract — snap live edge + double-tap reset)
+    // ────────────────────────────────────────────────────────────────────────
+    _futdWrap.addEventListener('touchend', e => {
+      // reset Y-axis state
+      if (_isYTouching) {
+        _isYTouching = false;
+      }
+
+      // pinch ended
+      if (_futdTouchMode === 'pinch' && e.touches.length < 2) {
+        _futdPinchEndedAt   = Date.now();
+        _futdPinchStartDist = 0;
+        _futdPinchStartVS   = null;
+        _pinchDist          = 0;
+        if (e.touches.length === 0) {
+          _futdTouchMode      = '';
+          _futdTouchCommitted = false;
+        }
+        return;
+      }
+
+      if (e.touches.length === 0) {
+        // snap กลับ null เฉพาะเมื่อ pan ชิดขอบขวาถึง live edge (เหมือน Contract)
+        if (_panning && _futdTouchMode === 'pan') {
+          const total = FUTD.chart.candles.length;
+          const vis   = FUTD.chart.visCount;
+          if (FUTD.chart.viewStart !== null && FUTD.chart.viewStart >= total - vis) {
+            FUTD.chart.viewStart = null;
+          }
+        }
+        _panning            = false;
+        _futdTouchMode      = '';
+        _futdTouchCommitted = false;
+        _pinchDist          = 0;
+
+        // double-tap reset (เหมือน Contract — บล็อกถ้า pinch เพิ่งจบภายใน 500ms)
+        const now = Date.now();
+        if (now - _futdLastTap < 300 && (now - _futdPinchEndedAt) > 500) {
+          futdChartResetView();
+          _futdLastTap = 0;
+        } else {
+          _futdLastTap = now;
         }
       }
-      _panning = false; _pinchDist = 0;
+    });
+
+    // ────────────────────────────────────────────────────────────────────────
+    // touchcancel — reset all state (เหมือน Contract)
+    // ────────────────────────────────────────────────────────────────────────
+    _futdWrap.addEventListener('touchcancel', () => {
+      _panning            = false;
+      _isYTouching        = false;
+      _futdTouchMode      = '';
+      _futdTouchCommitted = false;
+      _futdPinchStartDist = 0;
+      _futdPinchStartVS   = null;
+      _pinchDist          = 0;
     });
   }
 

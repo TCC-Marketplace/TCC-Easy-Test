@@ -39632,6 +39632,19 @@ function futdChartInit() {
       futdChartResetView();
     });
 
+    // [FIX-YTOUCH-CURSOR] Cursor hint บน price axis (เหมือน Contract tab)
+    // ns-resize เมื่อ hover บนขอบขวา 64px → บอก user ว่าลากบน/ล่างได้
+    _futdWrap.addEventListener('mousemove', e => {
+      const rect = _futdWrap.getBoundingClientRect();
+      const xRel = e.clientX - rect.left;
+      const wW   = _futdWrap.clientWidth || 375;
+      if (xRel >= wW - PAD_R_PZ) {
+        _futdWrap.style.cursor = 'ns-resize';
+      } else if (!_panning && !_yDragging) {
+        _futdWrap.style.cursor = '';
+      }
+    });
+
     // Scroll wheel zoom — cursor-based (Bug4 fix)
     _futdWrap.addEventListener('wheel', e => {
       e.preventDefault();
@@ -40170,13 +40183,18 @@ function futdInitCrosshair() {
   // ── Touch: long-press → crosshair (เหมือน Contract tab) ──
   wrap.addEventListener('touchstart', e => {
     if (e.touches.length !== 1) { _cancelLp(); return; }
+    // [FIX-YTOUCH-CH] skip long-press / crosshair เมื่อ touch อยู่บน price axis zone (ขอบขวา PAD_R)
+    // ป้องกัน long-press timer เริ่ม countdown แล้วเข้า crosshair mode แทนที่จะ vertical-pan
+    const _chRect = wrap.getBoundingClientRect();
+    if ((e.touches[0].clientX - _chRect.left) > (_chRect.width - PAD_R)) {
+      _cancelLp(); _stopLpAnim(); return;
+    }
     _touchStartX = e.touches[0].clientX;
     _touchStartY = e.touches[0].clientY;
     _touchCommitted = false;
     _touchMode = '';
     _lpActive = false;
-    const rect = wrap.getBoundingClientRect();
-    _startLpAnim(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
+    _startLpAnim(e.touches[0].clientX - _chRect.left, e.touches[0].clientY - _chRect.top);
     _lpTimer = setTimeout(() => {
       if (!_touchCommitted) {
         _lpActive = true; _touchMode = 'crosshair'; _touchCommitted = true;
@@ -40320,24 +40338,26 @@ async function futdChartLoad() {
       if (_fresh.length && FUTD.chart.candles.length && FUTD.chart.viewStart !== null) {
         const _prevTotal = FUTD.chart.candles.length;
         const _newTotal  = _fresh.length;
-        // offset จากท้าย array เดิม (ลบ → อยู่ใกล้ live edge, มาก → อยู่ไกลซ้าย)
+        // offset จากท้าย array เดิม (เก็บ float ไว้เพื่อ smooth pan position)
         const _offsetFromEnd = _prevTotal - FUTD.chart.viewStart;
         // re-anchor: viewStart ใหม่ = ให้ offset เดิมจากท้าย array ใหม่
         const _newVS = _newTotal - _offsetFromEnd;
-        FUTD.chart.candles = _fresh;
-        // clamp: ไม่ให้หลุดขอบ แต่ถ้า offset เกิน total (array ใหม่สั้นกว่า) → คืน null (live)
+        // clamp ก่อน
         const _vis = FUTD.chart.visCount;
         const _minVS = -Math.floor(_vis / 2);
         const _maxVS = _newTotal - Math.ceil(_vis / 2);
+        // [FIX-RACE] set viewStart ก่อน candles เสมอ — ป้องกัน drawTimer ที่ยิงระหว่างนี้
+        // อ่าน candles ใหม่ (array ใหม่) แต่ viewStart ยังเป็นของเก่า → กระตุก 1 frame
         if (_newVS >= _newTotal - _vis) {
           // user อยู่ที่ live edge แล้ว → คืน auto mode
           FUTD.chart.viewStart = null;
         } else {
           FUTD.chart.viewStart = Math.max(_minVS, Math.min(_maxVS, _newVS));
         }
+        FUTD.chart.candles = _fresh;   // ← set หลัง viewStart เสมอ
       } else {
+        // viewStart === null (auto/live mode) → ไม่ต้องแตะ viewStart → กราฟ follow live edge
         FUTD.chart.candles = _fresh;
-        // viewStart === null (auto/live mode) → ไม่ต้องแตะ → กราฟ follow live edge อัตโนมัติ
       }
       futdChartDraw();
     }

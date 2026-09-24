@@ -39656,10 +39656,27 @@ function futdChartInit() {
     }, { passive: false });
 
     // ── Touch ──
+    // [FIX-YTOUCH] Helper: ตรวจว่า touch อยู่ใน price axis zone (ขอบขวา PAD_R_PZ px)
+    // เหมือน _isInPriceAxis() ของ Contract tab — ป้องกัน touch บน price axis กลายเป็น horizontal pan
+    function _futdIsInPriceAxis(t) {
+      const rect = _futdWrap.getBoundingClientRect();
+      return (t.clientX - rect.left) > (rect.width - PAD_R_PZ);
+    }
+    // [FIX-YTOUCH] State สำหรับ vertical drag บน price axis (เหมือน isYTouching ของ Contract)
+    let _isYTouching = false, _yTouchStartY = 0, _yTouchStartOff = 0;
+
     _futdWrap.addEventListener('touchstart', e => {
       const now = Date.now();
       if (e.touches.length === 1) {
-        // double-tap → reset view
+        // [FIX-YTOUCH] ตรวจ price axis zone ก่อน — ถ้าอยู่ใน zone → vertical drag, ไม่ใช่ horizontal pan
+        if (_futdIsInPriceAxis(e.touches[0])) {
+          e.preventDefault();
+          _isYTouching  = true;
+          _yTouchStartY   = e.touches[0].clientY;
+          _yTouchStartOff = FUTD.chart.yOffset || 0;
+          return; // ไม่ตั้ง _panning
+        }
+        // double-tap → reset view (เฉพาะ chart area)
         if (now - _lastTap < 300) {
           e.preventDefault();
           futdChartResetView();
@@ -39673,6 +39690,7 @@ function futdChartInit() {
         _panVisStart = FUTD.chart.viewStart;
       } else if (e.touches.length === 2) {
         _panning = false;
+        _isYTouching = false;
         _pinchDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
@@ -39681,6 +39699,15 @@ function futdChartInit() {
     }, { passive: false });
 
     _futdWrap.addEventListener('touchmove', e => {
+      // [FIX-YTOUCH] Single finger บน price axis → vertical pan (ปรับ yOffset)
+      if (e.touches.length === 1 && _isYTouching) {
+        e.preventDefault();
+        const dy = e.touches[0].clientY - _yTouchStartY;
+        const H  = FUTD.chart.wrapH || 200;
+        FUTD.chart.yOffset = Math.max(-0.6, Math.min(0.6, _yTouchStartOff + dy / H * 2));
+        futdChartDraw();
+        return;
+      }
       if (e.touches.length === 1 && _panning) {
         e.preventDefault();
         const wW    = _futdWrap.clientWidth || 375;
@@ -39719,6 +39746,8 @@ function futdChartInit() {
     }, { passive: false });
 
     _futdWrap.addEventListener('touchend', () => {
+      // [FIX-YTOUCH] reset vertical pan state
+      _isYTouching = false;
       if (_panning) {
         // snap กลับ null เฉพาะเมื่อ pan ชิดขอบขวาถึง live edge จริงๆ (เหมือน Contract)
         const total = FUTD.chart.candles.length;
@@ -40282,7 +40311,34 @@ async function futdChartLoad() {
     if (_loadCoin === FUTD.symbolCoin) {
       // [PATCH-v2.69-FIX] ผ่าน _parseCandles() เสมอ เพื่อให้ทุก field เป็น number
       // (raw Hyperliquid response มี string fields → .toFixed() crash ใน crosshair/tooltip → กราฟค้าง)
-      FUTD.chart.candles = Array.isArray(d) ? _parseCandles(d) : [];
+      const _fresh = Array.isArray(d) ? _parseCandles(d) : [];
+      // [FIX-POLL-BOUNCE] Preserve viewStart เมื่อ poll replace array ใหม่ทั้งหมด
+      // ปัญหา: poll ทำ candles = _fresh → array reference ใหม่ → viewStart (index เก่า) offset
+      // → กราฟเด้งกลับ live edge แล้ว snap กลับ null ทุกรอบ poll
+      // แก้: ถ้า user กำลัง pan (viewStart !== null) → หา offset จากท้าย array เดิม
+      //      แล้ว re-anchor viewStart ให้ตรงกับ array ใหม่โดยไม่กระตุก
+      if (_fresh.length && FUTD.chart.candles.length && FUTD.chart.viewStart !== null) {
+        const _prevTotal = FUTD.chart.candles.length;
+        const _newTotal  = _fresh.length;
+        // offset จากท้าย array เดิม (ลบ → อยู่ใกล้ live edge, มาก → อยู่ไกลซ้าย)
+        const _offsetFromEnd = _prevTotal - FUTD.chart.viewStart;
+        // re-anchor: viewStart ใหม่ = ให้ offset เดิมจากท้าย array ใหม่
+        const _newVS = _newTotal - _offsetFromEnd;
+        FUTD.chart.candles = _fresh;
+        // clamp: ไม่ให้หลุดขอบ แต่ถ้า offset เกิน total (array ใหม่สั้นกว่า) → คืน null (live)
+        const _vis = FUTD.chart.visCount;
+        const _minVS = -Math.floor(_vis / 2);
+        const _maxVS = _newTotal - Math.ceil(_vis / 2);
+        if (_newVS >= _newTotal - _vis) {
+          // user อยู่ที่ live edge แล้ว → คืน auto mode
+          FUTD.chart.viewStart = null;
+        } else {
+          FUTD.chart.viewStart = Math.max(_minVS, Math.min(_maxVS, _newVS));
+        }
+      } else {
+        FUTD.chart.candles = _fresh;
+        // viewStart === null (auto/live mode) → ไม่ต้องแตะ → กราฟ follow live edge อัตโนมัติ
+      }
       futdChartDraw();
     }
   } catch (e) {

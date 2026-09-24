@@ -39853,6 +39853,45 @@ function futdChartResetView() {
   futdChartDraw();
 }
 
+// ── [v2.70-LOADMORE] Load older candles when user pans to left edge (เหมือน Contract fetchMoreCandlesBefore) ──
+let _futdLoadingMore = false;
+async function futdFetchMoreCandlesBefore() {
+  if (_futdLoadingMore) return;
+  if (!FUTD.chart.candles.length) return;
+  _futdLoadingMore = true;
+  try {
+    const coin     = FUTD.symbolCoin;
+    const interval = _candleInterval(FUTD.chart.tf);
+    const ms       = _candleMs(interval);
+    const endTime  = FUTD.chart.candles[0].t - 1; // just before first stored candle
+    const startTime = endTime - ms * CANDLE_BATCH;
+    const d = await hlPost({
+      type: 'candleSnapshot',
+      req: { coin: _wsCoinName(coin), interval, startTime, endTime },
+      ..._dexParam(coin)
+    });
+    const older = _parseCandles(d);
+    if (older.length) {
+      // Prepend + deduplicate by t + cap total (เหมือน fetchMoreCandlesBefore)
+      const merged = [...older, ...FUTD.chart.candles];
+      const seen   = new Set();
+      const deduped = merged.filter(c => { if (seen.has(c.t)) return false; seen.add(c.t); return true; });
+      deduped.sort((a, b) => a.t - b.t);
+      const prevLen = FUTD.chart.candles.length;
+      FUTD.chart.candles = deduped.slice(-CANDLE_MAX);
+      // Shift viewStart เพื่อให้ view ยังอยู่ที่ตำแหน่งเดิม (เหมือน Contract)
+      const added = FUTD.chart.candles.length - prevLen;
+      if (FUTD.chart.viewStart !== null && added > 0) {
+        FUTD.chart.viewStart += added;
+      }
+      futdChartDraw();
+    }
+  } catch (e) {
+    console.warn('[futdFetchMoreCandlesBefore] fail:', e.message);
+  }
+  _futdLoadingMore = false;
+}
+
 // ── Fullscreen expand (เปิด chartFullOverlay เหมือน Contract tab) ──
 function futdExpandChart() {
   // [FIX-EXPAND] ไม่ใช้ setTimeout + S.candles swap เพื่อป้องกัน race condition
@@ -40334,6 +40373,11 @@ function futdChartDraw() {
   }
   // อัปเดต LIVE badge
   if (typeof _futdUpdateLiveTag === 'function') _futdUpdateLiveTag();
+
+  // [v2.70-LOADMORE] Trigger load-more เมื่อ pan เข้าใกล้ขอบซ้าย (เหมือน Contract chartViewSlice)
+  if (vs < vis * 0.2 && typeof futdFetchMoreCandlesBefore === 'function') {
+    futdFetchMoreCandlesBefore();
+  }
 
   // realStart/realEnd = index ใน candles array ที่ visible จริง (clamp 0..total-1)
   const realStart = Math.max(0, Math.floor(vs));

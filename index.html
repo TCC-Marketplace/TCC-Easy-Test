@@ -20826,6 +20826,7 @@ const CFO = {
   minVis:    10,
   maxVis:    500,
   yPadFactor: 0.15,
+  yOffset: 0,          // [FIX-VERTPAN] vertical pan shift (เหมือน FUTD.chart.yOffset)
   _userZoomed: false,  // true = user has manually panned/zoomed → don't auto-reset on re-open
 };
 
@@ -20855,16 +20856,19 @@ function _initCfoPanZoom() {
   document.addEventListener('mouseup', () => { if (isYDrag) { isYDrag = false; wrap.style.cursor = ''; } });
 
   // ── Mouse pan ──
-  let panStartX = 0, panStartVS = null, panStartVis = 0, isPanning = false;
-  function startPan(x) {
+  let panStartX = 0, panStartY = 0, panStartVS = null, panStartVis = 0, panStartYOff = 0, isPanning = false;
+  function startPan(x, y) {
     const all = cfoCandles;
     if (CFO.viewStart === null) CFO.viewStart = all.length - CFO.visCount;
-    panStartX = x; panStartVS = CFO.viewStart; panStartVis = CFO.visCount;
+    panStartX = x; panStartY = y || 0;
+    panStartVS = CFO.viewStart; panStartVis = CFO.visCount;
+    panStartYOff = CFO.yOffset || 0;  // [FIX-VERTPAN]
     isPanning = true; wrap.style.cursor = 'grabbing';
   }
-  function movePan(x) {
+  function movePan(x, y) {
     if (!isPanning) return;
     const wrapW = wrap.clientWidth || 400;
+    const wrapH = wrap.clientHeight || 300;
     const dx = x - panStartX;
     const dCandles = Math.round(dx / (wrapW / panStartVis));
     const total = cfoCandles.length;
@@ -20872,15 +20876,20 @@ function _initCfoPanZoom() {
     const minVS = -Math.floor(vis / 2);
     const maxVS = total - Math.ceil(vis / 2);
     CFO.viewStart = Math.max(minVS, Math.min(maxVS, panStartVS - dCandles));
+    // [FIX-VERTPAN] vertical pan — ลากขึ้น/ลง เหมือน FUTD
+    if (y !== undefined) {
+      const dy = (y - panStartY) / wrapH * 2;
+      CFO.yOffset = Math.max(-0.6, Math.min(0.6, panStartYOff + dy));
+    }
     CFO._userZoomed = true;
     drawCfoChart();
   }
   function endPan() { if (isPanning) { isPanning = false; wrap.style.cursor = ''; } }
 
   wrap.addEventListener('mousedown', e => {
-    if (!_inPriceAxis(e)) { e.preventDefault(); startPan(e.clientX); }
+    if (!_inPriceAxis(e)) { e.preventDefault(); startPan(e.clientX, e.clientY); }  // [FIX-VERTPAN]
   });
-  document.addEventListener('mousemove', e => { if (isPanning) movePan(e.clientX); });
+  document.addEventListener('mousemove', e => { if (isPanning) movePan(e.clientX, e.clientY); });  // [FIX-VERTPAN]
   document.addEventListener('mouseup', endPan);
 
   // ── Mouse wheel zoom ──
@@ -20966,7 +20975,8 @@ function _initCfoPanZoom() {
     const pad = (hi - lo) * (CFO.yPadFactor || 0.15) || 1;
     const rng = hi - lo + pad * 2 || 1;
     const chartH = H - PAD_T - PAD_B;
-    const py = PAD_T + chartH - ((c.c - (lo - pad)) / rng) * chartH;
+    const _xhPriceShift = (CFO.yOffset || 0) * rng;  // [FIX-VERTPAN] sync yOffset
+    const py = PAD_T + chartH - ((c.c - (lo - pad) - _xhPriceShift) / rng) * chartH;
 
     if (cfoCHT) {
       cfoCHT.style.top = Math.max(8, Math.min(H - 20, py - 9)) + 'px';
@@ -21066,11 +21076,11 @@ function _initCfoPanZoom() {
       if (!_committed) {
         if (Math.abs(tx - _tsx) > PAN_THRESH || Math.abs(ty - _tsy) > PAN_THRESH) {
           if (_lpt) { clearTimeout(_lpt); _lpt = null; }
-          _tMode = 'pan'; _committed = true; startPan(_tsx);
+          _tMode = 'pan'; _committed = true; startPan(_tsx, _tsy);  // [FIX-VERTPAN]
         }
         return;
       }
-      if (_tMode === 'pan') movePan(tx);
+      if (_tMode === 'pan') movePan(tx, ty);  // [FIX-VERTPAN]
       else if (_tMode === 'crosshair') _showCfoCrosshair(tx);
     } else if (e.touches.length === 2 && _tMode === 'pinch') {
       const t0 = e.touches[0], t1 = e.touches[1];
@@ -21113,11 +21123,11 @@ function _initCfoPanZoom() {
     const now = Date.now();
     // บล็อกถ้า pinch เพิ่งจบ (ภายใน 500ms) เพื่อป้องกัน reset ผิดพลาด
     if (now - lastTap < 300 && _tMode !== 'pan' && (now - _pinchEndedAt) > 500) {
-      CFO.viewStart = null; CFO.visCount = 80; CFO.yPadFactor = 0.15; CFO._userZoomed = false; drawCfoChart();
+      CFO.viewStart = null; CFO.visCount = 80; CFO.yPadFactor = 0.15; CFO.yOffset = 0; CFO._userZoomed = false; drawCfoChart();  // [FIX-VERTPAN] reset yOffset
     }
     lastTap = now;
   });
-  wrap.addEventListener('dblclick', () => { CFO.viewStart = null; CFO.visCount = 80; CFO.yPadFactor = 0.15; CFO._userZoomed = false; drawCfoChart(); });
+  wrap.addEventListener('dblclick', () => { CFO.viewStart = null; CFO.visCount = 80; CFO.yPadFactor = 0.15; CFO.yOffset = 0; CFO._userZoomed = false; drawCfoChart(); });  // [FIX-VERTPAN] reset yOffset
 
   // Hover crosshair on desktop
   wrap.addEventListener('mousemove', e => {
@@ -21221,6 +21231,11 @@ function expandChart(mode) {
     CFO.viewStart = null;
     CFO.visCount = 80;
     CFO.yPadFactor = 0.15;
+    CFO.yOffset = 0;  // [FIX-VERTPAN] reset vertical pan on fresh open
+  }
+  // [FIX-VERTPAN] copy yOffset จาก FUTD เมื่อเปิด fullscreen จาก futures mode
+  if (mode === 'futures' && typeof FUTD !== 'undefined' && FUTD.chart && CFO._userZoomed) {
+    CFO.yOffset = FUTD.chart.yOffset || 0;
   }
 
   setTimeout(function(){ _initCfoPanZoom(); drawCfoChart(); _cfoStartRealtime(); }, 60);
@@ -21235,6 +21250,7 @@ function closeChartFull() {
     FUTD.chart.viewStart  = CFO.viewStart;
     FUTD.chart.visCount   = CFO.visCount;
     FUTD.chart.yPadFactor = CFO.yPadFactor || 0.15;
+    FUTD.chart.yOffset    = CFO.yOffset    || 0;    // [FIX-VERTPAN] sync yOffset กลับ FUTD
     if (typeof futdChartDraw === 'function' && FUTD.chart.open && FUTD.chart.candles.length) {
       futdChartDraw();
     }
@@ -21417,16 +21433,19 @@ function _drawCandlesGeneric(ctx, W, H, candles) {
   // คำนวณ hi/lo จาก visible window (เฉพาะ real candles)
   let lo = Infinity, hi = -Infinity;
   for (let i = Math.max(0, vStart); i < Math.min(total, vStart + vis); i++) {
+    if (!candles[i]) continue;  // [FIX-VERTPAN] guard undefined slot
     if (candles[i].l < lo) lo = candles[i].l;
     if (candles[i].h > hi) hi = candles[i].h;
   }
   if (!isFinite(lo)) return;
 
-  // Y-axis padding (draggable)
+  // Y-axis padding (draggable) + vertical pan offset (เหมือน FUTD)
   const pad = (hi - lo) * (CFO.yPadFactor || 0.15) || 1;
   const rng = hi - lo + pad * 2 || 1;
   const loP = lo - pad;
-  const toY = v => PAD_T + chartH - ((v - loP) / rng) * chartH;
+  const _yOffset = CFO.yOffset || 0;                  // [FIX-VERTPAN]
+  const _priceShift = _yOffset * rng;                 // [FIX-VERTPAN] shift price window up/down
+  const toY = v => PAD_T + chartH - ((v - loP - _priceShift) / rng) * chartH;
 
   ctx.clearRect(0, 0, W, H);
 
@@ -21499,7 +21518,7 @@ function _drawCandlesGeneric(ctx, W, H, candles) {
     if (last) {
       const ids = { 7:'cfoma7', 25:'cfoma25', 99:'cfoma99' };
       const el = document.getElementById(ids[period]);
-      if (el) el.textContent = ' ' + last.toFixed(1);
+      if (el) el.textContent = ' ' + ((typeof fmtP === 'function') ? fmtP(last) : last.toFixed(2));  // [FIX-VERTPAN] fmtP 2dp
     }
   });
 
@@ -21531,7 +21550,7 @@ function _drawCandlesGeneric(ctx, W, H, candles) {
   ctx.fillStyle = '#f0b90b'; ctx.beginPath();
   ctx.roundRect(W - PAD_R + 2, curY - 9, PAD_R - 4, 18, 3); ctx.fill();
   ctx.fillStyle = '#000'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(last.c.toFixed(1), W - PAD_R + (PAD_R - 4)/2 + 2, curY + 4);
+  ctx.fillText((typeof fmtP === 'function') ? fmtP(last.c) : last.c.toFixed(2), W - PAD_R + (PAD_R - 4)/2 + 2, curY + 4);  // [FIX-VERTPAN] fmtP 2dp
 
   // ── Position Lines (Entry, TP, SL) ──
   (function() {

@@ -39702,6 +39702,18 @@ function futdChartInit() {
     // ── Double-tap state ──
     let _futdLastTap = 0;
 
+    // ════════════════════════════════════════════════════════════════════════
+    // UNIFIED TOUCH SYSTEM (listener ชุดเดียว — mirror Contract _initCanvasPan)
+    // ชุดนี้เป็นเจ้าของ touchstart/touchmove/touchend/touchcancel ทั้งหมดบน wrap
+    // futdInitCrosshair จะเรียก _showCrosshair/_hideCrosshair/_startLpAnim ผ่าน
+    // ตัวแปร _futdCH ที่ inject เข้ามาหลัง futdInitCrosshair() รัน
+    // ────────────────────────────────────────────────────────────────────────
+    // Long-press crosshair state (เหมือน _lpTimer/_lpActive/_touchMode ของ Contract)
+    // — ค่าเริ่มต้น null: futdInitCrosshair() จะ assign เมื่อพร้อม
+    const _FUTD_LP_MS = 320;   // ms hold ก่อนเข้า crosshair mode
+    let _futdLpTimer  = null;
+    let _futdLpActive = false;
+
     // ────────────────────────────────────────────────────────────────────────
     // touchstart
     // ────────────────────────────────────────────────────────────────────────
@@ -39711,25 +39723,52 @@ function futdChartInit() {
       if (e.touches.length === 1) {
         // 1) price axis zone → Y-drag เท่านั้น ไม่ pan ไม่ long-press
         if (_futdIsInPriceAxis(e.touches[0])) {
+          // ยกเลิก long-press ถ้ากำลังรอ
+          if (_futdLpTimer) { clearTimeout(_futdLpTimer); _futdLpTimer = null; }
+          if (_futdWrap._futdCH) { _futdWrap._futdCH.stopLpAnim(); }
           _isYTouching    = true;
           _yTouchStartY   = e.touches[0].clientY;
           _yTouchStartOff = FUTD.chart.yOffset || 0;
-          _futdTouchCommitted = true;  // committed → ป้องกัน threshold logic ทับซ้อน
+          _futdTouchCommitted = true;
           _futdTouchMode  = 'yaxis';
           return;
         }
 
-        // 2) chart area → เริ่ม commit-based pan (เหมือน Contract ที่รอ PAN_THRESHOLD ก่อน)
+        // 2) chart area → commit-based pan + long-press crosshair (เหมือน Contract)
         _futdTouchStartX    = e.touches[0].clientX;
         _futdTouchStartY    = e.touches[0].clientY;
         _futdTouchCommitted = false;
         _futdTouchMode      = '';
-        _panning            = false;   // ยังไม่ pan จนกว่าจะ commit
+        _futdLpActive       = false;
+        _panning            = false;
+
+        // เริ่ม long-press ring animation + timer (ผ่าน crosshair helper ที่ inject ไว้)
+        if (_futdWrap._futdCH) {
+          const _r = _futdWrap.getBoundingClientRect();
+          _futdWrap._futdCH.startLpAnim(
+            e.touches[0].clientX - _r.left,
+            e.touches[0].clientY - _r.top
+          );
+        }
+        _futdLpTimer = setTimeout(() => {
+          if (!_futdTouchCommitted && _futdWrap._futdCH) {
+            _futdLpActive       = true;
+            _futdTouchMode      = 'crosshair';
+            _futdTouchCommitted = true;
+            _futdWrap._futdCH.stopLpAnim();
+            _futdWrap.classList.add('crosshair-mode');
+            if (navigator.vibrate) navigator.vibrate(30);
+            _futdWrap._futdCH.show(e.touches[0].clientX, e.touches[0].clientY);
+          }
+        }, _FUTD_LP_MS);
 
       } else if (e.touches.length === 2) {
-        // 3) two fingers → pinch zoom (เหมือน Contract)
+        // 3) two fingers → cancel long-press + pinch zoom
+        if (_futdLpTimer) { clearTimeout(_futdLpTimer); _futdLpTimer = null; }
+        if (_futdWrap._futdCH) { _futdWrap._futdCH.stopLpAnim(); }
         _panning            = false;
         _isYTouching        = false;
+        _futdLpActive       = false;
         _futdTouchCommitted = true;
         _futdTouchMode      = 'pinch';
         _futdPinchStartDist = Math.hypot(
@@ -39743,7 +39782,7 @@ function futdChartInit() {
         const _midX  = (e.touches[0].clientX + e.touches[1].clientX) / 2 - _pRect.left;
         const _CWp   = (_futdWrap.clientWidth || 375) - PAD_L_PZ - PAD_R_PZ;
         _futdPinchMidFrac = Math.max(0, Math.min(1, (_midX - PAD_L_PZ) / _CWp));
-        _pinchDist = _futdPinchStartDist; // keep legacy var in sync
+        _pinchDist = _futdPinchStartDist;
       }
     }, { passive: false });
 
@@ -39763,11 +39802,14 @@ function futdChartInit() {
           return;
         }
 
-        // commit-based pan (เหมือน Contract — ต้องเลื่อนเกิน threshold ก่อน)
+        // ยังไม่ commit — ตรวจ threshold
         if (!_futdTouchCommitted) {
           const dx = Math.abs(e.touches[0].clientX - _futdTouchStartX);
           const dy = Math.abs(e.touches[0].clientY - _futdTouchStartY);
           if (dx > _FUTD_PAN_THRESHOLD || dy > _FUTD_PAN_THRESHOLD) {
+            // เลื่อนเกิน threshold → commit pan, ยกเลิก long-press
+            if (_futdLpTimer) { clearTimeout(_futdLpTimer); _futdLpTimer = null; }
+            if (_futdWrap._futdCH) { _futdWrap._futdCH.stopLpAnim(); }
             _futdTouchCommitted = true;
             _futdTouchMode      = 'pan';
             _panning            = true;
@@ -39775,9 +39817,16 @@ function futdChartInit() {
             _materialiseVS();
             _panVisStart = FUTD.chart.viewStart;
           }
-          return; // รอ commit ก่อน ไม่เลื่อนกราฟ
+          return;
         }
 
+        // crosshair mode
+        if (_futdTouchMode === 'crosshair' && _futdWrap._futdCH) {
+          _futdWrap._futdCH.show(e.touches[0].clientX, e.touches[0].clientY);
+          return;
+        }
+
+        // pan
         if (_futdTouchMode === 'pan' && _panning) {
           const wW    = _futdWrap.clientWidth || 375;
           const slotW = (wW - PAD_L_PZ - PAD_R_PZ) / FUTD.chart.visCount;
@@ -39788,7 +39837,7 @@ function futdChartInit() {
         }
 
       } else if (e.touches.length === 2 && _futdTouchMode === 'pinch') {
-        // pinch zoom — cursor-based (เหมือน Contract)
+        // pinch zoom — cursor-based
         const newDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
@@ -39805,18 +39854,20 @@ function futdChartInit() {
             futdChartDraw();
           }
         }
-        _pinchDist = newDist; // keep legacy var in sync
+        _pinchDist = newDist;
       }
     }, { passive: false });
 
     // ────────────────────────────────────────────────────────────────────────
-    // touchend (เหมือน Contract — snap live edge + double-tap reset)
+    // touchend
     // ────────────────────────────────────────────────────────────────────────
     _futdWrap.addEventListener('touchend', e => {
-      // reset Y-axis state
-      if (_isYTouching) {
-        _isYTouching = false;
-      }
+      // ยกเลิก long-press เสมอ
+      if (_futdLpTimer) { clearTimeout(_futdLpTimer); _futdLpTimer = null; }
+      if (_futdWrap._futdCH) { _futdWrap._futdCH.stopLpAnim(); }
+
+      // reset Y-axis
+      if (_isYTouching) { _isYTouching = false; }
 
       // pinch ended
       if (_futdTouchMode === 'pinch' && e.touches.length < 2) {
@@ -39832,7 +39883,13 @@ function futdChartInit() {
       }
 
       if (e.touches.length === 0) {
-        // snap กลับ null เฉพาะเมื่อ pan ชิดขอบขวาถึง live edge (เหมือน Contract)
+        // crosshair: hide หลัง 800ms (เหมือน Contract)
+        _futdWrap.classList.remove('crosshair-mode');
+        if (_futdTouchMode === 'crosshair' && _futdWrap._futdCH) {
+          setTimeout(() => { if (_futdWrap._futdCH) _futdWrap._futdCH.hide(); }, 800);
+        }
+
+        // snap live edge
         if (_panning && _futdTouchMode === 'pan') {
           const total = FUTD.chart.candles.length;
           const vis   = FUTD.chart.visCount;
@@ -39841,11 +39898,12 @@ function futdChartInit() {
           }
         }
         _panning            = false;
+        _futdLpActive       = false;
         _futdTouchMode      = '';
         _futdTouchCommitted = false;
         _pinchDist          = 0;
 
-        // double-tap reset (เหมือน Contract — บล็อกถ้า pinch เพิ่งจบภายใน 500ms)
+        // double-tap reset (บล็อกถ้า pinch เพิ่งจบภายใน 500ms)
         const now = Date.now();
         if (now - _futdLastTap < 300 && (now - _futdPinchEndedAt) > 500) {
           futdChartResetView();
@@ -39857,11 +39915,15 @@ function futdChartInit() {
     });
 
     // ────────────────────────────────────────────────────────────────────────
-    // touchcancel — reset all state (เหมือน Contract)
+    // touchcancel — reset all state
     // ────────────────────────────────────────────────────────────────────────
     _futdWrap.addEventListener('touchcancel', () => {
+      if (_futdLpTimer) { clearTimeout(_futdLpTimer); _futdLpTimer = null; }
+      if (_futdWrap._futdCH) { _futdWrap._futdCH.stopLpAnim(); _futdWrap._futdCH.hide(); }
+      _futdWrap.classList.remove('crosshair-mode');
       _panning            = false;
       _isYTouching        = false;
+      _futdLpActive       = false;
       _futdTouchMode      = '';
       _futdTouchCommitted = false;
       _futdPinchStartDist = 0;
@@ -40270,61 +40332,19 @@ function futdInitCrosshair() {
   }
 
   // ── Mouse crosshair (desktop) ──
-  let _isPanning = false;
-  wrap.addEventListener('mousemove', e => {
-    if (_isPanning) { _hideCrosshair(); return; }
-    _showCrosshair(e.clientX, e.clientY);
-  });
+  wrap.addEventListener('mousemove', e => { _showCrosshair(e.clientX, e.clientY); });
   wrap.addEventListener('mouseleave', _hideCrosshair);
 
-  // ── Touch: long-press → crosshair (เหมือน Contract tab) ──
-  wrap.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1) { _cancelLp(); return; }
-    // [FIX-YTOUCH-CH] skip long-press / crosshair เมื่อ touch อยู่บน price axis zone (ขอบขวา PAD_R)
-    // ป้องกัน long-press timer เริ่ม countdown แล้วเข้า crosshair mode แทนที่จะ vertical-pan
-    const _chRect = wrap.getBoundingClientRect();
-    if ((e.touches[0].clientX - _chRect.left) > (_chRect.width - PAD_R)) {
-      _cancelLp(); _stopLpAnim(); return;
-    }
-    _touchStartX = e.touches[0].clientX;
-    _touchStartY = e.touches[0].clientY;
-    _touchCommitted = false;
-    _touchMode = '';
-    _lpActive = false;
-    _startLpAnim(e.touches[0].clientX - _chRect.left, e.touches[0].clientY - _chRect.top);
-    _lpTimer = setTimeout(() => {
-      if (!_touchCommitted) {
-        _lpActive = true; _touchMode = 'crosshair'; _touchCommitted = true;
-        _stopLpAnim();
-        wrap.classList.add('crosshair-mode');
-        if (navigator.vibrate) navigator.vibrate(30);
-        _showCrosshair(e.touches[0].clientX, e.touches[0].clientY);
-      }
-    }, LONG_PRESS_MS);
-  }, { passive: true });
-
-  wrap.addEventListener('touchmove', e => {
-    if (e.touches.length !== 1) return;
-    const dx = Math.abs(e.touches[0].clientX - _touchStartX);
-    const dy = Math.abs(e.touches[0].clientY - _touchStartY);
-    if (!_touchCommitted && (dx > PAN_THRESHOLD || dy > PAN_THRESHOLD)) {
-      _cancelLp(); _stopLpAnim(); _touchMode = 'pan'; _touchCommitted = true;
-    }
-    if (_touchMode === 'crosshair') _showCrosshair(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
-
-  wrap.addEventListener('touchend', e => {
-    _cancelLp(); _stopLpAnim();
-    wrap.classList.remove('crosshair-mode');
-    if (_touchMode === 'crosshair') setTimeout(_hideCrosshair, 800);
-    _touchMode = ''; _touchCommitted = false; _lpActive = false;
-  });
-
-  wrap.addEventListener('touchcancel', () => {
-    _cancelLp(); _stopLpAnim(); _hideCrosshair();
-    wrap.classList.remove('crosshair-mode');
-    _touchMode = ''; _touchCommitted = false;
-  });
+  // ── Touch: inject helper object เข้า pan/zoom block ที่เป็น listener เดียว ──
+  // pan/zoom touchstart/touchmove/touchend/touchcancel ใน futdChartInit คือ
+  // owner เดียวของ touch events ทั้งหมดบน wrap — ไม่มี listener ซ้อนที่นี่อีก
+  // helper object นี้ถูกเรียกโดย pan block ผ่าน _futdWrap._futdCH
+  wrap._futdCH = {
+    show:       (cx, cy) => _showCrosshair(cx, cy),
+    hide:       ()       => _hideCrosshair(),
+    startLpAnim:(x, y)   => _startLpAnim(x, y),
+    stopLpAnim: ()       => _stopLpAnim(),
+  };
 }
 
 function futdChartSetH(h) {

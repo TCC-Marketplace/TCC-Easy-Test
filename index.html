@@ -39576,6 +39576,8 @@ function futdChartInit() {
     }
 
     let _panning = false, _panStartX = 0, _panVisStart = 0;
+    let _panStartVis = 0;                          // [FIX-P1] เก็บ visCount ตอน pan เริ่ม (เหมือน Contract panStartVis)
+    let _panStartY = 0, _panStartOff = 0;          // [FIX-P2] เก็บ Y และ yOffset ตอน pan เริ่ม (เหมือน Contract vPanStartY/vPanStartOffset)
     let _pinchDist = 0;
     // vertical pan on price axis (right edge)
     let _yDragging = false, _yDragStartY = 0, _yDragStartOff = 0;
@@ -39591,20 +39593,30 @@ function futdChartInit() {
         e.preventDefault();
         _yDragging = true; _yDragStartY = e.clientY; _yDragStartOff = FUTD.chart.yOffset || 0;
       } else {
-        // Chart area → horizontal pan
+        // Chart area → horizontal + vertical pan (เหมือน Contract startPan)
         e.preventDefault();
-        _panning = true; _panStartX = e.clientX;
+        _panning      = true;
+        _panStartX    = e.clientX;
+        _panStartY    = e.clientY;                         // [FIX-P2]
         _materialiseVS();
-        _panVisStart = FUTD.chart.viewStart;
+        _panVisStart  = FUTD.chart.viewStart;
+        _panStartVis  = FUTD.chart.visCount;               // [FIX-P1] เก็บ visCount ณ จุดเริ่ม pan
+        _panStartOff  = FUTD.chart.yOffset || 0;           // [FIX-P2] เก็บ yOffset ณ จุดเริ่ม pan
       }
     });
     document.addEventListener('mousemove', e => {
       if (_panning) {
-        const wW   = _futdWrap.clientWidth || 375;
-        const slotW = (wW - PAD_L_PZ - PAD_R_PZ) / FUTD.chart.visCount;
-        const delta = (e.clientX - _panStartX) / slotW;
-        FUTD.chart.viewStart = _panVisStart - delta;
+        const wW      = _futdWrap.clientWidth || 375;
+        // [FIX-P1] ใช้ _panStartVis แทน FUTD.chart.visCount (เหมือน Contract pxPerCandle = wrapW / panStartVis)
+        //          ใช้ Math.round → integer step → ป้องกัน float viewStart ที่ทำให้เด้งกลับ
+        const pxPerC  = (wW - PAD_L_PZ - PAD_R_PZ) / (_panStartVis || FUTD.chart.visCount);
+        const dCandles = Math.round((e.clientX - _panStartX) / pxPerC);
+        FUTD.chart.viewStart = _panVisStart - dCandles;
         _clampVS();
+        // [FIX-P2] Vertical pan บน chart area (เหมือน Contract movePan y component)
+        const wrapH = FUTD.chart.wrapH || 200;
+        const dy    = (e.clientY - _panStartY) / wrapH;
+        FUTD.chart.yOffset = Math.max(-0.6, Math.min(0.6, _panStartOff + dy));
         futdChartDraw();
       }
       if (_yDragging) {
@@ -39814,8 +39826,11 @@ function futdChartInit() {
             _futdTouchMode      = 'pan';
             _panning            = true;
             _panStartX          = _futdTouchStartX;
+            _panStartY          = _futdTouchStartY;        // [FIX-P2]
             _materialiseVS();
-            _panVisStart = FUTD.chart.viewStart;
+            _panVisStart  = FUTD.chart.viewStart;
+            _panStartVis  = FUTD.chart.visCount;           // [FIX-P1]
+            _panStartOff  = FUTD.chart.yOffset || 0;       // [FIX-P2]
           }
           return;
         }
@@ -39828,11 +39843,16 @@ function futdChartInit() {
 
         // pan
         if (_futdTouchMode === 'pan' && _panning) {
-          const wW    = _futdWrap.clientWidth || 375;
-          const slotW = (wW - PAD_L_PZ - PAD_R_PZ) / FUTD.chart.visCount;
-          const delta = (e.touches[0].clientX - _panStartX) / slotW;
-          FUTD.chart.viewStart = _panVisStart - delta;
+          const wW      = _futdWrap.clientWidth || 375;
+          // [FIX-P1] Math.round + panStartVis (เหมือน Contract movePan)
+          const pxPerC  = (wW - PAD_L_PZ - PAD_R_PZ) / (_panStartVis || FUTD.chart.visCount);
+          const dCandles = Math.round((e.touches[0].clientX - _panStartX) / pxPerC);
+          FUTD.chart.viewStart = _panVisStart - dCandles;
           _clampVS();
+          // [FIX-P2] Vertical pan บน chart area (เหมือน Contract movePan y component)
+          const wrapH = FUTD.chart.wrapH || 200;
+          const dy    = (e.touches[0].clientY - _panStartY) / wrapH;
+          FUTD.chart.yOffset = Math.max(-0.6, Math.min(0.6, _panStartOff + dy));
           futdChartDraw();
         }
 

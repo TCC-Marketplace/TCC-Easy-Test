@@ -21230,6 +21230,15 @@ function closeChartFull() {
   document.getElementById('chartFullOverlay').classList.remove('active');
   document.body.style.overflow = '';
   _cfoClearRealtime();
+  // [FIX-EXPAND-SYNC] sync CFO view state กลับ FUTD chart เมื่อปิด fullscreen จาก Direct tab
+  if (cfoMode === 'futures' && typeof FUTD !== 'undefined' && FUTD.chart) {
+    FUTD.chart.viewStart  = CFO.viewStart;
+    FUTD.chart.visCount   = CFO.visCount;
+    FUTD.chart.yPadFactor = CFO.yPadFactor || 0.15;
+    if (typeof futdChartDraw === 'function' && FUTD.chart.open && FUTD.chart.candles.length) {
+      futdChartDraw();
+    }
+  }
 }
 
 function cfoSetTF(el, tf) {
@@ -39627,14 +39636,8 @@ function futdChartInit() {
       }
     });
     document.addEventListener('mouseup', () => {
-      if (_panning) {
-        // snap กลับ null เฉพาะเมื่อ pan ชิดขอบขวาถึง live edge จริงๆ (เหมือน Contract)
-        const total = FUTD.chart.candles.length;
-        const vis   = FUTD.chart.visCount;
-        if (FUTD.chart.viewStart !== null && FUTD.chart.viewStart >= total - vis) {
-          FUTD.chart.viewStart = null;
-        }
-      }
+      // [FIX-SNAPBACK] ไม่ snap viewStart → null ใน mouseup (เหมือน Contract endPan)
+      // Contract tab ไม่มี snap ใน endPan() — snap ทำใน live-edge check ของ draw loop เท่านั้น
       _panning = false; _yDragging = false;
     });
 
@@ -39909,14 +39912,8 @@ function futdChartInit() {
           setTimeout(() => { if (_futdWrap._futdCH) _futdWrap._futdCH.hide(); }, 800);
         }
 
-        // snap live edge
-        if (_panning && _futdTouchMode === 'pan') {
-          const total = FUTD.chart.candles.length;
-          const vis   = FUTD.chart.visCount;
-          if (FUTD.chart.viewStart !== null && FUTD.chart.viewStart >= total - vis) {
-            FUTD.chart.viewStart = null;
-          }
-        }
+        // [FIX-SNAPBACK] ไม่ snap viewStart → null ใน touchend (เหมือน Contract touchend)
+        // Contract tab ไม่ snap ใน touchend — ปล่อยให้ draw loop คำนวณ live edge เอง
         _panning            = false;
         _futdLpActive       = false;
         _futdTouchMode      = '';
@@ -40115,29 +40112,55 @@ async function futdFetchMoreCandlesBefore() {
 
 // ── Fullscreen expand (เปิด chartFullOverlay เหมือน Contract tab) ──
 function futdExpandChart() {
-  // [FIX-EXPAND] ไม่ใช้ setTimeout + S.candles swap เพื่อป้องกัน race condition
-  // แทนด้วย: inject FUTD.chart.candles เข้า cfoCandles โดยตรง หรือส่ง via S.candles
+  // [FIX-EXPAND-v2] inject FUTD candles → cfoCandles โดยตรง ไม่ swap S.candles
+  // เพื่อให้ fullscreen ใช้ข้อมูลจาก Direct tab เสมอ (ไม่ปน Contract tab)
   if (typeof expandChart !== 'function') return;
 
-  // (1) Backup S.candles — swap ชั่วคราว
-  const _bak = (typeof S !== 'undefined') ? S.candles : null;
-  const _hadBak = (typeof S !== 'undefined');
+  // (1) inject candles เข้า cfoCandles โดยตรง (ก่อน expandChart เปิด overlay)
+  if (typeof cfoCandles !== 'undefined') {
+    cfoCandles = FUTD.chart.candles.slice();
+  } else {
+    // fallback: swap S.candles ชั่วคราวถ้า cfoCandles ยังไม่ถูก declare
+    const _bak = (typeof S !== 'undefined') ? S.candles : null;
+    const _hadBak = (typeof S !== 'undefined');
+    if (_hadBak) S.candles = FUTD.chart.candles.slice();
+    expandChart('futures');
+    if (_hadBak && _bak !== null) S.candles = _bak;
+    return;
+  }
 
-  if (_hadBak) S.candles = FUTD.chart.candles.slice();
-
-  // (2) Sync symbol label ใน fullscreen overlay ก่อนเปิด
+  // (2) Sync symbol label ใน fullscreen overlay
   const cfoSymEl = document.getElementById('cfoSym');
   if (cfoSymEl) cfoSymEl.textContent = FUTD.symbolCoin + '/USDT';
 
   // (3) Sync active TF
-  const activeTF = document.querySelector('#futdTFBar .futd-tf-label.active');
-  window.cfoTF = activeTF ? activeTF.textContent : (FUTD.chart.tf || '3m');
+  const _activeTF = document.querySelector('#futdTFBar .futd-tf-label.active');
+  cfoTF = _activeTF ? _activeTF.textContent : (FUTD.chart.tf || '3m');
 
-  // (4) เปิด fullscreen (expandChart ทำ cfoCandles = S.candles.slice() ภายในทันที synchronously)
-  expandChart('futures');
+  // (4) เปิด fullscreen overlay
+  const overlay = document.getElementById('chartFullOverlay');
+  if (!overlay) return;
+  cfoMode = 'futures';
+  overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
 
-  // (5) Restore S.candles ทันที (synchronous — ไม่มี async/setTimeout)
-  if (_hadBak && _bak !== null) S.candles = _bak;
+  // (5) Sync TF buttons ใน overlay
+  document.querySelectorAll('.cfo-tf').forEach(b => {
+    b.classList.toggle('active', b.textContent === cfoTF);
+  });
+
+  // (6) Sync view state จาก FUTD chart → CFO (ใช้ state เดียวกัน ไม่ reset)
+  CFO.viewStart = FUTD.chart.viewStart;
+  CFO.visCount  = FUTD.chart.visCount;
+  CFO.yPadFactor = FUTD.chart.yPadFactor || 0.15;
+  CFO._userZoomed = (FUTD.chart.viewStart !== null);
+
+  // (7) เปิด pan/zoom + draw + realtime
+  setTimeout(function() {
+    _initCfoPanZoom();
+    drawCfoChart();
+    _cfoStartRealtime();
+  }, 60);
 }
 
 // ── [FIX-CROSSHAIR] Init crosshair for futdChartWrap (เหมือน _initCanvasPan ของ Contract) ──

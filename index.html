@@ -39617,14 +39617,19 @@ function futdChartInit() {
     });
     document.addEventListener('mouseup', () => {
       if (_panning) {
-        // auto-reset ถ้า pan ไปชิดขวาสุด
+        // snap กลับ null เฉพาะเมื่อ pan ชิดขอบขวาถึง live edge จริงๆ (เหมือน Contract)
         const total = FUTD.chart.candles.length;
         const vis   = FUTD.chart.visCount;
-        if (FUTD.chart.viewStart !== null && FUTD.chart.viewStart >= total - vis - 0.5) {
+        if (FUTD.chart.viewStart !== null && FUTD.chart.viewStart >= total - vis) {
           FUTD.chart.viewStart = null;
         }
       }
       _panning = false; _yDragging = false;
+    });
+
+    // ── Double-click to reset view (desktop) — เหมือน Contract ──
+    _futdWrap.addEventListener('dblclick', () => {
+      futdChartResetView();
     });
 
     // Scroll wheel zoom — cursor-based (Bug4 fix)
@@ -39715,9 +39720,10 @@ function futdChartInit() {
 
     _futdWrap.addEventListener('touchend', () => {
       if (_panning) {
+        // snap กลับ null เฉพาะเมื่อ pan ชิดขอบขวาถึง live edge จริงๆ (เหมือน Contract)
         const total = FUTD.chart.candles.length;
         const vis   = FUTD.chart.visCount;
-        if (FUTD.chart.viewStart !== null && FUTD.chart.viewStart >= total - vis - 0.5) {
+        if (FUTD.chart.viewStart !== null && FUTD.chart.viewStart >= total - vis) {
           FUTD.chart.viewStart = null;
         }
       }
@@ -40304,14 +40310,27 @@ function futdChartDraw() {
     ctx.restore();
   }
 
-  // ── [FIX-BUG3] Virtual viewport — vs อาจเป็น negative (pan ซ้ายเกินแท่งแรก) ──
+  // ── Virtual viewport — เหมือน Contract chartViewSlice ──
   const total = candles.length;
   const vis   = FUTD.chart.visCount;
-  // vs = viewStart จริง (อาจเป็น negative หรือ > total-vis)
-  const vs = FUTD.chart.viewStart !== null ? FUTD.chart.viewStart : total - vis;
-  // auto-reset เมื่อ pan กลับมาชิดขวาสุด
-  if (FUTD.chart.viewStart !== null && vs >= total - vis - 0.5) {
-    FUTD.chart.viewStart = null;
+
+  let vs;
+  if (FUTD.chart.viewStart === null) {
+    // Auto (live) mode: live candle ชิดขอบขวา (เหมือน Contract chartViewSlice auto mode)
+    vs = total - vis;
+  } else {
+    // Manual mode: clamp ให้ first candle ถึง center ซ้าย, live candle ถึง center ขวา
+    // (เหมือน Contract chartViewSlice manual mode: minVS=-(vis/2), maxVS=total-(vis/2))
+    const minVS = -Math.floor(vis / 2);
+    const maxVS = total - Math.ceil(vis / 2);
+    FUTD.chart.viewStart = Math.max(minVS, Math.min(maxVS, FUTD.chart.viewStart));
+    vs = FUTD.chart.viewStart;
+    // snap กลับ null เฉพาะเมื่อ pan ชิดขวาถึง live edge จริงๆ
+    // (ไม่ใช่ auto-reset ทุกตำแหน่ง — นั่นทำให้ manual pan ไม่ทำงาน)
+    if (vs >= total - vis) {
+      FUTD.chart.viewStart = null;
+      vs = total - vis;
+    }
   }
   // อัปเดต LIVE badge
   if (typeof _futdUpdateLiveTag === 'function') _futdUpdateLiveTag();

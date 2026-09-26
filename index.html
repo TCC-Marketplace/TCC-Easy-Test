@@ -23436,11 +23436,15 @@ function openMyTrades(){
 
   // [v7 FIX] ตรวจทุก history type — ถ้า ว่างแม้แค่อย่างเดียว → fetch ทั้งหมดจาก GAS (1 call)
   // เปลี่ยนจาก AND เป็น OR ให้ fetch เสมอเมื่อมีอย่างน้อย 1 type ว่าง
-  const _anyHistEmpty = !HIST.transactionHistory.length ||
-                        !HIST.tradeHistory.length       ||
-                        !HIST.positionHistory.length    ||
-                        !HIST.fundingFee.length         ||
-                        !HIST.spotTradeHistory.length;
+  // [FIX-ORDERHIST] เพิ่ม orderHistory + futdOrderHistory — ก่อนหน้านี้ไม่ได้ตรวจทั้งสองนี้
+  // ทำให้ Order History tab แสดง "No records" เมื่อ history อื่นถูก fetch แล้วแต่ orderHistory ยังว่าง
+  const _anyHistEmpty = !HIST.transactionHistory.length  ||
+                        !HIST.tradeHistory.length        ||
+                        !HIST.positionHistory.length     ||
+                        !HIST.fundingFee.length          ||
+                        !HIST.spotTradeHistory.length    ||
+                        !HIST.orderHistory.length        ||
+                        !HIST.futdOrderHistory.length;      // [FIX-ORDERHIST]
   if (_anyHistEmpty) {
     if (typeof _astFetchAllHistoryIfEmpty === 'function') _astFetchAllHistoryIfEmpty();
   }
@@ -37327,6 +37331,13 @@ function futdInit() {
   futdRefreshPrice();
   futdStopPolling();
   futdChartInit();
+  // [FIX-HEDGEPERSIST] restore hedgeMode จาก localStorage ก่อน update button
+  // ป้องกัน: เมื่อ positions ว่าง → hedge_mode_active=false → FUTD.hedgeMode ไม่ถูก set กลับ
+  // → panel แสดง "One-way" ทุกครั้งที่เปิดแม้ user เคยตั้ง Hedge ไว้
+  try {
+    const _savedHedge = localStorage.getItem('futd_hedge_mode');
+    if (_savedHedge !== null) FUTD.hedgeMode = (_savedHedge === '1');
+  } catch(e) {}
   // [v2.63-HEDGE] sync Hedge Mode button ให้ตรงกับ state ปัจจุบัน
   if (typeof futdUpdateHedgeModeBtn === 'function') futdUpdateHedgeModeBtn();
 
@@ -38855,6 +38866,7 @@ function futdToggleHedgeMode() {
     return;
   }
   FUTD.hedgeMode = !FUTD.hedgeMode;
+  try { localStorage.setItem('futd_hedge_mode', FUTD.hedgeMode ? '1' : '0'); } catch(e) {}  // [FIX-HEDGEPERSIST]
   futdUpdateHedgeModeBtn();
   futdUpdateTradeBtnLabels(); // อัปเดตปุ่ม Buy/Long, Sell/Short ให้แสดง side badge ถูกต้อง
   if (FUTD.hedgeMode) {

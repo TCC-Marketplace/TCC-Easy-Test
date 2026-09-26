@@ -5677,7 +5677,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 <!-- Filter row -->
 <div class="filter-row">
   <label class="fcheck" onclick="futdToggleHide()"><div class="sq on" id="futdHideChk"></div><span>Hide Other Pairs</span></label>
-  <button class="btn-ca" onclick="futdCloseAll()">Close All</button>
+  <button class="btn-ca" onclick="futdOpenCloseAllConfirm()">Close All</button>
 </div>
 
 <!-- SCROLLABLE (Direct positions / orders / bots) -->
@@ -25731,14 +25731,24 @@ function openCloseAllConfirm() {
 }
 
 function closeAllDismiss() {
-  document.getElementById('closeAllSheet').classList.remove('open');
+  const sheet = document.getElementById('closeAllSheet');
+  if (sheet) {
+    sheet.classList.remove('open');
+    sheet.dataset.mode = ''; // reset mode
+  }
   document.body.style.overflow = '';
 }
 
 function closeAllConfirmed() {
+  const sheet = document.getElementById('closeAllSheet');
+  const isDirect = sheet && sheet.dataset.mode === 'direct';
   closeAllDismiss();
-  // เรียก logic เดิม
-  closeAllPositions();
+  // [FIX-CLOSEALL-UI] เลือก logic ตาม mode: Direct หรือ Contract
+  if (isDirect) {
+    futdCloseAllConfirmed();
+  } else {
+    closeAllPositions();
+  }
 }
 </script>
 
@@ -37756,14 +37766,88 @@ function futdToggleHide() {
   futdRenderPositions((FUTD.status && FUTD.status.positions) || []);
 }
 
-// ── Close All positions ───────────────────────────────────────
-async function futdCloseAll() {
+// ── Close All positions (Direct) ───────────────────────────────
+// [FIX-CLOSEALL-UI] เปลี่ยนจาก browser confirm() เป็น custom closeAllSheet UI
+// ใช้ sheet เดียวกับ Futures tab หลัก แต่ override closeAllConfirmed → futdCloseAllConfirmed
+function futdOpenCloseAllConfirm() {
   const positions = (FUTD.status && FUTD.status.positions) || [];
   if (!positions.length) { showToast('ไม่มี Position ที่เปิดอยู่'); return; }
-  if (!confirm('ปิดทุก Position ทันที?')) return;
+
+  const fmt2 = v => (parseFloat(v) || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // คำนวณ summary จาก FUTD positions
+  let totalPnl    = 0;
+  let totalMargin = 0;
+  positions.forEach(p => {
+    const entryP = parseFloat(p.entry_price) || 0;
+    const size   = parseFloat(p.size) || 0;
+    const margin = parseFloat(p.margin) || 0;
+    const markP  = FUTD.prices[(p.symbol || '').replace('USDT', '')] || 0;
+    totalMargin += margin;
+    if (markP > 0 && entryP > 0 && size > 0) {
+      totalPnl += p.side === 'long' ? (markP - entryP) * size : (entryP - markP) * size;
+    }
+  });
+
+  // อัปเดต summary fields ของ closeAllSheet
+  const countEl = document.getElementById('ca-count');
+  const pnlEl   = document.getElementById('ca-total-pnl');
+  const mgnEl   = document.getElementById('ca-total-margin');
+  const ctEl    = document.getElementById('ca-contracts');
+  if (countEl) countEl.textContent = positions.length;
+  if (mgnEl)   mgnEl.textContent   = fmt2(totalMargin);
+  if (pnlEl) {
+    pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + fmt2(totalPnl);
+    pnlEl.className   = 'ca-sum-val ' + (totalPnl >= 0 ? 'pos' : 'neg');
+  }
+  if (ctEl) ctEl.textContent = '⚡ Direct';
+
+  // Position list preview
+  const preview = document.getElementById('ca-pos-preview');
+  if (preview) {
+    preview.innerHTML = positions.map(p => {
+      const entryP = parseFloat(p.entry_price) || 0;
+      const size   = parseFloat(p.size) || 0;
+      const margin = parseFloat(p.margin) || 0;
+      const markP  = FUTD.prices[(p.symbol || '').replace('USDT', '')] || 0;
+      let pnl = 0;
+      if (markP > 0 && entryP > 0 && size > 0) {
+        pnl = p.side === 'long' ? (markP - entryP) * size : (entryP - markP) * size;
+      }
+      const pnlCls = pnl >= 0 ? 'pos' : 'neg';
+      return `<div class="ca-pos-row">
+        <div style="display:flex;align-items:center;gap:7px">
+          <span class="ca-pos-side ${p.side === 'long' ? 'l' : 's'}">${p.side === 'long' ? 'L' : 'S'}</span>
+          <span class="ca-pos-sym">${p.symbol || ''}</span>
+          <span style="font-size:10px;color:var(--t3)">${p.lev || ''}x</span>
+        </div>
+        <div style="text-align:right">
+          <div class="ca-pos-pnl ${pnlCls}">${pnl >= 0 ? '+' : ''}${fmt2(pnl)}</div>
+          <div style="font-size:10px;color:var(--t3)">Size: ${parseFloat((size).toFixed(4))}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // mark ว่าใช้ Direct mode เพื่อให้ confirm button รู้ว่าต้องเรียก futdCloseAllConfirmed
+  const sheet = document.getElementById('closeAllSheet');
+  if (sheet) {
+    sheet.dataset.mode = 'direct';
+    sheet.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+async function futdCloseAllConfirmed() {
+  const positions = (FUTD.status && FUTD.status.positions) || [];
   for (const pos of positions) {
     await futdCloseposition(pos.id);
   }
+}
+
+// [COMPAT] ฟังก์ชันเดิม — ยังคงไว้เพื่อ backward compat แต่ไม่ถูกเรียกโดยปุ่มอีกต่อไป
+async function futdCloseAll() {
+  futdOpenCloseAllConfirm();
 }
 
 // ── Order Book WebSocket (Direct) ─────────────────────────────
@@ -38671,12 +38755,12 @@ function futdRenderPositions(positions) {
         </div>
       </div>
       <div class="futd-pos-detail">
-        <div>Size (${coin})<b>${size}</b></div>
+        <div>Size (${coin})<b>${parseFloat(size.toFixed(4))}</b></div>
         <div>Margin (USDT)<b>${margin.toFixed(2)} <span style="font-size:9px;color:var(--t3)">(≈$${(size * (markP || entryP)).toFixed(2)})</span></b></div>
         <div>Margin Ratio<b style="color:${mrColor}">${mrPct.toFixed(1)}%</b></div>
       </div>
       <div class="futd-pos-detail2">
-        <div>Avg Entry<b>${entryP.toLocaleString('en',{maximumFractionDigits:4})}</b></div>
+        <div>Avg Entry<b>${entryP.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:4})}</b></div>
         <div>Mark Price<b id="futd-mark-${p.id}">${markStr}</b></div>
         <div>Liq. Price<b style="color:var(--r)">${liqStr}</b></div>
       </div>
@@ -38741,8 +38825,8 @@ function futdRenderOrders(orders) {
         <div><span class="futd-pos-sym">${o.symbol}</span><span class="futd-pos-side ${o.side}">${o.side === 'long' ? 'LONG' : 'SHORT'} x${o.lev}</span></div>
       </div>
       <div class="futd-pos-detail">
-        <div>Limit Price<b>${o.limit_price}</b></div>
-        <div>Size<b>${o.size}</b></div>
+        <div>Limit Price<b>${(parseFloat(o.limit_price)||0).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:4})}</b></div>
+        <div>Size<b>${parseFloat((parseFloat(o.size)||0).toFixed(4))}</b></div>
         <div>Margin<b>${(parseFloat(o.margin)||0).toFixed(2)}</b></div>
       </div>
       <div class="futd-pos-actions">

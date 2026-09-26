@@ -30138,7 +30138,7 @@ function _syncAllProfilePages() {
 //    - อย่าเพิ่ม SCRIPT_URL ซ้ำ — มีอยู่แล้วบรรทัดแรก
 // ══════════════════════════════════════════════════════════════════
 
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxWdhFAgZIhEP1Yx070P3xIGpkdqMm2HDM2UDb_0vYupsfVgxgwzZ2b-842ZWfcbRVNow/exec'; // [v2.69-HEDGE-MERGE] updated to deploy v222 (26 Sep 2026 14:52)
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxWdhFAgZlhEP1Yx070P3xlGpkdqMm2HDM2UDb_0vYupsfVgxgwzZ2b-842ZWfcbRVNow/exec'; // [v2.69-HEDGE-MERGE] updated to deploy v222 (26 Sep 2026 14:52)
 
 // [NEW] Admin Panel GAS Web App (แยกจาก SCRIPT_URL หลัก — ใช้สำหรับ action ที่ admin เป็นเจ้าของ
 // เช่น getTeamBalance / getSystemBalances / distributeProfit หากฝั่ง admin deploy คนละ Web App)
@@ -38136,6 +38136,10 @@ function _futdSetBtnLoading(side, isLoading) {
   }
 }
 
+// [v2.70-LIMIT-FIX] futdPlaceOrder — แยก path Limit / Market ให้ถูกต้อง
+// - Limit  → dbCallRaw('placeFuturesOrder')  → บันทึก Pending ใน FuturesOrders รอ fill
+// - Market → dbCallRaw('openFuturesPosition') → เปิด Position ทันที
+// รองรับทั้ง One-way Mode (position_side='BOTH') และ Hedge Mode (position_side='LONG'/'SHORT')
 async function futdPlaceOrder(side) {
   const uid = _futdCurrentUid();
   if (!uid) { showToast('กรุณาเข้าสู่ระบบก่อน'); return; }
@@ -38166,49 +38170,72 @@ async function futdPlaceOrder(side) {
   if (!size || size <= 0) { showToast('กรุณาระบุ Size'); return; }
   if (!FUTD.lastPrice)    { showToast('รอราคาตลาดสักครู่แล้วลองใหม่'); return; }
 
-  let entryPrice = FUTD.lastPrice;
-  if (FUTD.orderType === 'Limit') {
-    const priceRaw = parseFloat(document.getElementById('futdLimitPriceInp')?.value);
-    if (priceRaw > 0) entryPrice = priceRaw;
-  }
-
-  // [v2.63-HEDGE] คำนวณ position_side จาก hedgeMode state — mirror ของ futdSubmitOpen()
+  // [v2.63-HEDGE] คำนวณ position_side จาก hedgeMode state — ใช้ทั้ง Limit และ Market path
   const _positionSide = FUTD.hedgeMode
     ? (side === 'long' ? 'LONG' : 'SHORT')
     : 'BOTH';
 
   _futdSetBtnLoading(side, true);
   try {
-    const _res = await dbCallRaw('openFuturesPosition', {
-      uid,
-      symbol: FUTD.symbolCoin + 'USDT',
-      side,
-      lev: FUTD.lev,
-      size,
-      entry_price: entryPrice,
-      mode: FUTD.marginMode || 'cross', // [v2.53] ส่ง mode จริงที่ผู้ใช้เลือก
-      order_type: FUTD.orderType,
-      tp: tp || '',
-      sl: sl || '',
-      hedge_mode: FUTD.hedgeMode,    // [v2.63-HEDGE] ส่ง hedge_mode flag
-      position_side: _positionSide,  // [v2.63-HEDGE] 'BOTH'|'LONG'|'SHORT'
-    });
-    // [v2.68-NET] แสดงผลลัพธ์ตามจริง (netting / flip / new) — mirror ของ futdSubmitOpen()
-    const _act = (_res || {}).action;
-    let _msg = '✅ ' + (FUTD.orderType === 'Limit' ? 'Limit Order' : 'เปิด Position') + ' สำเร็จ' +
-               (FUTD.hedgeMode ? ' [Hedge: ' + _positionSide + ']' : '');
-    if (_act === 'netted_reduce') {
-      _msg = '✅ ลด Position ฝั่งตรงข้ามบางส่วนสำเร็จ (เหลือ ' +
-             (parseFloat(_res.remaining_size) || 0) + ') PnL ' +
-             ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2)) + ' USDT';
-    } else if (_act === 'netted_close') {
-      _msg = '✅ ปิด Position ฝั่งตรงข้ามสำเร็จ PnL ' +
-             ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2)) + ' USDT';
-    } else if (_act === 'netted_flip') {
-      _msg = '✅ ปิด Position ฝั่งตรงข้ามแล้วเปิดใหม่สำเร็จ (Flip) PnL ' +
-             ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2)) + ' USDT';
+    // ── [v2.70-LIMIT-FIX] แยก path Limit vs Market ──────────────────────────────────────
+    if (FUTD.orderType === 'Limit') {
+      // ── Limit Order: ตรวจ limit_price ก่อน แล้วส่ง placeFuturesOrder (รอ fill) ──
+      const limitPrice = parseFloat(document.getElementById('futdLimitPriceInp')?.value) || 0;
+      if (limitPrice <= 0) {
+        showToast('กรุณาระบุ Limit Price ก่อน');
+        return;
+      }
+      const _res = await dbCallRaw('placeFuturesOrder', {
+        uid,
+        symbol:      FUTD.symbolCoin + 'USDT',
+        side,
+        lev:         FUTD.lev,
+        size,
+        limit_price: limitPrice,             // field ที่ placeFuturesOrder อ่าน
+        mode:        FUTD.marginMode || 'cross',
+        tp_price:    tp  || 0,               // field ที่ FuturesOrders schema เก็บ
+        sl_price:    sl  || 0,
+        position_side: _positionSide,        // [v2.63-HEDGE] 'BOTH'|'LONG'|'SHORT'
+      });
+      showToast('📋 Limit Order วางแล้ว' +
+                (FUTD.hedgeMode ? ' [Hedge: ' + _positionSide + ']' : '') +
+                ' — รอราคาถึง ' + limitPrice + ' USDT' +
+                ' (order_id: ' + ((_res || {}).order_id || '—') + ')');
+
+    } else {
+      // ── Market Order: เปิด Position ทันที (openFuturesPosition เหมือนเดิม) ──
+      const _res = await dbCallRaw('openFuturesPosition', {
+        uid,
+        symbol:        FUTD.symbolCoin + 'USDT',
+        side,
+        lev:           FUTD.lev,
+        size,
+        entry_price:   FUTD.lastPrice,
+        mode:          FUTD.marginMode || 'cross',
+        order_type:    'Market',
+        tp:            tp || '',
+        sl:            sl || '',
+        hedge_mode:    FUTD.hedgeMode,       // [v2.63-HEDGE]
+        position_side: _positionSide,        // [v2.63-HEDGE] 'BOTH'|'LONG'|'SHORT'
+      });
+      // [v2.68-NET] แสดงผลลัพธ์ตามจริง (netting / flip / new)
+      const _act = (_res || {}).action;
+      let _msg = '✅ เปิด Position สำเร็จ' +
+                 (FUTD.hedgeMode ? ' [Hedge: ' + _positionSide + ']' : '');
+      if (_act === 'netted_reduce') {
+        _msg = '✅ ลด Position ฝั่งตรงข้ามบางส่วนสำเร็จ (เหลือ ' +
+               (parseFloat(_res.remaining_size) || 0) + ') PnL ' +
+               ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2)) + ' USDT';
+      } else if (_act === 'netted_close') {
+        _msg = '✅ ปิด Position ฝั่งตรงข้ามสำเร็จ PnL ' +
+               ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2)) + ' USDT';
+      } else if (_act === 'netted_flip') {
+        _msg = '✅ ปิด Position ฝั่งตรงข้ามแล้วเปิดใหม่สำเร็จ (Flip) PnL ' +
+               ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2)) + ' USDT';
+      }
+      showToast(_msg);
     }
-    showToast(_msg);
+    // ── clear form fields (ทั้ง Limit และ Market) ──────────────────────────────────────
     const inp = document.getElementById('futd-size');
     if (inp) inp.value = '';
     const tpInp = document.getElementById('futd-tp');

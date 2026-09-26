@@ -8216,6 +8216,28 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   max-height:80vh;overflow-y:auto;
 }
 #futdTpslSheet.open #futdTpslPanel{transform:translateX(-50%) translateY(0)}
+/* [vx4 NEW] Edit Order Sheet */
+#futdEditOrderSheet{position:fixed;inset:0;z-index:1055;pointer-events:none}
+#futdEditOrderSheet.open{pointer-events:all}
+#futdEditOrderBg{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;transition:opacity .3s}
+#futdEditOrderSheet.open #futdEditOrderBg{opacity:1}
+#futdEditOrderPanel{
+  position:absolute;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);
+  width:100%;max-width:480px;
+  background:var(--bg2);border-radius:16px 16px 0 0;
+  transition:transform .35s cubic-bezier(.32,1,.23,1);
+  max-height:85vh;overflow-y:auto;
+}
+#futdEditOrderSheet.open #futdEditOrderPanel{transform:translateX(-50%) translateY(0)}
+.fedit-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:12px}
+.fedit-label{color:var(--t2);font-size:11px}
+.fedit-val{color:var(--t1);font-family:var(--mono);font-size:12px;font-weight:600}
+.fedit-inp-wrap{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--bl);border-radius:8px;padding:0 12px;height:42px;margin-bottom:8px}
+.fedit-inp{flex:1;background:transparent;border:none;outline:none;color:var(--t1);font-size:14px;font-family:var(--mono)}
+.fedit-unit{font-size:11px;color:var(--t3);flex-shrink:0}
+.fedit-section{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;padding:10px 0 4px}
+.fedit-margin-hint{font-size:11px;color:var(--t3);background:var(--bg3);border-radius:6px;padding:6px 10px;margin-bottom:10px;font-family:var(--mono)}
+.fedit-confirm-btn{display:block;width:100%;padding:13px 0;background:var(--y);color:#000;font-size:15px;font-weight:700;border:none;border-radius:10px;cursor:pointer;margin-bottom:4px}
 </style>
 <!-- ════ FUTURES-DIRECT: Chart Panel (fixed above bottom nav) ════ -->
 <div id="futdChartPanel">
@@ -8512,6 +8534,52 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
     <div style="height:20px"></div>
   </div>
 </div><!-- /futdTpslSheet -->
+
+<!-- ════ [vx4 NEW] FUTURES-DIRECT: Edit Order Sheet ════ -->
+<div id="futdEditOrderSheet">
+  <div id="futdEditOrderBg" onclick="futdCloseEditOrderSheet()"></div>
+  <div id="futdEditOrderPanel">
+    <div style="width:36px;height:4px;background:var(--bl);border-radius:2px;margin:10px auto 6px"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 16px 12px;border-bottom:1px solid var(--border)">
+      <span style="font-size:16px;font-weight:700">แก้ไข Limit Order</span>
+      <span id="futdEditOrderSideBadge" style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:4px">—</span>
+    </div>
+    <!-- Order info summary -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 16px;border-bottom:1px solid var(--border)">
+      <div><div class="fedit-label">Symbol</div><div class="fedit-val" id="futdEditOrdSym">—</div></div>
+      <div style="text-align:right"><div class="fedit-label">Leverage</div><div class="fedit-val" id="futdEditOrdLev">—</div></div>
+      <div><div class="fedit-label">Order ID</div><div class="fedit-val" id="futdEditOrdId" style="font-size:10px;color:var(--t3)">—</div></div>
+      <div style="text-align:right"><div class="fedit-label">Mode</div><div class="fedit-val" id="futdEditOrdMode">—</div></div>
+    </div>
+    <!-- Fields -->
+    <div style="padding:10px 16px 16px">
+      <div class="fedit-section">Limit Price (USDT)</div>
+      <div class="fedit-inp-wrap">
+        <input class="fedit-inp" id="futdEditLimitPriceInp" type="number" placeholder="0.00" step="any" oninput="futdEditCalcMargin()">
+        <span class="fedit-unit">USDT</span>
+      </div>
+      <div class="fedit-section">Size</div>
+      <div class="fedit-inp-wrap">
+        <input class="fedit-inp" id="futdEditSizeInp" type="number" placeholder="0.000" step="any" oninput="futdEditCalcMargin()">
+        <span class="fedit-unit" id="futdEditSizeCoin">—</span>
+      </div>
+      <div class="fedit-section" style="color:var(--g)">Take Profit (USDT) <span style="font-size:10px;font-weight:400;color:var(--t3)">(ไม่บังคับ)</span></div>
+      <div class="fedit-inp-wrap" style="border-color:rgba(14,203,129,.3)">
+        <input class="fedit-inp" id="futdEditTpInp" type="number" placeholder="0 = ยกเลิก TP" step="any">
+        <span class="fedit-unit" style="color:var(--g)">USDT</span>
+      </div>
+      <div class="fedit-section" style="color:var(--r)">Stop Loss (USDT) <span style="font-size:10px;font-weight:400;color:var(--t3)">(ไม่บังคับ)</span></div>
+      <div class="fedit-inp-wrap" style="border-color:rgba(246,70,93,.3)">
+        <input class="fedit-inp" id="futdEditSlInp" type="number" placeholder="0 = ยกเลิก SL" step="any">
+        <span class="fedit-unit" style="color:var(--r)">USDT</span>
+      </div>
+      <!-- Margin preview -->
+      <div class="fedit-margin-hint" id="futdEditMarginHint">Margin (ประมาณ): — USDT</div>
+      <button class="fedit-confirm-btn" id="futdEditConfirmBtn" onclick="futdConfirmEditOrder()">ยืนยันแก้ไข Order</button>
+      <div onclick="futdCloseEditOrderSheet()" style="text-align:center;padding:10px 0 6px;font-size:13px;color:var(--t2);cursor:pointer">ยกเลิก</div>
+    </div>
+  </div>
+</div><!-- /futdEditOrderSheet -->
 
 <!-- ════ [v2.53] FUTURES-DIRECT: Adjust Margin Sheet (Isolated only) ════ -->
 <style>
@@ -38857,7 +38925,8 @@ function futdRenderOrders(orders) {
         <div>Margin<b>${(parseFloat(o.margin)||0).toFixed(2)}</b></div>
       </div>
       <div class="futd-pos-actions">
-        <div class="futd-btn-sm danger" onclick="futdCancelorder('${o.order_id}')">ยกเลิก Order</div>
+        <div class="futd-btn-sm warn" onclick="futdOpenEditOrderSheet('${o.order_id}')">แก้ไข</div>
+        <div class="futd-btn-sm danger" onclick="futdCancelorder('${o.order_id}')">ยกเลิก</div>
       </div>
     </div>`).join('');
 }
@@ -39357,6 +39426,142 @@ async function futdCancelorder(orderId) {
     futdRefreshAccountStatus();
   } catch (e) {
     showToast('❌ ' + (e.message || 'ยกเลิก Order ไม่สำเร็จ'));
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// [vx4 NEW] Edit Futures Limit Order Sheet
+// ══════════════════════════════════════════════════════════
+
+/** เก็บ order_id ที่กำลัง edit และ lev (ต้องการคำนวณ margin preview) */
+let _futdEditOrderId  = null;
+let _futdEditOrderLev = 1;
+
+/**
+ * เปิด bottom-sheet สำหรับแก้ไข Pending Limit Order
+ * ดึงข้อมูลจาก FUTD.status.orders (ที่ sync มาจาก GAS ผ่าน futdRefreshAccountStatus)
+ */
+function futdOpenEditOrderSheet(orderId) {
+  const orders = (FUTD.status && FUTD.status.orders) || [];
+  const o = orders.find(x => String(x.order_id) === String(orderId));
+  if (!o) { showToast('ไม่พบข้อมูล Order'); return; }
+
+  _futdEditOrderId  = String(orderId);
+  _futdEditOrderLev = parseFloat(o.lev) || 1;
+
+  const isBuy = String(o.side || '').toLowerCase() === 'long';
+  const clr   = isBuy ? 'var(--g)' : 'var(--r)';
+  const bgClr = isBuy ? 'var(--gbg)' : 'var(--rbg)';
+  const coin  = String(o.symbol || '').replace('USDT', '');
+
+  // badge
+  const badge = document.getElementById('futdEditOrderSideBadge');
+  if (badge) {
+    badge.textContent = isBuy ? 'Long ▲' : 'Short ▼';
+    badge.style.color      = clr;
+    badge.style.background = bgClr;
+    badge.style.border     = '1px solid ' + clr;
+  }
+
+  // info row
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('futdEditOrdSym',  o.symbol  || '—');
+  setTxt('futdEditOrdLev',  (o.lev || '—') + 'x');
+  setTxt('futdEditOrdId',   o.order_id || '—');
+  setTxt('futdEditOrdMode', String(o.mode || '—').toUpperCase());
+  setTxt('futdEditSizeCoin', coin || 'COIN');
+
+  // prefill fields
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+  setVal('futdEditLimitPriceInp', parseFloat(o.limit_price) || '');
+  setVal('futdEditSizeInp',       parseFloat(o.size)        || '');
+  setVal('futdEditTpInp',         parseFloat(o.tp_price)    || '');
+  setVal('futdEditSlInp',         parseFloat(o.sl_price)    || '');
+
+  futdEditCalcMargin();
+
+  document.getElementById('futdEditOrderSheet').classList.add('open');
+}
+
+/** ปิด sheet */
+function futdCloseEditOrderSheet() {
+  document.getElementById('futdEditOrderSheet').classList.remove('open');
+  _futdEditOrderId  = null;
+  _futdEditOrderLev = 1;
+}
+
+/** คำนวณ margin preview ทุกครั้งที่ user พิมพ์ */
+function futdEditCalcMargin() {
+  const lp   = parseFloat(document.getElementById('futdEditLimitPriceInp')?.value) || 0;
+  const sz   = parseFloat(document.getElementById('futdEditSizeInp')?.value)        || 0;
+  const lev  = _futdEditOrderLev || 1;
+  const hint = document.getElementById('futdEditMarginHint');
+  if (!hint) return;
+  if (lp > 0 && sz > 0) {
+    const mg = ((lp * sz) / lev).toFixed(4);
+    hint.textContent = 'Margin (ประมาณ): ' + mg + ' USDT  (Lev ' + lev + 'x)';
+    hint.style.color = 'var(--t2)';
+  } else {
+    hint.textContent = 'Margin (ประมาณ): — USDT';
+    hint.style.color = 'var(--t3)';
+  }
+}
+
+/**
+ * ยืนยันการแก้ไข → ส่ง editFuturesOrder ไปที่ GAS
+ * หลังสำเร็จ: อัปเดต FUTD.status.orders ฝั่ง local แล้ว re-render ทันที (optimistic)
+ * จากนั้น refresh เต็มๆ อีกรอบเพื่อ sync Sheet จริง
+ */
+async function futdConfirmEditOrder() {
+  if (!_futdEditOrderId) return;
+
+  const limitPrice = parseFloat(document.getElementById('futdEditLimitPriceInp')?.value) || 0;
+  const size       = parseFloat(document.getElementById('futdEditSizeInp')?.value)        || 0;
+  const tp         = parseFloat(document.getElementById('futdEditTpInp')?.value)          || 0;
+  const sl         = parseFloat(document.getElementById('futdEditSlInp')?.value)          || 0;
+
+  if (limitPrice <= 0) { showToast('กรุณาระบุ Limit Price'); return; }
+  if (size       <= 0) { showToast('กรุณาระบุ Size');        return; }
+
+  const btn = document.getElementById('futdEditConfirmBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
+
+  try {
+    const res = await dbCallRaw('editFuturesOrder', {
+      order_id:    _futdEditOrderId,
+      limit_price: limitPrice,
+      size,
+      tp_price: tp,
+      sl_price: sl,
+    });
+
+    if (res && res.action === 'skipped') {
+      showToast('⚠️ Order นี้ถูก Fill หรือ Cancel แล้ว ไม่สามารถแก้ไขได้');
+      futdCloseEditOrderSheet();
+      futdRefreshAccountStatus();
+      return;
+    }
+
+    // Optimistic local update
+    if (FUTD.status && FUTD.status.orders) {
+      const ord = FUTD.status.orders.find(x => String(x.order_id) === String(_futdEditOrderId));
+      if (ord) {
+        ord.limit_price = res.limit_price;
+        ord.size        = res.size;
+        ord.margin      = res.margin;
+        ord.tp_price    = res.tp_price;
+        ord.sl_price    = res.sl_price;
+      }
+    }
+    futdRenderOrders((FUTD.status && FUTD.status.orders) || []);
+    showToast('✅ แก้ไข Order สำเร็จ');
+    futdCloseEditOrderSheet();
+    // sync Sheet จริงอีกรอบ
+    setTimeout(() => futdRefreshAccountStatus(), 1200);
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'แก้ไข Order ไม่สำเร็จ'));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'ยืนยันแก้ไข Order'; }
   }
 }
 

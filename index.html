@@ -31340,7 +31340,13 @@ function _mapGasFutdOrderHistory(r) {
   const side    = (r.side || 'long').toLowerCase();
   const isLong  = side === 'long';
   const ot      = r.order_type || 'Market';
-  const isClose = String(r.reduce_only || '').toLowerCase() === 'true';
+  // [FIX-ORDERHIST-LABEL] เดิมพึ่ง r.reduce_only เพียงอย่างเดียว — ถ้า sheet FuturesOrders จริง
+  // ไม่มีคอลัมน์นี้ (หรือเขียนไม่ติดด้วยเหตุผลใดก็ตาม) ค่าจะว่างเสมอ ทำให้ Market Close
+  // ที่ปิดสถานะจริงกลับโชว์เป็น "Open Long/Short" ผิดความหมาย — เพิ่มเงื่อนไขสำรอง: order_type
+  // เป็น Market/Liquidation ในระบบนี้เกิดจาก close เท่านั้น (Limit order ใหม่ทุกตัวถูกสร้างด้วย
+  // order_type='Limit' เสมอ — ดู placeFuturesOrder) จึงใช้เป็นสัญญาณสำรองที่เชื่อถือได้
+  const isClose = String(r.reduce_only || '').toLowerCase() === 'true' ||
+                  ot === 'Market' || ot === 'Liquidation';
   const dirLabel = (isClose ? 'Close ' : 'Open ') + (isLong ? 'Long' : 'Short');
   const dirClass = isLong ? (isClose ? 'close-long' : 'open-long') : (isClose ? 'close-short' : 'open-short');
   const size    = parseFloat(r.size)  || 0;

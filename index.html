@@ -23512,7 +23512,7 @@ function openMyTrades(){
                         !HIST.fundingFee.length          ||
                         !HIST.spotTradeHistory.length    ||
                         !HIST.orderHistory.length        ||
-                        !HIST.futdOrderHistory.length;      // [FIX-ORDERHIST]
+                        !(HIST.futdOrderHistory || []).length;      // [FIX-ORDERHIST-CRASH] guard: futdOrderHistory ไม่ได้ประกาศใน HIST literal ตอน init → undefined.length ทำให้ throw ก่อนถึง fetch
   if (_anyHistEmpty) {
     if (typeof _astFetchAllHistoryIfEmpty === 'function') _astFetchAllHistoryIfEmpty();
   }

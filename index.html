@@ -37072,8 +37072,41 @@ function _wltShareDownloadAndPrompt(addr, qrB64, platform) {
 //  เพื่อไม่ชนกับ aft* (Futures-Contract เดิม) และไม่ชนกับ futd* (หน้า Trade แยก)
 // ══════════════════════════════════════════════════════════════════
 
+// [v2.71-AFTD-REALTIME] Global state สำหรับ Unrealized PNL realtime ใน Assets → Futures-Direct
+// เก็บ positions ที่ดึงมาล่าสุด ให้ futdRefreshPrice() อัปเดต PNL ได้โดยไม่ต้องเรียก GAS ซ้ำ
+const AFTD = {
+  positions: [],   // positions ล่าสุดจาก getFuturesAccountStatus
+  mode: 'contract', // ตรวจว่าแสดง direct sub-tab อยู่ไหม
+};
+
+/** [v2.71-AFTD-REALTIME] คำนวณและอัปเดต Unrealized PNL ใน Assets → Futures-Direct
+ *  เรียกจาก futdRefreshPrice() ทุก price tick — ไม่เรียก GAS */
+function aftdUpdateUnrealizedPnl() {
+  if (!AFTD.positions || !AFTD.positions.length) return;
+  const _fmt2    = v => (parseFloat(v) || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const _fmtSign = v => (v >= 0 ? '+' : '') + _fmt2(v);
+
+  const _upnl = AFTD.positions.reduce((s, p) => {
+    const coin   = (p.symbol || '').replace('USDT', '');
+    const entryP = parseFloat(p.entry_price) || 0;
+    const size   = parseFloat(p.size) || 0;
+    // ใช้ price จาก FUTD.prices (Direct WS poll) → S.coinPrices (Contract WS) → p.mark fallback
+    const markP  = (typeof FUTD !== 'undefined' && FUTD.prices && FUTD.prices[coin])
+                || (typeof S    !== 'undefined' && S.coinPrices && parseFloat(S.coinPrices[coin]))
+                || parseFloat(p.mark) || 0;
+    if (!markP || !entryP || !size) return s;
+    return s + (p.side === 'long' ? (markP - entryP) * size : (entryP - markP) * size);
+  }, 0);
+
+  const _upnlEl = document.getElementById('aftd-unrealized-pnl');
+  const _uusdEl = document.getElementById('aftd-unrealized-usd');
+  if (_upnlEl) { _upnlEl.textContent = _fmtSign(_upnl); _upnlEl.style.color = _upnl >= 0 ? 'var(--g)' : 'var(--r)'; }
+  if (_uusdEl) { _uusdEl.textContent = '≈ $' + _fmtSign(_upnl); _uusdEl.style.color = _upnl >= 0 ? 'var(--g)' : 'var(--r)'; }
+}
+
 /** สลับ sub-tab Futures-Direct / Futures-Contract ภายในหน้า Assets → Futures */
 function aftSetMode(mode) {
+  AFTD.mode = mode; // [v2.71-AFTD-REALTIME] เก็บ mode ให้ futdRefreshPrice ตรวจได้
   document.getElementById('aft-view-contract')?.classList.toggle('active', mode === 'contract');
   document.getElementById('aft-view-direct')?.classList.toggle('active', mode === 'direct');
   document.getElementById('aft-mode-tab-contract')?.classList.toggle('active', mode === 'contract');
@@ -37117,6 +37150,8 @@ async function aftdRefreshDirectSummary() {
     // FUTD.prices อาจว่างถ้า Direct tab ยังไม่ถูกเปิด → fallback S.coinPrices (Contract/Spot WS)
     // ไม่ใช้ p.pnl / p.unrealized_pnl เพราะ GAS เก็บค่า ณ เวลา open เท่านั้น (มักเป็น 0)
     const _positions = status.positions || [];
+    // [v2.71-AFTD-REALTIME] เก็บ positions ลง global AFTD สำหรับ aftdUpdateUnrealizedPnl()
+    if (typeof AFTD !== 'undefined') AFTD.positions = _positions;
     const _upnl = _positions.reduce((s, p) => {
       const coin    = (p.symbol || '').replace('USDT', '');
       const entryP  = parseFloat(p.entry_price) || 0;
@@ -38407,6 +38442,14 @@ async function futdRefreshPrice() {
 
     // อัปเดต PnL realtime บน position cards ที่แสดงอยู่ (ถ้ามี status)
     if (FUTD.status) futdUpdatePnlCards();
+
+    // [v2.71-AFTD-REALTIME] อัปเดต Unrealized PNL ใน Assets → Futures-Direct ด้วย price tick เดียวกัน
+    // ทำงานเฉพาะเมื่อ Assets page เปิดอยู่ + sub-tab Direct ถูกเลือก + มี positions cache ใน AFTD
+    if (currentPage === 'assets' &&
+        typeof AFTD !== 'undefined' && AFTD.mode === 'direct' &&
+        AFTD.positions && AFTD.positions.length) {
+      aftdUpdateUnrealizedPnl();
+    }
 
     // [FIX-11] วาดกราฟหลังได้ราคาใหม่ — ผ่าน RAF throttle ป้องกัน draw ซ้ำทุก 1s poll
     if (FUTD.chart.candles.length) {

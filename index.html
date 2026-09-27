@@ -13471,6 +13471,8 @@ function navTo(page) {
   if (target === 'trade')   { loadSpotData(); }
   // [v2.49-TAB] futures-direct ไม่มี page แยกแล้ว — futdInit/futdStopPolling จัดการใน futSwitchTab
   if (target !== 'futures') { if (typeof futdStopPolling === 'function') futdStopPolling(); }
+  // [v2.72-FIX-AFTD-POLL] หยุด Assets→Direct price poll เมื่อออกจาก assets page
+  if (target !== 'assets')  { if (typeof _aftdStopPricePoll === 'function') _aftdStopPricePoll(); }
   if (target === 'futures') requestAnimationFrame(() => requestAnimationFrame(() => {
     drawChart();
     // ── sync levBtn + goldLevNote ตาม S.coin ปัจจุบันทุกครั้งที่เข้าหน้า futures ──
@@ -37075,8 +37077,9 @@ function _wltShareDownloadAndPrompt(addr, qrB64, platform) {
 // [v2.71-AFTD-REALTIME] Global state สำหรับ Unrealized PNL realtime ใน Assets → Futures-Direct
 // เก็บ positions ที่ดึงมาล่าสุด ให้ futdRefreshPrice() อัปเดต PNL ได้โดยไม่ต้องเรียก GAS ซ้ำ
 const AFTD = {
-  positions: [],   // positions ล่าสุดจาก getFuturesAccountStatus
-  mode: 'contract', // ตรวจว่าแสดง direct sub-tab อยู่ไหม
+  positions: [],      // positions ล่าสุดจาก getFuturesAccountStatus
+  mode: 'contract',   // ตรวจว่าแสดง direct sub-tab อยู่ไหม
+  pricePollTimer: null, // [v2.72-FIX-AFTD-POLL] price poll แยกสำหรับ Assets → Direct
 };
 
 /** [v2.71-AFTD-REALTIME] คำนวณและอัปเดต Unrealized PNL ใน Assets → Futures-Direct
@@ -37104,6 +37107,47 @@ function aftdUpdateUnrealizedPnl() {
   if (_uusdEl) { _uusdEl.textContent = '≈ $' + _fmtSign(_upnl); _uusdEl.style.color = _upnl >= 0 ? 'var(--g)' : 'var(--r)'; }
 }
 
+/** [v2.72-FIX-AFTD-POLL] ดึง allMids → อัปเดต FUTD.prices → เรียก aftdUpdateUnrealizedPnl
+ *  เรียกจาก AFTD.pricePollTimer เฉพาะเมื่ออยู่ Assets page + direct sub-tab */
+async function _aftdPriceTick() {
+  try {
+    // ใช้ allMids endpoint เดิมที่ futdRefreshPrice ใช้ (Hyperliquid)
+    const res = await fetch('https://api.hyperliquid.xyz/info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'allMids' }),
+    });
+    if (!res.ok) return;
+    const mids = await res.json();
+    // อัปเดต FUTD.prices โดยตรง — ใช้ logic เดียวกับ futdRefreshPrice
+    if (mids && typeof mids === 'object') {
+      if (typeof FUTD !== 'undefined') {
+        if (!FUTD.prices) FUTD.prices = {};
+        Object.keys(mids).forEach(coin => {
+          const p = parseFloat(mids[coin]);
+          if (p > 0) FUTD.prices[coin] = p;
+        });
+      }
+    }
+    // อัปเดต Unrealized PNL บน Assets → Direct
+    if (AFTD.positions && AFTD.positions.length) aftdUpdateUnrealizedPnl();
+  } catch(e) {
+    // ไม่ throw — price tick ล้มเหลวบางรอบได้โดยไม่กระทบ UX
+  }
+}
+
+/** [v2.72-FIX-AFTD-POLL] เริ่ม price poll สำหรับ Assets → Direct (15s เท่ากับ FUTD.pollTimer) */
+function _aftdStartPricePoll() {
+  _aftdStopPricePoll(); // กัน double-start
+  _aftdPriceTick();     // เรียกทันทีก่อน wait รอบแรก
+  AFTD.pricePollTimer = setInterval(_aftdPriceTick, 15000);
+}
+
+/** [v2.72-FIX-AFTD-POLL] หยุด price poll เมื่อออกจาก Assets page หรือเปลี่ยน sub-tab */
+function _aftdStopPricePoll() {
+  if (AFTD.pricePollTimer) { clearInterval(AFTD.pricePollTimer); AFTD.pricePollTimer = null; }
+}
+
 /** สลับ sub-tab Futures-Direct / Futures-Contract ภายในหน้า Assets → Futures */
 function aftSetMode(mode) {
   AFTD.mode = mode; // [v2.71-AFTD-REALTIME] เก็บ mode ให้ futdRefreshPrice ตรวจได้
@@ -37111,7 +37155,9 @@ function aftSetMode(mode) {
   document.getElementById('aft-view-direct')?.classList.toggle('active', mode === 'direct');
   document.getElementById('aft-mode-tab-contract')?.classList.toggle('active', mode === 'contract');
   document.getElementById('aft-mode-tab-direct')?.classList.toggle('active', mode === 'direct');
-  if (mode === 'direct') aftdRefreshDirectSummary();
+  // [v2.72-FIX-AFTD-POLL] จัดการ price poll ตาม sub-tab ที่เลือก
+  if (mode === 'direct') { aftdRefreshDirectSummary(); _aftdStartPricePoll(); }
+  else                   { _aftdStopPricePoll(); }
 }
 
 /** โหลด+แสดงสรุปยอด Futures-Direct (Margin Balance/ใช้ไปแล้ว/ว่าง + Position/Order list) */

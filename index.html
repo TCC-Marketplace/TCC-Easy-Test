@@ -38550,6 +38550,7 @@ async function futdPlaceOrder(side) {
         tp_price:    tp  || 0,               // field ที่ FuturesOrders schema เก็บ
         sl_price:    sl  || 0,
         position_side: _positionSide,        // [v2.63-HEDGE] 'BOTH'|'LONG'|'SHORT'
+        hedge_mode:    FUTD.hedgeMode,       // [v2.75-FIX] ส่ง hedge_mode ด้วย เพื่อ GAS derive positionSide ถูกต้อง
       });
       showToast('📋 Limit Order วางแล้ว' +
                 (FUTD.hedgeMode ? ' [Hedge: ' + _positionSide + ']' : '') +

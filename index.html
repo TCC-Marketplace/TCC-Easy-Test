@@ -37136,11 +37136,14 @@ async function _aftdPriceTick() {
   }
 }
 
-/** [v2.72-FIX-AFTD-POLL] เริ่ม price poll สำหรับ Assets → Direct (15s เท่ากับ FUTD.pollTimer) */
+/** [v2.72-FIX-AFTD-POLL] เริ่ม price poll สำหรับ Assets → Direct
+ *  ลด interval จาก 15s → 3s เพื่อให้ Unrealized PNL ขยับ near-realtime
+ *  (FUTD OB WS จะ push แบบ realtime เมื่อ user เคยเปิด Futures tab ก่อนหน้า
+ *   _aftdPriceTick ทำหน้าที่ fallback เมื่อ WS ยังไม่ได้ start) */
 function _aftdStartPricePoll() {
   _aftdStopPricePoll(); // กัน double-start
   _aftdPriceTick();     // เรียกทันทีก่อน wait รอบแรก
-  AFTD.pricePollTimer = setInterval(_aftdPriceTick, 15000);
+  AFTD.pricePollTimer = setInterval(_aftdPriceTick, 3000); // [v2.72] 3s (เดิม 15s)
 }
 
 /** [v2.72-FIX-AFTD-POLL] หยุด price poll เมื่อออกจาก Assets page หรือเปลี่ยน sub-tab */
@@ -37156,8 +37159,23 @@ function aftSetMode(mode) {
   document.getElementById('aft-mode-tab-contract')?.classList.toggle('active', mode === 'contract');
   document.getElementById('aft-mode-tab-direct')?.classList.toggle('active', mode === 'direct');
   // [v2.72-FIX-AFTD-POLL] จัดการ price poll ตาม sub-tab ที่เลือก
-  if (mode === 'direct') { aftdRefreshDirectSummary(); _aftdStartPricePoll(); }
-  else                   { _aftdStopPricePoll(); }
+  if (mode === 'direct') {
+    aftdRefreshDirectSummary();
+    _aftdStartPricePoll();
+    // [v2.72-FIX-AFTD-RT] เริ่ม FUTD OB WebSocket สำหรับ realtime price feed
+    // ถ้า WS ยังไม่ได้ start (user มาจาก Assets ไม่ผ่าน Futures tab) → start ใหม่
+    // ถ้า start แล้ว (มาจาก Futures Direct) → ยังทำงานอยู่ ไม่ต้อง restart
+    if (typeof futdStartOrderBook === 'function' && !FUTD.obWs) {
+      futdStartOrderBook();
+    }
+  } else {
+    _aftdStopPricePoll();
+    // หยุด OB WS ที่ start เพราะ Assets Direct เพื่อไม่ใช้ bandwidth เกิน
+    // (ถ้า Futures Direct tab เปิดอยู่ FUTD.pollTimer !== null → ไม่หยุด)
+    if (typeof FUTD !== 'undefined' && FUTD.obWs && FUTD.pollTimer === null) {
+      if (typeof futdStopOrderBook === 'function') futdStopOrderBook();
+    }
+  }
 }
 
 /** โหลด+แสดงสรุปยอด Futures-Direct (Margin Balance/ใช้ไปแล้ว/ว่าง + Position/Order list) */
@@ -37531,9 +37549,48 @@ function futdStopPolling() {
   if (FUTD.pollTimer) { clearInterval(FUTD.pollTimer); FUTD.pollTimer = null; }
   // [v2.51] หยุด Funding timer ด้วย
   if (FUTD.fundingTimer) { clearInterval(FUTD.fundingTimer); FUTD.fundingTimer = null; }
+  // ยกเลิก reconnect timer ค้างอยู่ (ถ้ามี)
+  if (FUTD._obReconnectTimer) { clearTimeout(FUTD._obReconnectTimer); FUTD._obReconnectTimer = null; }
   futdChartStop();
   futdStopOrderBook();
 }
+
+// [v2.72-FIX-OB-BFC] ตรวจจับ Back-Forward Cache restore → reconnect OB WebSocket ทันที
+// สาเหตุ: Browser restore หน้าจาก BF Cache → WS ที่เปิดอยู่ถูก terminate โดย Browser
+// → ปัญหา: Order Book ค้างไม่ขยับ 3-5 วินาทีจนกว่า poll รอบถัดไปจะ restart WS
+// แก้: ฟัง pageshow (persisted=true = BFC restore) + visibilitychange (tab กลับมา visible)
+(function _futdRegisterBfcReconnect() {
+  // pageshow: เรียกทุกครั้งที่หน้าแสดง — รวม BF Cache restore (event.persisted = true)
+  window.addEventListener('pageshow', function(event) {
+    if (!event.persisted) return; // ไม่ใช่ BFC restore → skip
+    console.warn('[futdStartOrderBook] BF Cache restore detected — reconnecting OB WebSocket');
+    // ถ้า FUTD tab กำลัง active (pollTimer ≠ null) → restart OB WS ทันที
+    if (typeof FUTD !== 'undefined' && FUTD.pollTimer !== null && typeof futdStartOrderBook === 'function') {
+      futdStartOrderBook();
+    }
+    // ถ้า Assets Direct กำลัง active → restart WS สำหรับ PNL feed ด้วย
+    if (typeof AFTD !== 'undefined' && AFTD.mode === 'direct' &&
+        typeof FUTD !== 'undefined' && !FUTD.obWs && typeof futdStartOrderBook === 'function') {
+      futdStartOrderBook();
+    }
+  });
+
+  // visibilitychange: เรียกเมื่อ user กลับมา tab นี้จาก tab อื่น
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState !== 'visible') return;
+    if (typeof FUTD === 'undefined') return;
+    // ถ้า FUTD tab active แต่ WS ตาย → reconnect
+    if (FUTD.pollTimer !== null && !FUTD.obWs && typeof futdStartOrderBook === 'function') {
+      console.warn('[futdStartOrderBook] visibilitychange — OB WS lost, reconnecting');
+      futdStartOrderBook();
+    }
+    // ถ้า Assets Direct active แต่ WS ตาย → reconnect
+    if (typeof AFTD !== 'undefined' && AFTD.mode === 'direct' &&
+        !FUTD.obWs && typeof futdStartOrderBook === 'function') {
+      futdStartOrderBook();
+    }
+  });
+})();
 
 // ══════════════════════════════════════════════════════════════
 //  [v2.50] FUTURES-DIRECT — New Layout Functions
@@ -38056,6 +38113,20 @@ function futdStartOrderBook() {
             }
           }
           futdRenderOrderBook();
+
+          // [v2.72-FIX-AFTD-RT] อัปเดต Unrealized PNL ผ่าน l2Book mid price
+          // (fallback เมื่อ trades WS ช้า หรือ volume น้อย)
+          if (currentPage === 'assets' &&
+              typeof AFTD !== 'undefined' && AFTD.mode === 'direct' &&
+              AFTD.positions && AFTD.positions.length &&
+              bids.length && asks.length) {
+            const _obMid = (bids[0].p + asks[asks.length - 1].p) / 2;
+            if (_obMid > 0) {
+              if (!FUTD.prices) FUTD.prices = {};
+              FUTD.prices[FUTD.symbolCoin] = _obMid;
+              aftdUpdateUnrealizedPnl();
+            }
+          }
         }
 
         // ── [FIX-RT] trades handler: อัปเดตแท่งเทียน real-time เหมือน Contract ──
@@ -38103,12 +38174,37 @@ function futdStartOrderBook() {
           const tkMark = document.getElementById('futd-tk-mark');
           if (tkMark) tkMark.textContent = fmtP(tradePrice);
           if (FUTD.status) futdUpdatePnlCards();
+
+          // [v2.72-FIX-AFTD-RT] อัปเดต Unrealized PNL ใน Assets → Futures-Direct
+          // ผ่าน trade tick จาก WS โดยตรง (ไม่ต้องรอ poll 15s)
+          // ทำงานเฉพาะเมื่อ user อยู่ Assets page + direct sub-tab + มี positions
+          if (currentPage === 'assets' &&
+              typeof AFTD !== 'undefined' && AFTD.mode === 'direct' &&
+              AFTD.positions && AFTD.positions.length) {
+            // อัปเดต FUTD.prices ด้วย trade price ของเหรียญนี้ก่อน (ให้ aftdUpdateUnrealizedPnl อ่านได้)
+            if (!FUTD.prices) FUTD.prices = {};
+            FUTD.prices[tradeCoin] = tradePrice;
+            aftdUpdateUnrealizedPnl();
+          }
         }
 
       } catch (e) { /* ignore */ }
     };
     ws.onerror = () => {};
-    ws.onclose = () => { FUTD.obWs = null; };
+    ws.onclose = () => {
+      FUTD.obWs = null;
+      // [v2.72-FIX-OB-RECONNECT] auto-reconnect เมื่อ WS ขาด (BF Cache restore / network blip)
+      // ตรวจว่า FUTD tab ยังเปิดอยู่และ pollTimer ยัง active ก่อน reconnect
+      // ป้องกัน reconnect loop เมื่อ user ออกจาก tab แล้ว (futdStopPolling จะ clear pollTimer)
+      if (FUTD.pollTimer !== null && _futdCurrentUid()) {
+        FUTD._obReconnectTimer = setTimeout(() => {
+          if (FUTD.pollTimer !== null && !FUTD.obWs) {
+            console.warn('[futdStartOrderBook] WS closed — reconnecting in 2s...');
+            futdStartOrderBook();
+          }
+        }, 2000);
+      }
+    };
   } catch (e) {
     console.warn('[futdStartOrderBook] WebSocket init fail:', e.message);
   }
@@ -38340,6 +38436,34 @@ async function futdPlaceOrder(side) {
         showToast('กรุณาระบุ Limit Price ก่อน');
         return;
       }
+
+      // [v2.72-FIX-FUTD-F1] ตรวจทิศทาง Limit Price vs ราคาตลาด
+      // Long  limit ที่ถูก: limitPrice < mktPrice  (รอราคาลงมาถึงราคาที่ตั้งไว้)
+      // Short limit ที่ถูก: limitPrice > mktPrice  (รอราคาขึ้นมาถึงราคาที่ตั้งไว้)
+      // ถ้าตั้งผิดทิศจะ fill ทันทีที่ trigger cycle ถัดไป (ภายใน 1 นาที) ไม่ใช่ Limit Order จริง
+      // → เตือน user และ block ไม่ให้ place (ใช้ Market Order แทน)
+      const _mktNow = FUTD.lastPrice || 0;
+      if (_mktNow > 0) {
+        const _isWrongDir = (side === 'long'  && limitPrice >= _mktNow) ||
+                            (side === 'short' && limitPrice <= _mktNow);
+        if (_isWrongDir) {
+          const _dir  = side === 'long' ? 'Long' : 'Short';
+          const _rule = side === 'long'
+            ? 'Long Limit ต้องต่ำกว่าราคาตลาด (รอราคาลง)'
+            : 'Short Limit ต้องสูงกว่าราคาตลาด (รอราคาขึ้น)';
+          showToast(
+            '⚠️ Limit Price (' + limitPrice.toLocaleString('en', { maximumFractionDigits: 4 }) + ') ' +
+            'อยู่' + (side === 'long' ? 'เหนือ' : 'ต่ำกว่า') + 'ราคาตลาด (' +
+            _mktNow.toLocaleString('en', { maximumFractionDigits: 4 }) + ')\n' +
+            _rule + '\nหากต้องการเปิดทันที ให้ใช้ Market Order'
+          );
+          console.warn('[FIX-FUTD-F1] Limit direction wrong: side=' + side +
+                       ' limitPrice=' + limitPrice + ' mktPrice=' + _mktNow);
+          return;
+        }
+      }
+      // ─── End FIX-FUTD-F1 ────────────────────────────────────────────────────────
+
       const _res = await dbCallRaw('placeFuturesOrder', {
         uid,
         symbol:      FUTD.symbolCoin + 'USDT',

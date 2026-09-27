@@ -37077,9 +37077,11 @@ function _wltShareDownloadAndPrompt(addr, qrB64, platform) {
 // [v2.71-AFTD-REALTIME] Global state สำหรับ Unrealized PNL realtime ใน Assets → Futures-Direct
 // เก็บ positions ที่ดึงมาล่าสุด ให้ futdRefreshPrice() อัปเดต PNL ได้โดยไม่ต้องเรียก GAS ซ้ำ
 const AFTD = {
-  positions: [],      // positions ล่าสุดจาก getFuturesAccountStatus
-  mode: 'contract',   // ตรวจว่าแสดง direct sub-tab อยู่ไหม
-  pricePollTimer: null, // [v2.72-FIX-AFTD-POLL] price poll แยกสำหรับ Assets → Direct
+  positions: [],         // positions ล่าสุดจาก getFuturesAccountStatus
+  mode: 'contract',      // ตรวจว่าแสดง direct sub-tab อยู่ไหม
+  pricePollTimer: null,  // [v2.72-FIX-AFTD-POLL] price poll แยกสำหรับ Assets → Direct
+  todayRealizedPnl: 0,   // [v2.74-FIX-F2] realized PNL วันนี้จาก GAS (อัปเดตตอน aftdRefreshDirectSummary)
+  marginBalance: 0,      // [v2.74-FIX-F2] futures_balance สำหรับคำนวณ % วันนี้ PNL
 };
 
 /** [v2.71-AFTD-REALTIME] คำนวณและอัปเดต Unrealized PNL ใน Assets → Futures-Direct
@@ -37105,6 +37107,19 @@ function aftdUpdateUnrealizedPnl() {
   const _uusdEl = document.getElementById('aftd-unrealized-usd');
   if (_upnlEl) { _upnlEl.textContent = _fmtSign(_upnl); _upnlEl.style.color = _upnl >= 0 ? 'var(--g)' : 'var(--r)'; }
   if (_uusdEl) { _uusdEl.textContent = '≈ $' + _fmtSign(_upnl); _uusdEl.style.color = _upnl >= 0 ? 'var(--g)' : 'var(--r)'; }
+
+  // [v2.74-FIX-F2] อัปเดต Today's PNL ทุก price tick (realtime)
+  // = today_realized_pnl (จาก GAS, เก็บไว้ใน AFTD.todayRealizedPnl) + unrealized ปัจจุบัน
+  const _todayRz    = (typeof AFTD !== 'undefined' && AFTD.todayRealizedPnl) ? parseFloat(AFTD.todayRealizedPnl) : 0;
+  const _todayTotal = _todayRz + _upnl;
+  const _todayEl    = document.getElementById('aftd-today-pnl');
+  if (_todayEl) {
+    // ใช้ _mbal จาก AFTD.marginBalance (เก็บตอน aftdRefreshDirectSummary) เพื่อคำนวณ %
+    const _mbal    = (typeof AFTD !== 'undefined' && AFTD.marginBalance) ? parseFloat(AFTD.marginBalance) : 0;
+    const _todayPct = _mbal > 0 ? ((_todayTotal / _mbal) * 100) : 0;
+    _todayEl.textContent = '$' + _fmtSign(_todayTotal) + ' (' + ((_todayPct >= 0 ? '+' : '') + _todayPct.toFixed(2)) + '%)';
+    _todayEl.style.color = _todayTotal >= 0 ? 'var(--g)' : 'var(--r)';
+  }
 }
 
 /** [v2.72-FIX-AFTD-POLL] ดึง allMids → อัปเดต FUTD.prices → เรียก aftdUpdateUnrealizedPnl
@@ -37202,6 +37217,8 @@ async function aftdRefreshDirectSummary() {
     const _mbal = parseFloat(status.futures_balance) || 0;
     document.getElementById('aftd-margin-bal').textContent = _fmt2(_mbal);
     document.getElementById('aftd-margin-usd').textContent = '≈ $' + _fmt2(_mbal);
+    // [v2.74-FIX-F2] เก็บ marginBalance ไว้ใน AFTD เพื่อให้ aftdUpdateUnrealizedPnl คำนวณ % ได้
+    if (typeof AFTD !== 'undefined') AFTD.marginBalance = _mbal;
 
     // Wallet Balance = futures_balance - margin_used (avail margin ที่ไม่ได้วาง)
     const _wbal = parseFloat(status.avail_margin) || _mbal;
@@ -37240,6 +37257,20 @@ async function aftdRefreshDirectSummary() {
       _uusdEl.textContent = '≈ $' + _fmtSign(_upnl);
       _uusdEl.style.color = _upnl >= 0 ? 'var(--g)' : 'var(--r)';
     }
+
+    // [v2.74-FIX-F2] Today's Realized PNL — อ่านจาก GAS ที่คำนวณไว้แล้ว
+    // GAS ส่ง today_realized_pnl = Σ realized_pnl ของ position ที่ปิดวันนี้
+    // รวมกับ unrealized PNL ปัจจุบัน → "วันนี้ PNL" ที่แสดงใน Assets → Direct
+    const _todayRz   = parseFloat(status.today_realized_pnl) || 0;
+    const _todayTotal = _todayRz + _upnl;  // realized + unrealized วันนี้
+    const _todayPct   = (_mbal > 0) ? ((_todayTotal / _mbal) * 100) : 0;
+    const _todayEl   = document.getElementById('aftd-today-pnl');
+    if (_todayEl) {
+      _todayEl.textContent = '$' + _fmtSign(_todayTotal) + ' (' + ((_todayPct >= 0 ? '+' : '') + _todayPct.toFixed(2)) + '%)';
+      _todayEl.style.color = _todayTotal >= 0 ? 'var(--g)' : 'var(--r)';
+    }
+    // เก็บ today_realized_pnl ไว้ใน AFTD เพื่อให้ aftdUpdateUnrealizedPnl อ่านได้
+    if (typeof AFTD !== 'undefined') AFTD.todayRealizedPnl = _todayRz;
 
     // Position / Order counts
     document.getElementById('aftd-pos-count').textContent   = _positions.length;
@@ -37564,14 +37595,22 @@ function futdStopPolling() {
   window.addEventListener('pageshow', function(event) {
     if (!event.persisted) return; // ไม่ใช่ BFC restore → skip
     console.warn('[futdStartOrderBook] BF Cache restore detected — reconnecting OB WebSocket');
-    // ถ้า FUTD tab กำลัง active (pollTimer ≠ null) → restart OB WS ทันที
-    if (typeof FUTD !== 'undefined' && FUTD.pollTimer !== null && typeof futdStartOrderBook === 'function') {
-      futdStartOrderBook();
+    // [v2.74-FIX-F3] ยกเลิก reconnect timer ค้างอยู่ก่อนเสมอ (กัน double-reconnect)
+    if (typeof FUTD !== 'undefined' && FUTD._obReconnectTimer) {
+      clearTimeout(FUTD._obReconnectTimer);
+      FUTD._obReconnectTimer = null;
     }
-    // ถ้า Assets Direct กำลัง active → restart WS สำหรับ PNL feed ด้วย
-    if (typeof AFTD !== 'undefined' && AFTD.mode === 'direct' &&
-        typeof FUTD !== 'undefined' && !FUTD.obWs && typeof futdStartOrderBook === 'function') {
-      futdStartOrderBook();
+    // [v2.74-FIX-F3] FUTD Direct tab active → restart OB WS ทันที
+    // ลบเงื่อนไข pollTimer !== null ออก เพราะ pollTimer อาจถูก clear ไปก่อน BF Cache restore
+    // ใช้ currentPage เป็น signal แทน (ตรงกว่า)
+    if (typeof futdStartOrderBook === 'function' && typeof FUTD !== 'undefined') {
+      const _onFutd   = (typeof currentPage !== 'undefined' && currentPage === 'futures');
+      const _onAftd   = (typeof AFTD !== 'undefined' && AFTD.mode === 'direct' &&
+                         typeof currentPage !== 'undefined' && currentPage === 'assets');
+      const _hasPoll  = FUTD.pollTimer !== null; // legacy fallback
+      if (_onFutd || _onAftd || _hasPoll) {
+        futdStartOrderBook();
+      }
     }
   });
 
@@ -37579,15 +37618,16 @@ function futdStopPolling() {
   document.addEventListener('visibilitychange', function() {
     if (document.visibilityState !== 'visible') return;
     if (typeof FUTD === 'undefined') return;
-    // ถ้า FUTD tab active แต่ WS ตาย → reconnect
-    if (FUTD.pollTimer !== null && !FUTD.obWs && typeof futdStartOrderBook === 'function') {
-      console.warn('[futdStartOrderBook] visibilitychange — OB WS lost, reconnecting');
-      futdStartOrderBook();
-    }
-    // ถ้า Assets Direct active แต่ WS ตาย → reconnect
-    if (typeof AFTD !== 'undefined' && AFTD.mode === 'direct' &&
-        !FUTD.obWs && typeof futdStartOrderBook === 'function') {
-      futdStartOrderBook();
+    if (!FUTD.obWs && typeof futdStartOrderBook === 'function') {
+      // [v2.74-FIX-F3] ใช้ currentPage เป็น primary signal เหมือน pageshow handler
+      const _onFutd   = (typeof currentPage !== 'undefined' && currentPage === 'futures');
+      const _onAftd   = (typeof AFTD !== 'undefined' && AFTD.mode === 'direct' &&
+                         typeof currentPage !== 'undefined' && currentPage === 'assets');
+      const _hasPoll  = FUTD.pollTimer !== null;
+      if (_onFutd || _onAftd || _hasPoll) {
+        console.warn('[futdStartOrderBook] visibilitychange — OB WS lost, reconnecting');
+        futdStartOrderBook();
+      }
     }
   });
 })();
@@ -38196,13 +38236,30 @@ function futdStartOrderBook() {
       // [v2.72-FIX-OB-RECONNECT] auto-reconnect เมื่อ WS ขาด (BF Cache restore / network blip)
       // ตรวจว่า FUTD tab ยังเปิดอยู่และ pollTimer ยัง active ก่อน reconnect
       // ป้องกัน reconnect loop เมื่อ user ออกจาก tab แล้ว (futdStopPolling จะ clear pollTimer)
+      // [v2.74-FIX-F3] ลด reconnect delay 2000ms → 300ms
+      // เหตุผล: BF Cache restore ทำให้ WS terminate → onclose fire → เดิมรอ 2s ก่อน reconnect
+      // → Order Book ค้างไม่ขยับ 2-5 วินาที ทุกครั้งที่ user กด Back/Forward
+      // แก้: reconnect ภายใน 300ms เพื่อให้ OB กลับมาแสดงผลเกือบทันที
+      // Guard: ยังตรวจ pollTimer ≠ null เพื่อป้องกัน reconnect loop หลัง user ออกจาก tab
       if (FUTD.pollTimer !== null && _futdCurrentUid()) {
         FUTD._obReconnectTimer = setTimeout(() => {
           if (FUTD.pollTimer !== null && !FUTD.obWs) {
-            console.warn('[futdStartOrderBook] WS closed — reconnecting in 2s...');
+            console.warn('[futdStartOrderBook] WS closed — reconnecting in 300ms...');
             futdStartOrderBook();
           }
-        }, 2000);
+        }, 300);
+      } else if (_futdCurrentUid() && !FUTD.pollTimer) {
+        // [v2.74-FIX-F3] Assets Direct path: pollTimer เป็น null แต่ user ล็อกอินและ OB ยังต้องการ
+        // (user มาถึง Assets Direct โดยไม่เคยเปิด Futures tab → pollTimer ไม่ถูก set)
+        // ให้ reconnect ด้วย delay สั้นเช่นกัน เพื่อรองรับ BF Cache restore จาก Assets
+        if (typeof AFTD !== 'undefined' && AFTD.mode === 'direct') {
+          FUTD._obReconnectTimer = setTimeout(() => {
+            if (!FUTD.obWs) {
+              console.warn('[futdStartOrderBook] WS closed (Assets Direct) — reconnecting in 300ms...');
+              futdStartOrderBook();
+            }
+          }, 300);
+        }
       }
     };
   } catch (e) {
@@ -38480,6 +38537,10 @@ async function futdPlaceOrder(side) {
                 (FUTD.hedgeMode ? ' [Hedge: ' + _positionSide + ']' : '') +
                 ' — รอราคาถึง ' + limitPrice + ' USDT' +
                 ' (order_id: ' + ((_res || {}).order_id || '—') + ')');
+      // [v2.74-FIX-F1] Switch ไป Orders tab ทันทีหลัง place Limit Order
+      // เหตุผล: Limit Order ยังรอ fill → ไม่ควรแสดงใน Positions tab
+      // การ switch ก่อน futdRefreshAccountStatus ทำให้ user เห็น pending order ใหม่ทันที
+      futdSwitchSubTab('ord');
 
     } else {
       // ── Market Order: เปิด Position ทันที (openFuturesPosition เหมือนเดิม) ──

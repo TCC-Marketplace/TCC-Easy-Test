@@ -37475,6 +37475,7 @@ const FUTD = {
   //   hedgeMode=true+side=long  → 'LONG'
   //   hedgeMode=true+side=short → 'SHORT'
   obWs: null,              // WebSocket สำหรับ L2 orderbook
+  _obPingTimer: null,      // [v2.74-FIX-F3] ping interval สำหรับ keep-alive WS
   tradesWs: null,          // [FIX-RT] WebSocket สำหรับ trades feed (real-time candle update เหมือน Contract)
   asks: [],                // order book asks (Direct)
   bids: [],                // order book bids (Direct)
@@ -38134,8 +38135,9 @@ function futdStartOrderBook() {
           FUTD.bids = bids;
           FUTD.asks = asks;
           // อัปเดต mid price จาก OB (ใช้เป็น fallback เมื่อ trades ไม่มาถึง)
+          // [v2.74-FIX-F1] asks[0].p = best ask (ถูกสุด) ไม่ใช่ asks[asks.length-1].p (แพงสุด)
           if (bids.length && asks.length) {
-            const mid = (bids[0].p + asks[asks.length - 1].p) / 2;
+            const mid = (bids[0].p + asks[0].p) / 2;
             FUTD.lastPrice = mid;
             // อัปเดต last candle ด้วย OB mid (fallback path)
             if (FUTD.chart && FUTD.chart.candles.length) {
@@ -38160,7 +38162,8 @@ function futdStartOrderBook() {
               typeof AFTD !== 'undefined' && AFTD.mode === 'direct' &&
               AFTD.positions && AFTD.positions.length &&
               bids.length && asks.length) {
-            const _obMid = (bids[0].p + asks[asks.length - 1].p) / 2;
+            // [v2.74-FIX-F1] ใช้ asks[0].p (best ask) ไม่ใช่ asks[asks.length-1].p
+            const _obMid = (bids[0].p + asks[0].p) / 2;
             if (_obMid > 0) {
               if (!FUTD.prices) FUTD.prices = {};
               FUTD.prices[FUTD.symbolCoin] = _obMid;
@@ -38230,8 +38233,19 @@ function futdStartOrderBook() {
 
       } catch (e) { /* ignore */ }
     };
+    // [v2.74-FIX-F3] ping/heartbeat ทุก 20 วินาที — ป้องกัน Hyperliquid ตัด idle connection
+    // สาเหตุ WS หลุดบ่อย: ไม่มี activity → server-side idle timeout → onclose → reconnect loop
+    // Hyperliquid รับ {"method":"ping"} และตอบ {"channel":"pong"} — เป็น documented protocol
+    FUTD._obPingTimer = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send(JSON.stringify({ method: 'ping' })); } catch(e) {}
+      }
+    }, 20000);
+
     ws.onerror = () => {};
     ws.onclose = () => {
+      // [v2.74-FIX-F3] clear ping timer เมื่อ WS ปิด
+      if (FUTD._obPingTimer) { clearInterval(FUTD._obPingTimer); FUTD._obPingTimer = null; }
       FUTD.obWs = null;
       // [v2.72-FIX-OB-RECONNECT] auto-reconnect เมื่อ WS ขาด (BF Cache restore / network blip)
       // ตรวจว่า FUTD tab ยังเปิดอยู่และ pollTimer ยัง active ก่อน reconnect
@@ -38268,6 +38282,8 @@ function futdStartOrderBook() {
 }
 
 function futdStopOrderBook() {
+  // [v2.74-FIX-F3] หยุด ping timer ก่อนปิด WS เสมอ
+  if (FUTD._obPingTimer) { clearInterval(FUTD._obPingTimer); FUTD._obPingTimer = null; }
   if (FUTD.obWs) {
     try { FUTD.obWs.close(); } catch(e) {}
     FUTD.obWs = null;
@@ -38324,7 +38340,8 @@ function futdRenderOrderBook() {
   const mid  = document.getElementById('futdObMidPrice');
   const mark = document.getElementById('futdObMarkPrice');
   if (mid && FUTD.asks.length && FUTD.bids.length) {
-    const midPrice = (FUTD.bids[0].p + FUTD.asks[FUTD.asks.length - 1].p) / 2;
+    // [v2.74-FIX-F1] best bid = bids[0].p, best ask = asks[0].p
+    const midPrice = (FUTD.bids[0].p + FUTD.asks[0].p) / 2;
     mid.textContent = fmtP(midPrice);
     // [FIX-2] dynamic up/dn เหมือน Contract renderOrderBook() — ไม่ hardcode 'up' เสมอ
     const _prevMid = FUTD._prevMidPrice || 0;
@@ -38332,7 +38349,8 @@ function futdRenderOrderBook() {
     FUTD._prevMidPrice = midPrice;
   }
   if (mark && FUTD.asks.length && FUTD.bids.length) {
-    const spread = FUTD.asks[FUTD.asks.length - 1].p - FUTD.bids[0].p;
+    // [v2.74-FIX-F1] spread คำนวณจาก best ask - best bid
+    const spread = FUTD.asks[0].p - FUTD.bids[0].p;
     mark.textContent = fmtP(FUTD.bids[0].p + spread * 0.5 + spread * 0.1);
   }
 
@@ -39508,6 +39526,17 @@ async function futdCloseposition(posId) {
 
     showToast('✅ ปิด Position สำเร็จ');
     futdRefreshAccountStatus();
+
+    // [v2.74-FIX-F2] sync Assets → Futures-Direct หลังปิด position
+    // เดิม: ไม่เคยเรียก aftdRefreshDirectSummary() → AFTD.positions ค้างข้อมูลเก่า
+    //       + AFTD.todayRealizedPnl ไม่รับค่า realized PnL ใหม่ → Today's PNL ไม่ขยับ
+    // แก้:  refresh AFTD state ทันทีหลัง GAS confirm ปิด position สำเร็จ
+    //       ใช้ setTimeout 0 เพื่อไม่บล็อก futdRefreshAccountStatus ที่เพิ่งยิงไป
+    if (typeof aftdRefreshDirectSummary === 'function') {
+      setTimeout(() => {
+        aftdRefreshDirectSummary();
+      }, 0);
+    }
   } catch (e) {
     showToast('❌ ' + (e.message || 'ปิด Position ไม่สำเร็จ'));
   }

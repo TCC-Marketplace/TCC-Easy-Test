@@ -27424,7 +27424,39 @@ function _hmRefreshBalance() {
         return s + (parseFloat(String(tx.amount || '0').replace('+','')) || 0);
       }, 0)
     : 0;
-  const pnl = unrealized + todayRealized;
+  // [vx5-FIX-DASH-DIRECT] รวม Futures-Direct realized PNL วันนี้ด้วย
+  // อ่านจาก AFTD.todayRealizedPnl (ถ้า user เคยเปิด Direct tab แล้ว GAS ส่งมา)
+  // หรืออ่านจาก HIST.futdTransactionHistory เป็น fallback
+  const todayRealizedDirect = (() => {
+    // ถ้า AFTD.todayRealizedPnl ถูก set แล้ว ใช้ค่านั้นโดยตรง (แม่นยำสุด จาก GAS)
+    if (typeof AFTD !== 'undefined' && AFTD.todayRealizedPnl) {
+      return parseFloat(AFTD.todayRealizedPnl) || 0;
+    }
+    // fallback: คำนวณจาก HIST.futdTransactionHistory
+    if (typeof HIST !== 'undefined' && HIST.futdTransactionHistory) {
+      return HIST.futdTransactionHistory.reduce((s, tx) => {
+        if (tx.type !== 'Futures Direct PNL' && tx.type !== 'Futures Direct Liquidation') return s;
+        if ((tx.ts || 0) < _todayStartMs) return s;
+        return s + (parseFloat(String(tx.amount || '0').replace('+', '')) || 0);
+      }, 0);
+    }
+    return 0;
+  })();
+  // [vx5-FIX-DASH-DIRECT] รวม Futures-Direct unrealized PNL (จาก AFTD.positions) ด้วย
+  const unrealizedDirect = (() => {
+    if (typeof AFTD === 'undefined' || !AFTD.positions || !AFTD.positions.length) return 0;
+    return AFTD.positions.reduce((s, p) => {
+      const coin   = (p.symbol || '').replace('USDT', '');
+      const entryP = parseFloat(p.entry_price) || 0;
+      const size   = parseFloat(p.size) || 0;
+      const markP  = (typeof FUTD !== 'undefined' && FUTD.prices && FUTD.prices[coin])
+                  || (typeof S !== 'undefined' && S.coinPrices && parseFloat(S.coinPrices[coin]))
+                  || parseFloat(p.mark) || 0;
+      if (!markP || !entryP || !size) return s;
+      return s + (p.side === 'long' ? (markP - entryP) * size : (entryP - markP) * size);
+    }, 0);
+  })();
+  const pnl = unrealized + todayRealized + todayRealizedDirect + unrealizedDirect;
 
   const hmTotal = document.getElementById('hm-total');
   const hmUsd   = document.getElementById('hm-usd');
@@ -42037,6 +42069,7 @@ function futdUpdateCandleCountdown() {
   --fpnl-muted:#6b6d80; --fpnl-dim:#9395a8;
   --fpnl-green:#0ecb81; --fpnl-red:#f6465d;
   --fpnl-yellow:#f0b90b; --fpnl-blue:#1890ff;
+  --fpnl-accent:#f0b90b;
   font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
   font-size:13px; line-height:1.5; color:var(--fpnl-text);
 }
@@ -42134,11 +42167,25 @@ function futdUpdateCandleCountdown() {
 }
 .fpnl-cal-nav-btn:hover { background:var(--fpnl-bg3); }
 .fpnl-cal-month { font-size:13px; font-weight:600; min-width:70px; text-align:center; color:var(--fpnl-text); }
-.fpnl-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; }
-.fpnl-cal-dow { text-align:center; font-size:10px; color:var(--fpnl-muted); padding:4px 0; }
-.fpnl-cal-cell { text-align:center; padding:3px 2px; min-height:42px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:2px; }
-.fpnl-cal-day { font-size:11px; color:var(--fpnl-muted); }
-.fpnl-cal-val { font-size:9.5px; font-weight:600; }
+/* [vx5-FIX-CAL-UI] grid gap เพิ่มเล็กน้อยเพื่อให้เห็นขอบ cell ชัดขึ้น */
+.fpnl-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+.fpnl-cal-dow { text-align:center; font-size:11px; color:var(--fpnl-muted); padding:6px 0 4px; font-weight:500; }
+/* [vx5-FIX-CAL-UI] cell สูงขึ้น ให้แสดงวันที่ + ตัวเลข PNL ได้ชัดเจนเหมือนภาพตัวอย่าง */
+.fpnl-cal-cell {
+  text-align:center; padding:5px 2px 6px; min-height:54px;
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:3px;
+  border-radius:4px; transition:background .12s;
+}
+.fpnl-cal-cell:hover { background:var(--fpnl-bg3); }
+/* [vx5-FIX-CAL-UI] วันที่ตัวเลขชัด */
+.fpnl-cal-day { font-size:12px; color:var(--fpnl-muted); line-height:1.2; }
+/* [vx5-FIX-CAL-UI] ตัวเลข PNL รายวันใหญ่ขึ้นชัดเจน เหมือนภาพตัวอย่าง */
+.fpnl-cal-val { font-size:11px; font-weight:700; line-height:1.2; letter-spacing:-0.2px; }
+/* [vx5-FIX-CAL-UI] cell ที่มีข้อมูลมี bg เบาๆ */
+.fpnl-cal-cell.has-pnl-pos { background:rgba(14,203,129,.07); }
+.fpnl-cal-cell.has-pnl-neg { background:rgba(246,70,93,.07); }
+.fpnl-cal-cell.has-pnl-pos:hover { background:rgba(14,203,129,.14); }
+.fpnl-cal-cell.has-pnl-neg:hover { background:rgba(246,70,93,.14); }
 
 /* ── Chart ── */
 .fpnl-chart-wrap { padding:14px 16px; border-bottom:1px solid var(--fpnl-border); }
@@ -42521,17 +42568,45 @@ function futdUpdateCandleCountdown() {
         .map(([sym,pnl]) => ({sym, pnl, pct: _mbal>0?(pnl/_mbal*100):0}))
         .sort((a,b)=>Math.abs(b.pnl)-Math.abs(a.pnl)).slice(0,8);
 
+      // [vx5-FIX-CAL-DIRECT] สร้าง calData จาก HIST.futdTransactionHistory แทนการส่ง {}
+      const _calYear = today.getFullYear(), _calMon = today.getMonth() + 1;
+      const _calData = _fpnlGetCalData(_calYear, _calMon, 'direct');
+
+      // [vx5-FIX-DIRECT-SUMMARY] คำนวณ 7D/30D/lifetime จาก HIST.futdTransactionHistory
+      const _futdAllTx = (typeof HIST !== 'undefined' && HIST.futdTransactionHistory)
+        ? HIST.futdTransactionHistory : [];
+      const _futdRealized = _futdAllTx.filter(tx =>
+        tx.type === 'Futures Direct PNL' || tx.type === 'Futures Direct Liquidation'
+      );
+      const _7dMs  = Date.now() - 7  * 86400000;
+      const _30dMs = Date.now() - 30 * 86400000;
+      const _pnl7d  = _futdRealized.reduce((s,tx)=>{ if((tx.ts||0)<_7dMs) return s; return s+(parseFloat(String(tx.amount||'0').replace('+',''))||0);},0) + _upnl;
+      const _pnl30d = _futdRealized.reduce((s,tx)=>{ if((tx.ts||0)<_30dMs) return s; return s+(parseFloat(String(tx.amount||'0').replace('+',''))||0);},0) + _upnl;
+      const _totalProfit = _futdRealized.reduce((s,tx)=>{ const v=parseFloat(String(tx.amount||'0').replace('+',''))||0; return s+(v>0?v:0);},0);
+      const _totalLoss   = _futdRealized.reduce((s,tx)=>{ const v=parseFloat(String(tx.amount||'0').replace('+',''))||0; return s+(v<0?Math.abs(v):0);},0);
+      const _netPnl      = _totalProfit - _totalLoss;
+
+      // funding สำหรับ Direct
+      const _futdFunding = (typeof HIST !== 'undefined' && HIST.futdFundingFee)
+        ? HIST.futdFundingFee.slice(-20).reverse().map(f => ({
+            date: f.time || '—',
+            sym:  f.symbol || '—',
+            type: 'Funding Fee',
+            amount: parseFloat(String(f.amount||'0').replace('+',''))||0
+          }))
+        : [];
+
       return {
         today:   { pct: _todayPct, usd: _todayTotal },
-        pnl7d:   { pct: 0, usd: 0 },
-        pnl30d:  { pct: 0, usd: 0 },
-        lifetime:{ val: 0 },
+        pnl7d:   { pct: _mbal>0?(_pnl7d/_mbal*100):0, usd: _pnl7d },
+        pnl30d:  { pct: _mbal>0?(_pnl30d/_mbal*100):0, usd: _pnl30d },
+        lifetime:{ val: _netPnl },
         marginBal: _mbal,
-        summary: { profit: _upnl > 0 ? _upnl : 0, loss: _upnl < 0 ? Math.abs(_upnl) : 0, net: _upnl },
-        cumPnl:  { val: _todayTotal, date: today.toISOString().slice(0,10) },
+        summary: { profit: _totalProfit, loss: _totalLoss, net: _netPnl },
+        cumPnl:  { val: _netPnl + _upnl, date: today.toISOString().slice(0,10) },
         assetVal:{ val: _mbal, date: today.toISOString().slice(0,10) },
-        calYear: today.getFullYear(), calMon: today.getMonth()+1, calData: {},
-        detail, symbols, funding: []
+        calYear: _calYear, calMon: _calMon, calData: _calData,
+        detail, symbols, funding: _futdFunding
       };
     }
   }
@@ -42567,21 +42642,38 @@ function futdUpdateCandleCountdown() {
   /* [vx5-FIX-CAL] คำนวณ calData (PNL รายวัน) สำหรับปี/เดือนที่กำหนด และ mode ที่ใช้งาน
    *  ใช้แทนการส่ง {} เมื่อ navigate calendar เดือนก่อน/หน้า
    *  mode='contract' → อ่านจาก HIST.transactionHistory (Realized PNL, ไม่นับ Earn)
-   *  mode='direct'   → อ่านจาก HIST.transactionHistory ก่อน (FUTD Direct ไม่มีประวัติ client-side)
-   *                    ถ้าไม่มีข้อมูล → คืน {} (Direct ประวัติเก่าไม่มีใน HIST)
+   *  mode='direct'   → อ่านจาก HIST.futdTransactionHistory (Futures Direct PNL / Liquidation)
+   *  [vx5-FIX-CAL-DIRECT] รับ mode เป็น parameter เพื่อให้ calPrev/calNext navigate ถูก source ด้วย
    */
-  function _fpnlGetCalData(year, mon) {
+  function _fpnlGetCalData(year, mon, modeOverride) {
     const calData = {};
-    const allTx = (typeof HIST !== 'undefined' && HIST.transactionHistory) ? HIST.transactionHistory : [];
-    allTx.forEach(tx => {
-      if (tx.type !== 'Realized PNL') return;
-      if ((tx.symbol || '') === 'Earn') return;
-      const d = new Date(tx.ts || 0);
-      // ใช้ local time เหมือนกับที่ _fpnlExtract ใช้ (setHours(0,0,0,0) = browser local)
-      if (d.getFullYear() !== year || d.getMonth() + 1 !== mon) return;
-      const day = d.getDate();
-      calData[day] = (calData[day] || 0) + (parseFloat(String(tx.amount || '0').replace('+', '')) || 0);
-    });
+    const mode = modeOverride || _fpnlMode;
+
+    if (mode === 'direct') {
+      // [vx5-FIX-CAL-DIRECT] อ่านจาก HIST.futdTransactionHistory สำหรับ Futures-Direct
+      const futdTx = (typeof HIST !== 'undefined' && HIST.futdTransactionHistory)
+        ? HIST.futdTransactionHistory : [];
+      futdTx.forEach(tx => {
+        // นับเฉพาะ Futures Direct PNL และ Liquidation (ไม่นับ Funding Fee ซึ่งอยู่ใน futdFundingFee)
+        if (tx.type !== 'Futures Direct PNL' && tx.type !== 'Futures Direct Liquidation') return;
+        const d = new Date(tx.ts || 0);
+        if (d.getFullYear() !== year || d.getMonth() + 1 !== mon) return;
+        const day = d.getDate();
+        calData[day] = (calData[day] || 0) + (parseFloat(String(tx.amount || '0').replace('+', '')) || 0);
+      });
+    } else {
+      // mode='contract' → อ่านจาก HIST.transactionHistory (Realized PNL, ไม่นับ Earn)
+      const allTx = (typeof HIST !== 'undefined' && HIST.transactionHistory) ? HIST.transactionHistory : [];
+      allTx.forEach(tx => {
+        if (tx.type !== 'Realized PNL') return;
+        if ((tx.symbol || '') === 'Earn') return;
+        const d = new Date(tx.ts || 0);
+        // ใช้ local time เหมือนกับที่ _fpnlExtract ใช้ (setHours(0,0,0,0) = browser local)
+        if (d.getFullYear() !== year || d.getMonth() + 1 !== mon) return;
+        const day = d.getDate();
+        calData[day] = (calData[day] || 0) + (parseFloat(String(tx.amount || '0').replace('+', '')) || 0);
+      });
+    }
     return calData;
   }
 
@@ -42598,18 +42690,46 @@ function futdUpdateCandleCountdown() {
     const monthEl = _fEl('fpnl-cal-month'); if(monthEl) monthEl.textContent = label;
     const daysInMonth = new Date(_fpnlCalYear, _fpnlCalMon, 0).getDate();
     const startDow    = new Date(_fpnlCalYear, _fpnlCalMon - 1, 1).getDay();
+    // วันนี้ (local) เพื่อ highlight วันปัจจุบัน
+    const _now = new Date();
+    const _todayY = _now.getFullYear(), _todayM = _now.getMonth()+1, _todayD = _now.getDate();
+    const _isThisMonth = (_fpnlCalYear === _todayY && _fpnlCalMon === _todayM);
+
     for (let i = 0; i < startDow; i++) {
       const e = document.createElement('div'); e.className = 'fpnl-cal-cell'; grid.appendChild(e);
     }
     for (let day = 1; day <= daysInMonth; day++) {
-      const cell = document.createElement('div'); cell.className = 'fpnl-cal-cell';
-      const dayEl = document.createElement('div'); dayEl.className = 'fpnl-cal-day'; dayEl.textContent = day;
+      const val = (calData && calData[day] != null) ? calData[day] : null;
+      // [vx5-FIX-CAL-UI] เพิ่ม class has-pnl-pos/neg เพื่อ bg tint
+      let cellClass = 'fpnl-cal-cell';
+      if (val != null) cellClass += val >= 0 ? ' has-pnl-pos' : ' has-pnl-neg';
+      const cell = document.createElement('div'); cell.className = cellClass;
+
+      // วันที่ — highlight วันปัจจุบัน
+      const dayEl = document.createElement('div');
+      if (_isThisMonth && day === _todayD) {
+        dayEl.className = 'fpnl-cal-day';
+        dayEl.style.cssText = 'color:var(--fpnl-text);font-weight:700;background:var(--fpnl-accent);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;';
+      } else {
+        dayEl.className = 'fpnl-cal-day';
+      }
+      dayEl.textContent = day;
       cell.appendChild(dayEl);
-      const val = calData ? calData[day] : null;
+
+      // [vx5-FIX-CAL-UI] ตัวเลข PNL รายวัน — format เหมือนภาพตัวอย่าง: +2.35 / -28.98
       if (val != null) {
         const vEl = document.createElement('div');
         vEl.className = 'fpnl-cal-val ' + (val >= 0 ? 'fpnl-green' : 'fpnl-red');
-        vEl.textContent = (val >= 0 ? '+' : '') + _fFmt2(val);
+        const absVal = Math.abs(val);
+        let display;
+        if (absVal === 0) {
+          display = '0.00';
+        } else if (absVal >= 10000) {
+          display = (val >= 0 ? '+' : '') + (val / 1000).toFixed(1) + 'k';
+        } else {
+          display = (val >= 0 ? '+' : '') + _fFmt2(val);
+        }
+        vEl.textContent = display;
         cell.appendChild(vEl);
       }
       grid.appendChild(cell);
@@ -42843,13 +42963,13 @@ function futdUpdateCandleCountdown() {
     const calNext = _fEl('fpnl-cal-next');
     if (calPrev) calPrev.addEventListener('click', () => {
       _fpnlCalMon--; if (_fpnlCalMon < 1) { _fpnlCalMon = 12; _fpnlCalYear--; }
-      // [vx5-FIX-CAL] คำนวณ calData จาก HIST สำหรับเดือนที่เลือก แทนการส่ง {}
-      _fpnlBuildCal(_fpnlGetCalData(_fpnlCalYear, _fpnlCalMon));
+      // [vx5-FIX-CAL] ส่ง _fpnlMode เพื่อให้อ่านถูก source (contract=HIST.transactionHistory, direct=HIST.futdTransactionHistory)
+      _fpnlBuildCal(_fpnlGetCalData(_fpnlCalYear, _fpnlCalMon, _fpnlMode));
     });
     if (calNext) calNext.addEventListener('click', () => {
       _fpnlCalMon++; if (_fpnlCalMon > 12) { _fpnlCalMon = 1; _fpnlCalYear++; }
-      // [vx5-FIX-CAL] คำนวณ calData จาก HIST สำหรับเดือนที่เลือก แทนการส่ง {}
-      _fpnlBuildCal(_fpnlGetCalData(_fpnlCalYear, _fpnlCalMon));
+      // [vx5-FIX-CAL] ส่ง _fpnlMode เพื่อให้อ่านถูก source (contract=HIST.transactionHistory, direct=HIST.futdTransactionHistory)
+      _fpnlBuildCal(_fpnlGetCalData(_fpnlCalYear, _fpnlCalMon, _fpnlMode));
     });
 
     /* Back button / swipe: also support Android back */

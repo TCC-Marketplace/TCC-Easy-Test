@@ -25147,7 +25147,7 @@ function renderAstFuturesTab() {
   // ── [vx4-PNL] อัปเดต Today's PNL (Contract) = todayRealized + unrealized ──
   // คำนวณ todayRealized จาก HIST.transactionHistory เหมือน hm-pnl
   const _aftTodayStartMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
-  const _aftTodayRealized = (typeof HIST !== 'undefined' && HIST.transactionHistory)
+  const _aftTodayRealized = (typeof fdpToday === 'function' && fdpToday('contract') !== null) ? fdpToday('contract') : (typeof HIST !== 'undefined' && HIST.transactionHistory)
     ? HIST.transactionHistory.reduce((s, tx) => {
         if (tx.type !== 'Realized PNL') return s;
         if ((tx.ts || 0) < _aftTodayStartMs) return s;
@@ -27416,7 +27416,7 @@ function _hmRefreshBalance() {
   const _todayStartMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
   // [FIX Bug2] exclude Earn Realized PNL (symbol='Earn' จาก distributeProfit)
   // todayRealized แสดงเฉพาะ Futures PNL ในวันนี้ — Earn PNL มาจาก earnContracts.currentBalance แล้ว
-  const todayRealized = (typeof HIST !== 'undefined' && HIST.transactionHistory)
+  const todayRealized = (typeof fdpToday === 'function' && fdpToday('contract') !== null) ? fdpToday('contract') : (typeof HIST !== 'undefined' && HIST.transactionHistory)
     ? HIST.transactionHistory.reduce((s, tx) => {
         if (tx.type !== 'Realized PNL') return s;
         if ((tx.ts || 0) < _todayStartMs) return s;
@@ -27429,6 +27429,7 @@ function _hmRefreshBalance() {
   // หรืออ่านจาก HIST.futdTransactionHistory เป็น fallback
   const todayRealizedDirect = (() => {
     // ถ้า AFTD.todayRealizedPnl ถูก set แล้ว ใช้ค่านั้นโดยตรง (แม่นยำสุด จาก GAS)
+    if (typeof fdpToday === 'function' && fdpToday('direct') !== null) return fdpToday('direct'); // [vx6-DAILY-PNL] GAS SSOT
     if (typeof AFTD !== 'undefined' && AFTD.todayRealizedPnl) {
       return parseFloat(AFTD.todayRealizedPnl) || 0;
     }
@@ -30493,11 +30494,68 @@ const QUEUE = {
 // ══════════════════════════════════════════════════════════════════
 //  CORE API
 // ══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// [vx6-DAILY-PNL] FDP — Futures Daily PNL store (SSOT จาก GAS)
+// Calendar / Today's PNL / Dashboard ใช้ข้อมูลชุดเดียวกัน ไม่ reconstruct จาก
+// HIST.transactionHistory (ที่ getDashboard จำกัด 100) / HIST.futdTransactionHistory (จำกัด 80)
+// ถ้า FDP ยังไม่มีข้อมูล → fallback ไปใช้ HIST เดิม (พฤติกรรมเดิม ไม่พัง)
+// ═══════════════════════════════════════════════════════════════════════
+const FDP = { today: { contract: null, direct: null }, todayDate: '', months: {}, inflight: {} };
+const _FDP_INVALIDATE_ACTIONS = /^(logClose|closeFuturesPosition|openFuturesPosition|runFuturesTpSlCheck|runTpSlCheck|logEarnLiquidate|forceLiquidateContract)$/;
+function _fdpLocalDate() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+function _fdpTz() { return -new Date().getTimezoneOffset(); }   // นาทีที่เร็วกว่า UTC (ไทย = 420)
+function _fdpUid() {
+  try {
+    const sess = (typeof _lgLoadSession === 'function') ? _lgLoadSession() : null;
+    if (sess && sess.uid) return String(sess.uid).trim();
+    if (typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) return String(USER_PROFILE.uid).trim();
+  } catch (e) {}
+  return '';
+}
+/** Today's realized จาก GAS: number | null (null = ยังไม่มี/หมดอายุข้ามวัน → ให้ caller fallback) */
+function fdpToday(mode) {
+  if (FDP.todayDate !== _fdpLocalDate()) return null;
+  const v = FDP.today[mode];
+  return (typeof v === 'number' && isFinite(v)) ? v : null;
+}
+function fdpInvalidate() { FDP.today = { contract: null, direct: null }; FDP.todayDate = ''; FDP.months = {}; }
+function _fdpApplyDash(dash) {
+  const t = dash && dash.fut_daily_today;
+  if (!t) return;
+  const c = Number(t.contract), d = Number(t.direct);
+  FDP.today.contract = isFinite(c) ? c : null;
+  FDP.today.direct   = isFinite(d) ? d : null;
+  FDP.todayDate = _fdpLocalDate();
+  // sync AFTD ให้ Dashboard/Direct panel ได้ค่าเดียวกันโดยไม่ต้องรอผู้ใช้เปิดหน้า Direct
+  try { if (typeof AFTD !== 'undefined' && FDP.today.direct !== null) AFTD.todayRealizedPnl = FDP.today.direct; } catch (e) {}
+}
+function fdpGetMonth(mode, year, mon) { return FDP.months[mode + '|' + year + '-' + mon] || null; }
+async function fdpLoadMonth(mode, year, mon, force) {
+  const key = mode + '|' + year + '-' + mon;
+  const c = FDP.months[key];
+  if (!force && c && (Date.now() - c.at) < 30000) return c;
+  if (FDP.inflight[key]) return FDP.inflight[key];
+  const uid = _fdpUid();
+  if (!uid) return null;
+  FDP.inflight[key] = dbCallRaw('getFuturesDailyPnl', { uid, mode, year, month: mon, tzOffsetMin: _fdpTz() })
+    .then(r => {
+      const days = {};
+      Object.keys((r && r.days) || {}).forEach(k => { days[Number(k)] = Number(r.days[k]) || 0; });
+      const e = { days, today: Number(r && r.today) || 0, total: Number(r && r.total) || 0, at: Date.now() };
+      FDP.months[key] = e;
+      return e;
+    })
+    .catch(err => { console.warn('[fdpLoadMonth] fail:', err && err.message); return null; })
+    .finally(() => { delete FDP.inflight[key]; });
+  return FDP.inflight[key];
+}
+
 async function dbCallRaw(action, data = {}) {
   // [v5 FIX SLOW-LOAD/BLACK-SCREEN] เดิม fetch() ไม่มี timeout เลย — ถ้า GAS ช้า/ค้าง
   // (cold start, ScriptLock รอสูงสุด 10s ใน _autoLiquidateContract ฯลฯ) request จะรอ
   // เงียบๆไม่มีสัญญาณอะไรบอกผู้ใช้ ทำให้ต้อง reload เอง (ซึ่งพอ reload cache มักช่วยให้
   // ดูเหมือนผ่านครั้งที่ 2) แก้: ใส่ AbortController timeout 20s + error message ชัดเจน
+  if (action === 'getDashboard' && data && data.tzOffsetMin === undefined) data = Object.assign({}, data, { tzOffsetMin: _fdpTz() }); // [vx6-DAILY-PNL]
   const _ctrl = new AbortController();
   const _timeoutMs = 20000;
   const _timer = setTimeout(() => _ctrl.abort(), _timeoutMs);
@@ -30526,6 +30584,8 @@ async function dbCallRaw(action, data = {}) {
     }
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || 'GAS error: ' + action);
+    // [vx6-DAILY-PNL] sync FDP: getDashboard → เก็บ today; action ที่เปลี่ยน realized PNL → ล้าง cache (ใช้ HIST fallback จนกว่าจะ sync ใหม่)
+    try { if (action === 'getDashboard') _fdpApplyDash(json.data); else if (_FDP_INVALIDATE_ACTIONS.test(action)) fdpInvalidate(); } catch (_e) {}
     return json.data;
   } catch (err) {
     if (err.name === 'AbortError') {
@@ -37256,7 +37316,13 @@ async function aftdRefreshDirectSummary() {
   }
 
   try {
-    const status = await dbCallRaw('getFuturesAccountStatus', { uid });
+    // [vx6-PERF] GAS cold-start ทำให้ครั้งแรก timeout ได้ → retry 1 ครั้ง (ครั้งที่สอง GAS อุ่นแล้วมักเร็ว)
+    let status;
+    try { status = await dbCallRaw('getFuturesAccountStatus', { uid }); }
+    catch (_e1) {
+      if (_e1 && _e1.message && _e1.message.indexOf('[Timeout]') > -1) status = await dbCallRaw('getFuturesAccountStatus', { uid });
+      else throw _e1;
+    }
     const _fmt2 = v => (parseFloat(v) || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const _fmtSign = v => (v >= 0 ? '+' : '') + _fmt2(v);
 
@@ -37308,7 +37374,7 @@ async function aftdRefreshDirectSummary() {
     // [v2.74-FIX-F2] Today's Realized PNL — อ่านจาก GAS ที่คำนวณไว้แล้ว
     // GAS ส่ง today_realized_pnl = Σ realized_pnl ของ position ที่ปิดวันนี้
     // รวมกับ unrealized PNL ปัจจุบัน → "วันนี้ PNL" ที่แสดงใน Assets → Direct
-    const _todayRz   = parseFloat(status.today_realized_pnl) || 0;
+    const _todayRz   = (typeof fdpToday === 'function' && fdpToday('direct') !== null) ? fdpToday('direct') : (parseFloat(status.today_realized_pnl) || 0); // [vx6-DAILY-PNL]
     const _todayTotal = _todayRz + _upnl;  // realized + unrealized วันนี้
     const _todayPct   = (_mbal > 0) ? ((_todayTotal / _mbal) * 100) : 0;
     const _todayEl   = document.getElementById('aftd-today-pnl');
@@ -42441,7 +42507,7 @@ function futdUpdateCandleCountdown() {
       })();
 
       /* today realized — same logic as renderAstFuturesTab */
-      const todayRealized = (typeof HIST !== 'undefined' && HIST.transactionHistory)
+      const todayRealized = (typeof fdpToday === 'function' && fdpToday('contract') !== null) ? fdpToday('contract') : (typeof HIST !== 'undefined' && HIST.transactionHistory)
         ? HIST.transactionHistory.reduce((s, tx) => {
             if (tx.type !== 'Realized PNL') return s;
             if ((tx.ts || 0) < todayMs) return s;
@@ -42637,6 +42703,16 @@ function futdUpdateCandleCountdown() {
   function _fpnlGetCalData(year, mon, modeOverride) {
     const calData = {};
     const mode = modeOverride || _fpnlMode;
+    // [vx6-DAILY-PNL] ใช้ Daily PNL จาก GAS (ครบทุกวัน) เป็นหลัก; ถ้ายังไม่มี → fallback HIST ด้านล่าง แล้วโหลดจาก GAS มา re-render
+    if (typeof fdpGetMonth === 'function') {
+      const _cached = fdpGetMonth(mode, year, mon);
+      const _rerender = e => { if (e && _fpnlCalYear === year && _fpnlCalMon === mon && _fpnlMode === mode) _fpnlBuildCal(e.days); };
+      if (_cached) {
+        if (Date.now() - _cached.at > 30000) fdpLoadMonth(mode, year, mon, true).then(_rerender);
+        return Object.assign({}, _cached.days);
+      }
+      fdpLoadMonth(mode, year, mon).then(_rerender);
+    }
 
     if (mode === 'direct') {
       // [vx5-FIX-CAL-DIRECT] อ่านจาก HIST.futdTransactionHistory สำหรับ Futures-Direct

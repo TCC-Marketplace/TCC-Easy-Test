@@ -5882,7 +5882,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <span id="aft-margin-bal">0.00</span><span class="unit">USDT</span>
       </div>
       <div class="aft-usd ast-hideable" id="aft-margin-usd">≈ $0.00</div>
-      <div class="aft-pnl-today" onclick="openFuturesPnlPanel('contract')" style="cursor:pointer"><span data-i18n="today_pnl">Today's PNL</span> &nbsp;<span id="aft-today-pnl">$0.00 (0.00%)</span> ›</div>
+      <div class="aft-pnl-today" onclick="openFuturesPnlPanel('contract')" style="cursor:pointer"><span data-i18n="today_pnl">Today's PNL</span> &nbsp;<span id="aft-today-pnl" style="color:var(--g)">+$0.00 (+0.00%)</span> ›</div>
       <div class="aft-stats-row">
         <div class="aft-stat">
           <div>Wallet Balance (USDT)</div>
@@ -5968,7 +5968,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <span id="aftd-margin-bal">0.00</span><span class="unit">USDT</span>
       </div>
       <div class="aft-usd ast-hideable" id="aftd-margin-usd">≈ $0.00</div>
-      <div class="aft-pnl-today" onclick="openFuturesPnlPanel('direct')" style="cursor:pointer"><span data-i18n="today_pnl">Today's PNL</span> &nbsp;<span id="aftd-today-pnl">$0.00 (0.00%)</span> ›</div>
+      <div class="aft-pnl-today" onclick="openFuturesPnlPanel('direct')" style="cursor:pointer"><span data-i18n="today_pnl">Today's PNL</span> &nbsp;<span id="aftd-today-pnl" style="color:var(--g)">+$0.00 (+0.00%)</span> ›</div>
       <div class="aft-stats-row">
         <div class="aft-stat">
           <div>Wallet Balance (USDT)</div>
@@ -25160,9 +25160,11 @@ function renderAstFuturesTab() {
   const _aftTodayEl    = document.getElementById('aft-today-pnl');
   if (_aftTodayEl) {
     const _aftFmt2 = v => v.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const _aftFmtS = v => (v >= 0 ? '+' : '') + _aftFmt2(Math.abs(v));
-    _aftTodayEl.textContent = '$' + _aftFmtS(_aftTodayTotal) +
-      ' (' + ((_aftTodayPct >= 0 ? '+' : '') + _aftTodayPct.toFixed(2)) + '%)';
+    // [vx5-FIX-PNL] แสดง sign ชัดเจน: บวก='+$X.XX', ลบ='-$X.XX' เหมือน Dashboard hm-pnl
+    const _aftSign = _aftTodayTotal >= 0 ? '+' : '-';
+    const _aftPctSign = _aftTodayPct >= 0 ? '+' : '';
+    _aftTodayEl.textContent = _aftSign + '$' + _aftFmt2(Math.abs(_aftTodayTotal)) +
+      ' (' + _aftPctSign + _aftTodayPct.toFixed(2) + '%)';
     _aftTodayEl.style.color = _aftTodayTotal >= 0 ? 'var(--g)' : 'var(--r)';
   }
 
@@ -37139,7 +37141,11 @@ function aftdUpdateUnrealizedPnl() {
     // ใช้ _mbal จาก AFTD.marginBalance (เก็บตอน aftdRefreshDirectSummary) เพื่อคำนวณ %
     const _mbal    = (typeof AFTD !== 'undefined' && AFTD.marginBalance) ? parseFloat(AFTD.marginBalance) : 0;
     const _todayPct = _mbal > 0 ? ((_todayTotal / _mbal) * 100) : 0;
-    _todayEl.textContent = '$' + _fmtSign(_todayTotal) + ' (' + ((_todayPct >= 0 ? '+' : '') + _todayPct.toFixed(2)) + '%)';
+    // [vx5-FIX-PNL] format: '+$X.XX (+X.XX%)' / '-$X.XX (-X.XX%)' ตรงกับ Contract tab
+    const _fmt2D = v => (parseFloat(v) || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const _signD = _todayTotal >= 0 ? '+' : '-';
+    const _pctSignD = _todayPct >= 0 ? '+' : '';
+    _todayEl.textContent = _signD + '$' + _fmt2D(Math.abs(_todayTotal)) + ' (' + _pctSignD + _todayPct.toFixed(2) + '%)';
     _todayEl.style.color = _todayTotal >= 0 ? 'var(--g)' : 'var(--r)';
   }
 }
@@ -37288,7 +37294,10 @@ async function aftdRefreshDirectSummary() {
     const _todayPct   = (_mbal > 0) ? ((_todayTotal / _mbal) * 100) : 0;
     const _todayEl   = document.getElementById('aftd-today-pnl');
     if (_todayEl) {
-      _todayEl.textContent = '$' + _fmtSign(_todayTotal) + ' (' + ((_todayPct >= 0 ? '+' : '') + _todayPct.toFixed(2)) + '%)';
+      // [vx5-FIX-PNL] format: '+$X.XX (+X.XX%)' / '-$X.XX (-X.XX%)' ตรงกับ Contract tab
+      const _signD2 = _todayTotal >= 0 ? '+' : '-';
+      const _pctSignD2 = _todayPct >= 0 ? '+' : '';
+      _todayEl.textContent = _signD2 + '$' + _fmt2(Math.abs(_todayTotal)) + ' (' + _pctSignD2 + _todayPct.toFixed(2) + '%)';
       _todayEl.style.color = _todayTotal >= 0 ? 'var(--g)' : 'var(--r)';
     }
     // เก็บ today_realized_pnl ไว้ใน AFTD เพื่อให้ aftdUpdateUnrealizedPnl อ่านได้
@@ -42423,17 +42432,11 @@ function futdUpdateCandleCountdown() {
       const pnl30d = allRealized.reduce((s,tx)=>{ if((tx.ts||0)<_30dMs) return s; return s+(parseFloat(String(tx.amount||'0').replace('+',''))||0);},0) + unrealized;
       const lifetime = netPnl;
 
-      /* per-day calendar data (current month) */
-      const calData = {};
+      /* per-day calendar data (current month)
+         [vx5-FIX-CAL] ใช้ _fpnlGetCalData helper แทน inline loop
+         เพื่อให้ logic เหมือนกับตอน navigate เดือน prev/next */
       const calYear = today.getFullYear(), calMon = today.getMonth() + 1;
-      allTx.forEach(tx => {
-        if (tx.type !== 'Realized PNL') return;
-        if ((tx.symbol||'') === 'Earn') return;
-        const d = new Date(tx.ts||0);
-        if (d.getFullYear()!==calYear || d.getMonth()+1!==calMon) return;
-        const day = d.getDate();
-        calData[day] = (calData[day]||0) + (parseFloat(String(tx.amount||'0').replace('+',''))||0);
-      });
+      const calData = _fpnlGetCalData(calYear, calMon);
 
       /* detail list (last 20 tx) */
       const detail = allTx
@@ -42559,6 +42562,27 @@ function futdUpdateCandleCountdown() {
     const cpEl = _fEl('fpnl-cump-date'); if(cpEl) cpEl.textContent=d.cumPnl.date;
     const avEl = _fEl('fpnl-asset-big'); if(avEl){ avEl.textContent=_fFmt2(d.assetVal.val)+' USD'; avEl.className='fpnl-asset-big '+_fCol(d.assetVal.val); }
     const adEl = _fEl('fpnl-asset-date'); if(adEl) adEl.textContent=d.assetVal.date;
+  }
+
+  /* [vx5-FIX-CAL] คำนวณ calData (PNL รายวัน) สำหรับปี/เดือนที่กำหนด และ mode ที่ใช้งาน
+   *  ใช้แทนการส่ง {} เมื่อ navigate calendar เดือนก่อน/หน้า
+   *  mode='contract' → อ่านจาก HIST.transactionHistory (Realized PNL, ไม่นับ Earn)
+   *  mode='direct'   → อ่านจาก HIST.transactionHistory ก่อน (FUTD Direct ไม่มีประวัติ client-side)
+   *                    ถ้าไม่มีข้อมูล → คืน {} (Direct ประวัติเก่าไม่มีใน HIST)
+   */
+  function _fpnlGetCalData(year, mon) {
+    const calData = {};
+    const allTx = (typeof HIST !== 'undefined' && HIST.transactionHistory) ? HIST.transactionHistory : [];
+    allTx.forEach(tx => {
+      if (tx.type !== 'Realized PNL') return;
+      if ((tx.symbol || '') === 'Earn') return;
+      const d = new Date(tx.ts || 0);
+      // ใช้ local time เหมือนกับที่ _fpnlExtract ใช้ (setHours(0,0,0,0) = browser local)
+      if (d.getFullYear() !== year || d.getMonth() + 1 !== mon) return;
+      const day = d.getDate();
+      calData[day] = (calData[day] || 0) + (parseFloat(String(tx.amount || '0').replace('+', '')) || 0);
+    });
+    return calData;
   }
 
   function _fpnlRenderCalendar(d) {
@@ -42819,11 +42843,13 @@ function futdUpdateCandleCountdown() {
     const calNext = _fEl('fpnl-cal-next');
     if (calPrev) calPrev.addEventListener('click', () => {
       _fpnlCalMon--; if (_fpnlCalMon < 1) { _fpnlCalMon = 12; _fpnlCalYear--; }
-      _fpnlBuildCal({});
+      // [vx5-FIX-CAL] คำนวณ calData จาก HIST สำหรับเดือนที่เลือก แทนการส่ง {}
+      _fpnlBuildCal(_fpnlGetCalData(_fpnlCalYear, _fpnlCalMon));
     });
     if (calNext) calNext.addEventListener('click', () => {
       _fpnlCalMon++; if (_fpnlCalMon > 12) { _fpnlCalMon = 1; _fpnlCalYear++; }
-      _fpnlBuildCal({});
+      // [vx5-FIX-CAL] คำนวณ calData จาก HIST สำหรับเดือนที่เลือก แทนการส่ง {}
+      _fpnlBuildCal(_fpnlGetCalData(_fpnlCalYear, _fpnlCalMon));
     });
 
     /* Back button / swipe: also support Android back */

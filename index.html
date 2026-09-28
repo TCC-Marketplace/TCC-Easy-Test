@@ -31558,29 +31558,15 @@ function _mergeIntoHIST(key, rows) {
   const existing = new Set((HIST[key] || []).map(r => r.id));
   let newRows = enriched.filter(r => !existing.has(r.id));
 
-  // [v13.2 FIX] normalize transactionHistory rows จาก GAS:
-  // - amount อาจมาเป็น string "+300.00000000" หรือ number → ให้ normalize เป็น string มี sign
-  // - time อาจมาเป็น ISO string → convert เป็น "YYYY-MM-DD HH:MM:SS"
-  // - ts อาจไม่มี → ใช้ Date.parse(created_at) หรือ Date.now()
-  if (key === 'transactionHistory') {
-    newRows = newRows.map(r => {
-      let amt = String(r.amount || '0');
-      if (amt && !amt.startsWith('+') && !amt.startsWith('-') && parseFloat(amt) >= 0) {
-        amt = '+' + amt;
-      }
-      let timeStr = r.time || r.created_at || '';
-      if (timeStr && timeStr.includes('T')) {
-        // ISO → "YYYY-MM-DD HH:MM:SS"
-        timeStr = timeStr.replace('T', ' ').slice(0, 19);
-      }
-      const ts = r.ts || (timeStr ? Date.parse(timeStr) : Date.now());
-      return { ...r, amount: amt, time: timeStr, ts };
-    });
-  }
-
   // [FIX history-render] raw GAS rows ขาด field ที่ UI template ต้องใช้
   // (coin, time, dirClass, mode, opened/closed, avgEntry/avgClose ฯลฯ)
   // → ต้อง map เป็น UI shape ก่อน merge ไม่งั้น render จะ error และว่างเปล่า
+  // [vx5-FIX-TS-DOUBLE-MAP] ลบ v13.2 normalize block ออก เพราะ _mapGasTransaction จัดการ
+  // amount/time/ts ครบแล้ว การ normalize 2 รอบทำให้ ts ถูก overwrite
+  // (normalize block ใช้ r.time หรือ r.created_at สำหรับ ts,
+  //  แต่ _mapGasTransaction ใช้ r.created_at เท่านั้น → row จาก LS cache
+  //  ที่มี time แต่ไม่มี created_at จะได้ ts = Date.now() ผิด
+  //  → Calendar แสดงทุก entry รวมอยู่วันนี้ วันอื่นว่างเปล่า)
   if (key === 'positionHistory') {
     newRows = newRows.map(_mapGasPositionHistory);
   } else if (key === 'tradeHistory') {
@@ -31593,7 +31579,8 @@ function _mergeIntoHIST(key, rows) {
     newRows = newRows.map(_mapGasOrderHistory);
   } else if (key === 'transactionHistory') {
     // [v9.1] map GAS raw rows → UI shape (เพิ่ม time/ts/type field)
-    newRows = newRows.map(_mapGasTransaction);
+    // [vx5-FIX-TS] _mapGasTransaction: ถ้าไม่มี created_at ให้ fallback ไป r.time ก่อน Date.now()
+    newRows = newRows.map(r => _mapGasTransaction({ ...r, created_at: r.created_at || r.time || null }));
   // [v2.63-HEDGE] Futures-Direct mappers
   } else if (key === 'futdPositionHistory') {
     newRows = newRows.map(_mapGasFutdPositionHistory);
@@ -42481,9 +42468,11 @@ function futdUpdateCandleCountdown() {
 
       /* per-day calendar data (current month)
          [vx5-FIX-CAL] ใช้ _fpnlGetCalData helper แทน inline loop
-         เพื่อให้ logic เหมือนกับตอน navigate เดือน prev/next */
+         เพื่อให้ logic เหมือนกับตอน navigate เดือน prev/next
+         [vx5-FIX-CAL-MODE] ส่ง 'contract' เป็น modeOverride ชัดเจน
+         ป้องกัน _fpnlMode ถูกอ่านผิดถ้ามี async call หรือ re-render จาก path อื่น */
       const calYear = today.getFullYear(), calMon = today.getMonth() + 1;
-      const calData = _fpnlGetCalData(calYear, calMon);
+      const calData = _fpnlGetCalData(calYear, calMon, 'contract');
 
       /* detail list (last 20 tx) */
       const detail = allTx

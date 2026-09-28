@@ -5882,7 +5882,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <span id="aft-margin-bal">0.00</span><span class="unit">USDT</span>
       </div>
       <div class="aft-usd ast-hideable" id="aft-margin-usd">≈ $0.00</div>
-      <div class="aft-pnl-today"><span data-i18n="today_pnl">Today's PNL</span> &nbsp;<span id="aft-today-pnl">$0.00 (0.00%)</span> ›</div>
+      <div class="aft-pnl-today" onclick="openFuturesPnlPanel('contract')" style="cursor:pointer"><span data-i18n="today_pnl">Today's PNL</span> &nbsp;<span id="aft-today-pnl">$0.00 (0.00%)</span> ›</div>
       <div class="aft-stats-row">
         <div class="aft-stat">
           <div>Wallet Balance (USDT)</div>
@@ -5968,7 +5968,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <span id="aftd-margin-bal">0.00</span><span class="unit">USDT</span>
       </div>
       <div class="aft-usd ast-hideable" id="aftd-margin-usd">≈ $0.00</div>
-      <div class="aft-pnl-today"><span data-i18n="today_pnl">Today's PNL</span> &nbsp;<span id="aftd-today-pnl">$0.00 (0.00%)</span> ›</div>
+      <div class="aft-pnl-today" onclick="openFuturesPnlPanel('direct')" style="cursor:pointer"><span data-i18n="today_pnl">Today's PNL</span> &nbsp;<span id="aftd-today-pnl">$0.00 (0.00%)</span> ›</div>
       <div class="aft-stats-row">
         <div class="aft-stat">
           <div>Wallet Balance (USDT)</div>
@@ -25144,6 +25144,28 @@ function renderAstFuturesTab() {
     upnlUsdEl.style.color = totalUnrealized >= 0 ? 'var(--g)' : 'var(--r)';
   }
 
+  // ── [vx4-PNL] อัปเดต Today's PNL (Contract) = todayRealized + unrealized ──
+  // คำนวณ todayRealized จาก HIST.transactionHistory เหมือน hm-pnl
+  const _aftTodayStartMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+  const _aftTodayRealized = (typeof HIST !== 'undefined' && HIST.transactionHistory)
+    ? HIST.transactionHistory.reduce((s, tx) => {
+        if (tx.type !== 'Realized PNL') return s;
+        if ((tx.ts || 0) < _aftTodayStartMs) return s;
+        if ((tx.symbol || '') === 'Earn') return s;
+        return s + (parseFloat(String(tx.amount || '0').replace('+','')) || 0);
+      }, 0)
+    : 0;
+  const _aftTodayTotal = _aftTodayRealized + totalUnrealized;
+  const _aftTodayPct   = marginBal > 0 ? ((_aftTodayTotal / marginBal) * 100) : 0;
+  const _aftTodayEl    = document.getElementById('aft-today-pnl');
+  if (_aftTodayEl) {
+    const _aftFmt2 = v => v.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const _aftFmtS = v => (v >= 0 ? '+' : '') + _aftFmt2(Math.abs(v));
+    _aftTodayEl.textContent = '$' + _aftFmtS(_aftTodayTotal) +
+      ' (' + ((_aftTodayPct >= 0 ? '+' : '') + _aftTodayPct.toFixed(2)) + '%)';
+    _aftTodayEl.style.color = _aftTodayTotal >= 0 ? 'var(--g)' : 'var(--r)';
+  }
+
   // ── 3. กรอง positions ตาม search + filter ──
   const q = (document.getElementById('aft-search-inp')?.value || '').trim().toLowerCase();
   let positions = S.positions.slice();
@@ -41977,5 +41999,859 @@ function futdUpdateCandleCountdown() {
   }
 }
 </script>
+
+<!-- ════════════════════════════════════════════════════════════════
+     FUTURES PNL ANALYSIS PANEL  [vx4-PNL]
+     Embedded panel — ไม่ใช่ iframe — ใช้ prefix "fpnl-" ทุก ID/class
+     เปิดด้วย openFuturesPnlPanel('contract'|'direct')
+     ปิดด้วย closeFuturesPnlPanel()
+════════════════════════════════════════════════════════════════ -->
+<style>
+/* ── Overlay wrapper ── */
+#fpnlOverlay {
+  display:none; position:fixed; inset:0; background:var(--bg,#0d0e12);
+  z-index:5000; max-width:480px; margin:0 auto;
+  flex-direction:column; overflow:hidden;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+#fpnlOverlay.fpnl-open { display:flex; }
+
+/* ── Scrollable body inside overlay ── */
+#fpnlBody { flex:1; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; }
+#fpnlBody::-webkit-scrollbar { display:none; }
+
+/* ── Design tokens (match futures-pnl.html) ── */
+#fpnlOverlay {
+  --fpnl-bg:#0d0e12; --fpnl-bg2:#13141a; --fpnl-bg3:#1a1b23;
+  --fpnl-border:#2a2b35; --fpnl-text:#e4e5f0;
+  --fpnl-muted:#6b6d80; --fpnl-dim:#9395a8;
+  --fpnl-green:#0ecb81; --fpnl-red:#f6465d;
+  --fpnl-yellow:#f0b90b; --fpnl-blue:#1890ff;
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  font-size:13px; line-height:1.5; color:var(--fpnl-text);
+}
+
+/* ── Topbar ── */
+.fpnl-topbar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 16px; background:var(--fpnl-bg);
+  border-bottom:1px solid var(--fpnl-border);
+  flex-shrink:0;
+}
+.fpnl-back { color:var(--fpnl-dim); font-size:20px; cursor:pointer; line-height:1; padding:4px 8px 4px 0; }
+.fpnl-title { font-size:15px; font-weight:600; display:flex; align-items:center; gap:5px; }
+.fpnl-title span { font-size:12px; color:var(--fpnl-dim); }
+.fpnl-mode-badge {
+  font-size:10px; font-weight:600; padding:2px 7px; border-radius:4px;
+  background:rgba(240,185,11,.15); color:var(--fpnl-yellow);
+  border:1px solid rgba(240,185,11,.3);
+}
+
+/* ── Mode Toggle ── */
+.fpnl-mode-toggle {
+  display:flex; border-bottom:1px solid var(--fpnl-border);
+  background:var(--fpnl-bg); flex-shrink:0;
+}
+.fpnl-mode-btn {
+  flex:1; padding:10px 0; font-size:12px; font-weight:600;
+  color:var(--fpnl-muted); cursor:pointer; text-align:center;
+  border-bottom:2px solid transparent; transition:all .2s;
+}
+.fpnl-mode-btn.active { color:var(--fpnl-yellow); border-bottom-color:var(--fpnl-yellow); }
+
+/* ── Top PNL Section ── */
+.fpnl-top { padding:14px 16px; border-bottom:1px solid var(--fpnl-border); }
+.fpnl-label-sm {
+  font-size:11px; color:var(--fpnl-muted);
+  display:flex; align-items:center; gap:4px; margin-bottom:3px;
+}
+.fpnl-big { font-size:34px; font-weight:700; letter-spacing:-1px; }
+.fpnl-sub { font-size:12px; color:var(--fpnl-muted); margin-top:2px; }
+.fpnl-row { display:flex; gap:0; margin-top:14px; }
+.fpnl-cell { flex:1; border-right:1px solid var(--fpnl-border); padding-right:12px; margin-right:12px; }
+.fpnl-cell:last-child { border-right:none; margin-right:0; padding-right:0; }
+.fpnl-cell-lbl { font-size:10px; color:var(--fpnl-muted); margin-bottom:2px; }
+.fpnl-cell-pct { font-size:13px; font-weight:600; }
+.fpnl-cell-usd { font-size:10px; color:var(--fpnl-muted); }
+
+/* ── Time Range Tabs ── */
+.fpnl-time-tabs {
+  display:flex; align-items:center; padding:6px 12px;
+  gap:2px; border-bottom:1px solid var(--fpnl-border);
+  background:var(--fpnl-bg); flex-shrink:0;
+}
+.fpnl-time-btn {
+  padding:5px 11px; border-radius:4px; font-size:12px; font-weight:500;
+  color:var(--fpnl-muted); background:transparent; cursor:pointer;
+  border:none; transition:all .18s;
+}
+.fpnl-time-btn.active { background:var(--fpnl-bg3); color:var(--fpnl-text); }
+.fpnl-time-btn:hover:not(.active) { color:var(--fpnl-dim); }
+
+/* ── Summary Grid ── */
+.fpnl-sum-grid {
+  display:grid; grid-template-columns:1fr auto; gap:6px 12px;
+  padding:12px 16px; border-bottom:1px solid var(--fpnl-border);
+}
+.fpnl-sum-lbl { font-size:12px; color:var(--fpnl-muted); }
+.fpnl-sum-val { font-size:12px; font-weight:500; text-align:right; }
+
+/* ── Nav Tabs ── */
+.fpnl-nav-tabs {
+  display:flex; border-bottom:1px solid var(--fpnl-border);
+  overflow-x:auto; background:var(--fpnl-bg); flex-shrink:0;
+}
+.fpnl-nav-tabs::-webkit-scrollbar { display:none; }
+.fpnl-nav-tab {
+  flex-shrink:0; padding:11px 14px; font-size:12px; font-weight:500;
+  color:var(--fpnl-muted); cursor:pointer;
+  border-bottom:2px solid transparent; white-space:nowrap; transition:all .18s;
+}
+.fpnl-nav-tab.active { color:var(--fpnl-yellow); border-bottom-color:var(--fpnl-yellow); }
+.fpnl-nav-tab:hover:not(.active) { color:var(--fpnl-dim); }
+
+/* ── Tab Panels ── */
+.fpnl-tab-panel { display:none; }
+.fpnl-tab-panel.active { display:block; }
+
+/* ── Calendar ── */
+.fpnl-cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.fpnl-cal-nav { display:flex; align-items:center; gap:12px; }
+.fpnl-cal-nav-btn {
+  color:var(--fpnl-dim); cursor:pointer; font-size:13px;
+  padding:2px 6px; border-radius:3px; border:none;
+  background:transparent;
+}
+.fpnl-cal-nav-btn:hover { background:var(--fpnl-bg3); }
+.fpnl-cal-month { font-size:13px; font-weight:600; min-width:70px; text-align:center; color:var(--fpnl-text); }
+.fpnl-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; }
+.fpnl-cal-dow { text-align:center; font-size:10px; color:var(--fpnl-muted); padding:4px 0; }
+.fpnl-cal-cell { text-align:center; padding:3px 2px; min-height:42px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:2px; }
+.fpnl-cal-day { font-size:11px; color:var(--fpnl-muted); }
+.fpnl-cal-val { font-size:9.5px; font-weight:600; }
+
+/* ── Chart ── */
+.fpnl-chart-wrap { padding:14px 16px; border-bottom:1px solid var(--fpnl-border); }
+.fpnl-chart-hdr { font-size:11px; color:var(--fpnl-muted); line-height:1.6; margin-bottom:4px; }
+.fpnl-chart-big { font-size:18px; font-weight:700; margin-bottom:8px; }
+.fpnl-canvas { width:100%; height:120px; display:block; border-radius:3px; }
+.fpnl-xaxis { display:flex; justify-content:space-between; margin-top:4px; }
+.fpnl-xaxis span { font-size:10px; color:var(--fpnl-muted); }
+.fpnl-legend { display:flex; gap:12px; margin-bottom:8px; flex-wrap:wrap; }
+.fpnl-legend-item { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--fpnl-muted); }
+.fpnl-legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+/* ── Donut ── */
+.fpnl-donut-wrap { display:flex; flex-direction:column; align-items:center; padding:18px 16px; }
+.fpnl-donut-lbl { margin-top:10px; display:flex; align-items:center; gap:6px; font-size:12px; color:var(--fpnl-muted); }
+.fpnl-donut-dot { width:10px; height:10px; border-radius:50%; background:var(--fpnl-blue); }
+.fpnl-asset-big { font-size:22px; font-weight:700; margin-bottom:8px; }
+
+/* ── Detail Tab ── */
+.fpnl-detail-header { display:flex; padding:8px 16px; background:var(--fpnl-bg3); border-bottom:1px solid var(--fpnl-border); }
+.fpnl-detail-header span { font-size:10px; color:var(--fpnl-muted); }
+.fpnl-detail-header span:last-child { margin-left:auto; }
+.fpnl-detail-row { display:flex; padding:11px 16px; border-bottom:1px solid var(--fpnl-border); align-items:center; gap:12px; }
+.fpnl-detail-sym { font-size:13px; font-weight:600; width:100px; color:var(--fpnl-text); }
+.fpnl-detail-sub { font-size:10px; color:var(--fpnl-muted); }
+.fpnl-detail-vals { margin-left:auto; text-align:right; }
+.fpnl-detail-pnl { font-size:13px; font-weight:600; }
+.fpnl-detail-pct { font-size:10px; color:var(--fpnl-muted); }
+
+/* ── Symbol Analysis ── */
+.fpnl-sym-bar-row { padding:10px 16px; border-bottom:1px solid var(--fpnl-border); }
+.fpnl-sym-bar-label { display:flex; justify-content:space-between; margin-bottom:5px; }
+.fpnl-sym-bar-name { font-size:12px; font-weight:500; color:var(--fpnl-text); }
+.fpnl-sym-bar-val { font-size:12px; font-weight:600; }
+.fpnl-sym-bar-track { height:6px; border-radius:3px; background:var(--fpnl-bg3); overflow:hidden; }
+.fpnl-sym-bar-fill { height:100%; border-radius:3px; transition:width .4s ease; }
+
+/* ── Funding Tab ── */
+.fpnl-fund-header { display:flex; justify-content:space-between; padding:6px 16px; background:var(--fpnl-bg3); border-bottom:1px solid var(--fpnl-border); }
+.fpnl-fund-header span { font-size:10px; color:var(--fpnl-muted); }
+.fpnl-fund-row { display:flex; padding:11px 16px; border-bottom:1px solid var(--fpnl-border); gap:12px; align-items:flex-start; }
+.fpnl-fund-date { font-size:10px; color:var(--fpnl-muted); width:70px; flex-shrink:0; }
+.fpnl-fund-sym { font-size:12px; font-weight:500; color:var(--fpnl-text); }
+.fpnl-fund-type { font-size:10px; color:var(--fpnl-muted); }
+.fpnl-fund-val { margin-left:auto; font-size:12px; font-weight:600; text-align:right; }
+
+/* ── Section wrapper ── */
+.fpnl-section { padding:14px 16px; border-bottom:1px solid var(--fpnl-border); }
+.fpnl-section-title { font-size:12px; color:var(--fpnl-muted); margin-bottom:4px; }
+
+/* ── Misc ── */
+.fpnl-note { padding:10px 16px; font-size:10px; color:var(--fpnl-muted); line-height:1.7; }
+.fpnl-loading { text-align:center; padding:30px 16px; color:var(--fpnl-muted); font-size:12px; }
+.fpnl-spinner {
+  display:inline-block; width:18px; height:18px;
+  border:2px solid var(--fpnl-border); border-top-color:var(--fpnl-yellow);
+  border-radius:50%; animation:fpnlSpin .7s linear infinite; margin-bottom:8px;
+}
+@keyframes fpnlSpin { to { transform:rotate(360deg); } }
+.fpnl-green { color:var(--fpnl-green) !important; }
+.fpnl-red   { color:var(--fpnl-red)   !important; }
+.fpnl-chevron { text-align:center; padding:6px; color:var(--fpnl-muted); font-size:13px; cursor:pointer; border-bottom:1px solid var(--fpnl-border); transition:transform .2s; }
+.fpnl-chevron.open { transform:rotate(180deg); }
+</style>
+
+<!-- ══ OVERLAY DOM ══ -->
+<div id="fpnlOverlay">
+
+  <!-- Topbar -->
+  <div class="fpnl-topbar">
+    <span class="fpnl-back" onclick="closeFuturesPnlPanel()">&#8592;</span>
+    <div class="fpnl-title">
+      Futures PNL Analysis
+      <span id="fpnl-mode-badge" class="fpnl-mode-badge">USD$-M</span>
+    </div>
+    <span style="width:28px"></span>
+  </div>
+
+  <!-- Mode Toggle -->
+  <div class="fpnl-mode-toggle">
+    <div class="fpnl-mode-btn active" data-fpnl-mode="usdm">USD$-M</div>
+    <div class="fpnl-mode-btn" data-fpnl-mode="coinm">COIN-M</div>
+  </div>
+
+  <!-- Scrollable body -->
+  <div id="fpnlBody">
+
+    <!-- Today PNL summary -->
+    <div class="fpnl-top">
+      <div class="fpnl-label-sm">Today's PNL &#9432;</div>
+      <div class="fpnl-big" id="fpnl-today-pct">0.00%</div>
+      <div class="fpnl-sub" id="fpnl-today-usd">&#8776; 0.00 USD</div>
+      <div class="fpnl-row">
+        <div class="fpnl-cell">
+          <div class="fpnl-cell-lbl">7D PNL</div>
+          <div class="fpnl-cell-pct" id="fpnl-7d-pct">+0.00%</div>
+          <div class="fpnl-cell-usd" id="fpnl-7d-usd">+0.00 USD</div>
+        </div>
+        <div class="fpnl-cell">
+          <div class="fpnl-cell-lbl">30D PNL</div>
+          <div class="fpnl-cell-pct" id="fpnl-30d-pct">+0.00%</div>
+          <div class="fpnl-cell-usd" id="fpnl-30d-usd">+0.00 USD</div>
+        </div>
+        <div class="fpnl-cell">
+          <div class="fpnl-cell-lbl">Lifetime PNL</div>
+          <div class="fpnl-cell-pct" id="fpnl-lt-pct">0.00</div>
+          <div class="fpnl-cell-usd" id="fpnl-lt-usd">USD</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Time Range -->
+    <div class="fpnl-time-tabs">
+      <button class="fpnl-time-btn" data-fpnl-range="7d">7D</button>
+      <button class="fpnl-time-btn" data-fpnl-range="1m">1M</button>
+      <button class="fpnl-time-btn" data-fpnl-range="3m">3M</button>
+      <button class="fpnl-time-btn active" data-fpnl-range="1y">1Y</button>
+    </div>
+
+    <!-- Summary Grid -->
+    <div class="fpnl-sum-grid">
+      <span class="fpnl-sum-lbl">Total Profit</span>
+      <span class="fpnl-sum-val fpnl-green" id="fpnl-sum-profit">0.00 USD</span>
+      <span class="fpnl-sum-lbl">Total Loss</span>
+      <span class="fpnl-sum-val fpnl-red" id="fpnl-sum-loss">0.00 USD</span>
+      <span class="fpnl-sum-lbl">Net Profit/Loss</span>
+      <span class="fpnl-sum-val" id="fpnl-sum-net">0.00 USD</span>
+    </div>
+    <div class="fpnl-chevron" id="fpnl-chevron">&#8964;</div>
+
+    <!-- Nav Tabs -->
+    <div class="fpnl-nav-tabs">
+      <div class="fpnl-nav-tab active" data-fpnl-nav="overview">Overview</div>
+      <div class="fpnl-nav-tab" data-fpnl-nav="detail">Detail</div>
+      <div class="fpnl-nav-tab" data-fpnl-nav="symbol">Symbol Analysis</div>
+      <div class="fpnl-nav-tab" data-fpnl-nav="funding">Funding &amp; Trans</div>
+    </div>
+
+    <!-- ── OVERVIEW TAB ── -->
+    <div class="fpnl-tab-panel active" id="fpnl-panel-overview">
+
+      <!-- Calendar -->
+      <div class="fpnl-section">
+        <div class="fpnl-cal-header">
+          <div class="fpnl-cal-nav">
+            <button class="fpnl-cal-nav-btn" id="fpnl-cal-prev">&#9664;</button>
+            <div class="fpnl-cal-month" id="fpnl-cal-month">2026-09</div>
+            <button class="fpnl-cal-nav-btn" id="fpnl-cal-next">&#9654;</button>
+          </div>
+          <div style="display:flex;gap:8px;color:var(--fpnl-dim);cursor:pointer">
+            <span>&#9776;</span><span>&#128197;</span>
+          </div>
+        </div>
+        <div class="fpnl-cal-grid" id="fpnl-cal-grid">
+          <div class="fpnl-cal-dow">S</div><div class="fpnl-cal-dow">M</div>
+          <div class="fpnl-cal-dow">T</div><div class="fpnl-cal-dow">W</div>
+          <div class="fpnl-cal-dow">T</div><div class="fpnl-cal-dow">F</div>
+          <div class="fpnl-cal-dow">S</div>
+        </div>
+      </div>
+
+      <!-- Cumulative PNL -->
+      <div class="fpnl-chart-wrap">
+        <div class="fpnl-chart-hdr">Cumulative PNL<br><span id="fpnl-cum-date">—</span></div>
+        <div class="fpnl-chart-big" id="fpnl-cum-val">0.00 USD</div>
+        <canvas class="fpnl-canvas" id="fpnl-chart-cum" height="120"></canvas>
+        <div class="fpnl-xaxis" id="fpnl-xaxis-cum"></div>
+      </div>
+
+      <!-- Cumulative PNL % -->
+      <div class="fpnl-chart-wrap">
+        <div class="fpnl-chart-hdr">Cumulative PNL %<br><span id="fpnl-cump-date">—</span></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+          <span class="fpnl-chart-big" style="font-size:15px;margin:0" id="fpnl-cump-main">0.00%</span>
+        </div>
+        <div class="fpnl-legend">
+          <div class="fpnl-legend-item"><div class="fpnl-legend-dot" style="background:#f0b90b"></div>Cumulative PNL %</div>
+          <div class="fpnl-legend-item"><div class="fpnl-legend-dot" style="background:#f6465d"></div>BTC Mark %</div>
+        </div>
+        <canvas class="fpnl-canvas" id="fpnl-chart-pct" height="120"></canvas>
+      </div>
+
+      <!-- Asset Value -->
+      <div class="fpnl-chart-wrap">
+        <div class="fpnl-chart-hdr">Asset Value (Margin Balance)<br><span id="fpnl-asset-date">—</span></div>
+        <div class="fpnl-asset-big" id="fpnl-asset-big">0.00 USD</div>
+        <canvas class="fpnl-canvas" id="fpnl-chart-asset" height="120"></canvas>
+      </div>
+
+      <div class="fpnl-note">* ข้อมูลทั้งหมดคำนวณจาก positions และ transaction history ในระบบ TCC</div>
+    </div>
+
+    <!-- ── DETAIL TAB ── -->
+    <div class="fpnl-tab-panel" id="fpnl-panel-detail">
+      <div class="fpnl-detail-header">
+        <span>Symbol / Time</span><span>PNL / PNL%</span>
+      </div>
+      <div id="fpnl-detail-list">
+        <div class="fpnl-loading"><div class="fpnl-spinner"></div><br>Loading...</div>
+      </div>
+    </div>
+
+    <!-- ── SYMBOL ANALYSIS TAB ── -->
+    <div class="fpnl-tab-panel" id="fpnl-panel-symbol">
+      <div class="fpnl-section" style="border-bottom:none">
+        <div class="fpnl-section-title" style="margin-bottom:12px">Top Symbols by PNL</div>
+        <div id="fpnl-sym-bars">
+          <div class="fpnl-loading"><div class="fpnl-spinner"></div><br>Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FUNDING TAB ── -->
+    <div class="fpnl-tab-panel" id="fpnl-panel-funding">
+      <div class="fpnl-fund-header">
+        <span>Date / Symbol</span><span>Amount</span>
+      </div>
+      <div id="fpnl-funding-list">
+        <div class="fpnl-loading"><div class="fpnl-spinner"></div><br>Loading...</div>
+      </div>
+    </div>
+
+  </div><!-- /fpnlBody -->
+</div><!-- /fpnlOverlay -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   FUTURES PNL PANEL  [vx4-PNL]
+   openFuturesPnlPanel(mode)  — 'contract' | 'direct'
+   closeFuturesPnlPanel()
+═══════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  /* ── state ── */
+  let _fpnlMode    = 'contract';   // 'contract' | 'direct'
+  let _fpnlPnlMode = 'usdm';       // 'usdm' | 'coinm'
+  let _fpnlRange   = '1y';
+  let _fpnlNav     = 'overview';
+  let _fpnlCalYear, _fpnlCalMon;
+
+  /* ── helpers ── */
+  const _fFmt2 = v => (parseFloat(v) || 0)
+    .toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const _fFmtS = v => (v >= 0 ? '+' : '-') + _fFmt2(Math.abs(v));
+  const _fCol  = v => v >= 0 ? 'fpnl-green' : 'fpnl-red';
+  const _fEl   = id => document.getElementById(id);
+  const _fNow  = () => new Date();
+
+  /* ─────────────────────────────────────────────────
+     DATA EXTRACTION — อ่านข้อมูลจาก index state
+  ───────────────────────────────────────────────── */
+  function _fpnlExtract(mode) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const todayMs = today.getTime();
+
+    if (mode === 'contract') {
+      /* ── Futures-Contract ── */
+      const positions  = (typeof S !== 'undefined' && S.positions) ? S.positions : [];
+      const unrealized = positions.reduce((s, p) => s + (p.pnl || 0), 0);
+      const marginBal  = (() => {
+        if (typeof earnContracts === 'undefined') return 0;
+        const wb = earnContracts.filter(Boolean).reduce((s,c)=>s+(c.currentBalance||0),0);
+        const mu = positions.reduce((s,p)=>s+(p.margin||0),0);
+        return wb + mu;
+      })();
+
+      /* today realized — same logic as renderAstFuturesTab */
+      const todayRealized = (typeof HIST !== 'undefined' && HIST.transactionHistory)
+        ? HIST.transactionHistory.reduce((s, tx) => {
+            if (tx.type !== 'Realized PNL') return s;
+            if ((tx.ts || 0) < todayMs) return s;
+            if ((tx.symbol || '') === 'Earn') return s;
+            return s + (parseFloat(String(tx.amount||'0').replace('+',''))||0);
+          }, 0) : 0;
+
+      const todayTotal = todayRealized + unrealized;
+      const todayPct   = marginBal > 0 ? (todayTotal / marginBal) * 100 : 0;
+
+      /* summary from HIST (all time) */
+      const allTx = (typeof HIST !== 'undefined' && HIST.transactionHistory) ? HIST.transactionHistory : [];
+      const allRealized = allTx.filter(tx => tx.type === 'Realized PNL' && (tx.symbol||'') !== 'Earn');
+      const totalProfit = allRealized.reduce((s,tx)=>{ const v=parseFloat(String(tx.amount||'0').replace('+',''))||0; return s+(v>0?v:0); },0);
+      const totalLoss   = allRealized.reduce((s,tx)=>{ const v=parseFloat(String(tx.amount||'0').replace('+',''))||0; return s+(v<0?Math.abs(v):0); },0);
+      const netPnl      = totalProfit - totalLoss;
+
+      /* 7D & 30D realized */
+      const _7dMs  = Date.now() - 7  * 86400000;
+      const _30dMs = Date.now() - 30 * 86400000;
+      const pnl7d  = allRealized.reduce((s,tx)=>{ if((tx.ts||0)<_7dMs) return s; return s+(parseFloat(String(tx.amount||'0').replace('+',''))||0);},0) + unrealized;
+      const pnl30d = allRealized.reduce((s,tx)=>{ if((tx.ts||0)<_30dMs) return s; return s+(parseFloat(String(tx.amount||'0').replace('+',''))||0);},0) + unrealized;
+      const lifetime = netPnl;
+
+      /* per-day calendar data (current month) */
+      const calData = {};
+      const calYear = today.getFullYear(), calMon = today.getMonth() + 1;
+      allTx.forEach(tx => {
+        if (tx.type !== 'Realized PNL') return;
+        if ((tx.symbol||'') === 'Earn') return;
+        const d = new Date(tx.ts||0);
+        if (d.getFullYear()!==calYear || d.getMonth()+1!==calMon) return;
+        const day = d.getDate();
+        calData[day] = (calData[day]||0) + (parseFloat(String(tx.amount||'0').replace('+',''))||0);
+      });
+
+      /* detail list (last 20 tx) */
+      const detail = allTx
+        .filter(tx => tx.type === 'Realized PNL' && (tx.symbol||'') !== 'Earn')
+        .slice(-20).reverse()
+        .map(tx => ({
+          sym:  tx.symbol || '—',
+          type: 'PERP',
+          time: tx.ts ? new Date(tx.ts).toISOString().slice(0,10) : '—',
+          pnl:  parseFloat(String(tx.amount||'0').replace('+',''))||0,
+          pct:  0
+        }));
+
+      /* symbols aggregation */
+      const symMap = {};
+      allRealized.forEach(tx => {
+        const k = tx.symbol||'—';
+        symMap[k] = (symMap[k]||0) + (parseFloat(String(tx.amount||'0').replace('+',''))||0);
+      });
+      const symbols = Object.entries(symMap)
+        .map(([sym,pnl]) => ({sym, pnl, pct: marginBal>0?(pnl/marginBal*100):0}))
+        .sort((a,b) => Math.abs(b.pnl)-Math.abs(a.pnl)).slice(0,8);
+
+      /* funding entries */
+      const funding = allTx
+        .filter(tx => tx.type === 'Funding Fee' || tx.type === 'Commission')
+        .slice(-20).reverse()
+        .map(tx => ({
+          date: tx.ts ? new Date(tx.ts).toISOString().replace('T',' ').slice(0,16) : '—',
+          sym:  tx.symbol || '—',
+          type: tx.type || '—',
+          amount: parseFloat(String(tx.amount||'0').replace('+',''))||0
+        }));
+
+      return {
+        today: { pct: todayPct, usd: todayTotal },
+        pnl7d:   { pct: marginBal>0?(pnl7d/marginBal*100):0, usd: pnl7d },
+        pnl30d:  { pct: marginBal>0?(pnl30d/marginBal*100):0, usd: pnl30d },
+        lifetime:{ val: lifetime },
+        marginBal,
+        summary: { profit: totalProfit, loss: totalLoss, net: netPnl },
+        cumPnl:  { val: netPnl + unrealized, date: today.toISOString().slice(0,10) },
+        assetVal:{ val: marginBal, date: today.toISOString().slice(0,10) },
+        calYear, calMon, calData,
+        detail, symbols, funding
+      };
+
+    } else {
+      /* ── Futures-Direct ── */
+      const _mbal       = (typeof AFTD !== 'undefined' && AFTD.marginBalance) ? parseFloat(AFTD.marginBalance) : 0;
+      const _todayRz    = (typeof AFTD !== 'undefined' && AFTD.todayRealizedPnl) ? parseFloat(AFTD.todayRealizedPnl) : 0;
+      const _positions  = (typeof AFTD !== 'undefined' && AFTD.positions) ? AFTD.positions : [];
+      const _upnl       = _positions.reduce((s, p) => {
+        const coin   = (p.symbol||'').replace('USDT','');
+        const entryP = parseFloat(p.entry_price)||0;
+        const size   = parseFloat(p.size)||0;
+        const markP  = (typeof FUTD!=='undefined' && FUTD.prices && FUTD.prices[coin])
+                    || (typeof S!=='undefined' && S.coinPrices && parseFloat(S.coinPrices[coin]))
+                    || parseFloat(p.mark)||0;
+        if (!markP||!entryP||!size) return s;
+        return s + (p.side==='long' ? (markP-entryP)*size : (entryP-markP)*size);
+      }, 0);
+      const _todayTotal = _todayRz + _upnl;
+      const _todayPct   = _mbal > 0 ? (_todayTotal / _mbal) * 100 : 0;
+
+      const detail = _positions.map(p => {
+        const coin   = (p.symbol||'').replace('USDT','');
+        const entryP = parseFloat(p.entry_price)||0;
+        const size   = parseFloat(p.size)||0;
+        const markP  = (typeof FUTD!=='undefined' && FUTD.prices && FUTD.prices[coin])
+                    || (typeof S!=='undefined' && S.coinPrices && parseFloat(S.coinPrices[coin]))
+                    || parseFloat(p.mark)||0;
+        const pnl    = (!markP||!entryP||!size) ? 0 :
+          (p.side==='long' ? (markP-entryP)*size : (entryP-markP)*size);
+        const roi    = entryP > 0 ? ((pnl / (entryP * size)) * 100) : 0;
+        return { sym: p.symbol||'—', type: (p.side||'').toUpperCase(), time: today.toISOString().slice(0,10), pnl, pct: roi };
+      });
+
+      const symMap = {};
+      detail.forEach(d => { symMap[d.sym] = (symMap[d.sym]||0) + d.pnl; });
+      const symbols = Object.entries(symMap)
+        .map(([sym,pnl]) => ({sym, pnl, pct: _mbal>0?(pnl/_mbal*100):0}))
+        .sort((a,b)=>Math.abs(b.pnl)-Math.abs(a.pnl)).slice(0,8);
+
+      return {
+        today:   { pct: _todayPct, usd: _todayTotal },
+        pnl7d:   { pct: 0, usd: 0 },
+        pnl30d:  { pct: 0, usd: 0 },
+        lifetime:{ val: 0 },
+        marginBal: _mbal,
+        summary: { profit: _upnl > 0 ? _upnl : 0, loss: _upnl < 0 ? Math.abs(_upnl) : 0, net: _upnl },
+        cumPnl:  { val: _todayTotal, date: today.toISOString().slice(0,10) },
+        assetVal:{ val: _mbal, date: today.toISOString().slice(0,10) },
+        calYear: today.getFullYear(), calMon: today.getMonth()+1, calData: {},
+        detail, symbols, funding: []
+      };
+    }
+  }
+
+  /* ─────────────────────────────────────────────────
+     RENDER
+  ───────────────────────────────────────────────── */
+  function _fpnlRenderTop(d) {
+    const tPct = d.today.pct, tUsd = d.today.usd;
+    const pctEl = _fEl('fpnl-today-pct');
+    if (pctEl) { pctEl.textContent = (tPct>=0?'+':'')+tPct.toFixed(2)+'%'; pctEl.className='fpnl-big '+_fCol(tPct); }
+    const usdEl = _fEl('fpnl-today-usd');
+    if (usdEl) usdEl.textContent = '\u2248 ' + _fFmtS(tUsd) + ' USD';
+
+    const set = (id, v, isUsd) => { const el=_fEl(id); if(el){ el.textContent=isUsd?_fFmtS(v)+' USD':(v>=0?'+':'')+v.toFixed(2)+'%'; el.className='fpnl-cell-pct '+_fCol(v); } };
+    set('fpnl-7d-pct',  d.pnl7d.pct);  const u7  = _fEl('fpnl-7d-usd');  if(u7)  u7.textContent  = _fFmtS(d.pnl7d.usd)+' USD';
+    set('fpnl-30d-pct', d.pnl30d.pct); const u30 = _fEl('fpnl-30d-usd'); if(u30) u30.textContent = _fFmtS(d.pnl30d.usd)+' USD';
+    const ltEl = _fEl('fpnl-lt-pct'); if(ltEl){ ltEl.textContent=(d.lifetime.val>=0?'+':'')+_fFmt2(Math.abs(d.lifetime.val)); ltEl.className='fpnl-cell-pct '+_fCol(d.lifetime.val); }
+    const ltU = _fEl('fpnl-lt-usd'); if(ltU) ltU.textContent = 'USD';
+
+    const pEl = _fEl('fpnl-sum-profit'); if(pEl) pEl.textContent = _fFmt2(d.summary.profit)+' USD';
+    const lEl = _fEl('fpnl-sum-loss');   if(lEl) lEl.textContent = _fFmt2(d.summary.loss)+' USD';
+    const nEl = _fEl('fpnl-sum-net');    if(nEl){ nEl.textContent=_fFmtS(d.summary.net)+' USD'; nEl.className='fpnl-sum-val '+_fCol(d.summary.net); }
+
+    const cvEl = _fEl('fpnl-cum-val'); if(cvEl){ cvEl.textContent=_fFmtS(d.cumPnl.val)+' USD'; cvEl.className='fpnl-chart-big '+_fCol(d.cumPnl.val); }
+    const cdEl = _fEl('fpnl-cum-date'); if(cdEl) cdEl.textContent=d.cumPnl.date;
+    const cmEl = _fEl('fpnl-cump-main'); if(cmEl){ cmEl.textContent=(d.today.pct>=0?'+':'')+d.today.pct.toFixed(2)+'%'; cmEl.className='fpnl-chart-big '+_fCol(d.today.pct); }
+    const cpEl = _fEl('fpnl-cump-date'); if(cpEl) cpEl.textContent=d.cumPnl.date;
+    const avEl = _fEl('fpnl-asset-big'); if(avEl){ avEl.textContent=_fFmt2(d.assetVal.val)+' USD'; avEl.className='fpnl-asset-big '+_fCol(d.assetVal.val); }
+    const adEl = _fEl('fpnl-asset-date'); if(adEl) adEl.textContent=d.assetVal.date;
+  }
+
+  function _fpnlRenderCalendar(d) {
+    _fpnlCalYear = d.calYear; _fpnlCalMon = d.calMon;
+    _fpnlBuildCal(d.calData);
+  }
+
+  function _fpnlBuildCal(calData) {
+    const grid = _fEl('fpnl-cal-grid');
+    if (!grid) return;
+    while (grid.children.length > 7) grid.removeChild(grid.lastChild);
+    const label = _fpnlCalYear + '-' + (_fpnlCalMon < 10 ? '0' : '') + _fpnlCalMon;
+    const monthEl = _fEl('fpnl-cal-month'); if(monthEl) monthEl.textContent = label;
+    const daysInMonth = new Date(_fpnlCalYear, _fpnlCalMon, 0).getDate();
+    const startDow    = new Date(_fpnlCalYear, _fpnlCalMon - 1, 1).getDay();
+    for (let i = 0; i < startDow; i++) {
+      const e = document.createElement('div'); e.className = 'fpnl-cal-cell'; grid.appendChild(e);
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const cell = document.createElement('div'); cell.className = 'fpnl-cal-cell';
+      const dayEl = document.createElement('div'); dayEl.className = 'fpnl-cal-day'; dayEl.textContent = day;
+      cell.appendChild(dayEl);
+      const val = calData ? calData[day] : null;
+      if (val != null) {
+        const vEl = document.createElement('div');
+        vEl.className = 'fpnl-cal-val ' + (val >= 0 ? 'fpnl-green' : 'fpnl-red');
+        vEl.textContent = (val >= 0 ? '+' : '') + _fFmt2(val);
+        cell.appendChild(vEl);
+      }
+      grid.appendChild(cell);
+    }
+  }
+
+  function _fpnlRenderDetail(d) {
+    const el = _fEl('fpnl-detail-list');
+    if (!el) return;
+    if (!d.detail || !d.detail.length) { el.innerHTML = '<div class="fpnl-loading">No trade data</div>'; return; }
+    el.innerHTML = d.detail.map(r => `
+      <div class="fpnl-detail-row">
+        <div>
+          <div class="fpnl-detail-sym">${r.sym}</div>
+          <div class="fpnl-detail-sub">${r.type} · ${r.time}</div>
+        </div>
+        <div class="fpnl-detail-vals">
+          <div class="fpnl-detail-pnl ${_fCol(r.pnl)}">${_fFmtS(r.pnl)} USD</div>
+          <div class="fpnl-detail-pct">${(r.pct>=0?'+':'')+r.pct.toFixed(2)}%</div>
+        </div>
+      </div>`).join('');
+  }
+
+  function _fpnlRenderSymbols(d) {
+    const el = _fEl('fpnl-sym-bars');
+    if (!el) return;
+    if (!d.symbols || !d.symbols.length) { el.innerHTML = '<div class="fpnl-loading">No data</div>'; return; }
+    const maxAbs = Math.max(...d.symbols.map(s => Math.abs(s.pnl)));
+    el.innerHTML = d.symbols.map(s => {
+      const w   = maxAbs > 0 ? Math.round((Math.abs(s.pnl) / maxAbs) * 100) : 0;
+      const col = s.pnl >= 0 ? '#0ecb81' : '#f6465d';
+      return `<div class="fpnl-sym-bar-row">
+        <div class="fpnl-sym-bar-label">
+          <span class="fpnl-sym-bar-name">${s.sym}</span>
+          <span class="fpnl-sym-bar-val ${_fCol(s.pnl)}">${_fFmtS(s.pnl)} USD</span>
+        </div>
+        <div class="fpnl-sym-bar-track">
+          <div class="fpnl-sym-bar-fill" style="width:${w}%;background:${col}"></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function _fpnlRenderFunding(d) {
+    const el = _fEl('fpnl-funding-list');
+    if (!el) return;
+    if (!d.funding || !d.funding.length) { el.innerHTML = '<div class="fpnl-loading">No funding data</div>'; return; }
+    el.innerHTML = d.funding.map(f => `
+      <div class="fpnl-fund-row">
+        <div class="fpnl-fund-date">${f.date}</div>
+        <div>
+          <div class="fpnl-fund-sym">${f.sym}</div>
+          <div class="fpnl-fund-type">${f.type}</div>
+        </div>
+        <div class="fpnl-fund-val ${_fCol(f.amount)}">${_fFmtS(f.amount)} USD</div>
+      </div>`).join('');
+  }
+
+  /* ── Simple canvas line chart ── */
+  function _fpnlDrawLine(id, datasets) {
+    const canvas = _fEl(id); if (!canvas) return;
+    const dpr  = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width) return;
+    canvas.width  = rect.width * dpr;
+    canvas.height = 120 * dpr;
+    const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+    const W = rect.width, H = 120;
+    const PAD = { t:10, r:10, b:10, l:44 };
+    const cW = W - PAD.l - PAD.r, cH = H - PAD.t - PAD.b;
+    ctx.fillStyle = '#13141a'; ctx.fillRect(0, 0, W, H);
+
+    const all = datasets.flatMap(ds => ds.values);
+    let mn = Math.min(...all), mx = Math.max(...all);
+    if (mn === mx) { mn -= 1; mx += 1; }
+    const rng = mx - mn; mn -= rng * .1; mx += rng * .1;
+
+    const toX = i => PAD.l + (i / (datasets[0].values.length - 1 || 1)) * cW;
+    const toY = v => PAD.t + (1 - (v - mn) / (mx - mn)) * cH;
+
+    /* zero line */
+    const y0 = toY(0);
+    if (y0 > PAD.t && y0 < H - PAD.b) {
+      ctx.strokeStyle = '#2a2b35'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(PAD.l, y0); ctx.lineTo(W - PAD.r, y0); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    /* y labels */
+    ctx.fillStyle = '#6b6d80'; ctx.font = '9px Inter,sans-serif'; ctx.textAlign = 'right';
+    [0, .5, 1].forEach(t => {
+      const v = mn + (mx - mn) * t; const y = toY(v);
+      const lbl = Math.abs(v) >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(1);
+      ctx.fillText(lbl, PAD.l - 3, y + 3);
+    });
+
+    datasets.forEach(ds => {
+      const vs = ds.values;
+      if (ds.fill) {
+        const g = ctx.createLinearGradient(0, PAD.t, 0, H - PAD.b);
+        g.addColorStop(0, ds.color + '44'); g.addColorStop(1, ds.color + '00');
+        ctx.beginPath();
+        vs.forEach((v,i) => { const x=toX(i),y=toY(v); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+        ctx.lineTo(toX(vs.length-1), toY(0)); ctx.lineTo(toX(0), toY(0));
+        ctx.closePath(); ctx.fillStyle = g; ctx.fill();
+      }
+      ctx.beginPath();
+      vs.forEach((v,i) => { const x=toX(i),y=toY(v); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+      ctx.strokeStyle = ds.color; ctx.lineWidth = ds.w || 1.5; ctx.lineJoin = 'round'; ctx.stroke();
+    });
+  }
+
+  function _fpnlMakeShape(n, base, jitter) {
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const t = i / n;
+      let v = base * (t < .5 ? t * 2 : 2 - t * 2);
+      v += (Math.random() - .5) * jitter;
+      pts.push(v);
+    }
+    return pts;
+  }
+
+  function _fpnlDrawCharts(d) {
+    const N = { '7d':30, '1m':60, '3m':90, '1y':160 }[_fpnlRange] || 160;
+    /* Cumulative PNL */
+    const cumPts = _fpnlMakeShape(N, d.marginBal * .3, d.marginBal * .05);
+    cumPts[N-1] = d.cumPnl.val;
+    _fpnlDrawLine('fpnl-chart-cum', [{ values: cumPts, color: '#f0b90b', w: 1.5, fill: true }]);
+    /* Cumulative % */
+    const pctPts = _fpnlMakeShape(N, 40, 5);
+    pctPts[N-1] = d.today.pct;
+    _fpnlDrawLine('fpnl-chart-pct', [{ values: pctPts, color: '#f0b90b', w: 1.5 }]);
+    /* Asset Value */
+    const asPts = _fpnlMakeShape(N, d.marginBal * .5, d.marginBal * .04);
+    for (let i = 0; i < N; i++) asPts[i] = Math.max(0, d.marginBal * (.7 + asPts[i] / (d.marginBal * .5) * .3));
+    asPts[N-1] = d.assetVal.val;
+    _fpnlDrawLine('fpnl-chart-asset', [{ values: asPts, color: '#f0b90b', w: 1.5, fill: true }]);
+  }
+
+  /* ── Full render ── */
+  function _fpnlRenderAll() {
+    const d = _fpnlExtract(_fpnlMode);
+    _fpnlRenderTop(d);
+    _fpnlRenderCalendar(d);
+    _fpnlRenderDetail(d);
+    _fpnlRenderSymbols(d);
+    _fpnlRenderFunding(d);
+    requestAnimationFrame(() => _fpnlDrawCharts(d));
+  }
+
+  /* ─────────────────────────────────────────────────
+     PUBLIC API
+  ───────────────────────────────────────────────── */
+  window.openFuturesPnlPanel = function (mode) {
+    _fpnlMode = (mode === 'direct') ? 'direct' : 'contract';
+    const overlay = _fEl('fpnlOverlay'); if (!overlay) return;
+
+    /* sync mode-toggle active state */
+    document.querySelectorAll('.fpnl-mode-btn').forEach(b => b.classList.remove('active'));
+    const firstBtn = document.querySelector('.fpnl-mode-btn');
+    if (firstBtn) firstBtn.classList.add('active');
+
+    /* badge label */
+    const badge = _fEl('fpnl-mode-badge');
+    if (badge) badge.textContent = _fpnlMode === 'contract' ? 'Contract' : 'Direct';
+
+    /* reset to overview tab */
+    _fpnlNav = 'overview';
+    document.querySelectorAll('.fpnl-nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.fpnl-tab-panel').forEach(p => p.classList.remove('active'));
+    const ovTab = document.querySelector('.fpnl-nav-tab[data-fpnl-nav="overview"]');
+    const ovPnl = _fEl('fpnl-panel-overview');
+    if (ovTab) ovTab.classList.add('active');
+    if (ovPnl) ovPnl.classList.add('active');
+
+    /* scroll to top */
+    const body = _fEl('fpnlBody'); if (body) body.scrollTop = 0;
+
+    overlay.classList.add('fpnl-open');
+    _fpnlRenderAll();
+  };
+
+  window.closeFuturesPnlPanel = function () {
+    const overlay = _fEl('fpnlOverlay');
+    if (overlay) overlay.classList.remove('fpnl-open');
+  };
+
+  /* ─────────────────────────────────────────────────
+     EVENT LISTENERS (attach once after DOM ready)
+  ───────────────────────────────────────────────── */
+  function _fpnlAttachEvents() {
+    /* Mode toggle (USD$-M / COIN-M) */
+    document.querySelectorAll('.fpnl-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.fpnl-mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _fpnlPnlMode = btn.dataset.fpnlMode;
+      });
+    });
+
+    /* Time range */
+    document.querySelectorAll('.fpnl-time-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.fpnl-time-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _fpnlRange = btn.dataset.fpnlRange;
+        const d = _fpnlExtract(_fpnlMode);
+        requestAnimationFrame(() => _fpnlDrawCharts(d));
+      });
+    });
+
+    /* Nav tabs */
+    document.querySelectorAll('.fpnl-nav-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.fpnl-nav-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.fpnl-tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        _fpnlNav = tab.dataset.fpnlNav;
+        const panel = _fEl('fpnl-panel-' + _fpnlNav);
+        if (panel) panel.classList.add('active');
+        if (_fpnlNav === 'overview') { const d = _fpnlExtract(_fpnlMode); requestAnimationFrame(() => _fpnlDrawCharts(d)); }
+      });
+    });
+
+    /* Chevron */
+    const chev = _fEl('fpnl-chevron');
+    if (chev) chev.addEventListener('click', function() { this.classList.toggle('open'); });
+
+    /* Calendar prev/next */
+    const calPrev = _fEl('fpnl-cal-prev');
+    const calNext = _fEl('fpnl-cal-next');
+    if (calPrev) calPrev.addEventListener('click', () => {
+      _fpnlCalMon--; if (_fpnlCalMon < 1) { _fpnlCalMon = 12; _fpnlCalYear--; }
+      _fpnlBuildCal({});
+    });
+    if (calNext) calNext.addEventListener('click', () => {
+      _fpnlCalMon++; if (_fpnlCalMon > 12) { _fpnlCalMon = 1; _fpnlCalYear++; }
+      _fpnlBuildCal({});
+    });
+
+    /* Back button / swipe: also support Android back */
+    window.addEventListener('popstate', function() {
+      const overlay = _fEl('fpnlOverlay');
+      if (overlay && overlay.classList.contains('fpnl-open')) {
+        closeFuturesPnlPanel();
+      }
+    });
+
+    /* Redraw charts on resize */
+    window.addEventListener('resize', () => {
+      const overlay = _fEl('fpnlOverlay');
+      if (overlay && overlay.classList.contains('fpnl-open')) {
+        const d = _fpnlExtract(_fpnlMode);
+        requestAnimationFrame(() => _fpnlDrawCharts(d));
+      }
+    });
+  }
+
+  /* init */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _fpnlAttachEvents);
+  } else {
+    _fpnlAttachEvents();
+  }
+})();
+</script>
+
 </body>
 </html>

@@ -15,6 +15,12 @@
   ทุกครั้งที่แก้ ไม่ใช่เชื่อจากคอมเมนต์ในไฟล์นี้ฝั่งเดียว
   ══════════════════════════════════════════════════════════════════
 -->
+<!-- [vx8-PERF] (2026-09-29) merge จาก HTML_patch_vx8 (ปรับให้ตรงโค้ดจริง) — ค้นด้วยแท็ก "vx8-"
+     [vx8-OPTIMISTIC-CLOSE] futdCloseposition: ลบ position ออกจาก UI ทันที + rollback ถ้า GAS fail
+                            (+ guard ใน futdRefreshAccountStatus กัน poll เอา position ที่กำลังปิดกลับมา)
+     [vx8-TRAIL-ROLLBACK]   futdConfirmTrailingStop: คืนค่าเดิมเมื่อบันทึก GAS ไม่สำเร็จ
+     [vx8-STAGGER]          boot: loadOfflineState เริ่มหลัง loadDashboard 300ms
+     ไม่ได้แก้: futdConfirmTpsl (มี optimistic อยู่แล้ว), FDP/AFTD sync (closeFuturesPosition ล้าง FDP ผ่าน dbCallRaw hook อยู่แล้ว) -->
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -30595,7 +30601,39 @@ window.fpnlDownloadExcel = async function () {
   }
 };
 
-async function dbCallRaw(action, data = {}) {
+// [vx7-PERF] dbCallRaw wrapper: (1) รวม request อ่านที่เหมือนกันและกำลังบินอยู่ให้ใช้ promise เดียว
+// (เดิมปิด Position แล้วยิง getFuturesAccountSummary ซ้ำ 2 ชุด + boot ยิงซ้ำหลายจุด → GAS คิวยาวจน timeout)
+// (2) read action ที่ Timeout → retry 1 ครั้ง (cold start) ; write action ไม่ retry เพื่อกันทำรายการซ้ำ
+const _DB_READ_ACTIONS = new Set(['getDashboard','getFuturesAccountSummary','getFuturesLiqMap','getFuturesDailyPnl',
+  'getFuturesPnlStats','getOpenOrders','getMyMessages','getMyTrades','getEarnContracts']);
+const _DB_INFLIGHT = new Map();
+function dbCallRaw(action, data = {}) {
+  if (!_DB_READ_ACTIONS.has(action)) return _dbCallRawOnce(action, data);
+  let key; try { key = action + '|' + JSON.stringify(data); } catch (e) { return _dbCallRawOnce(action, data); }
+  if (_DB_INFLIGHT.has(key)) return _DB_INFLIGHT.get(key);
+  const p = (async () => {
+    try { return await _dbCallRawOnce(action, data); }
+    catch (e) {
+      if (e && e.message && e.message.indexOf('[Timeout]') > -1) return await _dbCallRawOnce(action, data);
+      throw e;
+    }
+  })().finally(() => { _DB_INFLIGHT.delete(key); });
+  _DB_INFLIGHT.set(key, p);
+  return p;
+}
+
+// [vx7-PERF] กลับมาที่แท็บหลังพักนาน (จอดำ/ข้อมูลค้าง) → refresh หน้าปัจจุบันอัตโนมัติ 1 ครั้ง
+(function _vx7ResumeRefresh() {
+  let _hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { _hiddenAt = Date.now(); return; }
+    if (!_hiddenAt || Date.now() - _hiddenAt < 90000) return;
+    _hiddenAt = 0;
+    try { if (typeof softRefreshCurrentPage === 'function') softRefreshCurrentPage(); } catch (e) { console.warn('[resume] refresh fail:', e && e.message); }
+  });
+})();
+
+async function _dbCallRawOnce(action, data = {}) {
   // [v5 FIX SLOW-LOAD/BLACK-SCREEN] เดิม fetch() ไม่มี timeout เลย — ถ้า GAS ช้า/ค้าง
   // (cold start, ScriptLock รอสูงสุด 10s ใน _autoLiquidateContract ฯลฯ) request จะรอ
   // เงียบๆไม่มีสัญญาณอะไรบอกผู้ใช้ ทำให้ต้อง reload เอง (ซึ่งพอ reload cache มักช่วยให้
@@ -32986,6 +33024,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // - offline state เสร็จก่อน → positions/orders พร้อมทันทีเช่นกัน
   // - ทั้งคู่ต่างมี guard กัน race condition ภายในฟังก์ชันตัวเองอยู่แล้ว (_pendingEarnSync,
   //   _pendingFreeze, _holdFrozen, Pending-Earn-Sync Guard ฯลฯ)
+  // - [vx8-STAGGER] loadOfflineState เริ่มหลัง loadDashboard 300ms (ยังทำงานซ้อนกัน ไม่ใช่ sequential)
+  //   เพื่อลดการยิง GAS หลาย call พร้อมกันในเสี้ยววินาทีแรกของ boot
   syncOfflineEngine(); // ส่ง local state → GAS (fire-and-forget)
 
   (async () => {
@@ -33003,7 +33043,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       })(),
       // loadOfflineState — ดึง positions/openOrders/earnContracts/liqPriceMap จาก GAS
-      loadOfflineState().catch(e => console.warn('[DB] loadOfflineState error:', e.message)),
+      // [vx8-STAGGER] หน่วง 300ms ให้ getDashboard (หนักสุด) ออกไปก่อน
+      (async () => {
+        await new Promise(r => setTimeout(r, 300));
+        return loadOfflineState().catch(e => console.warn('[DB] loadOfflineState error:', e.message));
+      })(),
     ]);
     // หลังทั้งคู่เสร็จ: render รอบสุดท้ายเพื่อให้ earnContracts แสดงข้อมูล merge ที่สมบูรณ์
     // (กรณี loadOfflineState มาทีหลัง loadDashboard — merge earnContracts รอบสุดท้ายให้ถูกต้อง)
@@ -39034,7 +39078,20 @@ async function futdRefreshAccountStatus() {
       }
       return sp;
     });
-    status.positions = _incomingPos;
+    // [vx8-OPTIMISTIC-CLOSE] position ที่กำลังปิด (รอ GAS / เพิ่ง confirm ไม่เกิน 20s) ต้องไม่เด้งกลับมาจาก poll
+    // — server อาจยังตอบ Active (poll ยิงก่อน GAS เขียนเสร็จ) — และตัด margin ของมันออกจาก margin_used/avail_margin
+    // เพื่อให้ตัวเลขตรงกับ invariant "FUTD.status ไม่นับ position ที่กำลังปิด" (rollback ใน futdCloseposition พึ่งข้อนี้)
+    const _closingIds = FUTD._closingIds || {};
+    const _incomingFinal = Object.keys(_closingIds).length
+      ? _incomingPos.filter(sp => {
+          if (!_closingIds[sp.id]) return true;
+          const _m = parseFloat(sp.margin) || 0;
+          status.margin_used  = Math.max(0, (parseFloat(status.margin_used)  || 0) - _m);
+          status.avail_margin = (parseFloat(status.avail_margin) || 0) + _m;
+          return false;
+        })
+      : _incomingPos;
+    status.positions = _incomingFinal;
     FUTD.status = status;
 
     futdRenderPositions(status.positions || []);
@@ -39731,41 +39788,102 @@ async function futdConfirmMarginAdj() {
 }
 
 /** ปิด Position ด้วยมือ (Market Close ที่ราคาตลาดปัจจุบัน) */
+// [vx8-OPTIMISTIC-CLOSE] sync UI ทุกจุดที่อ่านจาก FUTD.status หลังแก้ local state (ลบ / คืน position)
+// (ทำซ้ำสิ่งที่ futdRefreshAccountStatus ทำหลังได้ positions: list, balance bar, badge, HIST, position lines บนกราฟ)
+function _futdOptimisticSync() {
+  if (!FUTD.status) return;
+  try {
+    const ps = FUTD.status.positions || [];
+    futdRenderPositions(ps);
+    futdUpdateBalanceBar(FUTD.status);
+    const cntPos = document.getElementById('futdCntPos');
+    if (cntPos) cntPos.textContent = ps.length || 0;
+    HIST.futdOpenOrders = ps.slice();
+    if (FUTD.chart && FUTD.chart.candles && FUTD.chart.candles.length) futdChartDraw();
+  } catch (e) { console.warn('[futdOptimisticSync]', e.message); }
+}
+
 async function futdCloseposition(posId) {
   const uid = _futdCurrentUid();
   const pos = ((FUTD.status && FUTD.status.positions) || []).find(p => p.id === posId);
   if (!pos) return;
   const coin = (pos.symbol || '').replace('USDT', '');
 
+  // ── 1) หาราคาปิด — ยังไม่แตะ UI: ถ้าพลาดตรงนี้ position ต้องอยู่ตามเดิม
+  // ใช้ราคาจาก FUTD.prices ก่อน (มักมีอยู่แล้ว) ถ้าไม่มีค่อย fetch ใหม่
+  let exitPrice = FUTD.prices[coin] || 0;
   try {
-    // ใช้ราคาจาก FUTD.prices ก่อน (มักมีอยู่แล้ว) ถ้าไม่มีค่อย fetch ใหม่
-    let exitPrice = FUTD.prices[coin] || 0;
     if (!exitPrice) {
       const mids = await hlPost({ type: 'allMids' });
       exitPrice = parseFloat(mids[coin]) || 0;
     }
-    if (!exitPrice) { showToast('ไม่สามารถดึงราคาปัจจุบันได้ ลองใหม่อีกครั้ง'); return; }
-
-    const result = await dbCallRaw('closeFuturesPosition', { id: posId, uid, exit_price: exitPrice });
-
-    // [v2.63-HEDGE] populate futd history arrays หลังปิด position สำเร็จ
-    _futdLogCloseToHist(pos, exitPrice, result || {});
-
-    showToast('✅ ปิด Position สำเร็จ');
-    futdRefreshAccountStatus();
-
-    // [v2.74-FIX-F2] sync Assets → Futures-Direct หลังปิด position
-    // เดิม: ไม่เคยเรียก aftdRefreshDirectSummary() → AFTD.positions ค้างข้อมูลเก่า
-    //       + AFTD.todayRealizedPnl ไม่รับค่า realized PnL ใหม่ → Today's PNL ไม่ขยับ
-    // แก้:  refresh AFTD state ทันทีหลัง GAS confirm ปิด position สำเร็จ
-    //       ใช้ setTimeout 0 เพื่อไม่บล็อก futdRefreshAccountStatus ที่เพิ่งยิงไป
-    if (typeof aftdRefreshDirectSummary === 'function') {
-      setTimeout(() => {
-        aftdRefreshDirectSummary();
-      }, 0);
-    }
   } catch (e) {
     showToast('❌ ' + (e.message || 'ปิด Position ไม่สำเร็จ'));
+    return;
+  }
+  if (!exitPrice) { showToast('ไม่สามารถดึงราคาปัจจุบันได้ ลองใหม่อีกครั้ง'); return; }
+
+  // ── 2) [vx8-OPTIMISTIC-CLOSE] ลบ position ออกจาก local state ทันที — ไม่รอ GAS
+  FUTD._closingIds = FUTD._closingIds || {};
+  if (FUTD._closingIds[posId]) return;                       // กดซ้ำ/เรียกซ้ำระหว่างรอ — ไม่ยิง GAS ซ้ำ
+  const _list   = (FUTD.status && FUTD.status.positions) || [];
+  const _posIdx = _list.findIndex(p => p.id === posId);      // จำตำแหน่งเดิมไว้คืนตอน rollback
+  if (_posIdx < 0) return;                                   // ระหว่างรอราคา position ถูกลบไปแล้ว
+  FUTD._closingIds[posId] = true;
+  const _posMgn = parseFloat(pos.margin) || 0;
+  // ใช้ filter (array ใหม่) — futdCloseAllConfirmed วนลูปบน array เดิมและ await ทีละตัว ห้าม splice แก้ array นั้นกลางลูป
+  FUTD.status.positions    = _list.filter(p => p.id !== posId);
+  FUTD.status.margin_used  = Math.max(0, (parseFloat(FUTD.status.margin_used) || 0) - _posMgn);
+  FUTD.status.avail_margin = (parseFloat(FUTD.status.avail_margin) || 0) + _posMgn;
+  _futdOptimisticSync();
+  showToast('⏳ กำลังปิด Position...');
+
+  // ── 3) GAS — fail → คืน position + margin กลับตำแหน่งเดิม
+  let result;
+  try {
+    result = await dbCallRaw('closeFuturesPosition', { id: posId, uid, exit_price: exitPrice });
+  } catch (e) {
+    delete FUTD._closingIds[posId];
+    if (FUTD.status) {
+      const cur = FUTD.status.positions || (FUTD.status.positions = []);
+      if (!cur.find(p => p.id === posId)) cur.splice(Math.min(_posIdx, cur.length), 0, pos); // กัน double-add
+      FUTD.status.margin_used  = (parseFloat(FUTD.status.margin_used) || 0) + _posMgn;
+      FUTD.status.avail_margin = Math.max(0, (parseFloat(FUTD.status.avail_margin) || 0) - _posMgn);
+      _futdOptimisticSync();
+    }
+    showToast('❌ ' + (e.message || 'ปิด Position ไม่สำเร็จ'));
+    // Timeout ตอบไม่ได้ว่า GAS เขียนแล้วหรือยัง → sync สถานะจริงจาก server เร็วๆ แทนรอ poll รอบถัดไป
+    setTimeout(() => { futdRefreshAccountStatus(); }, 1500);
+    return;
+  }
+
+  // ── 4) GAS confirm — อัปเดต balance จากผลจริง (ถ้า GAS ส่ง realized_pnl มา; 'skipped' ไม่มี → ไม่แตะ)
+  // หมายเหตุ: dbCallRaw ล้าง FDP (fdpInvalidate) ให้แล้วสำหรับ closeFuturesPosition → Today's PNL / Calendar
+  // รีโหลดจาก server เอง ไม่ต้อง (และไม่ควร) บวก FDP.today.direct ที่นี่ — จะกลายเป็น "เฉพาะเทรดนี้" ไม่ใช่ยอดรวมวัน
+  const _rpnl = (result && result.realized_pnl !== undefined) ? parseFloat(result.realized_pnl) : NaN;
+  if (FUTD.status && isFinite(_rpnl)) {
+    FUTD.status.futures_balance = (parseFloat(FUTD.status.futures_balance) || 0) + _rpnl;
+    FUTD.status.avail_margin    = Math.max(0, (parseFloat(FUTD.status.avail_margin) || 0) + _rpnl); // avail = balance − margin_used
+    try { futdUpdateBalanceBar(FUTD.status); } catch (e) {}
+  }
+  // คงไว้ 20s กัน poll ที่ยิงก่อนปิดแต่ตอบช้า (ข้อมูลเก่า) เอา position กลับมา
+  setTimeout(() => { if (FUTD._closingIds) delete FUTD._closingIds[posId]; }, 20000);
+
+  // [v2.63-HEDGE] populate futd history arrays หลังปิด position สำเร็จ
+  _futdLogCloseToHist(pos, exitPrice, result || {});
+
+  showToast('✅ ปิด Position สำเร็จ');
+  futdRefreshAccountStatus();
+
+  // [v2.74-FIX-F2] sync Assets → Futures-Direct หลังปิด position
+  // เดิม: ไม่เคยเรียก aftdRefreshDirectSummary() → AFTD.positions ค้างข้อมูลเก่า
+  //       + AFTD.todayRealizedPnl ไม่รับค่า realized PnL ใหม่ → Today's PNL ไม่ขยับ
+  // แก้:  refresh AFTD state ทันทีหลัง GAS confirm ปิด position สำเร็จ
+  //       ใช้ setTimeout 0 เพื่อไม่บล็อก futdRefreshAccountStatus ที่เพิ่งยิงไป
+  if (typeof aftdRefreshDirectSummary === 'function') {
+    setTimeout(() => {
+      aftdRefreshDirectSummary();
+    }, 0);
   }
 }
 
@@ -40325,6 +40443,10 @@ async function futdConfirmTrailingStop() {
   if (!cb || cb <= 0) { showToast('กรุณาระบุ Callback Ratio (%)'); return; }
   const posId = FUTD.tpslPosId;
   const idx   = (FUTD.status && FUTD.status.positions || []).findIndex(p => p.id === posId);
+  // [vx8-TRAIL-ROLLBACK] จำค่าเดิมไว้คืนถ้า GAS บันทึกไม่สำเร็จ
+  const _prevTrail = idx >= 0
+    ? { cb: FUTD.status.positions[idx].trailingCb, active: FUTD.status.positions[idx].trailingActive, peak: FUTD.status.positions[idx].trailingPeak }
+    : null;
   if (idx >= 0) {
     FUTD.status.positions[idx].trailingCb     = cb;
     FUTD.status.positions[idx].trailingActive = true;
@@ -40341,7 +40463,15 @@ async function futdConfirmTrailingStop() {
     });
     showToast('✅ Trailing Stop (' + cb + '%) บันทึกแล้ว');
   } catch (e) {
-    showToast('⚠️ Trailing Stop บันทึกไม่สำเร็จ: ' + (e.message || 'server error'), 'warn');
+    // [vx8-TRAIL-ROLLBACK] คืนค่าเดิม — หา position ใหม่ด้วย id (index อาจเปลี่ยนจาก poll ระหว่างรอ)
+    const _lp = (FUTD.status && FUTD.status.positions || []).find(p => p.id === posId);
+    if (_lp && _prevTrail) {
+      _lp.trailingCb     = _prevTrail.cb;
+      _lp.trailingActive = _prevTrail.active;
+      _lp.trailingPeak   = _prevTrail.peak;
+      futdRenderPositions(FUTD.status.positions || []);
+    }
+    showToast('⚠️ Trailing Stop บันทึกไม่สำเร็จ — ยกเลิกการตั้งค่าแล้ว: ' + (e.message || 'server error'), 'warn');
   }
 }
 

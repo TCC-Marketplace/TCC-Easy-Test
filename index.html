@@ -42834,9 +42834,11 @@ function futdUpdateCandleCountdown() {
         _fsFunding = _fstatC.funding.map(f => ({ date: new Date(f.ts).toISOString().replace('T',' ').slice(0,16), sym: f.sym, type: f.type, amount: f.amount }));
         _fsHasMore = !!_fstatC.has_more;
       }
+      // [vx8-FIX-FREEZE] re-render เฉพาะเมื่อได้ข้อมูล "ใหม่" (e.at เปลี่ยน) — เดิม fstatLoad คืน cache เดิม -> render -> extract -> fstatLoad ... วนไม่รู้จบจนหน้าค้าง
       if (typeof fstatLoad === 'function') {
+        const _prevAtC = _fstatC ? _fstatC.at : 0;
         fstatLoad('contract').then(e => {
-          if (e && typeof _fpnlMode !== 'undefined' && _fpnlMode === 'contract' && typeof _fpnlRenderAll === 'function') _fpnlRenderAll();
+          if (e && e.at !== _prevAtC && typeof _fpnlMode !== 'undefined' && _fpnlMode === 'contract' && typeof _fpnlRenderAll === 'function') _fpnlRenderAll();
         });
       }
 
@@ -42935,9 +42937,11 @@ function futdUpdateCandleCountdown() {
         _fsFundingD = _fstatD.funding.map(f => ({ date: new Date(f.ts).toISOString().replace('T',' ').slice(0,16), sym: f.sym, type: f.type, amount: f.amount }));
         _fsHasMoreD = !!_fstatD.has_more;
       }
+      // [vx8-FIX-FREEZE] เหมือน contract: กัน render วนซ้ำเมื่อข้อมูลไม่เปลี่ยน
       if (typeof fstatLoad === 'function') {
+        const _prevAtD = _fstatD ? _fstatD.at : 0;
         fstatLoad('direct').then(e => {
-          if (e && typeof _fpnlMode !== 'undefined' && _fpnlMode === 'direct' && typeof _fpnlRenderAll === 'function') _fpnlRenderAll();
+          if (e && e.at !== _prevAtD && typeof _fpnlMode !== 'undefined' && _fpnlMode === 'direct' && typeof _fpnlRenderAll === 'function') _fpnlRenderAll();
         });
       }
 

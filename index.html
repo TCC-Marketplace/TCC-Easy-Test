@@ -27416,14 +27416,10 @@ function _hmRefreshBalance() {
   const _todayStartMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
   // [FIX Bug2] exclude Earn Realized PNL (symbol='Earn' จาก distributeProfit)
   // todayRealized แสดงเฉพาะ Futures PNL ในวันนี้ — Earn PNL มาจาก earnContracts.currentBalance แล้ว
-  const todayRealized = (typeof fdpToday === 'function' && fdpToday('contract') !== null) ? fdpToday('contract') : (typeof HIST !== 'undefined' && HIST.transactionHistory)
-    ? HIST.transactionHistory.reduce((s, tx) => {
-        if (tx.type !== 'Realized PNL') return s;
-        if ((tx.ts || 0) < _todayStartMs) return s;
-        if ((tx.symbol || '') === 'Earn') return s;  // ← Earn PNL ไม่นับ
-        return s + (parseFloat(String(tx.amount || '0').replace('+','')) || 0);
-      }, 0)
-    : 0;
+  // [vx6-DAILY-PNL-SSOT] Contract realized วันนี้มาจาก GAS Daily PNL เท่านั้น
+  // ไม่ fallback ไป HIST.transactionHistory ที่ถูกจำกัด 100 รายการใน getDashboard
+  const todayRealized = (typeof fdpToday === 'function' && fdpToday('contract') !== null)
+    ? fdpToday('contract') : 0;
   // [vx5-FIX-DASH-DIRECT] รวม Futures-Direct realized PNL วันนี้ด้วย
   // อ่านจาก AFTD.todayRealizedPnl (ถ้า user เคยเปิด Direct tab แล้ว GAS ส่งมา)
   // หรืออ่านจาก HIST.futdTransactionHistory เป็น fallback
@@ -30498,7 +30494,7 @@ const QUEUE = {
 // [vx6-DAILY-PNL] FDP — Futures Daily PNL store (SSOT จาก GAS)
 // Calendar / Today's PNL / Dashboard ใช้ข้อมูลชุดเดียวกัน ไม่ reconstruct จาก
 // HIST.transactionHistory (ที่ getDashboard จำกัด 100) / HIST.futdTransactionHistory (จำกัด 80)
-// ถ้า FDP ยังไม่มีข้อมูล → fallback ไปใช้ HIST เดิม (พฤติกรรมเดิม ไม่พัง)
+// Calendar: อ่านจาก GAS เท่านั้น (ไม่ fallback HIST) | Today's PNL/Dashboard: ถ้า FDP ยังไม่พร้อม → fallback HIST ชั่วคราวเป็น safety net
 // ═══════════════════════════════════════════════════════════════════════
 const FDP = { today: { contract: null, direct: null }, todayDate: '', months: {}, inflight: {} };
 const _FDP_INVALIDATE_ACTIONS = /^(logClose|closeFuturesPosition|openFuturesPosition|runFuturesTpSlCheck|runTpSlCheck|logEarnLiquidate|forceLiquidateContract)$/;
@@ -30549,6 +30545,51 @@ async function fdpLoadMonth(mode, year, mon, force) {
     .finally(() => { delete FDP.inflight[key]; });
   return FDP.inflight[key];
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// [vx6-PNL-STATS] FSTAT — cache สถิติ PNL ย้อนหลัง (7D/30D/6M + symbols/detail/funding) จาก GAS
+// ใช้แทนค่าที่ _fpnlExtract() เคยคำนวณจาก HIST.transactionHistory/futdTransactionHistory
+// (ที่ getDashboard จำกัดไว้ 100/80 รายการ) — แสดงผลได้สูงสุด 6 เดือน ถ้ามีมากกว่านั้นให้ดาวน์โหลด Excel แทน
+// ═══════════════════════════════════════════════════════════════════════
+const FSTAT = { contract: null, direct: null, inflight: {} };
+async function fstatLoad(mode, force) {
+  const c = FSTAT[mode];
+  if (!force && c && (Date.now() - c.at) < 30000) return c;
+  if (FSTAT.inflight[mode]) return FSTAT.inflight[mode];
+  const uid = _fdpUid();
+  if (!uid) return null;
+  FSTAT.inflight[mode] = dbCallRaw('getFuturesPnlStats', { uid, mode, months: 6, tzOffsetMin: _fdpTz() })
+    .then(r => { const e = Object.assign({}, r, { at: Date.now() }); FSTAT[mode] = e; return e; })
+    .catch(err => { console.warn('[fstatLoad] fail:', err && err.message); return null; })
+    .finally(() => { delete FSTAT.inflight[mode]; });
+  return FSTAT.inflight[mode];
+}
+/** ดาวน์โหลดประวัติ PNL ทั้งหมด (ทุกช่วงเวลา) เป็นไฟล์ Excel — ใช้เมื่อข้อมูลมีมากกว่า 6 เดือน */
+window.fpnlDownloadExcel = async function () {
+  const btn = (typeof _fEl === 'function') ? _fEl('fpnl-export-btn') : document.getElementById('fpnl-export-btn');
+  const _origLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังสร้างไฟล์...'; }
+  try {
+    const uid = _fdpUid();
+    if (!uid) throw new Error('ไม่พบ uid');
+    const mode = (typeof _fpnlMode !== 'undefined') ? _fpnlMode : 'contract';
+    const res = await dbCallRaw('exportFuturesTransactionsXlsx', { uid, mode });
+    const bin = atob(res.base64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = res.filename || ('FuturesPnL_' + mode + '.xlsx');
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) {
+    console.warn('[fpnlDownloadExcel] fail:', e && e.message);
+    alert('ดาวน์โหลดไม่สำเร็จ: ' + ((e && e.message) || 'unknown error'));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = _origLabel || '\u2b07 ดาวน์โหลด Excel (ประวัติทั้งหมด)'; }
+  }
+};
 
 async function dbCallRaw(action, data = {}) {
   // [v5 FIX SLOW-LOAD/BLACK-SCREEN] เดิม fetch() ไม่มี timeout เลย — ถ้า GAS ช้า/ค้าง
@@ -37265,7 +37306,7 @@ async function _aftdPriceTick() {
 function _aftdStartPricePoll() {
   _aftdStopPricePoll(); // กัน double-start
   _aftdPriceTick();     // เรียกทันทีก่อน wait รอบแรก
-  AFTD.pricePollTimer = setInterval(_aftdPriceTick, 3000); // [v2.72] 3s (เดิม 15s)
+  AFTD.pricePollTimer = setInterval(_aftdPriceTick, 5000); // [vx6-PERF] 5s; initial account load is independent from price polling
 }
 
 /** [v2.72-FIX-AFTD-POLL] หยุด price poll เมื่อออกจาก Assets page หรือเปลี่ยน sub-tab */
@@ -37301,6 +37342,32 @@ function aftSetMode(mode) {
 }
 
 /** โหลด+แสดงสรุปยอด Futures-Direct (Margin Balance/ใช้ไปแล้ว/ว่าง + Position/Order list) */
+// ═══════════════════════════════════════════════════════════════════════
+// [vx6-DIRECT-SPLIT] โหลด Account Status แบบแยกเบา/หนัก แต่คง shape ผลลัพธ์เดิมไว้
+// ให้ aftdRefreshDirectSummary()/futdRefreshAccountStatus() ใช้ต่อได้โดยไม่ต้องแก้ logic ส่วนอื่น
+// 1) getFuturesAccountSummary() — เบา ไม่มี network fetch ราคา -> Balance/Position/Order ขึ้นทันที
+// 2) ถ้ามี cross position ต่อด้วย getFuturesLiqMap() (หนัก: fetchAllPrices()+liq formula) แบบไม่บล็อก
+//    แล้ว merge ผลกลับเข้า FUTD.status/AFTD.positions ที่ผู้เรียกตั้งไว้แล้ว พร้อม re-render
+// ═══════════════════════════════════════════════════════════════════════
+async function _futdFetchAccountStatusSplit(uid) {
+  const status = await dbCallRaw('getFuturesAccountSummary', { uid });
+  if (status.has_cross) {
+    dbCallRaw('getFuturesLiqMap', { uid }).then(liq => {
+      if (!liq) return;
+      if (typeof FUTD !== 'undefined' && FUTD.status && FUTD.status.uid === status.uid) {
+        FUTD.status.liq_price_map            = liq.liq_price_map || {};
+        FUTD.status.cross_equity             = liq.cross_equity;
+        FUTD.status.total_maintenance_margin = liq.total_maintenance_margin;
+        if (typeof futdRenderPositions === 'function') futdRenderPositions(FUTD.status.positions || []);
+      }
+      if (typeof AFTD !== 'undefined' && AFTD.positions && AFTD.positions.length && typeof aftdRenderDirectPosList === 'function') {
+        aftdRenderDirectPosList(AFTD.positions, liq.liq_price_map || {});
+      }
+    }).catch(e => console.warn('[_futdFetchAccountStatusSplit] liq map fail (non-blocking):', e && e.message));
+  }
+  return status;
+}
+
 async function aftdRefreshDirectSummary() {
   const sess = (typeof _lgLoadSession === 'function') ? _lgLoadSession() : null;
   const uid  = (sess && sess.uid) ? String(sess.uid).trim()
@@ -37318,9 +37385,9 @@ async function aftdRefreshDirectSummary() {
   try {
     // [vx6-PERF] GAS cold-start ทำให้ครั้งแรก timeout ได้ → retry 1 ครั้ง (ครั้งที่สอง GAS อุ่นแล้วมักเร็ว)
     let status;
-    try { status = await dbCallRaw('getFuturesAccountStatus', { uid }); }
+    try { status = await _futdFetchAccountStatusSplit(uid); } // [vx6-DIRECT-SPLIT] Summary เบาก่อน, Liq แยกทีหลัง
     catch (_e1) {
-      if (_e1 && _e1.message && _e1.message.indexOf('[Timeout]') > -1) status = await dbCallRaw('getFuturesAccountStatus', { uid });
+      if (_e1 && _e1.message && _e1.message.indexOf('[Timeout]') > -1) status = await _futdFetchAccountStatusSplit(uid);
       else throw _e1;
     }
     const _fmt2 = v => (parseFloat(v) || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -38869,7 +38936,7 @@ async function futdRefreshAccountStatus() {
   if (!uid) return;
   FUTD._astInFlight = true; // [FIX-POLL-LOCK] ล็อก
   try {
-    const status = await dbCallRaw('getFuturesAccountStatus', { uid });
+    const status = await _futdFetchAccountStatusSplit(uid); // [vx6-DIRECT-SPLIT] Summary เบาก่อน, Liq แยกทีหลัง
     // [v2.59-LIQ] set FUTD.status ก่อน render เสมอ — futdRenderPositions อ่าน liq_price_map จาก FUTD.status
     // ลำดับสำคัญ: FUTD.status = status → futdRenderPositions() → _futdClientCrossLiq fallback จะได้ข้อมูลใหม่
     // [v2.68-TRAIL] ย้าย FUTD.status = status ไปหลัง trailing merge block ด้านล่าง
@@ -42348,6 +42415,10 @@ function futdUpdateCandleCountdown() {
           <div class="fpnl-cell-usd" id="fpnl-lt-usd">USD</div>
         </div>
       </div>
+      <!-- [vx6-PNL-STATS] แสดงเมื่อมีประวัติเกิน 6 เดือน (Lifetime ด้านบนแสดงผลสูงสุด 6 เดือน) -->
+      <div id="fpnl-export-hint" style="display:none;text-align:right;margin:4px 2px 8px;">
+        <button class="fpnl-time-btn" id="fpnl-export-btn" style="font-size:12px;padding:4px 10px;" onclick="fpnlDownloadExcel()">⬇ ดาวน์โหลด Excel (ประวัติทั้งหมด)</button>
+      </div>
     </div>
 
     <!-- Time Range -->
@@ -42573,17 +42644,41 @@ function futdUpdateCandleCountdown() {
           amount: parseFloat(String(tx.amount||'0').replace('+',''))||0
         }));
 
+      // [vx6-PNL-STATS] ใช้สถิติจาก GAS (ไม่ถูกจำกัด 100 รายการเหมือน HIST) แทนค่าที่คำนวณข้างบน ถ้าโหลดมาแล้ว
+      let _fs7d = pnl7d, _fs30d = pnl30d, _fsLife = lifetime;
+      let _fsProfit = totalProfit, _fsLoss = totalLoss, _fsNet = netPnl;
+      let _fsDetail = detail, _fsSymbols = symbols, _fsFunding = funding, _fsHasMore = false;
+      const _fstatC = (typeof FSTAT !== 'undefined') ? FSTAT.contract : null;
+      if (_fstatC) {
+        _fs7d   = _fstatC.stat_7d.realized  + unrealized;
+        _fs30d  = _fstatC.stat_30d.realized + unrealized;
+        _fsLife = _fstatC.stat_range.realized; // จำกัดสูงสุด 6 เดือนตามที่ขอ ไม่ใช่ all-time จริงถ้า has_more=true
+        _fsProfit = _fstatC.stat_range.profit;
+        _fsLoss   = _fstatC.stat_range.loss;
+        _fsNet    = _fstatC.stat_range.realized;
+        _fsDetail = _fstatC.detail.map(x => ({ sym: x.sym, type: x.type, time: new Date(x.ts).toISOString().slice(0,10), pnl: x.amount, pct: 0 }));
+        _fsSymbols = _fstatC.symbols.map(x => ({ sym: x.sym, pnl: x.pnl, pct: marginBal>0?(x.pnl/marginBal*100):0 }));
+        _fsFunding = _fstatC.funding.map(f => ({ date: new Date(f.ts).toISOString().replace('T',' ').slice(0,16), sym: f.sym, type: f.type, amount: f.amount }));
+        _fsHasMore = !!_fstatC.has_more;
+      }
+      if (typeof fstatLoad === 'function') {
+        fstatLoad('contract').then(e => {
+          if (e && typeof _fpnlMode !== 'undefined' && _fpnlMode === 'contract' && typeof _fpnlRenderAll === 'function') _fpnlRenderAll();
+        });
+      }
+
       return {
         today: { pct: todayPct, usd: todayTotal },
-        pnl7d:   { pct: marginBal>0?(pnl7d/marginBal*100):0, usd: pnl7d },
-        pnl30d:  { pct: marginBal>0?(pnl30d/marginBal*100):0, usd: pnl30d },
-        lifetime:{ val: lifetime },
+        pnl7d:   { pct: marginBal>0?(_fs7d/marginBal*100):0, usd: _fs7d },
+        pnl30d:  { pct: marginBal>0?(_fs30d/marginBal*100):0, usd: _fs30d },
+        lifetime:{ val: _fsLife },
         marginBal,
-        summary: { profit: totalProfit, loss: totalLoss, net: netPnl },
-        cumPnl:  { val: netPnl + unrealized, date: today.toISOString().slice(0,10) },
+        summary: { profit: _fsProfit, loss: _fsLoss, net: _fsNet },
+        cumPnl:  { val: _fsNet + unrealized, date: today.toISOString().slice(0,10) },
         assetVal:{ val: marginBal, date: today.toISOString().slice(0,10) },
         calYear, calMon, calData,
-        detail, symbols, funding
+        detail: _fsDetail, symbols: _fsSymbols, funding: _fsFunding,
+        hasMoreHistory: _fsHasMore
       };
 
     } else {
@@ -42623,7 +42718,7 @@ function futdUpdateCandleCountdown() {
         .map(([sym,pnl]) => ({sym, pnl, pct: _mbal>0?(pnl/_mbal*100):0}))
         .sort((a,b)=>Math.abs(b.pnl)-Math.abs(a.pnl)).slice(0,8);
 
-      // [vx5-FIX-CAL-DIRECT] สร้าง calData จาก HIST.futdTransactionHistory แทนการส่ง {}
+      // [vx5-FIX-CAL-DIRECT] calData ของ Direct โหลดจาก GAS Daily PNL (FDP) แล้ว re-render เมื่อข้อมูลมาถึง
       const _calYear = today.getFullYear(), _calMon = today.getMonth() + 1;
       const _calData = _fpnlGetCalData(_calYear, _calMon, 'direct');
 
@@ -42651,17 +42746,40 @@ function futdUpdateCandleCountdown() {
           }))
         : [];
 
+      // [vx6-PNL-STATS] ใช้สถิติจาก GAS (ไม่ถูกจำกัด 80 รายการเหมือน HIST.futdTransactionHistory) แทนค่าที่คำนวณข้างบน ถ้าโหลดมาแล้ว
+      // หมายเหตุ: detail/symbols ของ Direct ยังใช้ position ที่เปิดอยู่ตอนนี้เหมือนเดิม (ไม่ใช่ history) จึงไม่แตะ
+      let _fs7dD = _pnl7d, _fs30dD = _pnl30d, _fsLifeD = _netPnl;
+      let _fsProfitD = _totalProfit, _fsLossD = _totalLoss, _fsNetD = _netPnl;
+      let _fsFundingD = _futdFunding, _fsHasMoreD = false;
+      const _fstatD = (typeof FSTAT !== 'undefined') ? FSTAT.direct : null;
+      if (_fstatD) {
+        _fs7dD   = _fstatD.stat_7d.realized  + _upnl;
+        _fs30dD  = _fstatD.stat_30d.realized + _upnl;
+        _fsLifeD = _fstatD.stat_range.realized; // จำกัดสูงสุด 6 เดือนตามที่ขอ ไม่ใช่ all-time จริงถ้า has_more=true
+        _fsProfitD = _fstatD.stat_range.profit;
+        _fsLossD   = _fstatD.stat_range.loss;
+        _fsNetD    = _fstatD.stat_range.realized;
+        _fsFundingD = _fstatD.funding.map(f => ({ date: new Date(f.ts).toISOString().replace('T',' ').slice(0,16), sym: f.sym, type: f.type, amount: f.amount }));
+        _fsHasMoreD = !!_fstatD.has_more;
+      }
+      if (typeof fstatLoad === 'function') {
+        fstatLoad('direct').then(e => {
+          if (e && typeof _fpnlMode !== 'undefined' && _fpnlMode === 'direct' && typeof _fpnlRenderAll === 'function') _fpnlRenderAll();
+        });
+      }
+
       return {
         today:   { pct: _todayPct, usd: _todayTotal },
-        pnl7d:   { pct: _mbal>0?(_pnl7d/_mbal*100):0, usd: _pnl7d },
-        pnl30d:  { pct: _mbal>0?(_pnl30d/_mbal*100):0, usd: _pnl30d },
-        lifetime:{ val: _netPnl },
+        pnl7d:   { pct: _mbal>0?(_fs7dD/_mbal*100):0, usd: _fs7dD },
+        pnl30d:  { pct: _mbal>0?(_fs30dD/_mbal*100):0, usd: _fs30dD },
+        lifetime:{ val: _fsLifeD },
         marginBal: _mbal,
-        summary: { profit: _totalProfit, loss: _totalLoss, net: _netPnl },
-        cumPnl:  { val: _netPnl + _upnl, date: today.toISOString().slice(0,10) },
+        summary: { profit: _fsProfitD, loss: _fsLossD, net: _fsNetD },
+        cumPnl:  { val: _fsNetD + _upnl, date: today.toISOString().slice(0,10) },
         assetVal:{ val: _mbal, date: today.toISOString().slice(0,10) },
         calYear: _calYear, calMon: _calMon, calData: _calData,
-        detail, symbols, funding: _futdFunding
+        detail, symbols, funding: _fsFundingD,
+        hasMoreHistory: _fsHasMoreD
       };
     }
   }
@@ -42692,18 +42810,20 @@ function futdUpdateCandleCountdown() {
     const cpEl = _fEl('fpnl-cump-date'); if(cpEl) cpEl.textContent=d.cumPnl.date;
     const avEl = _fEl('fpnl-asset-big'); if(avEl){ avEl.textContent=_fFmt2(d.assetVal.val)+' USD'; avEl.className='fpnl-asset-big '+_fCol(d.assetVal.val); }
     const adEl = _fEl('fpnl-asset-date'); if(adEl) adEl.textContent=d.assetVal.date;
+    // [vx6-PNL-STATS] มีประวัติเกิน 6 เดือน -> เสนอดาวน์โหลด Excel แทนการแสดงในหน้า
+    const exHintEl = _fEl('fpnl-export-hint'); if (exHintEl) exHintEl.style.display = d.hasMoreHistory ? '' : 'none';
   }
 
   /* [vx5-FIX-CAL] คำนวณ calData (PNL รายวัน) สำหรับปี/เดือนที่กำหนด และ mode ที่ใช้งาน
    *  ใช้แทนการส่ง {} เมื่อ navigate calendar เดือนก่อน/หน้า
-   *  mode='contract' → อ่านจาก HIST.transactionHistory (Realized PNL, ไม่นับ Earn)
-   *  mode='direct'   → อ่านจาก HIST.futdTransactionHistory (Futures Direct PNL / Liquidation)
+   *  mode='contract' → GAS getFuturesDailyPnl (Realized PNL, ไม่นับ Earn)
+   *  mode='direct'   → GAS getFuturesDailyPnl (Futures Direct PNL / Liquidation)
    *  [vx5-FIX-CAL-DIRECT] รับ mode เป็น parameter เพื่อให้ calPrev/calNext navigate ถูก source ด้วย
    */
   function _fpnlGetCalData(year, mon, modeOverride) {
     const calData = {};
     const mode = modeOverride || _fpnlMode;
-    // [vx6-DAILY-PNL] ใช้ Daily PNL จาก GAS (ครบทุกวัน) เป็นหลัก; ถ้ายังไม่มี → fallback HIST ด้านล่าง แล้วโหลดจาก GAS มา re-render
+    // [vx6-DAILY-PNL-SSOT] Calendar อ่านจาก GAS Daily PNL เท่านั้น
     if (typeof fdpGetMonth === 'function') {
       const _cached = fdpGetMonth(mode, year, mon);
       const _rerender = e => { if (e && _fpnlCalYear === year && _fpnlCalMon === mon && _fpnlMode === mode) _fpnlBuildCal(e.days); };
@@ -42711,34 +42831,25 @@ function futdUpdateCandleCountdown() {
         if (Date.now() - _cached.at > 30000) fdpLoadMonth(mode, year, mon, true).then(_rerender);
         return Object.assign({}, _cached.days);
       }
-      fdpLoadMonth(mode, year, mon).then(_rerender);
+      fdpLoadMonth(mode, year, mon).then(e => {
+        if (e) { _rerender(e); return; }
+        // โหลดจาก GAS ไม่สำเร็จ (เช่น Deployment เก่า/timeout) → แจ้งผู้ใช้แทนการว่างเงียบ
+        if (_fpnlCalYear !== year || _fpnlCalMon !== mon || _fpnlMode !== mode) return;
+        const g = _fEl('fpnl-cal-grid');
+        if (!g || g.querySelector('.fpnl-cal-err')) return;
+        const m = document.createElement('div');
+        m.className = 'fpnl-cal-err';
+        m.style.cssText = 'grid-column:1/-1;text-align:center;font-size:11px;opacity:.7;padding:6px 0;';
+        m.textContent = 'โหลดข้อมูล PNL รายวันไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+        g.appendChild(m);
+      });
     }
 
-    if (mode === 'direct') {
-      // [vx5-FIX-CAL-DIRECT] อ่านจาก HIST.futdTransactionHistory สำหรับ Futures-Direct
-      const futdTx = (typeof HIST !== 'undefined' && HIST.futdTransactionHistory)
-        ? HIST.futdTransactionHistory : [];
-      futdTx.forEach(tx => {
-        // นับเฉพาะ Futures Direct PNL และ Liquidation (ไม่นับ Funding Fee ซึ่งอยู่ใน futdFundingFee)
-        if (tx.type !== 'Futures Direct PNL' && tx.type !== 'Futures Direct Liquidation') return;
-        const d = new Date(tx.ts || 0);
-        if (d.getFullYear() !== year || d.getMonth() + 1 !== mon) return;
-        const day = d.getDate();
-        calData[day] = (calData[day] || 0) + (parseFloat(String(tx.amount || '0').replace('+', '')) || 0);
-      });
-    } else {
-      // mode='contract' → อ่านจาก HIST.transactionHistory (Realized PNL, ไม่นับ Earn)
-      const allTx = (typeof HIST !== 'undefined' && HIST.transactionHistory) ? HIST.transactionHistory : [];
-      allTx.forEach(tx => {
-        if (tx.type !== 'Realized PNL') return;
-        if ((tx.symbol || '') === 'Earn') return;
-        const d = new Date(tx.ts || 0);
-        // ใช้ local time เหมือนกับที่ _fpnlExtract ใช้ (setHours(0,0,0,0) = browser local)
-        if (d.getFullYear() !== year || d.getMonth() + 1 !== mon) return;
-        const day = d.getDate();
-        calData[day] = (calData[day] || 0) + (parseFloat(String(tx.amount || '0').replace('+', '')) || 0);
-      });
-    }
+    // [vx6-DAILY-PNL] GAS Daily PNL เป็น SSOT เท่านั้น
+    // ห้าม reconstruct จาก HIST.transactionHistory / HIST.futdTransactionHistory
+    // เพราะ getDashboard จำกัดรายการไว้ 100/80 และจะทำให้วันเก่าหาย
+    // หากยังไม่มี cache ให้คืน {} ชั่วคราว; fdpLoadMonth() จะโหลดจาก GAS
+    // และ _rerender จะวาด Calendar ใหม่เมื่อข้อมูลมาถึง
     return calData;
   }
 
@@ -43028,12 +43139,12 @@ function futdUpdateCandleCountdown() {
     const calNext = _fEl('fpnl-cal-next');
     if (calPrev) calPrev.addEventListener('click', () => {
       _fpnlCalMon--; if (_fpnlCalMon < 1) { _fpnlCalMon = 12; _fpnlCalYear--; }
-      // [vx5-FIX-CAL] ส่ง _fpnlMode เพื่อให้อ่านถูก source (contract=HIST.transactionHistory, direct=HIST.futdTransactionHistory)
+      // [vx5-FIX-CAL] ส่ง _fpnlMode เพื่อให้อ่านถูก mode (contract/direct) จาก GAS Daily PNL (FDP)
       _fpnlBuildCal(_fpnlGetCalData(_fpnlCalYear, _fpnlCalMon, _fpnlMode));
     });
     if (calNext) calNext.addEventListener('click', () => {
       _fpnlCalMon++; if (_fpnlCalMon > 12) { _fpnlCalMon = 1; _fpnlCalYear++; }
-      // [vx5-FIX-CAL] ส่ง _fpnlMode เพื่อให้อ่านถูก source (contract=HIST.transactionHistory, direct=HIST.futdTransactionHistory)
+      // [vx5-FIX-CAL] ส่ง _fpnlMode เพื่อให้อ่านถูก mode (contract/direct) จาก GAS Daily PNL (FDP)
       _fpnlBuildCal(_fpnlGetCalData(_fpnlCalYear, _fpnlCalMon, _fpnlMode));
     });
 

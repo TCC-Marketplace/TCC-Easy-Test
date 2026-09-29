@@ -16805,12 +16805,16 @@ function astSwitchTab(name, el) {
   if (el) el.classList.add('active');
   // [FIX back] บันทึก sub-tab ปัจจุบันลง pageHistory ก่อนเปลี่ยน เพื่อให้ Back กลับมาถูก tab
   // format: 'assets__<tabName>' — handleBackButton จะถอด prefix ออกและ restore sub-tab
-  if (astCurrentTab && astCurrentTab !== name && typeof pageHistory !== 'undefined') {
+  if (!_navIsBack && astCurrentTab && astCurrentTab !== name && typeof pageHistory !== 'undefined') {
     pageHistory.push('assets__' + astCurrentTab);
     if (pageHistory.length > 30) pageHistory.shift();
   }
   astCurrentTab = name;
-  try { history.pushState({ tccPage: 'assets', astTab: name }, '', '#assets__' + name); } catch(e) {}
+  // [FIX-BACK-LOOP] ตอนย้อนกลับ ใช้ replaceState แทน pushState (ไม่เพิ่ม entry ใหม่)
+  try {
+    if (_navIsBack) history.replaceState({ tccPage: 'assets', astTab: name }, '', '#assets__' + name);
+    else history.pushState({ tccPage: 'assets', astTab: name }, '', '#assets__' + name);
+  } catch(e) {}
   document.getElementById('astMain')?.scrollTo(0, 0);
   // Hook: render Futures tab ทุกครั้งที่เปิด
   if (name === 'futures-a') { renderAstFuturesTab(); if (typeof aftSetMode === 'function') aftSetMode('contract'); }
@@ -33756,9 +33760,17 @@ function lgLogout() {
 // ── Page history stack (สำหรับ back button) ──
 let pageHistory = [];
 const _FIRST_PAGES = ['futures', 'assets', 'home', 'login'];
+// [FIX-BACK-LOOP] true ระหว่างที่ handleBackButton กำลังย้อนหน้า → navTo/astSwitchTab ต้องไม่ push
+// pageHistory/pushState ซ้ำ (เดิม: ย้อน B→A แล้ว B ถูก push กลับ ทำให้ back วนสลับสองหน้า/ไม่ออก)
+let _navIsBack = false;
 
 // ── Push state ใหม่ทุกครั้งที่ navTo เปลี่ยนหน้า (เรียกจาก _navToTrackHistory) ──
 function _navToTrackHistory(target) {
+  if (_navIsBack) {
+    // ย้อนกลับ: browser ถอย entry ให้แล้ว → แค่ sync hash ไม่เพิ่ม entry/ประวัติ
+    try { history.replaceState({ tccPage: target }, '', '#' + target); } catch(e) {}
+    return;
+  }
   if (currentPage && currentPage !== target) {
     pageHistory.push(currentPage);
     if (pageHistory.length > 30) pageHistory.shift();
@@ -33789,23 +33801,54 @@ function handleBackButton() {
     return;
   }
 
-  if (_FIRST_PAGES.includes(currentPage) || !pageHistory.length) {
+  // [FIX-BACK-PNL] Futures PNL Panel (Today's PNL ของ Contract/Direct) เปิดอยู่ → back = ปิด panel เท่านั้น
+  // (panel ไม่ได้ pushState ตอนเปิด จึงต้อง push กลับเพื่อชดเชย entry ที่ browser ถอยไปแล้ว)
+  const _fpnlOv = document.getElementById('fpnlOverlay');
+  if (_fpnlOv && _fpnlOv.classList.contains('fpnl-open')) {
+    if (typeof closeFuturesPnlPanel === 'function') closeFuturesPnlPanel();
+    else _fpnlOv.classList.remove('fpnl-open');
+    try { history.pushState({ tccPage: currentPage }, '', '#' + currentPage); } catch(e) {}
+    return;
+  }
+
+  // [FIX-BACK-DIRECT] Assets → Futures → Futures-Direct: back = กลับ Futures-Contract ก่อน (ยังอยู่หน้า Assets)
+  if (currentPage === 'assets' && typeof astCurrentTab !== 'undefined' && astCurrentTab === 'futures-a' &&
+      typeof AFTD !== 'undefined' && AFTD.mode === 'direct' && typeof aftSetMode === 'function') {
+    aftSetMode('contract');
+    try { history.pushState({ tccPage: 'assets', astTab: 'futures-a' }, '', '#assets__futures-a'); } catch(e) {}
+    return;
+  }
+
+  // [FIX-BACK-ASSETS-TAB] ทิ้ง entry sub-tab ที่ซ้ำกับแท็บปัจจุบัน (back แล้วไม่เห็นอะไรเปลี่ยน)
+  if (currentPage === 'assets' && typeof astCurrentTab !== 'undefined') {
+    while (pageHistory.length && pageHistory[pageHistory.length - 1] === 'assets__' + astCurrentTab) pageHistory.pop();
+  }
+  // หน้า assets ที่ยังมี sub-tab ค้างในประวัติ → ย้อน sub-tab ได้ (เดิม assets อยู่ใน _FIRST_PAGES จึงเด้ง Exit ทุกครั้ง)
+  const _assetsHasSubHist = currentPage === 'assets' && pageHistory.length &&
+                            String(pageHistory[pageHistory.length - 1]).startsWith('assets__');
+
+  if ((_FIRST_PAGES.includes(currentPage) && !_assetsHasSubHist) || !pageHistory.length) {
     showExitConfirm();
     try { history.pushState({ tccPage: currentPage }, '', '#' + currentPage); } catch(e) {}
     return;
   }
 
   const prev = pageHistory.pop();
+  // [FIX-BACK-LOOP] ตั้ง flag ให้ navTo/astSwitchTab ไม่ push ประวัติซ้ำระหว่างย้อนกลับ
+  _navIsBack = true;
+  const _resetBack = () => { _navIsBack = false; };
+  setTimeout(_resetBack, 600); // safety: กัน flag ค้างถ้ามี exception
   // [FIX back] ถ้า prev เป็น format 'assets__<tab>' → navTo assets แล้ว restore sub-tab
   if (prev && prev.startsWith('assets__')) {
     const subTab = prev.replace('assets__', '');
-    navTo('assets');
+    try { navTo('assets'); } catch (e) { _resetBack(); throw e; }
     // restore sub-tab หลัง navTo render เสร็จ (rAF ให้ DOM ready ก่อน)
     requestAnimationFrame(() => {
-      if (typeof astSwitchTabByName === 'function') astSwitchTabByName(subTab);
+      try { if (typeof astSwitchTabByName === 'function') astSwitchTabByName(subTab); }
+      finally { _resetBack(); }
     });
   } else {
-    navTo(prev);
+    try { navTo(prev); } finally { _resetBack(); }
   }
 }
 
@@ -43149,12 +43192,8 @@ function futdUpdateCandleCountdown() {
     });
 
     /* Back button / swipe: also support Android back */
-    window.addEventListener('popstate', function() {
-      const overlay = _fEl('fpnlOverlay');
-      if (overlay && overlay.classList.contains('fpnl-open')) {
-        closeFuturesPnlPanel();
-      }
-    });
+    // [FIX-BACK-PNL] ปิด panel ด้วย back ถูกจัดการใน handleBackButton (ตัวกลาง) แล้ว
+    // ไม่ฟัง popstate ซ้ำที่นี่ เพราะทำให้ทั้งสอง handler ทำงานพร้อมกัน (panel ปิด + หน้าถูกย้อน/เด้ง Exit)
 
     /* Redraw charts on resize */
     window.addEventListener('resize', () => {

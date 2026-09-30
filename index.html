@@ -3110,7 +3110,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .exit-btn-cancel{background:var(--bg3);color:var(--t1)}
 .exit-btn-confirm{background:var(--r);color:#fff}
 .fab-refresh{position:fixed;bottom:78px;right:14px;width:42px;height:42px;border-radius:50%;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;z-index:150;cursor:pointer;color:var(--y);font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-.fab-refresh.spinning svg{animation:fabspin .6s linear}
+.fab-refresh.spinning svg{animation:fabspin .8s linear infinite}
 @keyframes fabspin{to{transform:rotate(360deg)}}
 .ast-sheet-handle{width:40px;height:4px;background:var(--bg3);border-radius:2px;margin:12px auto 6px}
 .ast-sheet-title{font-size:18px;font-weight:700;padding:8px 20px 16px}
@@ -13422,6 +13422,15 @@ const PAGE_NAV_KEY = { 'account-info':'home', 'verification':'home', 'profile':'
 function navTo(page) {
   const target = PAGE_IDS[page] || page;
 
+  // [FIX-BLACK-NAVTO-GUARD] เดิม: ถ้า target ไม่มี element #page-<target> (เช่น hash '#assets__futures-a'
+  // จาก astSwitchTab ที่ถูกส่งเข้ามาตรงๆ ตอนรีเฟรช) โค้ดด้านล่างจะลบ .active ออกจากทุกหน้าก่อน แล้วค่อยหา page
+  // ไม่เจอ → ไม่มีหน้าไหน active เลย = จอดำเหลือแค่ bottom nav (ต้องกดรีเฟรชซ้ำ 1-2 รอบ)
+  // ใหม่: ตรวจก่อนแตะ DOM/ประวัติใดๆ — ไม่พบหน้า = เตือนใน console แล้วออก คงหน้าเดิมไว้
+  if (target !== 'whale' && !document.getElementById('page-' + target)) {
+    console.warn('[navTo] page not found — ignored:', page);
+    return;
+  }
+
   // [v9] Track page history สำหรับ hardware back button (ข้าม whale redirect)
   if (target !== 'whale' && typeof _navToTrackHistory === 'function') {
     _navToTrackHistory(target);
@@ -22446,18 +22455,67 @@ function tfShowCoinDDHint() {
     splash.classList.add('gone');
     _showPages();
     try { history.replaceState(null, '', window.location.pathname); } catch(e) {}
-    // [v3 FIX] ใช้ rAF (requestAnimationFrame) แทน setTimeout(0)
-    // เพื่อให้แน่ใจว่า DOM ของ assets page พร้อม render แล้วก่อนที่ astSwitchTabByName จะวิ่ง
-    // (setTimeout(0) อาจ race กับ DOM paint ทำให้ switch tab ไปผิดที่ หรือ tab element ยังไม่มีใน DOM)
-    requestAnimationFrame(() => {
-      if (typeof navTo === 'function') navTo(_skipTarget);
+    // [FIX-BLACK-HASH-REFRESH] hash ที่ navTo()/astSwitchTab() pushState ไว้มี 2 รูปแบบ:
+    //   '#assets' (หน้า) และ '#assets__<subtab>' (หน้า + แท็บย่อยของ Assets)
+    //   เดิมส่ง hash ดิบเข้า navTo() → '#assets__futures-a' ไม่มี #page-assets__futures-a → จอดำ
+    //   ใหม่: แยก 'page' กับ 'subtab' ออกจากกัน (เหมือน handleBackButton) และตรวจว่ามีหน้านั้นจริงก่อน
+    //   ถ้าไม่มี → fallback ไปหน้าปกติ (_skipFallback) แทนที่จะปล่อยให้ไม่มีหน้า active
+    let _skipPage = _skipTarget;
+    let _skipSubTab = _returnAstTab;
+    // (_goPage ถูกประกาศด้วย const ท้ายฟังก์ชัน หลังบล็อกนี้ที่ return ก่อน → ห้ามอ้างถึง จึงคำนวณ fallback เองที่นี่)
+    const _skipFallback = _hasSession() ? 'futures' : 'login';
+    if (_skipPage.indexOf('__') > -1) {
+      const _hp = _skipPage.split('__');
+      _skipPage = _hp[0];
+      if (!_skipSubTab && _hp[1]) _skipSubTab = _hp[1];
+    }
+    // [FIX-BLACK-HASH-REFRESH] รอ DOMContentLoaded ก่อนค่อย navTo — เดิมยิงตอน parser ยังอ่านไฟล์ไม่จบ
+    //   (script/หน้าท้ายไฟล์ เช่น page-termcondition/page-loan ยังไม่ถูกสร้าง) ทำให้ navTo ทำงานครึ่งๆกลางๆ
+    const _runSkipNav = () => requestAnimationFrame(() => {
+      const _pageExists = (p) => {
+        const id = (typeof PAGE_IDS !== 'undefined' && PAGE_IDS[p]) ? PAGE_IDS[p] : p;
+        // [FIX-BLACK-HASH-REFRESH-2] ต้องเป็น element ที่มี class 'page' จริง — element id 'page-*' บางตัว
+        //   (เช่น #page-data-download) เป็น overlay ไม่ใช่ .page การให้ active กับมันจะไม่แสดงอะไร = จอดำ
+        const el = document.getElementById('page-' + id);
+        return !!(el && el.classList.contains('page'));
+      };
+      let _pg = _skipPage, _sub = _skipSubTab;
+      if (!_pageExists(_pg)) {
+        console.warn('[initSplash] hash page not found:', _skipTarget, '→ fallback', _skipFallback);
+        _pg = _skipFallback; _sub = null;
+      }
+      try {
+        if (typeof navTo === 'function') navTo(_pg);
+      } catch(e) {
+        console.error('[initSplash] navTo (hash) failed:', e);
+        try {
+          document.querySelectorAll('[id^="page-"]').forEach(p => p.classList.remove('active'));
+          const fb = document.getElementById('page-' + _pg) || document.getElementById('page-' + _skipFallback);
+          if (fb) fb.classList.add('active');
+        } catch(e2) {}
+      }
+      // safety net สุดท้าย: ถ้ายังไม่มีหน้า active เลย → บังคับหน้า _skipFallback
+      if (!document.querySelector('.page.active')) {
+        try {
+          const fb2 = document.getElementById('page-' + _skipFallback);
+          if (fb2) fb2.classList.add('active');
+        } catch(e3) {}
+      }
       // rAF ซ้อนอีก 1 ชั้น — รอ navTo render assets page เสร็จก่อนค่อย switch sub-tab
-      if (_returnAstTab) {
+      if (_sub && _pg === 'assets') {
         requestAnimationFrame(() => {
-          if (typeof astSwitchTabByName === 'function') astSwitchTabByName(_returnAstTab);
+          // [FIX-BLACK-HASH-REFRESH-2] astSwitchTab() ลบ .active ออกจากทุก .ast-page ก่อนเสมอ ถ้าชื่อแท็บจาก hash
+          //   ไม่มีอยู่จริง (เช่น #assets__foo) เนื้อหาในหน้า Assets จะว่างเปล่า → ตรวจก่อนสลับ ถ้าไม่มีให้อยู่ที่แท็บเริ่มต้น
+          if (!document.getElementById('ast-page-' + _sub)) {
+            console.warn('[initSplash] assets sub-tab not found:', _sub, '→ keep default tab');
+            return;
+          }
+          if (typeof astSwitchTabByName === 'function') astSwitchTabByName(_sub);
         });
       }
     });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _runSkipNav, { once: true });
+    else _runSkipNav();
     return;
   }
 
@@ -30409,6 +30467,21 @@ const SESSION_CACHE_KEYS = ['trans_', 'positions_', 'trades_', 'spot_', 'funding
  * คงไว้เฉพาะ: tcc_login_session, tcc_remember_me, tcc_uid, tcc_lastCoin, hl_stars, tcc_prod_clean_v1, tcc_ref, tcc_ss_members
  * (เป็น user preference/session ไม่ใช่ data cache — ไม่เกี่ยวกับ DD/Liquidation/Contract state)
  */
+// [FIX-QUEUE-KEEP-PENDING] เดิม: QUEUE.flush() (async ไม่ได้ await) แล้วลบสำเนา write queue ใน localStorage ทันที
+//   ถ้า flush ยังไม่ทันเสร็จ/เน็ตหลุด คำสั่งเขียนที่ค้าง (เช่น ปิด Position, อัปเดตยอด) จะหายถาวรเมื่อรีโหลดหน้า
+//   และ _clearSessionCache() ถูกเรียกทุกครั้งที่ loadOfflineState() เริ่ม (boot + ทุกครั้งที่กด refresh)
+//   ใหม่: ลอง flush → ถ้ายังมีคำสั่งค้างในคิว ให้เก็บ/เขียนสำเนาทับไว้ตามเดิมเพื่อให้ QUEUE.restore() กู้ได้ ลบเฉพาะกรณีคิวว่างจริง
+function _dropWriteQueueIfIdle() {
+  try { QUEUE.flush(); } catch(e) {}
+  let pending = 0;
+  try { pending = (typeof QUEUE !== 'undefined' && Array.isArray(QUEUE._q)) ? QUEUE._q.length : 0; } catch(e) {}
+  if (pending > 0) {
+    try { LS.set('_write_queue', QUEUE._q); } catch(e) {}
+    console.warn('[cache] keep persisted write queue — pending ops:', pending);
+    return;
+  }
+  try { localStorage.removeItem('tcc__write_queue'); } catch(e) {}
+}
 function _clearSessionCache(uid) {
   if (!uid) return;
   SESSION_CACHE_KEYS.forEach(prefix => {
@@ -30430,8 +30503,7 @@ function _clearSessionCache(uid) {
   // [FIX-RECOVERY] เดิมลบ write queue ทิ้งแบบไม่มีเงื่อนไข — ถ้ามีคำสั่งเขียนที่ fail ค้างอยู่จริง
   // (เช่น ปิด Position ตอนเน็ตหลุด) จะหายไปเลยตอน logout/สลับ user โดยไม่มีโอกาส retry
   // ตอนนี้: ลอง flush ให้จบก่อน (best-effort, ไม่ block การ clear) แล้วค่อยลบ queue ของ uid เดิมทิ้ง
-  try { QUEUE.flush(); } catch(e) {}
-  try { localStorage.removeItem('tcc__write_queue'); } catch(e) {}
+  _dropWriteQueueIfIdle();
   try { localStorage.removeItem('tcc__dead_queue'); } catch(e) {}
   console.log('[SessionCache] cleared for uid:', uid);
 }
@@ -30702,7 +30774,9 @@ window.fpnlDownloadExcel = async function () {
 // (เดิมปิด Position แล้วยิง getFuturesAccountSummary ซ้ำ 2 ชุด + boot ยิงซ้ำหลายจุด → GAS คิวยาวจน timeout)
 // (2) read action ที่ Timeout → retry 1 ครั้ง (cold start) ; write action ไม่ retry เพื่อกันทำรายการซ้ำ
 const _DB_READ_ACTIONS = new Set(['getDashboard','getFuturesAccountSummary','getFuturesLiqMap','getFuturesDailyPnl',
-  'getFuturesPnlStats','getOpenOrders','getMyMessages','getMyTrades','getEarnContracts']);
+  'getFuturesPnlStats','getOpenOrders','getMyMessages','getMyTrades','getEarnContracts',
+  // [PERF-BATCH] read-only ทั้งหมด → dedupe request ที่บินอยู่ + retry 1 ครั้งเมื่อ Timeout (cold start)
+  'getOpenPositions','getOpenPositionsWithDD','getContractStatus','getContractStatusBatch']);
 const _DB_INFLIGHT = new Map();
 function dbCallRaw(action, data = {}) {
   if (!_DB_READ_ACTIONS.has(action)) return _dbCallRawOnce(action, data);
@@ -32420,7 +32494,25 @@ function syncOfflineEngine() {
  * loadOfflineState — ดึงสถานะล่าสุดจาก GAS กลับมา (earnContracts + openOrders)
  * เรียกตอนเปิดแอปหลัง syncOfflineEngine เพื่ออัปเดต state ถ้า GAS มีข้อมูลใหม่กว่า
  */
-async function loadOfflineState() {
+// [FIX-REFRESH-REENTRANT] กัน loadOfflineState() รันซ้อนกัน
+//   ปัญหา: softRefreshCurrentPage() ปลดปุ่มเมื่อเกิน 30 วิ แต่รอบเดิมยังทำงานเบื้องหลังอยู่ → กดซ้ำจะเริ่มรอบที่ 2 ซ้อน
+//   ผลเสีย: (1) earnContracts/positions ถูก merge 2 รอบพร้อมกัน (ดูคอมเมนต์ [v8 FIX] ใน autoLoginFromMembers)
+//           (2) window._refreshLock ถูกรอบแรกปลดเป็น false ทั้งที่รอบสองยังทำงาน → _isSyncLocked() = false ก่อนเวลา
+//               → ระบบอาจคำนวณ DD/Liquidation จาก local state ที่ยัง sync ไม่ครบ
+//   แก้: ถ้ามีรอบที่ยังไม่จบ ให้ทุกคนที่เรียกซ้ำใช้ promise ของรอบนั้นร่วมกัน (ไม่เริ่มรอบใหม่)
+var _loadOfflineStateInflight = null;
+function loadOfflineState() {
+  if (_loadOfflineStateInflight) {
+    console.warn('[OfflineEngine] loadOfflineState already running — sharing the in-flight run');
+    return _loadOfflineStateInflight;
+  }
+  const p = _loadOfflineStateCore();
+  _loadOfflineStateInflight = p;
+  const _release = () => { if (_loadOfflineStateInflight === p) _loadOfflineStateInflight = null; };
+  p.then(_release, _release);
+  return p;
+}
+async function _loadOfflineStateCore() {
   // [v9 FIX] Refresh Lock จริง — true ตลอดที่ loadOfflineState() กำลังดึง/sync ข้อมูล
   // ปลดเฉพาะใน finally ด้านล่าง เมื่อ sync เสร็จสมบูรณ์ (หรือ error) เท่านั้น
   window._refreshLock = true;
@@ -32676,9 +32768,29 @@ async function loadOfflineState() {
       const _activeCids = [...new Set([..._posCids, ..._localNonTerminalCids, ..._maturedNeedSyncCids])];
       if (_activeCids.length > 0) {
         // ดึง getContractStatus แบบ parallel (Promise.allSettled — ไม่ fail ถ้าบางตัว error)
-        const _csResults = await Promise.allSettled(
-          _activeCids.map(cid => dbCallRaw('getContractStatus', { contract_id: cid, uid }))
-        );
+        // [PERF-BATCH] เดิมยิง getContractStatus แยก N request (N = จำนวนสัญญา) พร้อมกัน → GAS รับพร้อมกันได้จำกัด (~30),
+        //   แต่ละ request อ่านชีตเต็มซ้ำๆ + fetchAllPrices พร้อมกันหลายตัว (cache stampede) + ต้องรอครบทุกตัวก่อน render Earn/Orders
+        //   ใหม่: 1 request (getContractStatusBatch) อ่านชีตครั้งเดียวคำนวณทุกสัญญา — ถ้า GAS ยังไม่ได้ deploy action ใหม่
+        //   หรือ batch ล้มเหลว → fallback กลับไปวิธีเดิมอัตโนมัติ (ผลลัพธ์รูปแบบเดียวกัน ส่วนประมวลผลด้านล่างไม่ต้องแก้)
+        let _csResults;
+        try {
+          const _batch = await dbCallRaw('getContractStatusBatch', { uid, contract_ids: _activeCids });
+          const _bmap = _batch && _batch.statuses;
+          if (!_bmap || typeof _bmap !== 'object') throw new Error('invalid batch response');
+          _csResults = _activeCids.map(cid => {
+            const v = _bmap[cid] || _bmap[String(cid).trim()];
+            return v ? { status: 'fulfilled', value: v }
+                     : { status: 'rejected', reason: new Error('no status for ' + cid) };
+          });
+          // [PERF-BATCH-2] batch ตอบกลับมาแต่ไม่มีสถานะใช้ได้เลยสักสัญญา (เช่น key ไม่ตรง/ทุกสัญญา error ฝั่ง GAS)
+          //   → ถือว่า batch ใช้ไม่ได้ ถอยไปวิธีเดิมรายสัญญา แทนที่จะปล่อยให้ DD/Liq/Frozen ไม่ถูก sync เงียบๆ
+          if (_csResults.every(r => r.status !== 'fulfilled')) throw new Error('batch returned no usable status');
+        } catch (_batchErr) {
+          console.warn('[OfflineEngine] getContractStatusBatch unavailable → fallback per-contract:', _batchErr.message);
+          _csResults = await Promise.allSettled(
+            _activeCids.map(cid => dbCallRaw('getContractStatus', { contract_id: cid, uid }))
+          );
+        }
         // รวม liq_price_map + อัปเดต _contractDDMap จาก getContractStatus ทุก contract
         // [v12 FIX A] _contractDDMap ต้องถูก populate หลัง refresh ทันที
         // ป้องกัน DD badge ว่างใน buildPosCard หลัง softRefresh
@@ -34026,7 +34138,10 @@ function confirmExitApp() {
 // ── Soft Refresh: รีโหลดข้อมูลของหน้าปัจจุบันโดยไม่ reload ทั้งหน้า ──
 let _softRefreshing = false;
 let _lastSoftRefresh = 0;
+let _softRefreshStartedAt = 0;      // [FIX-REFRESH-DEAD-BTN] เวลาเริ่มรอบล่าสุด (ใช้ตรวจว่าค้างหรือไม่)
+let _softRefreshRunId = 0;          // [FIX-REFRESH-DEAD-BTN] กันรอบเก่าที่ค้างมาปลด lock ของรอบใหม่
 const SOFT_REFRESH_DEBOUNCE_MS = 2000; // กันกดรัวๆ
+const SOFT_REFRESH_MAX_MS = 30000;  // [FIX-REFRESH-DEAD-BTN] เพดานรอต่อรอบ — เกินแล้วปลด spinner/lock (งานเบื้องหลังยังทำต่อได้)
 
 // ── [v12 FIX 1] clearAllStaleCache — ล้าง cache ที่หมดอายุ/ค้างทั้งหมดใน localStorage ──
 // เรียกก่อน softRefreshCurrentPage() เพื่อบังคับ fetch ข้อมูลใหม่จาก GAS ทุกครั้ง
@@ -34050,10 +34165,9 @@ function clearAllStaleCache() {
         if (isSessionData || isExpired) localStorage.removeItem(k);
       } catch { localStorage.removeItem(k); }
     });
-    // [FIX-RECOVERY] ลอง flush คำสั่งค้างก่อนลบ queue (best-effort)
-    try { QUEUE.flush(); } catch(e) {}
-    // ล้าง write/dead queue ค้าง
-    try { localStorage.removeItem('tcc__write_queue'); } catch(e) {}
+    // [FIX-RECOVERY] ลอง flush คำสั่งค้าง — [FIX-QUEUE-KEEP-PENDING] ลบสำเนา write queue เฉพาะเมื่อคิวว่างจริง
+    _dropWriteQueueIfIdle();
+    // ล้าง dead queue (คำสั่งที่ล้มเหลวถาวรแล้ว) เหมือนเดิม
     try { localStorage.removeItem('tcc__dead_queue'); } catch(e) {}
     // reset _contractDDMap เพื่อบังคับ fetch drawdown_pct ใหม่จาก getContractStatus
     window._contractDDMap = {};
@@ -34069,39 +34183,73 @@ function clearAllStaleCache() {
 
 async function softRefreshCurrentPage() {
   const now = Date.now();
-  if (_softRefreshing) return;
+  // [FIX-REFRESH-DEAD-BTN] เดิม: ถ้ารอบก่อนยังไม่จบ (GAS ช้า/ค้าง — timeout 20s + retry ได้นานหลายสิบวินาที)
+  //   กดซ้ำแล้ว return เงียบๆ ไม่มี toast/spinner (spinner เดิมหมุนแค่ 0.6s) → ผู้ใช้เข้าใจว่าปุ่มพัง/ไม่ทำงาน
+  // ใหม่: (1) กดซ้ำระหว่างรอบก่อนยังทำงาน → แจ้ง toast "กำลังรีเฟรช"
+  //       (2) watchdog: รอบก่อนค้างเกิน SOFT_REFRESH_MAX_MS → ปลด lock ให้ปุ่มกลับมาใช้ได้
+  if (_softRefreshing) {
+    if (now - _softRefreshStartedAt < SOFT_REFRESH_MAX_MS + 2000) {
+      showToast(tccT('toast_refreshing'));
+      return;
+    }
+    console.warn('[softRefresh] previous run stuck > ' + SOFT_REFRESH_MAX_MS + 'ms — releasing lock');
+    _softRefreshing = false;
+  }
   if (now - _lastSoftRefresh < SOFT_REFRESH_DEBOUNCE_MS) {
     showToast(tccT('toast_refreshing'));
     return;
   }
   _lastSoftRefresh = now;
+  _softRefreshStartedAt = now;
   _softRefreshing = true;
+  const _runId = ++_softRefreshRunId;
   const fab = document.getElementById('fabRefresh');
   if (fab) fab.classList.add('spinning');
 
-  try {
+  let _timedOut = false;
+  let _anyFail = false;
+  let _deadlineTimer = null;
+
+  // ── งานทั้งหมดของรอบนี้ (โหลดข้อมูล + render ตามหน้า) ──
+  const _work = async () => {
     // [v12 FIX 1] ล้าง stale cache ก่อนทุกครั้งที่ Refresh เพื่อบังคับ fetch ใหม่จาก GAS
     clearAllStaleCache();
 
-    // [v9] ทุกหน้า: โหลด offline state (positions + earnContracts + openOrders) จาก GAS
-    // [v5 FIX] ลบ syncEarnContractsToGAS(false) ออก — ไม่มีประโยชน์และเสี่ยง
-    // เหตุผล: loadOfflineState() เพิ่งดึงข้อมูลสดจาก GAS มาแล้ว
-    // การ sync กลับทันทีหลังจากนั้น = ส่ง local state (ที่เพิ่ง copy มาจาก GAS) กลับ GAS ซ้ำโดยไม่จำเป็น
-    // syncEarnContractsToGAS ถูกเรียกใน syncOfflineEngine() ตอน startup เท่านั้น (ก่อน loadOfflineState)
-    if (typeof loadOfflineState === 'function') await loadOfflineState();
+    const _page0 = currentPage;
 
-    // [v17 FIX] เดิม loadDashboard() ถูกเรียกแค่ตอน currentPage ตกไปที่ default: เท่านั้น
-    // ทำให้ Position History / Order History / Funding Fee History ไม่ถูก merge เข้า HIST เลย
-    // เมื่อกดรีเฟรชตอนอยู่หน้า 'futures' (หน้าเทรดหลักที่สมาชิกอยู่บ่อยที่สุด)
-    // ย้ายมาเรียกร่วมกันทุกหน้าตรงนี้แทน — loadDashboard() ปลอดภัยเพราะแก้แค่ HIST/balance/profile ไม่แตะ S.positions
-    if (typeof loadDashboard === 'function') await loadDashboard();
+    // [PERF-REFRESH-PARALLEL] เดิมเรียงคิว: loadOfflineState → loadDashboard → fetchAllMids → loadOpenPositionsWithDD
+    //   (ลึก 4 ชั้น ต้องรอทีละตัว) ใหม่: 3 สายวิ่งขนานกัน เหมือนลำดับ boot (DOMContentLoaded) ที่ใช้อยู่แล้วและพิสูจน์แล้วว่าปลอดภัย
+    //   - loadDashboard()  แก้แค่ HIST/balance/profile ไม่แตะ S.positions
+    //   - loadOfflineState() เริ่มหลัง 300ms (stagger เหมือน boot) ให้ getDashboard ที่หนักสุดออกไปก่อน
+    //   - loadOpenPositionsWithDD ต้องรันหลัง loadOfflineState (ใช้ earnContracts/positions ที่เพิ่ง sync) → ต่อท้ายสายเดียวกัน
+    //   - fetchAllMids ยิง Hyperliquid ไม่เกี่ยวกับ GAS → ขนานได้เลย
+    const _tDash = (async () => {
+      if (typeof loadDashboard === 'function') await loadDashboard();
+    })();
+    const _tOffline = (async () => {
+      await new Promise(r => setTimeout(r, 300));
+      if (typeof loadOfflineState === 'function') await loadOfflineState();
+      // [v17 FIX] ดึง TP/SL + DD/Liq สดจาก GAS ทุกครั้งที่กดรีเฟรชหน้าเทรด
+      if (_page0 === 'futures' && typeof loadOpenPositionsWithDD === 'function') await loadOpenPositionsWithDD();
+    })();
+    const _tMids = (_page0 === 'futures' && typeof fetchAllMids === 'function')
+      ? fetchAllMids() : Promise.resolve();
+
+    const _settled = await Promise.allSettled([_tDash, _tOffline, _tMids]);
+    _settled.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        _anyFail = true;
+        console.warn('[softRefresh] step', ['dashboard', 'offlineState', 'mids'][i], 'failed:', r.reason && r.reason.message);
+      }
+    });
 
     switch (currentPage) {
       case 'futures':
-        if (typeof fetchAllMids === 'function') await fetchAllMids();
-        // [v17 FIX] ดึง TP/SL + DD/Liq สดจาก GAS ทุกครั้งที่กดรีเฟรชหน้าเทรด
-        // เดิมฟังก์ชันนี้ถูกเรียกแค่ตอนเปิด My Trades overlay เท่านั้น → กดปุ่มรีเฟรชไม่ดึง TP/SL เลย
-        if (typeof loadOpenPositionsWithDD === 'function') await loadOpenPositionsWithDD();
+        // กรณีผู้ใช้ย้ายมาหน้า futures ระหว่างรอ (สายด้านบนไม่ได้ยิง mids/DD เพราะตอนเริ่มอยู่หน้าอื่น)
+        if (_page0 !== 'futures') {
+          if (typeof fetchAllMids === 'function') await fetchAllMids();
+          if (typeof loadOpenPositionsWithDD === 'function') await loadOpenPositionsWithDD();
+        }
         if (typeof renderPositions === 'function') renderPositions();
         if (typeof renderEarnContracts === 'function') renderEarnContracts();
         if (typeof updatePositionsPNL === 'function') updatePositionsPNL();
@@ -34128,16 +34276,33 @@ async function softRefreshCurrentPage() {
         if (typeof updateOverviewBalances === 'function') updateOverviewBalances();
         break;
       default:
-        // [v17 FIX] loadDashboard() ย้ายไปเรียกร่วมกันด้านบนแล้ว ไม่ต้องเรียกซ้ำที่นี่
         break;
     }
-    showToast(tccT('toast_refreshed'));
+  };
+
+  try {
+    // [FIX-REFRESH-DEAD-BTN] เพดานเวลารวมทั้งรอบ — เกินแล้วคืน UI (งานเบื้องหลังยังรันต่อและ merge เข้า state เมื่อเสร็จ)
+    const _workP = _work();
+    _workP.catch(() => {}); // กัน unhandled rejection กรณี work จบ/พังหลังเลย timeout ไปแล้ว
+    const _res = await Promise.race([
+      _workP.then(() => 'done'),
+      new Promise(resolve => { _deadlineTimer = setTimeout(() => resolve('timeout'), SOFT_REFRESH_MAX_MS); }),
+    ]);
+    if (_res === 'timeout') {
+      _timedOut = true;
+      console.warn('[softRefresh] exceeded ' + SOFT_REFRESH_MAX_MS + 'ms — UI released, background sync continues');
+    }
+    showToast((_timedOut || _anyFail) ? tccT('toast_refresh_fail') : tccT('toast_refreshed'));
   } catch (e) {
     console.warn('[softRefresh]', e);
     showToast(tccT('toast_refresh_fail'));
   } finally {
-    _softRefreshing = false;
-    if (fab) fab.classList.remove('spinning');
+    if (_deadlineTimer) clearTimeout(_deadlineTimer);
+    // ปลด lock เฉพาะรอบล่าสุดเท่านั้น (กันรอบเก่าที่ค้างมาปลดของรอบใหม่)
+    if (_runId === _softRefreshRunId) {
+      _softRefreshing = false;
+      if (fab) fab.classList.remove('spinning');
+    }
   }
 }
 

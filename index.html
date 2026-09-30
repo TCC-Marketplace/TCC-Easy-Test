@@ -13026,6 +13026,21 @@ document.addEventListener('click', e => {
 // ═══════════════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════════════
+// [vx13-POS-PX] ราคา Avg Entry / Mark Price ของการ์ด Position (Futures→Direct และ Assets→Futures-Direct)
+// จำนวนหลักทศนิยม "คงที่ตามช่วงราคา" ไม่ตัดเลขศูนย์ท้าย → ราคาไม่เปลี่ยนความยาวขณะขยับ (แก้อาการกะพริบ 83,198 ↔ 83,198.5)
+//   ≥ 100        → 2 หลัก            (83,198.00)
+//   1 – < 100    → 4 หลัก            (54.2015)  คงความละเอียดเดิมของเหรียญกลุ่ม Metal/หุ้น
+//   < 1          → ให้ได้ ≥ 4 หลักนัยสำคัญ สูงสุด 8 หลัก (0.05230, 0.00001234)
+// ไม่แก้ fmtP() เพราะถูกใช้ร่วมกับ OrderBook/กราฟ/ticker กว่า 30 จุด
+function fmtPosPx(v) {
+  const n = parseFloat(v);
+  if (!isFinite(n) || n <= 0) return '—';
+  let dp;
+  if (n >= 100)     dp = 2;
+  else if (n >= 1)  dp = 4;
+  else              dp = Math.min(8, Math.max(4, 3 - Math.floor(Math.log10(n))));
+  return n.toLocaleString('en', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+}
 function fmtP(v) {
   if (!v || isNaN(v)) return '—';
   const n = parseFloat(v);
@@ -37459,7 +37474,7 @@ function aftdUpdateUnrealizedPnl() {
     const rEl = document.getElementById('aftd-roi-' + p.id);
     if (rEl) { rEl.textContent = (roi >= 0 ? '+' : '') + roi.toFixed(2) + '%'; rEl.style.color = col; }
     const mEl = document.getElementById('aftd-mark-' + p.id);
-    if (mEl) mEl.textContent = markP > 0 ? markP.toLocaleString('en', { maximumFractionDigits: 4 }) : '—';
+    if (mEl) mEl.textContent = fmtPosPx(markP); // [vx13-POS-PX]
     const nEl = document.getElementById('aftd-notional-' + p.id);
     if (nEl) nEl.textContent = '(≈$' + (size * (markP || entryP)).toFixed(2) + ')';
   });
@@ -37884,7 +37899,7 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
       ? `<span class="futd-tpsl-chip sl">SL: ${sl.toLocaleString('en',{maximumFractionDigits:4})}</span>`
       : `<span class="futd-tpsl-chip none">SL: —</span>`;
 
-    const markStr = markP > 0 ? markP.toLocaleString('en',{maximumFractionDigits:4}) : '—';
+    const markStr = fmtPosPx(markP); // [vx13-POS-PX]
     const liqStr  = liqP  > 0 ? liqP.toLocaleString('en',{maximumFractionDigits:4})  : '—';
     const goDirect = `navTo('futures');requestAnimationFrame(()=>futSwitchTab('direct'))`;
 
@@ -37905,7 +37920,7 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
         <div>Margin Ratio<b style="color:${mrColor}">${mrPctGlobal.toFixed(1)}%</b></div>
       </div>
       <div class="futd-pos-detail2">
-        <div>Avg Entry<b>${entryP.toLocaleString('en',{maximumFractionDigits:4})}</b></div>
+        <div>Avg Entry<b>${fmtPosPx(entryP)}</b></div>
         <div>Mark Price<b id="aftd-mark-${p.id}">${markStr}</b></div>
         <div>Liq. Price<b style="color:var(--r)">${liqStr}</b></div>
       </div>
@@ -39668,7 +39683,7 @@ function futdRenderPositions(positions) {
       ? `<span class="futd-tpsl-chip" style="background:rgba(114,137,218,.15);color:#7289da;border:1px solid rgba(114,137,218,.4)">⟳ Trail ${_trailCb}%${_trailPeak > 0 ? ' | Peak:'+_trailPeak.toLocaleString('en',{maximumFractionDigits:4}) : ''}</span>`
       : '';
 
-    const markStr = markP > 0 ? markP.toLocaleString('en',{maximumFractionDigits:4}) : '—';
+    const markStr = fmtPosPx(markP); // [vx13-POS-PX]
     const liqStr  = liqP  > 0 ? liqP.toLocaleString('en',{maximumFractionDigits:4})  : '—';
 
     // [v2.53] mode badge
@@ -39702,7 +39717,7 @@ function futdRenderPositions(positions) {
         <div>Margin Ratio<b style="color:${mrColor}">${mrPct.toFixed(1)}%</b></div>
       </div>
       <div class="futd-pos-detail2">
-        <div>Avg Entry<b>${entryP.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:4})}</b></div>
+        <div>Avg Entry<b>${fmtPosPx(entryP)}</b></div>
         <div>Mark Price<b id="futd-mark-${p.id}">${markStr}</b></div>
         <div>Liq. Price<b style="color:var(--r)">${liqStr}</b></div>
       </div>
@@ -39743,7 +39758,7 @@ function futdUpdatePnlCards() {
     const markEl = document.getElementById('futd-mark-' + p.id);
     if (upnlEl) { upnlEl.textContent = (upnl >= 0 ? '+' : '') + upnl.toFixed(2) + ' USDT'; upnlEl.style.color = upnlColor; }
     if (roiEl)  { roiEl.textContent  = (roiPct >= 0 ? '+' : '') + roiPct.toFixed(2) + '%'; roiEl.style.color  = upnlColor; }
-    if (markEl) { markEl.textContent = markP.toLocaleString('en', { maximumFractionDigits: 4 }); }
+    if (markEl) { markEl.textContent = fmtPosPx(markP); } // [vx13-POS-PX]
   });
   // [vx12-AVBL-LIVE] Avbl ขยับตาม PnL ทุก tick เดียวกับการ์ด Position
   futdUpdateAvblLive();

@@ -38594,11 +38594,15 @@ function futdStartOrderBook() {
     const ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
     FUTD.obWs = ws;
     ws.onopen = () => {
+      // [vx12-OB-STALE-WS] socket นี้ถูกแทนที่ไปแล้วระหว่างรอเชื่อมต่อ → ปิดทิ้ง ไม่ subscribe
+      if (FUTD.obWs !== ws) { try { ws.close(); } catch (e) {} return; }
       // [FIX-RT] subscribe ทั้ง l2Book และ trades ในคราวเดียวกัน (เหมือน Contract)
       ws.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'l2Book', coin: wsCoin } }));
       ws.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'trades', coin: wsCoin } }));
     };
     ws.onmessage = (evt) => {
+      // [vx12-OB-STALE-WS] ทิ้งข้อความจาก socket เก่าที่ไม่ใช่ตัวปัจจุบัน
+      if (FUTD.obWs !== ws) return;
       try {
         const d = JSON.parse(evt.data);
 
@@ -38632,7 +38636,9 @@ function futdStartOrderBook() {
               }
             }
           }
-          futdRenderOrderBook();
+          // [vx12-OB-RAF] วาด Order Book ผ่าน requestAnimationFrame (รวมหลายข้อความ/เฟรม)
+          // → วาดในเฟรมเดียวกับกราฟที่ใช้ RAF เช่นกัน จึงขยับพร้อมกัน
+          futdScheduleOrderBookRender();
 
           // [v2.72-FIX-AFTD-RT] อัปเดต Unrealized PNL ผ่าน l2Book mid price
           // (fallback เมื่อ trades WS ช้า หรือ volume น้อย)
@@ -38714,7 +38720,9 @@ function futdStartOrderBook() {
     // [v2.74-FIX-F3] ping/heartbeat ทุก 20 วินาที — ป้องกัน Hyperliquid ตัด idle connection
     // สาเหตุ WS หลุดบ่อย: ไม่มี activity → server-side idle timeout → onclose → reconnect loop
     // Hyperliquid รับ {"method":"ping"} และตอบ {"channel":"pong"} — เป็น documented protocol
-    FUTD._obPingTimer = setInterval(() => {
+    // [vx12-OB-STALE-WS] ping timer ผูกกับ socket ตัวนี้ — หยุดเองถ้าถูกแทนที่
+    const _pt = FUTD._obPingTimer = setInterval(() => {
+      if (FUTD.obWs !== ws) { clearInterval(_pt); return; }
       if (ws.readyState === WebSocket.OPEN) {
         try { ws.send(JSON.stringify({ method: 'ping' })); } catch(e) {}
       }
@@ -38722,6 +38730,10 @@ function futdStartOrderBook() {
 
     ws.onerror = () => {};
     ws.onclose = () => {
+      // [vx12-OB-STALE-WS] onclose ของ socket เก่าห้ามไปเคลียร์ FUTD.obWs/ping timer ของ socket ใหม่
+      // (สาเหตุเดิม: futdStartOrderBook → ปิดตัวเก่า → onclose ตัวเก่ายิงทีหลัง เซ็ต obWs=null ทับตัวใหม่
+      //  → หา socket ใหม่ไม่เจอ/ping ถูกล้าง/reconnect ซ้อน) และการปิดโดยตั้งใจ (futdStopOrderBook) ก็ไม่ reconnect
+      if (FUTD.obWs !== ws) return;
       // [v2.74-FIX-F3] clear ping timer เมื่อ WS ปิด
       if (FUTD._obPingTimer) { clearInterval(FUTD._obPingTimer); FUTD._obPingTimer = null; }
       FUTD.obWs = null;
@@ -38783,6 +38795,16 @@ function futdStopOrderBook() {
   if (bidList) bidList.innerHTML = '';
   if (midEl)   midEl.textContent  = '—';
   if (markEl)  markEl.textContent = '—';
+}
+
+// ── [vx12-OB-RAF] schedule วาด Order Book หนึ่งครั้งต่อเฟรม ──────
+function futdScheduleOrderBookRender() {
+  if (FUTD._obRafPending) return;
+  FUTD._obRafPending = true;
+  requestAnimationFrame(() => {
+    FUTD._obRafPending = false;
+    futdRenderOrderBook();
+  });
 }
 
 // ── Render Order Book (Direct) ─────────────────────────────────
@@ -38908,6 +38930,34 @@ function futdUpdateTicker(data) {
   if (data.vol   !== undefined) setSafe('futd-tk-vol',  data.vol);
 }
 
+// ── [vx12-AVBL-LIVE] Avbl แบบ real-time ───────────────────────────
+// แสดง Avbl = avail_margin (GAS) + Σ Unrealized PnL ของ position โหมด Cross (ตามหลัก Binance:
+// กำไร/ขาดทุนลอยของ Cross ทำให้ยอดใช้ได้เปลี่ยน ส่วน Isolated ถูกจำกัดที่ margin ของตัวเอง ไม่กระทบ Avbl)
+// ⚠️ แก้เฉพาะตัวเลขที่ "แสดง" ใน #futdAvblVal — ไม่แก้ FUTD.status.avail_margin
+//    (ค่านั้นถูกใช้คำนวณ Max Open/Cost, rollback ตอนปิด position และ margin sheet)
+function futdUpdateAvblLive(st) {
+  const s   = st || FUTD.status;
+  const el  = document.getElementById('futdAvblVal');
+  if (!s || !el) return;
+  const avail = parseFloat(s.avail_margin);
+  if (!isFinite(avail)) return;
+  const closing = FUTD._closingIds || {};
+  const prices  = FUTD.prices || {};
+  let upnl = 0;
+  (s.positions || []).forEach(p => {
+    if (closing[p.id]) return; // position ที่กำลังปิด — ไม่นับ (สอดคล้อง invariant ของ futdRefreshAccountStatus)
+    if (String(p.mode || 'isolated').toLowerCase() !== 'cross') return;
+    const coin   = (p.symbol || '').replace('USDT', '');
+    const markP  = parseFloat(prices[coin]) || 0;
+    const entryP = parseFloat(p.entry_price) || 0;
+    const size   = parseFloat(p.size) || 0;
+    if (!(markP > 0 && entryP > 0 && size > 0)) return;
+    upnl += p.side === 'long' ? (markP - entryP) * size : (entryP - markP) * size;
+  });
+  const live = Math.max(0, avail + upnl);
+  el.textContent = live.toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
+}
+
 // ── Balance bar update (Direct) ───────────────────────────────
 function futdUpdateBalanceBar(status) {
   if (!status) return;
@@ -38920,6 +38970,8 @@ function futdUpdateBalanceBar(status) {
   if (balChip)    balChip.textContent    = 'Bal: ' + bal.toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
   if (marginChip) marginChip.textContent = 'Margin: ' + marginUsed.toFixed(2) + ' USDT';
   if (avblEl)     avblEl.textContent     = avail.toLocaleString('en', { minimumFractionDigits: 2 }) + ' USDT';
+  // [vx12-AVBL-LIVE] ทับด้วยค่า live (avail + unrealized Cross) ทันที กันตัวเลขเก่ากะพริบกลับมาตอน poll/optimistic sync
+  try { futdUpdateAvblLive(status); } catch (e) {}
 }
 
 // ── futdPlaceOrder: ส่ง order ตรง Hyperliquid (Open หรือ Close) ─
@@ -39302,6 +39354,8 @@ async function futdRefreshAccountStatus() {
       : _incomingPos;
     status.positions = _incomingFinal;
     FUTD.status = status;
+    // [vx12-AVBL-LIVE] status เพิ่งถูกปรับ (ตัด position ที่กำลังปิด + คืน margin) → คำนวณ Avbl live ใหม่จากค่าที่ถูกต้อง
+    try { futdUpdateAvblLive(); } catch (_e) {}
     // [vx10-AFTD-CACHE] ข้อมูลชุดเดียวกับ Assets→Direct — เก็บลง cache + sync ยอดแถว Overview (ไม่ต้องยิง GAS ซ้ำเมื่อสลับไปหน้านั้น)
     try { aftdStoreStatus(uid, status, _astT0); } catch (_e) {}
 
@@ -39691,6 +39745,8 @@ function futdUpdatePnlCards() {
     if (roiEl)  { roiEl.textContent  = (roiPct >= 0 ? '+' : '') + roiPct.toFixed(2) + '%'; roiEl.style.color  = upnlColor; }
     if (markEl) { markEl.textContent = markP.toLocaleString('en', { maximumFractionDigits: 4 }); }
   });
+  // [vx12-AVBL-LIVE] Avbl ขยับตาม PnL ทุก tick เดียวกับการ์ด Position
+  futdUpdateAvblLive();
 }
 
 // ── Render Orders ──────────────────────────────────────────────────

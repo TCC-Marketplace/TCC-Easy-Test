@@ -21,6 +21,22 @@
      [vx8-TRAIL-ROLLBACK]   futdConfirmTrailingStop: คืนค่าเดิมเมื่อบันทึก GAS ไม่สำเร็จ
      [vx8-STAGGER]          boot: loadOfflineState เริ่มหลัง loadDashboard 300ms
      ไม่ได้แก้: futdConfirmTpsl (มี optimistic อยู่แล้ว), FDP/AFTD sync (closeFuturesPosition ล้าง FDP ผ่าน dbCallRaw hook อยู่แล้ว) -->
+<!-- [vx10-AFTD-FIX] (2026-09-30) Assets → Futures-Direct / Overview
+     [vx10-AFTD-CACHE]  สลับ Contract↔Direct ไม่ดาวน์โหลดใหม่ทุกครั้ง: cache ในหน่วยความจำ (AFTD.cache, สด 15s) + วาดทันทีแล้ว revalidate เบื้องหลัง,
+                        ไม่ล้างรายการเป็น spinner, ตัด retry ซ้อน (dbCallRaw retry เองอยู่แล้ว), ล้มเหลวแต่มีข้อมูลเดิม = คงข้อมูล+แถบเตือน,
+                        prefetch ตอนเปิด Assets→Futures, cache หมดอายุอัตโนมัติหลัง action เขียน Futures-Direct/transfer (_AFTD_INVALIDATE_ACTIONS)
+     [vx10-AFTD-PNL]    Unrealized PNL หัวข้อ = ผลรวมของการ์ดแต่ละ Position (คำนวณจากราคา/สูตรเดียวกัน) และการ์ดขยับ realtime ตามราคา
+                        + ดึงราคา Metal dex (xyz) ใน price poll เมื่อมี position เหรียญ Metal
+     [vx10-OVW-DIRECT]  Assets → Overview แถว Futures-Direct แสดงยอด futures_balance (ids: ovw-futd-usdt / ovw-futd-usd)
+                        แหล่งข้อมูล: getDashboard (user.futures_balance) → อัปเดตจาก getFuturesAccountSummary + optimistic ตอน transfer/ปิด position
+     ไม่ได้แก้: GAS (ใช้ action เดิมทั้งหมด), Contract tab (Assets/Futures), ปุ่ม 7D/1M/3M/1Y (ตามหมายเหตุ 1.4), ยอดรวม Est. Total Value -->
+<!-- [vx11-PNL-RANGE + OVW-DIRECT-TOTAL] (2026-09-30) ต้องใช้คู่กับ GAS_Eazy_vx9.gs (getFuturesPnlStats ส่งครบทุกช่วง) — ค้นด้วยแท็ก "vx11-"
+     [vx11-OVW-DIRECT-TOTAL] Assets → Overview: Est. Total Value = Earn + Spot + Funding + Futures-Direct (futures_balance + Unrealized)
+                             Today's PNL = Contract Unrealized + Direct (Realized วันนี้ + Unrealized) ; ฐาน % = total − PNL วันนี้ ; Home Est. Total Value ปรับให้ตรงกัน
+                             helper: _ovwDirectStats() ; prefetch Direct ตอนเปิด Assets ; setDirectWalletBalance/_aftdApplyStatus สั่งคำนวณ Overview ใหม่
+     [vx11-PNL-RANGE]        PNL Panel (Contract/Direct): ปุ่ม 7D/1M/3M/1Y เปลี่ยน Total Profit/Loss/Net + กราฟจริง + Detail/Symbol/Funding ตามช่วง ;
+                             Lifetime = all-time จริง ; ขอ GAS ครั้งเดียว (days:365) แล้วสลับปุ่มจาก cache ; กราฟใช้ข้อมูลรายวันจริงแทนเส้นสุ่ม ;
+                             แก้ selector ปุ่มช่วงเวลา (ปุ่มดาวน์โหลด Excel เคยถูกนับเป็นปุ่มช่วง) ; Direct Detail/Symbols ยังใช้ position ที่เปิดอยู่เหมือนเดิม -->
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -5753,7 +5769,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
       </div>
       <div class="ast-account-row" onclick="astSwitchTabByName('futures-a')"><span class="ast-acct-name">Futures-Contract</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-futures-usdt">41.87 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-futures-usd">≈ $1,363.39</div></div></div>
       <!-- [FUTURES-DIRECT v1] แถวใหม่เพิ่มเข้ามาเท่านั้น — ไม่แก้แถว Futures (Earn-linked) ด้านบน -->
-      <div class="ast-account-row" onclick="navTo('futures');requestAnimationFrame(()=>futSwitchTab('direct'))"><span class="ast-acct-name">Futures-Direct <span style="font-size:9px;color:var(--y);background:var(--ybg);border-radius:5px;padding:1px 5px;margin-left:4px">เทรดตรง</span></span><div class="ast-acct-right"><div class="ast-acct-usd" style="color:var(--t2);font-size:11px">›</div></div></div>
+      <div class="ast-account-row" onclick="navTo('futures');requestAnimationFrame(()=>futSwitchTab('direct'))"><span class="ast-acct-name">Futures-Direct <span style="font-size:9px;color:var(--y);background:var(--ybg);border-radius:5px;padding:1px 5px;margin-left:4px">เทรดตรง</span></span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-futd-usdt">…</div><div class="ast-acct-usd ast-hideable" id="ovw-futd-usd">≈ $…</div></div></div>
       <div class="ast-account-row" onclick="astSwitchTabByName('earn')"><span class="ast-acct-name">Earn</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-earn-usdt">0.00 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-earn-usd">≈ $0.00</div></div></div>
       <div class="ast-account-row" onclick="astSwitchTabByName('funding')" style="display:none"><span class="ast-acct-name">Funding</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-funding-usdt">0.00000044 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-funding-usd">≈ $0.00001433</div></div></div>
       <div class="ast-account-row" onclick="astSwitchTabByName('spot-a')"><span class="ast-acct-name">Spot</span><div class="ast-acct-right"><div class="ast-acct-usdt ast-hideable" id="ovw-spot-usdt">0.00 USDT</div><div class="ast-acct-usd ast-hideable" id="ovw-spot-usd">≈ $0.00</div></div></div>
@@ -13503,6 +13519,8 @@ function navTo(page) {
     updateOverviewBalances();
     // [v13.2 FIX] ตรวจว่า dash cache หมดอายุหรือ invalidated → reload balance จาก GAS
     _astRefreshBalanceIfStale();
+    // [vx11-OVW-DIRECT-TOTAL] prefetch Direct (เบา, throttle เอง) เพื่อให้ Unrealized/Realized ของ Direct เข้า Est. Total Value + Today's PNL
+    if (typeof aftdPrefetchDirect === 'function') { try { aftdPrefetchDirect(); } catch (e) {} }
     // [v13.3 FIX] เริ่ม polling ทุก 30 วิ เพื่อรับ off-chain deposit จากผู้อื่น
     _astStartBalancePolling();
   } else {
@@ -16823,7 +16841,7 @@ function astSwitchTab(name, el) {
   } catch(e) {}
   document.getElementById('astMain')?.scrollTo(0, 0);
   // Hook: render Futures tab ทุกครั้งที่เปิด
-  if (name === 'futures-a') { renderAstFuturesTab(); if (typeof aftSetMode === 'function') aftSetMode('contract'); }
+  if (name === 'futures-a') { renderAstFuturesTab(); if (typeof aftSetMode === 'function') aftSetMode('contract'); if (typeof aftdPrefetchDirect === 'function') aftdPrefetchDirect(); }
   // [NEW] Hook: render Commission tab ทุกครั้งที่เปิด — โหลดยอดสดจาก GAS (getMemberDashboard + getReferralDashboard)
   if (name === 'commission') { if (typeof astRenderCommissionTab === 'function') astRenderCommissionTab(); }
   // [v7 FIX] Hook: render Earn Contracts ทุกครั้งที่เปิด Earn tab
@@ -17013,6 +17031,7 @@ function updateOverviewBalances() {
     const _loadingText = '…';
     const _ids = ['astTotalVal','astTotalUsd','astPnlVal',
                    'ovw-futures-usdt','ovw-futures-usd',
+                   'ovw-futd-usdt','ovw-futd-usd',
                    'ovw-earn-usdt','ovw-earn-usd',
                    'ovw-funding-usdt','ovw-funding-usd',
                    'ovw-spot-usdt','ovw-spot-usd',
@@ -17050,7 +17069,11 @@ function updateOverviewBalances() {
   // [vx3 FIX-TOTAL] Overview Total = Earn + Spot + Funding
   // ไม่ใช้ futuresUsdt เพราะ Futures Margin Balance = Earn Wallet Balance (ซ้ำกัน)
   // earnUsdt = earnWalletBal = sum(currentBalance) — ตรงกับ Earn row และ Futures tab header
-  const total = earnUsdt + spotUsdt + fundingUsdt;
+  // [vx11-OVW-DIRECT-TOTAL] รวม Futures-Direct เข้ายอดรวมด้วย = futures_balance + Unrealized ของ Direct
+  // (Earn/Contract รวม Unrealized อยู่ใน currentBalance แล้ว — Direct จึงนับแบบเดียวกัน) ; แถว Direct ด้านล่างยังแสดง futures_balance เหมือนหน้า Assets → Futures-Direct
+  const _dx = _ovwDirectStats();
+  const directUsdt = _dx.bal + _dx.upnl;
+  const total = earnUsdt + spotUsdt + fundingUsdt + directUsdt;
 
   // Update overview rows
   const setRow = (id, usdt, usd) => {
@@ -17063,6 +17086,8 @@ function updateOverviewBalances() {
   setRow('ovw-earn', earnUsdt, earnUsdt);
   setRow('ovw-funding', fundingUsdt, fundingUsdt);
   setRow('ovw-spot', spotUsdt, spotUsdt);
+  // [vx10-OVW-DIRECT] แถว Futures-Direct: แสดง futures_balance (ตัวเลขเดียวกับ Margin Balance ใน Assets → Futures-Direct)
+  try { _ovwRenderDirectRow(); } catch (e) {}
 
   // [NEW] อัปเดตหน้า Funding tab (ast-page-funding) ให้แสดง balance จริง
   const ftv = document.getElementById('funding-total-val');
@@ -17087,15 +17112,17 @@ function updateOverviewBalances() {
   if (tu) tu.textContent = fmtNum(total,2);
 
   // [FIX] Today's PNL — ใช้ totalUnrealized จริงแทนตัวเลขเดโมฮาร์ดคอร์
+  // [vx11-OVW-DIRECT-TOTAL] + PNL ของ Futures-Direct (Realized วันนี้ + Unrealized) ; ส่วน Contract ยังเป็น Unrealized เหมือนเดิม
   const pnlEl = document.getElementById('astPnlVal');
   if (pnlEl) {
-    const pnlSign = totalUnrealized >= 0 ? '+' : '-';
-    const pnlAbs  = Math.abs(totalUnrealized);
-    const basis   = total - totalUnrealized; // มูลค่าก่อนรวม PNL วันนี้ ใช้เป็นฐานคิด %
-    const pnlPct  = basis > 0 ? (totalUnrealized / basis) * 100 : 0;
+    const todayPnl = totalUnrealized + _dx.todayRz + _dx.upnl;
+    const pnlSign = todayPnl >= 0 ? '+' : '-';
+    const pnlAbs  = Math.abs(todayPnl);
+    const basis   = total - todayPnl; // มูลค่าก่อนรวม PNL วันนี้ (Contract + Direct) ใช้เป็นฐานคิด %
+    const pnlPct  = basis > 0 ? (todayPnl / basis) * 100 : 0;
     const pctSign = pnlPct >= 0 ? '+' : '-';
     pnlEl.textContent = `${pnlSign}${fmtNum(pnlAbs,2)} USDT (${pctSign}${fmtNum(Math.abs(pnlPct),2)}%)`;
-    pnlEl.style.color = totalUnrealized > 0 ? 'var(--g)' : (totalUnrealized < 0 ? 'var(--r)' : 'var(--t2)');
+    pnlEl.style.color = todayPnl > 0 ? 'var(--g)' : (todayPnl < 0 ? 'var(--r)' : 'var(--t2)');
   }
 
   // Also update spot page header
@@ -18187,6 +18214,64 @@ let claimMode = 'all'; // 'all' | 'trade' | 'apt'
 let _fixedGateFetching = false;
 let mainWalletBalance = 0.00; // [v13.3] เริ่มที่ 0 — GAS จะ set ค่าจริงหลัง loadDashboard
 let fundingWalletBalance = 0.00; // [NEW] Funding Wallet balance — set จริงหลัง loadDashboard
+
+// [vx10-OVW-DIRECT] ยอด Futures-Direct (futures_balance) สำหรับแถวใน Assets → Overview
+// เก็บบน window (ไม่ใช้ let/const) กันปัญหา TDZ ถ้าถูกเรียกก่อนบรรทัดนี้รัน
+// null = ยังไม่ทราบค่า (แสดง "…") — ค่าแรกมาจาก getDashboard (user.futures_balance) ไม่ต้องยิง GAS เพิ่ม
+// แล้วถูกอัปเดตจาก getFuturesAccountSummary (Assets→Direct / Futures→Direct) + optimistic ตอน transfer/ปิด position
+window._directWalletBalance   = null;
+window._directWalletBalanceTs = 0;
+function _ovwRenderDirectRow() {
+  const el  = document.getElementById('ovw-futd-usdt');
+  const el2 = document.getElementById('ovw-futd-usd');
+  if (!el && !el2) return;
+  const v = window._directWalletBalance;
+  if (v === null || v === undefined || isNaN(v)) {
+    if (el)  el.textContent  = '…';
+    if (el2) el2.textContent = '≈ $…';
+    return;
+  }
+  const t = (v !== 0 && Math.abs(v) < 0.01) ? v.toFixed(8) : fmtNum(v, 2);
+  if (el)  el.textContent  = t + ' USDT';
+  if (el2) el2.textContent = '≈ $' + t;
+}
+/** ts = เวลาที่ "เริ่ม" อ่านข้อมูล (กันผลตอบกลับเก่าที่มาช้าไปทับค่าที่ใหม่กว่า) ; onlyIfUnknown = ใช้ค่านี้เฉพาะเมื่อยังไม่เคยมีค่า (เช่น จาก cache) */
+function setDirectWalletBalance(v, ts, onlyIfUnknown) {
+  const n = parseFloat(v);
+  if (isNaN(n)) return;
+  if (onlyIfUnknown && window._directWalletBalance !== null) return;
+  const t = (ts !== undefined && ts !== null) ? ts : Date.now();
+  if (t < (window._directWalletBalanceTs || 0)) return; // ข้อมูลเก่ากว่าที่มีอยู่ → ทิ้ง
+  window._directWalletBalance   = n;
+  window._directWalletBalanceTs = t;
+  try { _ovwRenderDirectRow(); } catch (e) {}
+  // [vx11-OVW-DIRECT-TOTAL] ยอด Direct เปลี่ยน → คำนวณ Est. Total Value / Today's PNL ใหม่ (ตอนนี้ Total รวม Direct แล้ว)
+  try { if (typeof updateOverviewBalances === 'function') updateOverviewBalances(); } catch (e) {}
+}
+/** [vx11-OVW-DIRECT-TOTAL] ยอด/PNL ของ Futures-Direct สำหรับรวมใน Est. Total Value + Today's PNL (Assets → Overview และ Home)
+ *  bal     = futures_balance (window._directWalletBalance ; ยังไม่รู้ค่า = 0)
+ *  upnl    = Unrealized PNL ของ position Direct ที่เปิดอยู่ — สูตรเดียวกับ Assets → Futures-Direct (_aftdPosMark/_aftdPosPnl)
+ *            ใช้ AFTD.positions ; ถ้ายังว่างและมี cache สถานะสดจาก prefetch (AFTD.cache) ใช้ position จาก cache แทน
+ *  todayRz = Realized PNL วันนี้ของ Direct (GAS Daily PNL → AFTD.todayRealizedPnl → cache.status.today_realized_pnl)
+ *  ห่อ try/catch: AFTD/FDP ประกาศทีหลัง (const) ถ้าถูกเรียกก่อนหน้านั้นต้องไม่ทำให้ Overview พัง */
+function _ovwDirectStats() {
+  let bal = parseFloat(window._directWalletBalance);
+  if (!isFinite(bal)) bal = 0;
+  let upnl = 0, todayRz = 0;
+  try {
+    let ps = (typeof AFTD !== 'undefined' && AFTD && AFTD.positions) ? AFTD.positions : [];
+    if (!ps.length && typeof AFTD !== 'undefined' && AFTD && AFTD.cache && AFTD.cache.at > 0 && AFTD.cache.status && Array.isArray(AFTD.cache.status.positions)) ps = AFTD.cache.status.positions;
+    ps.forEach(p => { upnl += _aftdPosPnl(p, _aftdPosMark(p)); });
+  } catch (e) { upnl = 0; }
+  if (!isFinite(upnl)) upnl = 0;
+  try {
+    if (typeof fdpToday === 'function' && fdpToday('direct') !== null) todayRz = fdpToday('direct');
+    else if (typeof AFTD !== 'undefined' && AFTD && AFTD.todayRealizedPnl) todayRz = parseFloat(AFTD.todayRealizedPnl) || 0;
+    else if (typeof AFTD !== 'undefined' && AFTD && AFTD.cache && AFTD.cache.status) todayRz = parseFloat(AFTD.cache.status.today_realized_pnl) || 0;
+  } catch (e) { todayRz = 0; }
+  if (!isFinite(todayRz)) todayRz = 0;
+  return { bal: bal, upnl: upnl, todayRz: todayRz };
+}
 // [FIX-3] flag: true หลัง loadDashboard ได้รับข้อมูลจาก GAS ครั้งแรก
 // ใช้กัน updateOverviewBalances/renderEarnContracts แสดง 0.00 / "ยังไม่มีสัญญา" ก่อนข้อมูลพร้อม
 window._dashboardReady = false;
@@ -22180,6 +22265,8 @@ function tfConfirm() {
     if (typeof FUTD !== 'undefined' && FUTD.status) {
       FUTD.status.futures_balance = Math.max(0, (parseFloat(FUTD.status.futures_balance) || 0) - amt);
     }
+    // [vx10-OVW-DIRECT] sync แถว Futures-Direct ใน Overview ทันที (ถ้าเคยทราบยอดแล้ว)
+    if (window._directWalletBalance !== null) setDirectWalletBalance(Math.max(0, window._directWalletBalance - amt));
   } else if (TF.from === 'earn') {
     // Deduct proportionally from earn contracts
     let remaining = amt;
@@ -22201,6 +22288,8 @@ function tfConfirm() {
     if (typeof FUTD !== 'undefined' && FUTD.status) {
       FUTD.status.futures_balance = (parseFloat(FUTD.status.futures_balance) || 0) + amt;
     }
+    // [vx10-OVW-DIRECT] sync แถว Futures-Direct ใน Overview ทันที (ถ้าเคยทราบยอดแล้ว)
+    if (window._directWalletBalance !== null) setDirectWalletBalance(window._directWalletBalance + amt);
   } else if (TF.to === 'earn') {
     // เติมเงินเข้า stakedAmount แล้วให้ syncContractBalance คำนวณ currentBalance ใหม่
     const activeC = earnContracts.find(c => c.status === 'active');
@@ -27418,7 +27507,9 @@ function _hmRefreshBalance() {
   // เดิม: _mainBal + _spotBal → นับ mainWalletBalance 2 รอบ (double-count)
   // ใหม่: ลบ _mainBal ออก — _spotBal = USDT cash + coin holdings ครบในตัวเดียว
   const _spotBal    = (typeof getSpotTotalUSDT === 'function') ? getSpotTotalUSDT() : 0;
-  const total = _earnBal + _fundingBal + _spotBal;
+  // [vx11-OVW-DIRECT-TOTAL] รวม Futures-Direct (futures_balance + Unrealized) ให้ตรงกับ Assets → Overview
+  const _dxH  = (typeof _ovwDirectStats === 'function') ? _ovwDirectStats() : { bal: 0, upnl: 0 };
+  const total = _earnBal + _fundingBal + _spotBal + _dxH.bal + _dxH.upnl;
 
   // [v9.1 FIX] Today's PNL = unrealized + realized PnL วันนี้
   const unrealized = (typeof S !== 'undefined' && S.positions)
@@ -27450,19 +27541,7 @@ function _hmRefreshBalance() {
     return 0;
   })();
   // [vx5-FIX-DASH-DIRECT] รวม Futures-Direct unrealized PNL (จาก AFTD.positions) ด้วย
-  const unrealizedDirect = (() => {
-    if (typeof AFTD === 'undefined' || !AFTD.positions || !AFTD.positions.length) return 0;
-    return AFTD.positions.reduce((s, p) => {
-      const coin   = (p.symbol || '').replace('USDT', '');
-      const entryP = parseFloat(p.entry_price) || 0;
-      const size   = parseFloat(p.size) || 0;
-      const markP  = (typeof FUTD !== 'undefined' && FUTD.prices && FUTD.prices[coin])
-                  || (typeof S !== 'undefined' && S.coinPrices && parseFloat(S.coinPrices[coin]))
-                  || parseFloat(p.mark) || 0;
-      if (!markP || !entryP || !size) return s;
-      return s + (p.side === 'long' ? (markP - entryP) * size : (entryP - markP) * size);
-    }, 0);
-  })();
+  const unrealizedDirect = _dxH.upnl;   // [vx11-OVW-DIRECT-TOTAL] ใช้ค่าเดียวกับที่รวมใน total ด้านบน (สูตรเดียวกับ Assets → Direct)
   const pnl = unrealized + todayRealized + todayRealizedDirect + unrealizedDirect;
 
   const hmTotal = document.getElementById('hm-total');
@@ -30508,6 +30587,8 @@ const QUEUE = {
 // ═══════════════════════════════════════════════════════════════════════
 const FDP = { today: { contract: null, direct: null }, todayDate: '', months: {}, inflight: {} };
 const _FDP_INVALIDATE_ACTIONS = /^(logClose|closeFuturesPosition|openFuturesPosition|runFuturesTpSlCheck|runTpSlCheck|logEarnLiquidate|forceLiquidateContract)$/;
+// [vx10-AFTD-CACHE] action ที่เปลี่ยน position/order/balance ของ Futures-Direct → cache ของ Assets→Direct ต้องหมดอายุ
+const _AFTD_INVALIDATE_ACTIONS = /^(openFuturesPosition|placeFuturesOrder|cancelFuturesOrder|editFuturesOrder|closeFuturesPosition|adjustFuturesMargin|updateFuturesTpSl|repairFuturesPositionSide|logTransfer)$/;
 function _fdpLocalDate() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
 function _fdpTz() { return -new Date().getTimezoneOffset(); }   // นาทีที่เร็วกว่า UTC (ไทย = 420)
 function _fdpUid() {
@@ -30557,7 +30638,8 @@ async function fdpLoadMonth(mode, year, mon, force) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// [vx6-PNL-STATS] FSTAT — cache สถิติ PNL ย้อนหลัง (7D/30D/6M + symbols/detail/funding) จาก GAS
+// [vx11-PNL-RANGE] ขอครั้งเดียวสูงสุด 1 ปี — GAS ส่งสถิติครบทุกช่วงปุ่ม 7D/1M/3M/1Y + Lifetime all-time + รายวัน → สลับปุ่มแล้วคำนวณจาก cache ได้ทันที
+// [vx6-PNL-STATS] FSTAT — cache สถิติ PNL ย้อนหลัง (7D/30D + symbols/detail/funding) จาก GAS
 // ใช้แทนค่าที่ _fpnlExtract() เคยคำนวณจาก HIST.transactionHistory/futdTransactionHistory
 // (ที่ getDashboard จำกัดไว้ 100/80 รายการ) — แสดงผลได้สูงสุด 6 เดือน ถ้ามีมากกว่านั้นให้ดาวน์โหลด Excel แทน
 // ═══════════════════════════════════════════════════════════════════════
@@ -30568,7 +30650,7 @@ async function fstatLoad(mode, force) {
   if (FSTAT.inflight[mode]) return FSTAT.inflight[mode];
   const uid = _fdpUid();
   if (!uid) return null;
-  FSTAT.inflight[mode] = dbCallRaw('getFuturesPnlStats', { uid, mode, months: 6, tzOffsetMin: _fdpTz() })
+  FSTAT.inflight[mode] = dbCallRaw('getFuturesPnlStats', { uid, mode, days: 365, tzOffsetMin: _fdpTz() })
     .then(r => { const e = Object.assign({}, r, { at: Date.now() }); FSTAT[mode] = e; return e; })
     .catch(err => { console.warn('[fstatLoad] fail:', err && err.message); return null; })
     .finally(() => { delete FSTAT.inflight[mode]; });
@@ -30669,6 +30751,16 @@ async function _dbCallRawOnce(action, data = {}) {
     if (!json.ok) throw new Error(json.error || 'GAS error: ' + action);
     // [vx6-DAILY-PNL] sync FDP: getDashboard → เก็บ today; action ที่เปลี่ยน realized PNL → ล้าง cache (ใช้ HIST fallback จนกว่าจะ sync ใหม่)
     try { if (action === 'getDashboard') _fdpApplyDash(json.data); else if (_FDP_INVALIDATE_ACTIONS.test(action)) fdpInvalidate(); } catch (_e) {}
+    // [vx10-AFTD-CACHE] เขียนสำเร็จ → cache Assets→Direct หมดอายุ; ถ้าผู้ใช้กำลังดูหน้านั้นอยู่ให้ refresh ทันที
+    try {
+      if (_AFTD_INVALIDATE_ACTIONS.test(action) && typeof aftdInvalidate === 'function') {
+        aftdInvalidate();
+        if (typeof AFTD !== 'undefined' && AFTD.mode === 'direct' && typeof currentPage !== 'undefined' && currentPage === 'assets' &&
+            typeof astCurrentTab !== 'undefined' && astCurrentTab === 'futures-a' && typeof aftdRefreshDirectSummary === 'function') {
+          setTimeout(() => { aftdRefreshDirectSummary(); }, 300);
+        }
+      }
+    } catch (_e2) {}
     return json.data;
   } catch (err) {
     if (err.name === 'AbortError') {
@@ -31001,8 +31093,11 @@ async function loadDashboard() {
   // [GAS-FIRST] ดึงจาก GAS ก่อนเสมอ — ไม่ใช้ cache-first อีกต่อไป
   // cache ใช้เฉพาะเป็น fallback เมื่อ GAS fail เท่านั้น
   let dash = null;
+  const _dashT0 = Date.now();  // [vx10-OVW-DIRECT] เวลาเริ่มอ่าน (ใช้กันข้อมูลเก่าทับ)
+  let _dashFresh = false;      // true = ได้ข้อมูลสดจาก GAS (ไม่ใช่ cache fallback)
   try {
     dash = await dbCallRaw('getDashboard', { uid });
+    _dashFresh = !!dash;
     if (dash) {
       LS.setWithTTL(cacheKey, { data: dash }, CACHE_CONFIG.TTL_DASHBOARD);
       // [v2.47-FD FIX-BAL-3] บันทึก balance fallback ที่ไม่มีวันหมดอายุ — ใช้เมื่อ GAS fail
@@ -31057,6 +31152,8 @@ async function loadDashboard() {
     });
     if (u.main_balance !== undefined) { const _b = parseFloat(u.main_balance); if (!isNaN(_b)) mainWalletBalance = _b; }
     if (u.funding_balance !== undefined) { const _fb = parseFloat(u.funding_balance); if (!isNaN(_fb)) fundingWalletBalance = _fb; }
+    // [vx10-OVW-DIRECT] futures_balance อยู่ใน Users row ที่ getDashboard ส่งมาอยู่แล้ว → ใช้แสดงแถว Futures-Direct ใน Overview
+    if (u.futures_balance !== undefined) setDirectWalletBalance(u.futures_balance, _dashFresh ? _dashT0 : undefined, !_dashFresh);
     // [FIX v2.49-PROFILE-SYNC] ใช้ _syncAllProfilePages() แทน _profileRender()+_homeUpdateAvatar()
     // เดิม — เพื่อให้หน้า Account Info (ai-avatar) และ Verification Center (vf-avatar) ได้รับ
     // avatar_url ที่เพิ่งโหลดมาจาก GAS ด้วย ไม่ใช่แค่หน้า Profile หลักกับ topbar เท่านั้น
@@ -37313,26 +37410,59 @@ const AFTD = {
   pricePollTimer: null,  // [v2.72-FIX-AFTD-POLL] price poll แยกสำหรับ Assets → Direct
   todayRealizedPnl: 0,   // [v2.74-FIX-F2] realized PNL วันนี้จาก GAS (อัปเดตตอน aftdRefreshDirectSummary)
   marginBalance: 0,      // [v2.74-FIX-F2] futures_balance สำหรับคำนวณ % วันนี้ PNL
+  // [vx10-AFTD-CACHE] cache ผลล่าสุดของ getFuturesAccountSummary (ในหน่วยความจำ เฉพาะ session — ไม่เขียน localStorage
+  // เพราะระบบตั้งใจล้าง data cache ทุกครั้งที่เปิดแอป) → สลับ Contract↔Direct ไม่ต้องดาวน์โหลดใหม่ทุกครั้ง
+  cache: null,           // { uid, at, startedAt, status } ; at=0 = หมดอายุ (invalidate)
+  inflight: null,        // promise ของ request ที่กำลังบินอยู่ (กันยิงซ้อน)
+  freshMs: 15000,        // อายุ cache ที่ถือว่า "สด" — ยังอยู่ในช่วงนี้ = ไม่ยิง GAS ซ้ำตอนสลับแท็บ
 };
 
+/** [vx10-AFTD-PNL] แหล่งราคา mark เดียวของ Assets → Direct (ทั้งตัวเลขหัวข้อและการ์ดใช้ฟังก์ชันเดียวกัน)
+ *  priority: FUTD.prices (Direct WS/poll) → S.coinPrices (Contract/Spot WS) → p.mark */
+function _aftdPosMark(p) {
+  const coin = (p.symbol || '').replace('USDT', '');
+  return (typeof FUTD !== 'undefined' && FUTD.prices && FUTD.prices[coin])
+      || (typeof S    !== 'undefined' && S.coinPrices && parseFloat(S.coinPrices[coin]))
+      || parseFloat(p.mark) || 0;
+}
+function _aftdPosPnl(p, markP) {
+  const entryP = parseFloat(p.entry_price) || 0;
+  const size   = parseFloat(p.size) || 0;
+  if (!markP || !entryP || !size) return 0;
+  return p.side === 'long' ? (markP - entryP) * size : (entryP - markP) * size;
+}
+
 /** [v2.71-AFTD-REALTIME] คำนวณและอัปเดต Unrealized PNL ใน Assets → Futures-Direct
- *  เรียกจาก futdRefreshPrice() ทุก price tick — ไม่เรียก GAS */
+ *  เรียกจาก price tick (WS / poll) — ไม่เรียก GAS
+ *  [vx10-AFTD-PNL] แก้บั๊ก PNL ไม่ตรงกัน: เดิมอัปเดตเฉพาะตัวเลขหัวข้อ ส่วนการ์ด Position ถูกวาดครั้งเดียวแล้วค้าง
+ *  ตอนนี้คำนวณ PNL รายตัวครั้งเดียว → อัปเดตทั้งการ์ด (PNL/ROI/Mark/มูลค่า) และผลรวมหัวข้อจากค่าเดียวกัน */
 function aftdUpdateUnrealizedPnl() {
-  if (!AFTD.positions || !AFTD.positions.length) return;
+  const _positions = AFTD.positions || [];
   const _fmt2    = v => (parseFloat(v) || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const _fmtSign = v => (v >= 0 ? '+' : '') + _fmt2(v);
 
-  const _upnl = AFTD.positions.reduce((s, p) => {
-    const coin   = (p.symbol || '').replace('USDT', '');
-    const entryP = parseFloat(p.entry_price) || 0;
+  let _upnl = 0;
+  _positions.forEach(p => {
+    const markP = _aftdPosMark(p);
+    const pnl   = _aftdPosPnl(p, markP);
+    _upnl += pnl;
+
+    const uEl = document.getElementById('aftd-upnl-' + p.id);
+    if (!uEl) return; // การ์ดยังไม่ถูกวาด (เช่น อยู่แท็บ Contract) — ข้ามเฉพาะ DOM ของการ์ด
+    const margin = parseFloat(p.margin) || 0;
     const size   = parseFloat(p.size) || 0;
-    // ใช้ price จาก FUTD.prices (Direct WS poll) → S.coinPrices (Contract WS) → p.mark fallback
-    const markP  = (typeof FUTD !== 'undefined' && FUTD.prices && FUTD.prices[coin])
-                || (typeof S    !== 'undefined' && S.coinPrices && parseFloat(S.coinPrices[coin]))
-                || parseFloat(p.mark) || 0;
-    if (!markP || !entryP || !size) return s;
-    return s + (p.side === 'long' ? (markP - entryP) * size : (entryP - markP) * size);
-  }, 0);
+    const entryP = parseFloat(p.entry_price) || 0;
+    const roi    = margin > 0 ? (pnl / margin) * 100 : 0;
+    const col    = pnl >= 0 ? 'var(--g)' : 'var(--r)';
+    uEl.textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + ' USDT';
+    uEl.style.color = col;
+    const rEl = document.getElementById('aftd-roi-' + p.id);
+    if (rEl) { rEl.textContent = (roi >= 0 ? '+' : '') + roi.toFixed(2) + '%'; rEl.style.color = col; }
+    const mEl = document.getElementById('aftd-mark-' + p.id);
+    if (mEl) mEl.textContent = markP > 0 ? markP.toLocaleString('en', { maximumFractionDigits: 4 }) : '—';
+    const nEl = document.getElementById('aftd-notional-' + p.id);
+    if (nEl) nEl.textContent = '(≈$' + (size * (markP || entryP)).toFixed(2) + ')';
+  });
 
   const _upnlEl = document.getElementById('aftd-unrealized-pnl');
   const _uusdEl = document.getElementById('aftd-unrealized-usd');
@@ -37345,14 +37475,13 @@ function aftdUpdateUnrealizedPnl() {
   const _todayTotal = _todayRz + _upnl;
   const _todayEl    = document.getElementById('aftd-today-pnl');
   if (_todayEl) {
-    // ใช้ _mbal จาก AFTD.marginBalance (เก็บตอน aftdRefreshDirectSummary) เพื่อคำนวณ %
+    // ใช้ _mbal จาก AFTD.marginBalance (เก็บตอน _aftdApplyStatus) เพื่อคำนวณ %
     const _mbal    = (typeof AFTD !== 'undefined' && AFTD.marginBalance) ? parseFloat(AFTD.marginBalance) : 0;
     const _todayPct = _mbal > 0 ? ((_todayTotal / _mbal) * 100) : 0;
     // [vx5-FIX-PNL] format: '+$X.XX (+X.XX%)' / '-$X.XX (-X.XX%)' ตรงกับ Contract tab
-    const _fmt2D = v => (parseFloat(v) || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const _signD = _todayTotal >= 0 ? '+' : '-';
     const _pctSignD = _todayPct >= 0 ? '+' : '';
-    _todayEl.textContent = _signD + '$' + _fmt2D(Math.abs(_todayTotal)) + ' (' + _pctSignD + _todayPct.toFixed(2) + '%)';
+    _todayEl.textContent = _signD + '$' + _fmt2(Math.abs(_todayTotal)) + ' (' + _pctSignD + _todayPct.toFixed(2) + '%)';
     _todayEl.style.color = _todayTotal >= 0 ? 'var(--g)' : 'var(--r)';
   }
 }
@@ -37362,24 +37491,37 @@ function aftdUpdateUnrealizedPnl() {
 async function _aftdPriceTick() {
   try {
     // ใช้ allMids endpoint เดิมที่ futdRefreshPrice ใช้ (Hyperliquid)
-    const res = await fetch('https://api.hyperliquid.xyz/info', {
+    const _post = body => fetch('https://api.hyperliquid.xyz/info', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'allMids' }),
-    });
-    if (!res.ok) return;
-    const mids = await res.json();
+      body: JSON.stringify(body),
+    }).then(r => (r.ok ? r.json() : null));
+    // [vx10-AFTD-PNL] ถ้ามี position เหรียญ Metal (dex xyz) ต้องดึง allMids ของ dex นั้นด้วย
+    // เดิมดึงเฉพาะ dex หลัก → Metal ไม่มีราคาสด ตกไปใช้ p.mark ที่ค้าง → PNL ไม่ขยับ
+    const _pos = AFTD.positions || [];
+    const _needMetal = (typeof _isMetalCoin === 'function') && _pos.some(p => _isMetalCoin((p.symbol || '').replace('USDT', '')));
+    const [mids, metalMids] = await Promise.all([
+      _post({ type: 'allMids' }),
+      _needMetal ? _post({ type: 'allMids', dex: METAL_DEX }).catch(() => null) : Promise.resolve(null),
+    ]);
     // อัปเดต FUTD.prices โดยตรง — ใช้ logic เดียวกับ futdRefreshPrice
-    if (mids && typeof mids === 'object') {
-      if (typeof FUTD !== 'undefined') {
-        if (!FUTD.prices) FUTD.prices = {};
+    if (typeof FUTD !== 'undefined') {
+      if (!FUTD.prices) FUTD.prices = {};
+      if (mids && typeof mids === 'object') {
         Object.keys(mids).forEach(coin => {
           const p = parseFloat(mids[coin]);
           if (p > 0) FUTD.prices[coin] = p;
         });
       }
+      if (metalMids && typeof metalMids === 'object') {
+        Object.keys(metalMids).forEach(k => {
+          const nk = k.includes(':') ? k.split(':').pop() : k;
+          const p = parseFloat(metalMids[k]);
+          if (p > 0) FUTD.prices[nk] = p;
+        });
+      }
     }
-    // อัปเดต Unrealized PNL บน Assets → Direct
+    // อัปเดต Unrealized PNL (หัวข้อ + การ์ด) บน Assets → Direct
     if (AFTD.positions && AFTD.positions.length) aftdUpdateUnrealizedPnl();
   } catch(e) {
     // ไม่ throw — price tick ล้มเหลวบางรอบได้โดยไม่กระทบ UX
@@ -37410,7 +37552,8 @@ function aftSetMode(mode) {
   document.getElementById('aft-mode-tab-direct')?.classList.toggle('active', mode === 'direct');
   // [v2.72-FIX-AFTD-POLL] จัดการ price poll ตาม sub-tab ที่เลือก
   if (mode === 'direct') {
-    aftdRefreshDirectSummary();
+    // [vx10-AFTD-CACHE] วาดจาก cache ทันที; ยิง GAS เฉพาะเมื่อ cache เก่ากว่า AFTD.freshMs (ไม่ล้างรายการเป็น spinner)
+    aftdRefreshDirectSummary({ maxAge: AFTD.freshMs });
     _aftdStartPricePoll();
     // [v2.72-FIX-AFTD-RT] เริ่ม FUTD OB WebSocket สำหรับ realtime price feed
     // ถ้า WS ยังไม่ได้ start (user มาจาก Assets ไม่ผ่าน Futures tab) → start ใหม่
@@ -37441,6 +37584,17 @@ async function _futdFetchAccountStatusSplit(uid) {
   if (status.has_cross) {
     dbCallRaw('getFuturesLiqMap', { uid }).then(liq => {
       if (!liq) return;
+      // [vx10-AFTD-CACHE] merge ลง status ตัวนี้ + cache ของ Assets→Direct ด้วย (กัน liq หายเมื่อ callback มาก่อน/หลังการเก็บ cache)
+      status.liq_price_map            = liq.liq_price_map || {};
+      status.cross_equity             = liq.cross_equity;
+      status.total_maintenance_margin = liq.total_maintenance_margin;
+      try {
+        if (typeof AFTD !== 'undefined' && AFTD.cache && AFTD.cache.status && AFTD.cache.uid === String(status.uid)) {
+          AFTD.cache.status.liq_price_map            = status.liq_price_map;
+          AFTD.cache.status.cross_equity             = status.cross_equity;
+          AFTD.cache.status.total_maintenance_margin = status.total_maintenance_margin;
+        }
+      } catch (_e) {}
       if (typeof FUTD !== 'undefined' && FUTD.status && FUTD.status.uid === status.uid) {
         FUTD.status.liq_price_map            = liq.liq_price_map || {};
         FUTD.status.cross_equity             = liq.cross_equity;
@@ -37455,101 +37609,139 @@ async function _futdFetchAccountStatusSplit(uid) {
   return status;
 }
 
-async function aftdRefreshDirectSummary() {
-  const sess = (typeof _lgLoadSession === 'function') ? _lgLoadSession() : null;
-  const uid  = (sess && sess.uid) ? String(sess.uid).trim()
-             : ((typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) ? String(USER_PROFILE.uid).trim() : '');
-  if (!uid) return;
+// ═══════════════════════════════════════════════════════════════════════
+// [vx10-AFTD-CACHE] Assets → Futures-Direct: cache + stale-while-revalidate
+// ปัญหาเดิม: ทุกครั้งที่สลับ Contract→Direct จะยิง GAS ใหม่ + ล้างรายการเป็น spinner (เช็ค class `.aft-pos-card`
+//   ที่ไม่มีอยู่จริง → เงื่อนไขเป็นจริงเสมอ) + retry ซ้อน 2 ชั้น (ในฟังก์ชัน + ใน dbCallRaw) รอสูงสุด ~80 วินาที
+// แก้: เก็บผลล่าสุดใน AFTD.cache → วาดทันที แล้ว revalidate เบื้องหลังเมื่อ cache เก่า; ถ้า fetch ล้มเหลวแต่มีข้อมูลเดิม
+//   แสดงข้อมูลเดิม + แถบเตือน "อาจไม่ล่าสุด" แทนหน้า error; ยิงซ้อนกันไม่ได้ (in-flight เดียว)
+// ═══════════════════════════════════════════════════════════════════════
+/** ทำให้ cache หมดอายุ (ครั้งต่อไปที่เปิดหน้า Direct จะ revalidate) — เรียกอัตโนมัติจาก dbCallRaw หลัง action เขียน Futures-Direct */
+function aftdInvalidate() {
+  try { if (AFTD.cache) AFTD.cache.at = 0; } catch (e) {}
+}
 
-  // [v2.47-FD] แสดง loading spinner ขณะโหลด ป้องกัน UI ว่างค้างโดยไม่มีคำอธิบาย
-  const _listEl = document.getElementById('astFutDirectPosList');
-  if (_listEl && !_listEl.querySelector('.aft-pos-card')) {
-    _listEl.innerHTML =
-      '<div class="aft-empty"><div class="aft-empty-icon" style="animation:spin 1s linear infinite;display:inline-block;">⏳</div>' +
-      '<div class="aft-empty-title">กำลังโหลดข้อมูล Futures...</div></div>';
+/** เก็บ status ล่าสุดลง cache (เรียกจากทั้ง Assets→Direct และ Futures→Direct เพราะใช้ข้อมูลชุดเดียวกัน) */
+function aftdStoreStatus(uid, status, t0) {
+  if (!uid || !status) return;
+  const prev = AFTD.cache;
+  if (prev && prev.uid === uid && (prev.startedAt || 0) > t0) return; // มี cache ที่เริ่มอ่านทีหลัง (ใหม่กว่า) อยู่แล้ว
+  AFTD.cache = { uid: uid, at: Date.now(), startedAt: t0, status: Object.assign({}, status) };
+  try { setDirectWalletBalance(status.futures_balance, t0); } catch (e) {} // [vx10-OVW-DIRECT] sync แถว Overview
+}
+
+/** fetch แบบ in-flight เดียว (ทุกคนที่เรียกพร้อมกันใช้ promise เดียวกัน) แล้วเก็บลง cache */
+function _aftdFetch(uid) {
+  if (AFTD.inflight) return AFTD.inflight;
+  const t0 = Date.now();
+  const p = _futdFetchAccountStatusSplit(uid).then(status => {
+    aftdStoreStatus(uid, status, t0);
+    return status;
+  });
+  AFTD.inflight = p;
+  const _clear = () => { if (AFTD.inflight === p) AFTD.inflight = null; };
+  p.then(_clear, _clear);
+  return p;
+}
+
+/** แถบเตือนเล็กๆ เหนือรายการ (ข้อมูลอาจไม่ล่าสุด) — msg=null เพื่อซ่อน */
+function _aftdSetStale(msg) {
+  let n = document.getElementById('aftd-stale-note');
+  const list = document.getElementById('astFutDirectPosList');
+  if (!msg) { if (n) n.remove(); return; }
+  if (!list || !list.parentNode) return;
+  if (!n) {
+    n = document.createElement('div');
+    n.id = 'aftd-stale-note';
+    n.style.cssText = 'font-size:10px;color:var(--y);text-align:center;padding:4px 8px;opacity:.9;cursor:pointer';
+    n.onclick = () => { aftdRefreshDirectSummary(); };
+    list.parentNode.insertBefore(n, list);
+  }
+  n.textContent = msg;
+}
+
+/** วาดข้อมูล status ลงหน้า Assets → Futures-Direct (Balance / PNL / จำนวน / รายการ Position) */
+function _aftdApplyStatus(status) {
+  const _fmt2 = v => (parseFloat(v) || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const _set  = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+
+  // Margin Balance (= futures_balance จาก GAS)
+  const _mbal = parseFloat(status.futures_balance) || 0;
+  _set('aftd-margin-bal', _fmt2(_mbal));
+  _set('aftd-margin-usd', '≈ $' + _fmt2(_mbal));
+  // [v2.74-FIX-F2] เก็บ marginBalance ไว้ใน AFTD เพื่อให้ aftdUpdateUnrealizedPnl คำนวณ % ได้
+  AFTD.marginBalance = _mbal;
+
+  // Wallet Balance = avail_margin (futures_balance − margin ที่ใช้ไปแล้ว)
+  // [vx10] เดิมใช้ `parseFloat(avail) || _mbal` → avail=0 (ใช้ margin เต็ม) ถูกแสดงเป็นยอดเต็มผิด → ตรวจ NaN แทน
+  const _av   = parseFloat(status.avail_margin);
+  const _wbal = isNaN(_av) ? _mbal : _av;
+  _set('aftd-wallet-bal', _fmt2(_wbal));
+  _set('aftd-wallet-usd', '≈ $' + _fmt2(_wbal));
+
+  // [v2.71-AFTD-REALTIME] เก็บ positions ลง global AFTD สำหรับ aftdUpdateUnrealizedPnl()
+  const _positions = status.positions || [];
+  AFTD.positions = _positions;
+
+  // [v2.74-FIX-F2] Today's Realized PNL — อ่านจาก GAS/FDP ที่คำนวณไว้แล้ว (รวมกับ unrealized ใน aftdUpdateUnrealizedPnl)
+  const _todayRz = (typeof fdpToday === 'function' && fdpToday('direct') !== null) ? fdpToday('direct') : (parseFloat(status.today_realized_pnl) || 0); // [vx6-DAILY-PNL]
+  AFTD.todayRealizedPnl = _todayRz;
+
+  // Position / Order counts
+  _set('aftd-pos-count',   _positions.length);
+  _set('aftd-order-count', (status.orders || []).length);
+
+  aftdRenderDirectPosList(_positions, status.liq_price_map || {});
+  // [FIX-AFTD-PNL] Unrealized PNL (หัวข้อ + การ์ด) คำนวณจาก live price จุดเดียว — ไม่ใช้ p.pnl ของ GAS (เก็บค่า ณ ตอน open)
+  aftdUpdateUnrealizedPnl();
+  // [vx11-OVW-DIRECT-TOTAL] position/Realized วันนี้ของ Direct เปลี่ยน → อัปเดต Est. Total Value / Today's PNL ใน Overview
+  try { if (typeof updateOverviewBalances === 'function') updateOverviewBalances(); } catch (e) {}
+}
+
+/** โหลด+แสดงสรุปยอด Futures-Direct
+ *  opts.maxAge (ms) : ถ้ามี cache ที่อายุน้อยกว่านี้ → วาดจาก cache แล้วจบ ไม่ยิง GAS (ใช้ตอนสลับแท็บ)
+ *  ไม่ส่ง opts     : บังคับดึงสด (ใช้หลังปิด position / ปุ่ม "ลองใหม่") — แต่ยังวาดจาก cache ก่อนเพื่อไม่ให้หน้าว่าง */
+async function aftdRefreshDirectSummary(opts) {
+  opts = opts || {};
+  const uid = _futdCurrentUid();
+  if (!uid) return;
+  const reqAt = Date.now();
+  const c = AFTD.cache;
+  const hasCache = !!(c && c.uid === uid && c.status);
+
+  if (hasCache) {
+    // 1) วาดจาก cache ทันที (ไม่รอ network)
+    try { _aftdApplyStatus(c.status); } catch (e) { console.warn('[aftdRefreshDirectSummary] paint cache fail:', e && e.message); }
+    if (opts.maxAge && (reqAt - c.at) < opts.maxAge) { _aftdSetStale(null); return; } // ยังสดพอ — ไม่ต้องยิง GAS
+  } else {
+    // [v2.47-FD] โหลดครั้งแรกจริงๆ เท่านั้น: แสดง spinner (ถ้าไม่มีการ์ดค้างอยู่)
+    const _listEl = document.getElementById('astFutDirectPosList');
+    if (_listEl && !_listEl.querySelector('.futd-pos-row')) {
+      _listEl.innerHTML =
+        '<div class="aft-empty"><div class="aft-empty-icon" style="animation:spin 1s linear infinite;display:inline-block;">⏳</div>' +
+        '<div class="aft-empty-title">กำลังโหลดข้อมูล Futures...</div></div>';
+    }
   }
 
   try {
-    // [vx6-PERF] GAS cold-start ทำให้ครั้งแรก timeout ได้ → retry 1 ครั้ง (ครั้งที่สอง GAS อุ่นแล้วมักเร็ว)
-    let status;
-    try { status = await _futdFetchAccountStatusSplit(uid); } // [vx6-DIRECT-SPLIT] Summary เบาก่อน, Liq แยกทีหลัง
-    catch (_e1) {
-      if (_e1 && _e1.message && _e1.message.indexOf('[Timeout]') > -1) status = await _futdFetchAccountStatusSplit(uid);
-      else throw _e1;
-    }
-    const _fmt2 = v => (parseFloat(v) || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const _fmtSign = v => (v >= 0 ? '+' : '') + _fmt2(v);
-
-    // Margin Balance (= futures_balance จาก GAS)
-    const _mbal = parseFloat(status.futures_balance) || 0;
-    document.getElementById('aftd-margin-bal').textContent = _fmt2(_mbal);
-    document.getElementById('aftd-margin-usd').textContent = '≈ $' + _fmt2(_mbal);
-    // [v2.74-FIX-F2] เก็บ marginBalance ไว้ใน AFTD เพื่อให้ aftdUpdateUnrealizedPnl คำนวณ % ได้
-    if (typeof AFTD !== 'undefined') AFTD.marginBalance = _mbal;
-
-    // Wallet Balance = futures_balance - margin_used (avail margin ที่ไม่ได้วาง)
-    const _wbal = parseFloat(status.avail_margin) || _mbal;
-    const _wbalEl = document.getElementById('aftd-wallet-bal');
-    const _wusdEl = document.getElementById('aftd-wallet-usd');
-    if (_wbalEl) _wbalEl.textContent = _fmt2(_wbal);
-    if (_wusdEl) _wusdEl.textContent = '≈ $' + _fmt2(_wbal);
-
-    // [FIX-AFTD-PNL] Unrealized PNL — คำนวณจาก live price เสมอ
-    // FUTD.prices อาจว่างถ้า Direct tab ยังไม่ถูกเปิด → fallback S.coinPrices (Contract/Spot WS)
-    // ไม่ใช้ p.pnl / p.unrealized_pnl เพราะ GAS เก็บค่า ณ เวลา open เท่านั้น (มักเป็น 0)
-    const _positions = status.positions || [];
-    // [v2.71-AFTD-REALTIME] เก็บ positions ลง global AFTD สำหรับ aftdUpdateUnrealizedPnl()
-    if (typeof AFTD !== 'undefined') AFTD.positions = _positions;
-    const _upnl = _positions.reduce((s, p) => {
-      const coin    = (p.symbol || '').replace('USDT', '');
-      const entryP  = parseFloat(p.entry_price) || 0;
-      const size    = parseFloat(p.size) || 0;
-      // priority: FUTD.prices (Direct WS) → S.coinPrices (Contract/Spot WS) → p.mark fallback
-      const markP   = (FUTD.prices && FUTD.prices[coin])
-                   || (typeof S !== 'undefined' && S.coinPrices && parseFloat(S.coinPrices[coin]))
-                   || parseFloat(p.mark) || 0;
-      if (!markP || !entryP || !size) return s;
-      const pnl = p.side === 'long'
-        ? (markP - entryP) * size
-        : (entryP - markP) * size;
-      return s + pnl;
-    }, 0);
-    const _upnlEl  = document.getElementById('aftd-unrealized-pnl');
-    const _uusdEl  = document.getElementById('aftd-unrealized-usd');
-    if (_upnlEl) {
-      _upnlEl.textContent = _fmtSign(_upnl);
-      _upnlEl.style.color = _upnl >= 0 ? 'var(--g)' : 'var(--r)';
-    }
-    if (_uusdEl) {
-      _uusdEl.textContent = '≈ $' + _fmtSign(_upnl);
-      _uusdEl.style.color = _upnl >= 0 ? 'var(--g)' : 'var(--r)';
-    }
-
-    // [v2.74-FIX-F2] Today's Realized PNL — อ่านจาก GAS ที่คำนวณไว้แล้ว
-    // GAS ส่ง today_realized_pnl = Σ realized_pnl ของ position ที่ปิดวันนี้
-    // รวมกับ unrealized PNL ปัจจุบัน → "วันนี้ PNL" ที่แสดงใน Assets → Direct
-    const _todayRz   = (typeof fdpToday === 'function' && fdpToday('direct') !== null) ? fdpToday('direct') : (parseFloat(status.today_realized_pnl) || 0); // [vx6-DAILY-PNL]
-    const _todayTotal = _todayRz + _upnl;  // realized + unrealized วันนี้
-    const _todayPct   = (_mbal > 0) ? ((_todayTotal / _mbal) * 100) : 0;
-    const _todayEl   = document.getElementById('aftd-today-pnl');
-    if (_todayEl) {
-      // [vx5-FIX-PNL] format: '+$X.XX (+X.XX%)' / '-$X.XX (-X.XX%)' ตรงกับ Contract tab
-      const _signD2 = _todayTotal >= 0 ? '+' : '-';
-      const _pctSignD2 = _todayPct >= 0 ? '+' : '';
-      _todayEl.textContent = _signD2 + '$' + _fmt2(Math.abs(_todayTotal)) + ' (' + _pctSignD2 + _todayPct.toFixed(2) + '%)';
-      _todayEl.style.color = _todayTotal >= 0 ? 'var(--g)' : 'var(--r)';
-    }
-    // เก็บ today_realized_pnl ไว้ใน AFTD เพื่อให้ aftdUpdateUnrealizedPnl อ่านได้
-    if (typeof AFTD !== 'undefined') AFTD.todayRealizedPnl = _todayRz;
-
-    // Position / Order counts
-    document.getElementById('aftd-pos-count').textContent   = _positions.length;
-    document.getElementById('aftd-order-count').textContent = (status.orders || []).length;
-    aftdRenderDirectPosList(_positions, status.liq_price_map || {});
+    // 2) revalidate เบื้องหลัง — dbCallRaw retry เองอยู่แล้ว 1 ครั้งเมื่อ Timeout (อ่านอย่างเดียว) จึงไม่ retry ซ้ำที่นี่
+    let status = await _aftdFetch(uid);
+    // บังคับดึงสด (ไม่มี maxAge): ถ้าได้ผลจาก request ที่เริ่มก่อนเราสั่ง (เช่น poll/prefetch ที่บินอยู่ก่อนปิด position) → ดึงใหม่อีกรอบ
+    if (!opts.maxAge && AFTD.cache && AFTD.cache.startedAt < reqAt) status = await _aftdFetch(uid);
+    if (_futdCurrentUid() !== uid) return; // ผู้ใช้เปลี่ยนบัญชีระหว่างรอ
+    _aftdApplyStatus(status);
+    _aftdSetStale(null);
   } catch (e) {
     console.warn('[aftdRefreshDirectSummary] fail:', e.message);
-    // [v2.47-FD FIX-FD-3] แสดง error state ใน UI แทนที่จะปล่อยว่างเปล่า
-    const _errEl = document.getElementById('astFutDirectPosList');
+    const _errEl   = document.getElementById('astFutDirectPosList');
+    const _hasData = (AFTD.cache && AFTD.cache.uid === uid && AFTD.cache.status) ||
+                     (_errEl && _errEl.querySelector('.futd-pos-row'));
+    if (_hasData) {
+      // มีข้อมูลเดิมแสดงอยู่แล้ว → คงไว้ + แจ้งเตือน (ไม่ทับด้วยหน้า error)
+      _aftdSetStale('⚠ ข้อมูลอาจไม่ล่าสุด — เชื่อมต่อ Server ไม่ได้ (แตะเพื่อลองใหม่)');
+      return;
+    }
+    // [v2.47-FD FIX-FD-3] ไม่มีข้อมูลเลย → แสดง error state ใน UI แทนที่จะปล่อยว่างเปล่า
     if (_errEl) {
       const _isDeployErr = e.message && e.message.includes('GAS-DEPLOY-ERROR');
       const _isTimeout   = e.message && e.message.includes('Timeout');
@@ -37573,6 +37765,20 @@ async function aftdRefreshDirectSummary() {
         '</div>';
     }
   }
+}
+
+/** โหลดข้อมูล Direct ล่วงหน้าเงียบๆ ตอนเปิด Assets → Futures (แท็บ Contract) เพื่อให้กดสลับไป Direct แล้วขึ้นทันที
+ *  หน่วง 1.2s ให้ request ของหน้า Contract/Dashboard ไปก่อน (กัน GAS คิวยาว) และข้ามถ้ามี cache สด/กำลังโหลดอยู่ */
+function aftdPrefetchDirect() {
+  const uid = _futdCurrentUid();
+  if (!uid || AFTD.inflight) return;
+  const _fresh = () => { const c = AFTD.cache; return !!(c && c.uid === uid && (Date.now() - c.at) < 30000); };
+  if (_fresh()) return;
+  setTimeout(() => {
+    if (AFTD.inflight || AFTD.mode === 'direct' || _fresh()) return;
+    if (typeof currentPage !== 'undefined' && currentPage !== 'assets') return;
+    _aftdFetch(uid).catch(() => {});
+  }, 1200);
 }
 
 function aftdRenderDirectPosList(positions, liqPriceMap) {
@@ -37689,18 +37895,18 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
           <span class="futd-pos-side ${p.side}">${p.side === 'long' ? 'LONG' : 'SHORT'} x${p.lev}</span>
         </div>
         <div style="text-align:right">
-          <div class="futd-pos-pnl" style="color:${upnlColor}">${upnl >= 0 ? '+' : ''}${upnl.toFixed(2)} USDT</div>
-          <div class="futd-pos-roi" style="color:${upnlColor}">${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(2)}%</div>
+          <div class="futd-pos-pnl" style="color:${upnlColor}" id="aftd-upnl-${p.id}">${upnl >= 0 ? '+' : ''}${upnl.toFixed(2)} USDT</div>
+          <div class="futd-pos-roi" style="color:${upnlColor}" id="aftd-roi-${p.id}">${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(2)}%</div>
         </div>
       </div>
       <div class="futd-pos-detail">
         <div>Size (${coin})<b>${size}</b></div>
-        <div>Margin (USDT)<b>${margin.toFixed(2)} <span style="font-size:9px;color:var(--t3)">(≈$${(size * (markP || entryP)).toFixed(2)})</span></b></div>
+        <div>Margin (USDT)<b>${margin.toFixed(2)} <span style="font-size:9px;color:var(--t3)" id="aftd-notional-${p.id}">(≈$${(size * (markP || entryP)).toFixed(2)})</span></b></div>
         <div>Margin Ratio<b style="color:${mrColor}">${mrPctGlobal.toFixed(1)}%</b></div>
       </div>
       <div class="futd-pos-detail2">
         <div>Avg Entry<b>${entryP.toLocaleString('en',{maximumFractionDigits:4})}</b></div>
-        <div>Mark Price<b>${markStr}</b></div>
+        <div>Mark Price<b id="aftd-mark-${p.id}">${markStr}</b></div>
         <div>Liq. Price<b style="color:var(--r)">${liqStr}</b></div>
       </div>
       <div class="futd-mr-bar-wrap">
@@ -37715,6 +37921,8 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
       </div>
     </div>`;
   }).join('');
+  // [vx10-AFTD-PNL] sync หัวข้อ + การ์ดให้ใช้ราคา/ค่าเดียวกันทันทีหลังวาดใหม่ (เช่น เมื่อ liq map มาถึงทีหลัง)
+  aftdUpdateUnrealizedPnl();
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -39023,6 +39231,7 @@ async function futdRefreshAccountStatus() {
   if (!uid) return;
   FUTD._astInFlight = true; // [FIX-POLL-LOCK] ล็อก
   try {
+    const _astT0 = Date.now(); // [vx10-AFTD-CACHE]
     const status = await _futdFetchAccountStatusSplit(uid); // [vx6-DIRECT-SPLIT] Summary เบาก่อน, Liq แยกทีหลัง
     // [v2.59-LIQ] set FUTD.status ก่อน render เสมอ — futdRenderPositions อ่าน liq_price_map จาก FUTD.status
     // ลำดับสำคัญ: FUTD.status = status → futdRenderPositions() → _futdClientCrossLiq fallback จะได้ข้อมูลใหม่
@@ -39093,6 +39302,8 @@ async function futdRefreshAccountStatus() {
       : _incomingPos;
     status.positions = _incomingFinal;
     FUTD.status = status;
+    // [vx10-AFTD-CACHE] ข้อมูลชุดเดียวกับ Assets→Direct — เก็บลง cache + sync ยอดแถว Overview (ไม่ต้องยิง GAS ซ้ำเมื่อสลับไปหน้านั้น)
+    try { aftdStoreStatus(uid, status, _astT0); } catch (_e) {}
 
     futdRenderPositions(status.positions || []);
     futdRenderOrders(status.orders || []);
@@ -39864,6 +40075,7 @@ async function futdCloseposition(posId) {
   if (FUTD.status && isFinite(_rpnl)) {
     FUTD.status.futures_balance = (parseFloat(FUTD.status.futures_balance) || 0) + _rpnl;
     FUTD.status.avail_margin    = Math.max(0, (parseFloat(FUTD.status.avail_margin) || 0) + _rpnl); // avail = balance − margin_used
+    setDirectWalletBalance(FUTD.status.futures_balance); // [vx10-OVW-DIRECT]
     try { futdUpdateBalanceBar(FUTD.status); } catch (e) {}
   }
   // คงไว้ 20s กัน poll ที่ยิงก่อนปิดแต่ตอบช้า (ข้อมูลเก่า) เอา position กลับมา
@@ -42588,7 +42800,7 @@ function futdUpdateCandleCountdown() {
           <div class="fpnl-cell-usd" id="fpnl-lt-usd">USD</div>
         </div>
       </div>
-      <!-- [vx6-PNL-STATS] แสดงเมื่อมีประวัติเกิน 6 เดือน (Lifetime ด้านบนแสดงผลสูงสุด 6 เดือน) -->
+      <!-- [vx6-PNL-STATS][vx11-PNL-RANGE] แสดงเมื่อมีประวัติเกิน 1 ปี หรือรายการเกินที่แสดงได้ (Lifetime = all-time จริง ตัวเลข Total/Net/กราฟ ตามปุ่ม 7D/1M/3M/1Y) -->
       <div id="fpnl-export-hint" style="display:none;text-align:right;margin:4px 2px 8px;">
         <button class="fpnl-time-btn" id="fpnl-export-btn" style="font-size:12px;padding:4px 10px;" onclick="fpnlDownloadExcel()">⬇ ดาวน์โหลด Excel (ประวัติทั้งหมด)</button>
       </div>
@@ -42604,11 +42816,11 @@ function futdUpdateCandleCountdown() {
 
     <!-- Summary Grid -->
     <div class="fpnl-sum-grid">
-      <span class="fpnl-sum-lbl">Total Profit</span>
+      <span class="fpnl-sum-lbl" id="fpnl-sum-lbl-profit">Total Profit</span>
       <span class="fpnl-sum-val fpnl-green" id="fpnl-sum-profit">0.00 USD</span>
-      <span class="fpnl-sum-lbl">Total Loss</span>
+      <span class="fpnl-sum-lbl" id="fpnl-sum-lbl-loss">Total Loss</span>
       <span class="fpnl-sum-val fpnl-red" id="fpnl-sum-loss">0.00 USD</span>
-      <span class="fpnl-sum-lbl">Net Profit/Loss</span>
+      <span class="fpnl-sum-lbl" id="fpnl-sum-lbl-net">Net Profit/Loss</span>
       <span class="fpnl-sum-val" id="fpnl-sum-net">0.00 USD</span>
     </div>
     <div class="fpnl-chevron" id="fpnl-chevron">&#8964;</div>
@@ -42672,7 +42884,7 @@ function futdUpdateCandleCountdown() {
         <canvas class="fpnl-canvas" id="fpnl-chart-asset" height="120"></canvas>
       </div>
 
-      <div class="fpnl-note">* ข้อมูลทั้งหมดคำนวณจาก positions และ transaction history ในระบบ TCC</div>
+      <div class="fpnl-note">* ข้อมูลทั้งหมดคำนวณจาก positions และ transaction history ในระบบ TCC · Asset Value ประมาณจากยอดปัจจุบันย้อนด้วย PNL (ไม่รวมฝาก/ถอน/โอน)</div>
     </div>
 
     <!-- ── DETAIL TAB ── -->
@@ -42735,6 +42947,61 @@ function futdUpdateCandleCountdown() {
   /* ─────────────────────────────────────────────────
      DATA EXTRACTION — อ่านข้อมูลจาก index state
   ───────────────────────────────────────────────── */
+  // [vx9-FIX-DATE] toISOString() เป็น UTC ทำให้วันที่ในเวลาไทย (00:00-07:00) ถอยหลังไป 1 วัน (เช่น แสดง 09-28 ทั้งที่เป็น 09-29) -> ใช้วันที่ local ให้ตรงกับปฏิทิน
+  function _fpnlYmd(v) {
+    const d = (v instanceof Date) ? v : new Date(v);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  /* [vx11-PNL-RANGE] ปุ่ม 7D/1M/3M/1Y — เลือกข้อมูลจริงจาก FSTAT (GAS getFuturesPnlStats) ตามช่วงที่กด
+     ขอบเขตวันเดียวกับ GAS: นับเป็นวันตามเขตเวลาผู้ใช้ รวมวันนี้ (7D = วันนี้ + 6 วันก่อนหน้า, 1M = 30, 3M = 90, 1Y = 365) */
+  const _FPNL_DAYS = { '7d': 7, '1m': 30, '3m': 90, '1y': 365 };
+  const _FPNL_LBL  = { '7d': '7D', '1m': '1M', '3m': '3M', '1y': '1Y' };
+  function _fpnlDays() { return _FPNL_DAYS[_fpnlRange] || 365; }
+  // ต้นช่วง (ms) — ใช้เป็น fallback ตอนยังไม่มีข้อมูลจาก GAS (สูตรเดียวกับ GAS)
+  function _fpnlRangeStartMs() {
+    const DAY = 86400000, off = _fdpTz() * 60000;
+    return Math.floor((Date.now() + off) / DAY) * DAY - off - (_fpnlDays() - 1) * DAY;
+  }
+  // รายการวัน yyyy-MM-dd (เขตเวลาผู้ใช้) ของช่วงที่เลือก เรียงเก่า → ใหม่ รวมวันนี้
+  function _fpnlDayList(n) {
+    const DAY = 86400000, off = _fdpTz() * 60000;
+    const t0 = Math.floor((Date.now() + off) / DAY);
+    const out = [];
+    for (let i = n - 1; i >= 0; i--) out.push(new Date((t0 - i) * DAY).toISOString().slice(0, 10));
+    return out;
+  }
+  /** คืนข้อมูลของช่วงที่เลือกจาก FSTAT entry ; null = ยังไม่มีข้อมูลจาก GAS (หรือ GAS ยังเป็นเวอร์ชันเก่าที่ไม่มี stat_ranges) → ผู้เรียกใช้ fallback */
+  function _fpnlPick(fs) {
+    if (!fs || !fs.stat_ranges) return null;
+    const r = _fpnlRange;
+    const st = fs.stat_ranges[r] || fs.stat_ranges['1y'] || { realized: 0, profit: 0, loss: 0 };
+    const startMs = (fs.range_starts && fs.range_starts[r]) || _fpnlRangeStartMs();
+    const inR = x => (x.ts || 0) >= startMs;
+    const dmap = {}; (fs.daily || []).forEach(x => { dmap[x.d] = x.v; });
+    return {
+      profit: st.profit, loss: st.loss, net: st.realized,
+      life: fs.stat_all ? fs.stat_all.realized : st.realized,
+      detail:  (fs.detail  || []).filter(inR),
+      funding: (fs.funding || []).filter(inR),
+      symbols: (fs.symbols_by_range && fs.symbols_by_range[r]) || [],
+      daily: dmap
+    };
+  }
+  /** กราฟจริง: Cumulative PNL รายวัน (สะสมจาก realized รายวัน จุดสุดท้าย = endVal = Net ของช่วง + Unrealized)
+   *  Cumulative % = cum / Margin Balance (ฐานเดียวกับ 7D/30D PNL ด้านบน) ; Asset Value ≈ Margin Balance ปัจจุบันย้อนด้วย PNL (ไม่รวมฝาก/ถอน/โอน) */
+  function _fpnlSeries(dmap, endVal, marginBal) {
+    const days = _fpnlDayList(_fpnlDays());
+    let run = 0;
+    const cum = days.map(d => { run += (dmap && dmap[d]) || 0; return run; });
+    if (cum.length) cum[cum.length - 1] = endVal;
+    const end = cum.length ? cum[cum.length - 1] : 0;
+    return {
+      days, cum,
+      pct:   cum.map(v => marginBal > 0 ? v / marginBal * 100 : 0),
+      asset: cum.map(v => Math.max(0, marginBal - (end - v)))
+    };
+  }
+
   function _fpnlExtract(mode) {
     const today = new Date(); today.setHours(0,0,0,0);
     const todayMs = today.getTime();
@@ -42791,7 +43058,7 @@ function futdUpdateCandleCountdown() {
         .map(tx => ({
           sym:  tx.symbol || '—',
           type: 'PERP',
-          time: tx.ts ? new Date(tx.ts).toISOString().slice(0,10) : '—',
+          time: tx.ts ? _fpnlYmd(tx.ts) : '—',
           pnl:  parseFloat(String(tx.amount||'0').replace('+',''))||0,
           pct:  0
         }));
@@ -42819,20 +43086,27 @@ function futdUpdateCandleCountdown() {
 
       // [vx6-PNL-STATS] ใช้สถิติจาก GAS (ไม่ถูกจำกัด 100 รายการเหมือน HIST) แทนค่าที่คำนวณข้างบน ถ้าโหลดมาแล้ว
       let _fs7d = pnl7d, _fs30d = pnl30d, _fsLife = lifetime;
-      let _fsProfit = totalProfit, _fsLoss = totalLoss, _fsNet = netPnl;
+      // [vx11-PNL-RANGE] fallback (ก่อน GAS ตอบ): กรอง HIST ตามช่วงที่เลือก — ตัวเลขจริงมาจาก GAS ด้านล่าง
+      const _rsMsC = _fpnlRangeStartMs();
+      const _amtC  = tx => parseFloat(String(tx.amount||'0').replace('+',''))||0;
+      const _rgRealizedC = allRealized.filter(tx => (tx.ts||0) >= _rsMsC);
+      let _fsProfit = _rgRealizedC.reduce((s,tx)=>{ const v=_amtC(tx); return s+(v>0?v:0); },0);
+      let _fsLoss   = _rgRealizedC.reduce((s,tx)=>{ const v=_amtC(tx); return s+(v<0?-v:0); },0);
+      let _fsNet    = _fsProfit - _fsLoss;
       let _fsDetail = detail, _fsSymbols = symbols, _fsFunding = funding, _fsHasMore = false;
       const _fstatC = (typeof FSTAT !== 'undefined') ? FSTAT.contract : null;
-      if (_fstatC) {
+      const _pkC = _fpnlPick(_fstatC);
+      let _dailyMapC = null;
+      if (_pkC) {
         _fs7d   = _fstatC.stat_7d.realized  + unrealized;
         _fs30d  = _fstatC.stat_30d.realized + unrealized;
-        _fsLife = _fstatC.stat_range.realized; // จำกัดสูงสุด 6 เดือนตามที่ขอ ไม่ใช่ all-time จริงถ้า has_more=true
-        _fsProfit = _fstatC.stat_range.profit;
-        _fsLoss   = _fstatC.stat_range.loss;
-        _fsNet    = _fstatC.stat_range.realized;
-        _fsDetail = _fstatC.detail.map(x => ({ sym: x.sym, type: x.type, time: new Date(x.ts).toISOString().slice(0,10), pnl: x.amount, pct: 0 }));
-        _fsSymbols = _fstatC.symbols.map(x => ({ sym: x.sym, pnl: x.pnl, pct: marginBal>0?(x.pnl/marginBal*100):0 }));
-        _fsFunding = _fstatC.funding.map(f => ({ date: new Date(f.ts).toISOString().replace('T',' ').slice(0,16), sym: f.sym, type: f.type, amount: f.amount }));
+        _fsLife = _pkC.life;   // [vx11-PNL-RANGE] Lifetime = all-time จริง (เดิม = 6 เดือน)
+        _fsProfit = _pkC.profit; _fsLoss = _pkC.loss; _fsNet = _pkC.net;   // ตามปุ่ม 7D/1M/3M/1Y
+        _fsDetail = _pkC.detail.map(x => ({ sym: x.sym, type: x.type, time: _fpnlYmd(x.ts), pnl: x.amount, pct: 0 }));
+        _fsSymbols = _pkC.symbols.map(x => ({ sym: x.sym, pnl: x.pnl, pct: marginBal>0?(x.pnl/marginBal*100):0 }));
+        _fsFunding = _pkC.funding.map(f => ({ date: new Date(f.ts).toISOString().replace('T',' ').slice(0,16), sym: f.sym, type: f.type, amount: f.amount }));
         _fsHasMore = !!_fstatC.has_more;
+        _dailyMapC = _pkC.daily;
       }
       // [vx8-FIX-FREEZE] re-render เฉพาะเมื่อได้ข้อมูล "ใหม่" (e.at เปลี่ยน) — เดิม fstatLoad คืน cache เดิม -> render -> extract -> fstatLoad ... วนไม่รู้จบจนหน้าค้าง
       if (typeof fstatLoad === 'function') {
@@ -42849,11 +43123,13 @@ function futdUpdateCandleCountdown() {
         lifetime:{ val: _fsLife },
         marginBal,
         summary: { profit: _fsProfit, loss: _fsLoss, net: _fsNet },
-        cumPnl:  { val: _fsNet + unrealized, date: today.toISOString().slice(0,10) },
-        assetVal:{ val: marginBal, date: today.toISOString().slice(0,10) },
+        cumPnl:  { val: _fsNet + unrealized, date: _fpnlYmd(today) },
+        assetVal:{ val: marginBal, date: _fpnlYmd(today) },
         calYear, calMon, calData,
         detail: _fsDetail, symbols: _fsSymbols, funding: _fsFunding,
-        hasMoreHistory: _fsHasMore
+        hasMoreHistory: _fsHasMore,
+        rangeLbl: _FPNL_LBL[_fpnlRange] || '',
+        series: _fpnlSeries(_dailyMapC, _fsNet + unrealized, marginBal)   // [vx11-PNL-RANGE] กราฟจริงตามปุ่ม
       };
 
     } else {
@@ -42884,7 +43160,7 @@ function futdUpdateCandleCountdown() {
         const pnl    = (!markP||!entryP||!size) ? 0 :
           (p.side==='long' ? (markP-entryP)*size : (entryP-markP)*size);
         const roi    = entryP > 0 ? ((pnl / (entryP * size)) * 100) : 0;
-        return { sym: p.symbol||'—', type: (p.side||'').toUpperCase(), time: today.toISOString().slice(0,10), pnl, pct: roi };
+        return { sym: p.symbol||'—', type: (p.side||'').toUpperCase(), time: _fpnlYmd(today), pnl, pct: roi };
       });
 
       const symMap = {};
@@ -42924,18 +43200,25 @@ function futdUpdateCandleCountdown() {
       // [vx6-PNL-STATS] ใช้สถิติจาก GAS (ไม่ถูกจำกัด 80 รายการเหมือน HIST.futdTransactionHistory) แทนค่าที่คำนวณข้างบน ถ้าโหลดมาแล้ว
       // หมายเหตุ: detail/symbols ของ Direct ยังใช้ position ที่เปิดอยู่ตอนนี้เหมือนเดิม (ไม่ใช่ history) จึงไม่แตะ
       let _fs7dD = _pnl7d, _fs30dD = _pnl30d, _fsLifeD = _netPnl;
-      let _fsProfitD = _totalProfit, _fsLossD = _totalLoss, _fsNetD = _netPnl;
+      // [vx11-PNL-RANGE] fallback (ก่อน GAS ตอบ): กรอง HIST ตามช่วงที่เลือก
+      const _rsMsD = _fpnlRangeStartMs();
+      const _amtD  = tx => parseFloat(String(tx.amount||'0').replace('+',''))||0;
+      const _rgRealizedD = _futdRealized.filter(tx => (tx.ts||0) >= _rsMsD);
+      let _fsProfitD = _rgRealizedD.reduce((s,tx)=>{ const v=_amtD(tx); return s+(v>0?v:0); },0);
+      let _fsLossD   = _rgRealizedD.reduce((s,tx)=>{ const v=_amtD(tx); return s+(v<0?-v:0); },0);
+      let _fsNetD    = _fsProfitD - _fsLossD;
       let _fsFundingD = _futdFunding, _fsHasMoreD = false;
       const _fstatD = (typeof FSTAT !== 'undefined') ? FSTAT.direct : null;
-      if (_fstatD) {
+      const _pkD = _fpnlPick(_fstatD);
+      let _dailyMapD = null;
+      if (_pkD) {
         _fs7dD   = _fstatD.stat_7d.realized  + _upnl;
         _fs30dD  = _fstatD.stat_30d.realized + _upnl;
-        _fsLifeD = _fstatD.stat_range.realized; // จำกัดสูงสุด 6 เดือนตามที่ขอ ไม่ใช่ all-time จริงถ้า has_more=true
-        _fsProfitD = _fstatD.stat_range.profit;
-        _fsLossD   = _fstatD.stat_range.loss;
-        _fsNetD    = _fstatD.stat_range.realized;
-        _fsFundingD = _fstatD.funding.map(f => ({ date: new Date(f.ts).toISOString().replace('T',' ').slice(0,16), sym: f.sym, type: f.type, amount: f.amount }));
+        _fsLifeD = _pkD.life;   // [vx11-PNL-RANGE] Lifetime = all-time จริง (เดิม = 6 เดือน)
+        _fsProfitD = _pkD.profit; _fsLossD = _pkD.loss; _fsNetD = _pkD.net;   // ตามปุ่ม 7D/1M/3M/1Y
+        _fsFundingD = _pkD.funding.map(f => ({ date: new Date(f.ts).toISOString().replace('T',' ').slice(0,16), sym: f.sym, type: f.type, amount: f.amount }));
         _fsHasMoreD = !!_fstatD.has_more;
+        _dailyMapD = _pkD.daily;
       }
       // [vx8-FIX-FREEZE] เหมือน contract: กัน render วนซ้ำเมื่อข้อมูลไม่เปลี่ยน
       if (typeof fstatLoad === 'function') {
@@ -42952,11 +43235,13 @@ function futdUpdateCandleCountdown() {
         lifetime:{ val: _fsLifeD },
         marginBal: _mbal,
         summary: { profit: _fsProfitD, loss: _fsLossD, net: _fsNetD },
-        cumPnl:  { val: _fsNetD + _upnl, date: today.toISOString().slice(0,10) },
-        assetVal:{ val: _mbal, date: today.toISOString().slice(0,10) },
+        cumPnl:  { val: _fsNetD + _upnl, date: _fpnlYmd(today) },
+        assetVal:{ val: _mbal, date: _fpnlYmd(today) },
         calYear: _calYear, calMon: _calMon, calData: _calData,
         detail, symbols, funding: _fsFundingD,
-        hasMoreHistory: _fsHasMoreD
+        hasMoreHistory: _fsHasMoreD,
+        rangeLbl: _FPNL_LBL[_fpnlRange] || '',
+        series: _fpnlSeries(_dailyMapD, _fsNetD + _upnl, _mbal)   // [vx11-PNL-RANGE] กราฟจริงตามปุ่ม
       };
     }
   }
@@ -42983,11 +43268,17 @@ function futdUpdateCandleCountdown() {
 
     const cvEl = _fEl('fpnl-cum-val'); if(cvEl){ cvEl.textContent=_fFmtS(d.cumPnl.val)+' USD'; cvEl.className='fpnl-chart-big '+_fCol(d.cumPnl.val); }
     const cdEl = _fEl('fpnl-cum-date'); if(cdEl) cdEl.textContent=d.cumPnl.date;
-    const cmEl = _fEl('fpnl-cump-main'); if(cmEl){ cmEl.textContent=(d.today.pct>=0?'+':'')+d.today.pct.toFixed(2)+'%'; cmEl.className='fpnl-chart-big '+_fCol(d.today.pct); }
+    const _cumPct = d.marginBal > 0 ? d.cumPnl.val / d.marginBal * 100 : 0;   // [vx11-PNL-RANGE] Cumulative % ของช่วงที่เลือก (เดิมแสดง % ของวันนี้)
+    const cmEl = _fEl('fpnl-cump-main'); if(cmEl){ cmEl.textContent=(_cumPct>=0?'+':'')+_cumPct.toFixed(2)+'%'; cmEl.className='fpnl-chart-big '+_fCol(_cumPct); }
     const cpEl = _fEl('fpnl-cump-date'); if(cpEl) cpEl.textContent=d.cumPnl.date;
     const avEl = _fEl('fpnl-asset-big'); if(avEl){ avEl.textContent=_fFmt2(d.assetVal.val)+' USD'; avEl.className='fpnl-asset-big '+_fCol(d.assetVal.val); }
     const adEl = _fEl('fpnl-asset-date'); if(adEl) adEl.textContent=d.assetVal.date;
-    // [vx6-PNL-STATS] มีประวัติเกิน 6 เดือน -> เสนอดาวน์โหลด Excel แทนการแสดงในหน้า
+    // [vx11-PNL-RANGE] label ช่วงที่เลือก + แกน X ของกราฟ
+    const _rl = d.rangeLbl ? ' (' + d.rangeLbl + ')' : '';
+    [['fpnl-sum-lbl-profit','Total Profit'],['fpnl-sum-lbl-loss','Total Loss'],['fpnl-sum-lbl-net','Net Profit/Loss']].forEach(x => { const el = _fEl(x[0]); if (el) el.textContent = x[1] + _rl; });
+    const _xa = _fEl('fpnl-xaxis-cum');
+    if (_xa && d.series && d.series.days.length) _xa.innerHTML = '<span>' + d.series.days[0].slice(5) + '</span><span>' + d.series.days[d.series.days.length - 1].slice(5) + '</span>';
+    // [vx6-PNL-STATS] มีประวัติเกิน 1 ปี หรือรายการเกินที่แสดง -> เสนอดาวน์โหลด Excel แทนการแสดงในหน้า
     const exHintEl = _fEl('fpnl-export-hint'); if (exHintEl) exHintEl.style.display = d.hasMoreHistory ? '' : 'none';
   }
 
@@ -43194,32 +43485,13 @@ function futdUpdateCandleCountdown() {
     });
   }
 
-  function _fpnlMakeShape(n, base, jitter) {
-    const pts = [];
-    for (let i = 0; i < n; i++) {
-      const t = i / n;
-      let v = base * (t < .5 ? t * 2 : 2 - t * 2);
-      v += (Math.random() - .5) * jitter;
-      pts.push(v);
-    }
-    return pts;
-  }
-
+/* [vx11-PNL-RANGE] กราฟจากข้อมูลจริง (รายวันจาก GAS) ตามปุ่ม 7D/1M/3M/1Y — เดิมเป็นเส้นสุ่มจำลอง (_fpnlMakeShape) ที่เปลี่ยนแค่จำนวนจุด */
   function _fpnlDrawCharts(d) {
-    const N = { '7d':30, '1m':60, '3m':90, '1y':160 }[_fpnlRange] || 160;
-    /* Cumulative PNL */
-    const cumPts = _fpnlMakeShape(N, d.marginBal * .3, d.marginBal * .05);
-    cumPts[N-1] = d.cumPnl.val;
-    _fpnlDrawLine('fpnl-chart-cum', [{ values: cumPts, color: '#f0b90b', w: 1.5, fill: true }]);
-    /* Cumulative % */
-    const pctPts = _fpnlMakeShape(N, 40, 5);
-    pctPts[N-1] = d.today.pct;
-    _fpnlDrawLine('fpnl-chart-pct', [{ values: pctPts, color: '#f0b90b', w: 1.5 }]);
-    /* Asset Value */
-    const asPts = _fpnlMakeShape(N, d.marginBal * .5, d.marginBal * .04);
-    for (let i = 0; i < N; i++) asPts[i] = Math.max(0, d.marginBal * (.7 + asPts[i] / (d.marginBal * .5) * .3));
-    asPts[N-1] = d.assetVal.val;
-    _fpnlDrawLine('fpnl-chart-asset', [{ values: asPts, color: '#f0b90b', w: 1.5, fill: true }]);
+    const sr = d && d.series;
+    if (!sr || !sr.cum.length) return;
+    _fpnlDrawLine('fpnl-chart-cum',   [{ values: sr.cum,   color: '#f0b90b', w: 1.5, fill: true }]);
+    _fpnlDrawLine('fpnl-chart-pct',   [{ values: sr.pct,   color: '#f0b90b', w: 1.5 }]);
+    _fpnlDrawLine('fpnl-chart-asset', [{ values: sr.asset, color: '#f0b90b', w: 1.5, fill: true }]);
   }
 
   /* ── Full render ── */
@@ -43236,6 +43508,16 @@ function futdUpdateCandleCountdown() {
   /* ─────────────────────────────────────────────────
      PUBLIC API
   ───────────────────────────────────────────────── */
+  /* [vx11-PNL-RANGE] กดปุ่ม 7D/1M/3M/1Y → คำนวณใหม่เฉพาะส่วนที่ขึ้นกับช่วง (ไม่แตะ Calendar ให้เดือนไม่เด้งกลับ) */
+  function _fpnlRenderRange() {
+    const d = _fpnlExtract(_fpnlMode);
+    _fpnlRenderTop(d);
+    _fpnlRenderDetail(d);
+    _fpnlRenderSymbols(d);
+    _fpnlRenderFunding(d);
+    requestAnimationFrame(() => _fpnlDrawCharts(d));
+  }
+
   window.openFuturesPnlPanel = function (mode) {
     _fpnlMode = (mode === 'direct') ? 'direct' : 'contract';
     const overlay = _fEl('fpnlOverlay'); if (!overlay) return;
@@ -43284,13 +43566,13 @@ function futdUpdateCandleCountdown() {
     });
 
     /* Time range */
-    document.querySelectorAll('.fpnl-time-btn').forEach(btn => {
+    // [vx11-PNL-RANGE] เลือกเฉพาะปุ่มช่วงเวลา (มี data-fpnl-range) — เดิม selector รวมปุ่มดาวน์โหลด Excel (class เดียวกัน) ทำให้กดแล้ว _fpnlRange เพี้ยนเป็น undefined
+    document.querySelectorAll('.fpnl-time-btn[data-fpnl-range]').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.fpnl-time-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.fpnl-time-btn[data-fpnl-range]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         _fpnlRange = btn.dataset.fpnlRange;
-        const d = _fpnlExtract(_fpnlMode);
-        requestAnimationFrame(() => _fpnlDrawCharts(d));
+        _fpnlRenderRange();   // ตัวเลข Total/Net + กราฟ + Detail/Symbol/Funding เปลี่ยนตามช่วงที่เลือก
       });
     });
 

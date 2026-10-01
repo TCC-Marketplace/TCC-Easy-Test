@@ -11127,14 +11127,14 @@ function _refreshAvbl(c) {
   // fallback สูตรเดิม (ใช้เมื่อยังไม่มีข้อมูลจาก GAS)
   const avbl = (_gasAvailMargin !== null && !isNaN(_gasAvailMargin))
     ? _gasAvailMargin
-    : (c.stakedAmount - marginUsed + unrealizedPnl);
+    : capRemaining; // [FIX-AVBL] fallback = วงเงินคงเหลือ 10% (สูตรเดียวกับ GAS avail_margin)
 
   // [FIX-AVBL-DISPLAY] Avbl = ยอดคงเหลือในสัญญา (currentBalance) ไม่ใช่ avail_margin (10% margin pool)
   // avail_margin = 10% ของ staked_amount = วงเงินเปิดออเดอร์ (แสดงใน remainingBudgetTxt แล้ว)
   // avblEl ควรแสดง currentBalance เหมือน exchange-style "Available Balance"
   // avbl ยังคงใช้สำหรับ badge/warning logic ด้านล่าง — ไม่แตะ
   const avblEl = document.getElementById('avblVal');
-  if (avblEl) avblEl.textContent = `${fmtNum(c.currentBalance, 2)} USDT`;
+  if (avblEl) { avblEl.textContent = `${fmtNum(Math.max(0, avbl), 2)} USDT`; avblEl.title = 'Contract Balance: ' + fmtNum(c.currentBalance, 2) + ' USDT'; } // [FIX-AVBL] Avbl = วงเงินเปิดออเดอร์ (ตรงกับ badge/GAS)
 
   const badgeEl = document.getElementById('earnMarginBadge');
   if (badgeEl) {
@@ -11278,7 +11278,13 @@ function _autoLiquidate(c) {
   // sync balance ก่อน freeze (ไม่มี position เหลือ → balance = stakedAmount + realizedPnl)
   // snapshot ไว้ใน frozenBalance เพื่อแสดงค่าที่ถูกต้องหลัง freeze
   syncContractBalance(c);
-  c.frozenBalance = c.currentBalance;
+  // [FIX-FROZEN-FE / 2026-09-30] frozen_balance ตามกฎ GAS (NET-SETTLEMENT): อายัดเงินต้นเต็ม หักเฉพาะ claimBuffer (Standard + มีขาดทุน)
+  // เดิม: frozenBalance = currentBalance (หลังหักขาดทุน) → UI แสดงน้อยกว่าที่ GAS อายัดจริงจนกว่า sync — GAS เป็น SSOT (sync จะทับด้วยค่า GAS)
+  const _preFreezeBal = Math.max(0, c.currentBalance || 0);
+  const _feHasLoss    = (c.stakedAmount || 0) - _preFreezeBal > 0;
+  const _feBuffer     = (c.contractTier !== 'vip' && _feHasLoss)
+    ? Math.max(0, Math.min(c.totalClaimed || 0, c.stakedAmount || 0)) : 0;
+  c.frozenBalance = Math.max(0, (c.stakedAmount || 0) - _feBuffer);
   c.status = 'frozen';
   // [v9 FIX] กัน loadOfflineState() merge สถานะเก่าจาก GAS (ยังไม่ทัน sync) ทับ status='frozen' นี้
   window._pendingFreeze[c.contractId] = Date.now() + 30000; // 30s ให้เวลา GAS write+poll รอบถัดไปตามทัน
@@ -11290,15 +11296,16 @@ function _autoLiquidate(c) {
   );
 
   // บันทึก reason ที่ถูกต้อง
-  const realizedNegTrigger = (c.realizedPnl || 0) < -(c.stakedAmount * 0.10);
-  const reason = realizedNegTrigger ? 'Realized PnL ติดลบเกิน 10%' : 'Drawdown ≥ 40%';
+  // [FIX-REASON-FE / 2026-09-30] เหตุ Freeze มีเหตุเดียวคือ Drawdown ≥ 40% (10% คือเพดานบล็อกออเดอร์/มาร์จิน ไม่ใช่เกณฑ์ Freeze)
+  const reason = 'Drawdown ≥ 40%';
   if (typeof recordTx === 'function') recordTx(c.contractId, 'liquidate', 0, 'Auto-Liquidate: ' + reason);
 
   // [FIX #1] บันทึก Earn Liquidate เข้า GAS → หัก loss + คืน remaining ใน Users sheet
   // คำนวณ loss = stakedAmount - frozenBalance (เงินที่สูญ)
   // remaining = frozenBalance (เงินที่เหลือคืน ≥ 0)
-  const _liqLoss      = Math.max(0, (c.stakedAmount || 0) - (c.frozenBalance || 0));
-  const _liqRemaining = Math.max(0, c.frozenBalance || 0);
+  // [FIX-FROZEN-FE] loss/remaining คิดจากยอดก่อนอายัด (currentBalance หลังปิด Position) — ไม่ใช้ frozenBalance ที่ตอนนี้ = เงินต้นอายัด
+  const _liqLoss      = Math.max(0, (c.stakedAmount || 0) - _preFreezeBal);
+  const _liqRemaining = _preFreezeBal;
   // [v8] hook → saveEarnLiquidate (GAS logEarnLiquidate) — เรียกทั้ง 2 เส้นทาง
   if (typeof saveEarnLiquidate === 'function') {
     saveEarnLiquidate({ contractId: c.contractId, loss: _liqLoss, remaining: _liqRemaining });
@@ -11316,16 +11323,9 @@ function _autoLiquidate(c) {
   showToast(tccTF('toast_auto_liq',{cid:c.contractId,reason}));
   renderEarnContracts();
   if (typeof updateSysWalletDisplay === 'function') updateSysWalletDisplay();
-  // [v4 FIX DOUBLE-WRITE] sync เฉพาะ status=frozen ผ่าน updateEarnContract (ไม่ส่ง realized_pnl)
-  // ห้ามใช้ syncEarnContractsToGAS ที่นี่ — จะส่ง realizedPnl บวมทับ GAS
-  if (typeof dbWrite === 'function') {
-    dbWrite('updateEarnContract', {
-      contract_id:    c.contractId,
-      status:         'frozen',
-      frozen_balance: c.frozenBalance || 0,
-      // [v2.20 FIX-N2b] ตัด current_balance ออก — GAS เป็น Source of Truth
-    });
-  }
+  // [SEC] ไม่ส่ง status/frozen_balance ไป GAS เองอีกแล้ว (เดิมเรียก updateEarnContract ตรงๆ)
+  // การ Freeze ที่ถูกต้องเกิดที่ GAS เท่านั้น: saveEarnLiquidate → logEarnLiquidate (คำนวณ DD เอง) + trigger รายนาที
+  // ถ้า GAS ยังไม่ถึงเกณฑ์ สถานะ frozen ในหน้าจอนี้จะถูก loadOfflineState ดึงค่าจริงจาก GAS ทับเอง
 }
 
 function posAdjLeverage(id) {
@@ -11400,7 +11400,7 @@ function confirmClosePos() {
 // ── [v9] TP/SL Grace Period Helper ─────────────────────────────────────
 // ป้องกัน TP/SL trigger ทันทีหลังเปิด position หรือหลัง set TP/SL ใหม่
 // (รอให้ S.coinPrices stabilize ก่อน) — ยืดเป็น 25 วินาที
-const TPSL_GRACE_MS = 25000; // 25 วินาที
+const TPSL_GRACE_MS = 30000; // 30 วินาที (เท่ากับ GAS isTpslReady)
 function isTpslReady(p) {
   return !p._tpslSetAt || (Date.now() - p._tpslSetAt) > TPSL_GRACE_MS;
 }
@@ -11950,7 +11950,7 @@ function onSlider(el) {
         const maxAllowed = c.stakedAmount * 0.10;
         const totalUsed = S.positions.filter(p => p.earnContractId === c.contractId)
                                      .reduce((s, p) => s + p.margin, 0);
-        maxMarginAvbl = Math.max(0, maxAllowed - totalUsed);
+        maxMarginAvbl = Math.min(calcAvailMargin(c), maxAllowed * 0.5); // [FIX-SLIDER] หัก pending + realized loss และเพดาน 50%/ออเดอร์
       }
     }
     const marginToUse = (v / 100) * maxMarginAvbl;
@@ -12576,7 +12576,7 @@ function _placeOrderCore(side) {
   //   ป้องกันออเดอร์ครั้งเดียวกินวงเงินทั้งหมด — บังคับกระจายอย่างน้อย 2 ออเดอร์
   //   GAS ก็เช็คซ้ำเป็น server-side guard (FIX-OSC2-B) เช่นกัน
   const maxPerOrderMargin = maxAllowedMargin * 0.50; // 50% ของ 10% = staked × 5%
-  if (margin > maxPerOrderMargin) {
+  if (S.oc !== 'close' && margin > maxPerOrderMargin) { // [FIX-CLOSE-CAP]
     showToast(
       '❌ ขนาดออเดอร์เกินขีดจำกัดต่อครั้ง\n' +
       'Margin ที่ขอ: ' + fmtNum(margin, 2) + ' USDT\n' +
@@ -12586,7 +12586,7 @@ function _placeOrderCore(side) {
     return;
   }
 
-  if (margin > capRemaining) {
+  if (S.oc !== 'close' && margin > capRemaining) { // [FIX-CLOSE-CAP]
     if (realizedLoss >= maxAllowedMargin) {
       showToast(tccTF('toast_budget_full_loss',{realized:fmtNum(realizedLoss,2),max:fmtNum(maxAllowedMargin,2)}));
     } else if (capRemaining > 0) {
@@ -12650,6 +12650,10 @@ function _placeOrderCore(side) {
   // ══ OPEN MODE ══
   const tp = parseFloat(document.getElementById('tpInp')?.value) || null;
   const sl = parseFloat(document.getElementById('slInp')?.value) || null;
+if (tp || sl) { // [FIX-TPSL-DIR] ตรวจทิศทาง TP/SL ก่อนวางออเดอร์
+const _bad = side === 'long' ? ((tp && tp <= price) || (sl && sl >= price)) : ((tp && tp >= price) || (sl && sl <= price));
+if (_bad) { showToast('⚠️ TP/SL ไม่ถูกต้อง: ' + (side === 'long' ? 'Long → TP ต้องสูงกว่า / SL ต้องต่ำกว่า' : 'Short → TP ต้องต่ำกว่า / SL ต้องสูงกว่า') + ' ราคาเข้า (' + fmtP(price) + ')'); return; }
+}
 
   // ── Reset inputs ──
   document.getElementById('amtInp').value = '';
@@ -12773,7 +12777,7 @@ function _fillOrderToPosition(order) {
     if (tp) existing.tp = tp;
     if (sl) existing.sl = sl;
     const _logOpenP = (typeof HIST !== 'undefined')
-      ? HIST.logOpen({...existing, size: amt, entry: price, id: _genUniqueId()})
+      ? HIST.logOpen({...existing, size: amt, entry: price, id: _genUniqueId(), fillOrderId: order.id}) // [FIX-LIMITFILL-DOUBLECOUNT] บอก GAS ว่า position นี้มาจาก order ไหน
       : null;
     // [BUGFIX] ดึง liq_price_map ใหม่หลัง logOpen เขียนเสร็จ — กัน "Liq. Price" โชว์ "—" ค้าง
     _refreshLiqAfterLogOpen(_logOpenP);
@@ -12792,7 +12796,7 @@ function _fillOrderToPosition(order) {
     if (typeof ws !== 'undefined' && ws && ws.readyState === 1 && orderCoin !== S.coin) {
       ws.send(JSON.stringify({ method:'subscribe', subscription:{ type:'trades', coin: orderCoin } }));
     }
-    const _logOpenP = (typeof HIST !== 'undefined') ? HIST.logOpen(newPos) : null;
+    const _logOpenP = (typeof HIST !== 'undefined') ? HIST.logOpen({...newPos, fillOrderId: order.id}) : null; // [FIX-LIMITFILL-DOUBLECOUNT] copy พร้อม fillOrderId — ไม่ฝังลง S.positions
     // [BUGFIX] ดึง liq_price_map ใหม่หลัง logOpen เขียนเสร็จ — กัน "Liq. Price" โชว์ "—" ค้าง
     _refreshLiqAfterLogOpen(_logOpenP);
     return newPos;
@@ -18135,7 +18139,8 @@ function wdRenderStatus(isCompleted) {
 // [v9.5 NEW] เปิด Withdrawal Details popup จากแถวประวัติ (Transaction History) ที่กดดู
 // ใช้ overlay เดิม (#wd-details-overlay) แค่เติมข้อมูลจาก HIST.transactionHistory + note ที่ backend ฝัง tag ไว้
 function mytOpenWithdrawDetail(txId) {
-  const d = (HIST.transactionHistory || []).find(t => t.id === txId);
+  const d = (HIST.transactionHistory || []).find(t => t.id === txId)
+    || (typeof txqFindUi === 'function' ? txqFindUi(txId) : null); // [v2.77 FIX-TXHIST-4] รายการจากโหมดค้นหา server
   if (!d) { showToast(tccT('toast_record_not_found')); return; }
 
   const note = d.note || '';
@@ -19030,6 +19035,7 @@ function submitCreateEarn() {
     dailyYield: yld, startTime: now, endTime: now + days * 86400000,
     status: 'active', realizedPnl: 0, unrealizedPnl: 0, totalClaimed: 0,
     contractTier: _tier, // [NEW: TIER]
+    lastAptClaimMs: now, // [FIX-APT-REF] ref ของ APT = เวลาเริ่มสัญญา (ตรงกับ GAS logEarnCreate: last_apt_claim_ms = start_time_ms)
   };
   earnContracts.unshift(contract);  // [FIX Bug1.2] ใส่หัว array → สัญญาใหม่ขึ้นก่อนเสมอ
   mainWalletBalance -= amt;
@@ -19067,7 +19073,7 @@ function _updateClaimSubButtons(c) {
   const now        = Date.now();
   // [FIX] นับจาก last APT claim ไม่ใช่จาก startTime
   // เพราะ realizedPnl ถูก reset ทุกครั้งที่ claim APT → estimate ต้องตรงกัน
-  const refMs      = c.lastAptClaimMs || c.lastYieldTimeMs || c.startTime || 0;
+  const refMs      = c.lastAptClaimMs || c.startTime || c.lastYieldTimeMs || 0 /* [FIX-APT-REF] ตรงกับ GAS _getAptRefMs */;
   const daysPassed = refMs > 0 ? Math.max(0, (now - refMs) / 86400000) : 0;
   const aptYield   = c.stakedAmount > 0
     ? Math.max(0, c.stakedAmount * (c.dailyYield / 100) * daysPassed) : 0;
@@ -19168,7 +19174,7 @@ function openClaimModal(id, mode) {
   // APT Yield estimate (เหมือน _buildClaimSections)
   const now        = Date.now();
   // [FIX] นับจาก last APT claim ไม่ใช่จาก startTime
-  const refMs      = c.lastAptClaimMs || c.lastYieldTimeMs || c.startTime || 0;
+  const refMs      = c.lastAptClaimMs || c.startTime || c.lastYieldTimeMs || 0 /* [FIX-APT-REF] ตรงกับ GAS _getAptRefMs */;
   const daysPassed = refMs > 0 ? Math.max(0, (now - refMs) / 86400000) : 0;
   const aptYield   = c.stakedAmount > 0
     ? Math.max(0, c.stakedAmount * (c.dailyYield / 100) * daysPassed) : 0;
@@ -19444,7 +19450,7 @@ function openClaimConfirm(mode) {
     .reduce((s, p) => s + (p.pnl || 0), 0);
   const realized = c.realizedPnl || 0;
   const now = Date.now();
-  const refMs = c.lastAptClaimMs || c.lastYieldTimeMs || c.startTime || 0;
+  const refMs = c.lastAptClaimMs || c.startTime || c.lastYieldTimeMs || 0 /* [FIX-APT-REF] ตรงกับ GAS _getAptRefMs */;
   const daysPassed = refMs > 0 ? Math.max(0, (now - refMs) / 86400000) : 0;
   const aptYield = c.stakedAmount > 0
     ? Math.max(0, c.stakedAmount * (c.dailyYield / 100) * daysPassed) : 0;
@@ -19799,7 +19805,7 @@ function submitClaimProfit(mode) {
   // APT estimate (เหมือน _buildClaimSections / openClaimModal)
   const now        = Date.now();
   // [FIX] นับจาก last APT claim ไม่ใช่จาก startTime
-  const refMs      = c.lastAptClaimMs || c.lastYieldTimeMs || c.startTime || 0;
+  const refMs      = c.lastAptClaimMs || c.startTime || c.lastYieldTimeMs || 0 /* [FIX-APT-REF] ตรงกับ GAS _getAptRefMs */;
   const daysPassed = refMs > 0 ? Math.max(0, (now - refMs) / 86400000) : 0;
   const aptYield   = c.stakedAmount > 0
     ? Math.max(0, c.stakedAmount * (c.dailyYield / 100) * daysPassed) : 0;
@@ -19995,7 +20001,7 @@ function openRedeemModal(contractId) {
   }
   // ถ้า aptYieldAccrued ยังไม่มี — estimate จาก lastAptClaimMs + dailyYield
   if (!c.aptYieldAccrued) {
-    const _refMs = c.lastAptClaimMs || c.lastYieldTimeMs || c.startTime || 0;
+    const _refMs = c.lastAptClaimMs || c.startTime || c.lastYieldTimeMs || 0 /* [FIX-APT-REF] ตรงกับ GAS _getAptRefMs */;
     const _days  = _refMs > 0 ? Math.max(0, (Date.now() - _refMs) / 86400000) : 0;
     c.aptYieldAccrued = parseFloat(((c.stakedAmount || 0) * (c.dailyYield || 0) / 100 * _days).toFixed(4));
   }
@@ -20325,8 +20331,9 @@ function checkAutoLiquidate(id) {
   if (_isSyncLocked()) return;
   // [v13 FIX] ใช้ _contractDDMap (GAS) เท่านั้น — ไม่มีข้อมูล → ไม่ liquidate จาก dd
   const dd = _gasDDStrict(c);
-  const realizedNegTrigger = (c.realizedPnl || 0) < -(c.stakedAmount * 0.10);
-  if ((dd !== null && dd >= 40) || realizedNegTrigger) {
+  // [FIX-REASON-FE / 2026-09-30] ตัด realizedNegTrigger (realized < -10%) ออกจากเงื่อนไข Freeze — 10% เป็นเพดานบล็อกออเดอร์เท่านั้น
+  // (GAS logEarnLiquidate จะตรวจ DD เองและไม่ freeze ถ้า DD < 40% → FE freeze ค้างอยู่แค่ local แล้วเด้งกลับหลัง sync)
+  if (dd !== null && dd >= 40) {
     // ใช้ _autoLiquidate เพื่อปิด positions ทั้งหมดก่อน Freeze
     _autoLiquidate(c);
   }
@@ -22276,6 +22283,7 @@ function tfConfirm() {
   const amt = parseFloat(document.getElementById('tfAmountInp').value) || 0;
   const avail = tfGetAvailable();
   if (amt <= 0 || amt > avail) return;
+if (TF.from === 'earn' || TF.to === 'earn') { showToast('⚠️ ไม่รองรับการโอนเข้า/ออกกระเป๋า Earn — สร้างสัญญาผ่านหน้า Earn และรับเงินคืนด้วย Redeem'); return; } // [FIX-TF-EARN]
 
   // [FIX-TF-3 v2.47-FD] แยก local state update ของ usdm ออกจาก spot
   // เดิม: usdm และ spot ทั้งคู่บวก/ลบ mainWalletBalance → transfer usdm→spot บวกซ้ำ
@@ -22323,16 +22331,9 @@ function tfConfirm() {
     fundingWalletBalance += amt;
   }
 
-  // ── sync funding_balance ไป GAS ──
-  const _uid = USER_PROFILE && USER_PROFILE.uid;
-  if (_uid && (TF.from === 'funding' || TF.to === 'funding')) {
-    const sign = TF.to === 'funding' ? 1 : -1;
-    dbWrite('updateBalance', {
-      uid: _uid,
-      field: 'funding_balance',
-      amount: sign * amt
-    });
-  }
+  // ── [SEC] funding_balance: ไม่เขียนยอดตรงจาก client แล้ว ──
+  // GAS logTransfer (ผ่าน HIST.logTransfer → saveTransfer ด้านล่าง) หัก/เติม funding_balance แบบ atomic อยู่แล้ว
+  // (WALLET_BALANCE_FIELD.funding) — การเรียก updateBalance ที่นี่เดิมทำให้ยอด funding ถูกเขียนซ้ำ 2 รอบ
 
   // Update all displays
   if (typeof updateOverviewBalances === 'function') updateOverviewBalances();
@@ -24292,9 +24293,11 @@ function _dynOpts(tab, key, staticFallback) {
 // คำนวณ unique type จากข้อมูลจริงใน HIST.transactionHistory เสมอ
 // ไม่มี hardcoded list — type ใหม่ที่ GAS เพิ่มภายหลังจะโผล่เองอัตโนมัติ
 function _mytGetTypeOptions() {
-  const types = [...new Set(
-    (HIST.transactionHistory || []).map(t => t.type).filter(Boolean)
-  )].sort();
+  // [v2.77 FIX-TXHIST-4] รวมรายการ type ที่ระบบเขียนจริง (TXQ_KNOWN_TYPES) + type ที่เจอในข้อมูลที่โหลด
+  // เดิมได้เฉพาะ type ที่มีอยู่ใน HIST (ล่าสุด ~200 รายการ) → type ที่ยังไม่เคยโผล่เลือกกรองไม่ได้
+  const fromData = (HIST.transactionHistory || []).map(t => t.type).filter(Boolean);
+  const known = (typeof TXQ_KNOWN_TYPES !== 'undefined') ? TXQ_KNOWN_TYPES : [];
+  const types = [...new Set([...known, ...fromData])].sort();
   return ['All', ...types];
 }
 
@@ -26524,6 +26527,205 @@ function mytAdvFilterConfirm() {
       items = items.filter(d => adv.statuses.some(s => (d.status||'').toLowerCase().includes(s.toLowerCase())));
     }
     return items;
+  };
+})();
+
+// ══════════════════════════════════════════════════════════════════════════
+//  [v2.77-TXHIST] Transaction History — ค้นหา / กรอง / แบ่งหน้า ฝั่ง Server (GAS getFilteredTransactions)
+//  ──────────────────────────────────────────────────────────────────────────
+//  ปัญหาเดิม: หน้า Transaction History กรองฝั่ง client จาก HIST.transactionHistory (dashboard ส่งมาแค่ ~100-200 แถวล่าสุด)
+//    → ไม่มีหมวดหมู่ / ไม่มีค้นหา symbol-note-txid-id / รายการเก่าไม่เคยโผล่ / Type ได้เฉพาะที่โหลดมา
+//  วิธีแก้ (ไม่แตะ HIST.transactionHistory เลย เพราะ Calendar / PNL summary / Withdraw popup / Export อ่านก้อนนี้อยู่):
+//    • state แยก TXQ — เมื่อผู้ใช้เลือก Category / พิมพ์ค้นหา / เลือก Type หรือ Asset / ตั้งช่วงวันที่ → เรียก GAS
+//      getFilteredTransactions แบบแบ่งหน้า (limit 50 + Load more) พร้อม q, category, type, asset, dateFrom/To, tzOffsetMin
+//    • ไม่ได้ตั้งตัวกรองใดเลย → ใช้เส้นทางเดิมทุกประการ (HIST)
+//    • server ล้มเหลว → fallback กลับไปแสดงข้อมูลใน HIST + แจ้งเตือน (ไม่ทำให้หน้าว่าง)
+//  ต้อง deploy GAS v2.77-TXHIST ก่อน (ถ้ายังเป็น GAS เก่า: ตัวกรอง q/category ใหม่จะไม่ทำงานครบ)
+// ══════════════════════════════════════════════════════════════════════════
+const TXQ_CATEGORIES = [
+  ['all','All'], ['wallet','Wallet'], ['earn','Earn'], ['commission','Commission'],
+  ['trading','Trading'], ['futures_direct','Direct'], ['loan','Loan'], ['correction','Correction'],
+];
+// type ที่ระบบเขียนลง Transactions จริง (ใช้เติมตัวเลือก Type) — 'Loan History' = กลุ่ม Loan * (FE เดิมรองรับอยู่แล้ว)
+const TXQ_KNOWN_TYPES = [
+  'Deposit','Withdraw','Withdraw Confirmed','Withdraw Rejected','Withdraw Fee','Transfer','MP Topup','MP Withdraw',
+  'Commission','Commission Transfer','Realized PNL','Contract PNL','Funding Fee',
+  'Earn Deposit','Earn Deposit Rollback','Earn Yield','Earn Claim','Earn Claim (APT)','Earn Claim (Trade)',
+  'Earn Fixed Claim','Earn Claim PNL','Earn Redeem','Earn Liquidate','Earn Return','Earn Drawdown Warning',
+  'Loan History','Loan Collateral Lock','Loan Collateral Unlock','Loan Borrow','Loan Repay','Correction',
+  'Futures Direct PNL','Futures Direct Liquidation','Futures Direct Funding Fee',
+];
+const TXQ = {
+  category: 'all', q: '', limit: 50,
+  rows: [], ui: [], total: 0, hasMore: false,
+  loading: false, error: '',
+  sig: '',          // '' = โหมดปกติ (HIST) ; มีค่า = โหมด server (signature ของตัวกรองที่ดึงล่าสุด)
+  seq: 0, timer: null,
+};
+
+function _txqUid() {
+  return (typeof USER_PROFILE !== 'undefined' && USER_PROFILE && USER_PROFILE.uid) ? String(USER_PROFILE.uid) : '';
+}
+function _txqEsc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+function _txqFilters() {
+  const f   = (MYT.filters   && MYT.filters['transaction-history'])   || {};
+  const adv = (MYT.advFilter && MYT.advFilter['transaction-history']) || {};
+  return {
+    category: TXQ.category,
+    q:        String(TXQ.q || '').trim(),
+    type:     (f.type  && f.type  !== 'All') ? f.type  : '',
+    asset:    (f.asset && f.asset !== 'All') ? f.asset : '',
+    dateFrom: adv.dateFrom || '',
+    dateTo:   adv.dateTo   || '',
+  };
+}
+function _txqWantsServer(flt) {
+  return !!(flt.category !== 'all' || flt.q || flt.type || flt.asset || flt.dateFrom || flt.dateTo);
+}
+function _txqSig(flt) { return _txqUid() + '|' + JSON.stringify(flt); }
+
+/** GAS row → UI shape เดียวกับ HIST.transactionHistory (ใช้ _mapGasTransaction ตัวเดิม) + แสดง type_label (แยกกำไรเคลม Earn) */
+function _txqMapRow(r) {
+  const u = _mapGasTransaction(Object.assign({}, r, { created_at: r.created_at }));
+  if (r.type_label && r.type_label !== r.type) u.type = r.type_label;
+  u.rawType = r.type;
+  return u;
+}
+function txqFindUi(id) { return (TXQ.ui || []).find(t => t.id === id) || null; }
+
+function txqFetch(reset) {
+  const uid = _txqUid();
+  if (!uid) return Promise.resolve();
+  const flt = _txqFilters();
+  const mySeq = ++TXQ.seq;
+  if (reset) { TXQ.sig = _txqSig(flt); TXQ.rows = []; TXQ.ui = []; TXQ.total = 0; TXQ.hasMore = false; }
+  TXQ.loading = true; TXQ.error = '';
+
+  const params = {
+    uid, limit: TXQ.limit, offset: reset ? 0 : TXQ.rows.length, sortBy: 'date_desc',
+    tzOffsetMin: (typeof _fdpTz === 'function') ? _fdpTz() : -new Date().getTimezoneOffset(),   // นาทีที่เร็วกว่า UTC (ไทย=420)
+  };
+  if (flt.category !== 'all') params.category = flt.category;
+  if (flt.type) { if (flt.type === 'Loan History') params.types = ['Loan *']; else params.type = flt.type; }
+  if (flt.asset)    params.asset    = flt.asset;
+  if (flt.q)        params.q        = flt.q;
+  if (flt.dateFrom) params.dateFrom = flt.dateFrom;
+  if (flt.dateTo)   params.dateTo   = flt.dateTo;
+
+  try { _DB_READ_ACTIONS.add('getFilteredTransactions'); } catch (e) {}   // read-only → dedupe in-flight + retry เมื่อ Timeout (Set นิยามในสคริปต์ถัดไป จึงเติมตอนเรียกใช้)
+  return dbCallRaw('getFilteredTransactions', params).then(res => {
+    if (mySeq !== TXQ.seq) return;                                  // มีการเปลี่ยนตัวกรองระหว่างรอ → ทิ้งผลเก่า
+    if (!res || !Array.isArray(res.rows)) throw new Error('invalid response');
+    const have = new Set(TXQ.rows.map(r => r.id));
+    TXQ.rows = TXQ.rows.concat(res.rows.filter(r => !have.has(r.id)));   // กันซ้ำเมื่อมีแถวใหม่แทรกระหว่างแบ่งหน้า
+    TXQ.ui = TXQ.rows.map(_txqMapRow);
+    TXQ.total = (typeof res.total === 'number') ? res.total : TXQ.rows.length;
+    TXQ.hasMore = !!res.hasMore;
+  }).catch(e => {
+    if (mySeq !== TXQ.seq) return;
+    TXQ.error = (e && e.message) ? e.message : 'error';
+    console.warn('[TXQ] getFilteredTransactions failed:', TXQ.error);
+  }).then(() => {
+    if (mySeq !== TXQ.seq) return;
+    TXQ.loading = false;
+    if (MYT.currentTab === 'transaction-history') mytRenderContent('transaction-history');
+  });
+}
+function txqLoadMore() { if (!TXQ.loading && TXQ.hasMore) { txqFetch(false); mytRenderContent('transaction-history'); } }
+function txqRetry()    { TXQ.sig = ''; TXQ.error = ''; mytRenderContent('transaction-history'); }
+function txqSetCategory(k) {
+  TXQ.category = k;
+  mytRenderFilter('transaction-history');
+  mytRenderContent('transaction-history');
+}
+function txqOnSearch(v) {
+  TXQ.q = String(v || '');
+  clearTimeout(TXQ.timer);
+  TXQ.timer = setTimeout(() => { if (MYT.currentTab === 'transaction-history') mytRenderContent('transaction-history'); }, 450);
+}
+
+// ── แถบ Category + ช่องค้นหา (ต่อท้ายแถบ filter เดิมของ transaction-history) ──
+function _txqControlsHTML() {
+  const chips = TXQ_CATEGORIES.map(c => {
+    const on = TXQ.category === c[0];
+    return '<button class="myt-filter-btn" style="flex:0 0 auto;' +
+      (on ? 'border-color:var(--y);color:var(--y);' : '') + '" onclick="txqSetCategory(\'' + c[0] + '\')">' + c[1] + '</button>';
+  }).join('');
+  return '<div style="display:flex;gap:6px;overflow-x:auto;padding:6px 12px 2px;-webkit-overflow-scrolling:touch">' + chips + '</div>' +
+    '<div style="padding:6px 12px 8px"><input id="txqSearch" type="search" value="' + _txqEsc(TXQ.q) + '" ' +
+    'placeholder="Search symbol / note / txid / contract id" oninput="txqOnSearch(this.value)" autocomplete="off" ' +
+    'style="width:100%;box-sizing:border-box;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);' +
+    'border-radius:8px;color:var(--t1);font-size:13px;outline:none"></div>';
+}
+
+// ── แถบสถานะบน/ปุ่ม Load more ล่างรายการ ──
+function _txqDecorate() {
+  const el = document.getElementById('mytContent');
+  if (!el || !TXQ.sig) return;                       // โหมดปกติ → ไม่ยุ่ง
+  const bar = (html) => '<div style="padding:8px 14px;font-size:12px;color:var(--t2)">' + html + '</div>';
+  if (TXQ.loading && !TXQ.ui.length) { el.innerHTML = bar('Loading…'); return; }
+  if (TXQ.error) {
+    el.insertAdjacentHTML('afterbegin', bar('Server search unavailable — showing recently loaded records only. ' +
+      '<a style="color:var(--y);cursor:pointer;text-decoration:underline" onclick="txqRetry()">Retry</a>'));
+    return;
+  }
+  el.insertAdjacentHTML('afterbegin', bar(TXQ.total + ' record(s)'));
+  if (TXQ.hasMore || (TXQ.loading && TXQ.ui.length)) {
+    el.insertAdjacentHTML('beforeend',
+      '<div style="padding:10px 14px 24px;text-align:center"><button class="myt-filter-btn" style="padding:10px 22px" ' +
+      (TXQ.loading ? 'disabled>Loading…' : 'onclick="txqLoadMore()">Load more (' + TXQ.ui.length + ' / ' + TXQ.total + ')') +
+      '</button></div>');
+  }
+}
+
+// ── hook 1: getData — โหมด server ให้คืนผลจาก GAS (ต้องอยู่หลัง wrapper advFilter ด้านบน เพื่อไม่ให้ถูกกรองวันที่ซ้ำฝั่ง client) ──
+(function () {
+  const _base = MYT.getData.bind(MYT);
+  MYT.getData = function (tab) {
+    if (tab === 'transaction-history' && TXQ.sig && !TXQ.error) return TXQ.ui;
+    return _base(tab);
+  };
+})();
+
+// ── hook 2: mytRenderContent — ตรวจว่าตัวกรองเปลี่ยนไหม ถ้าเปลี่ยนให้ดึงใหม่ แล้ว decorate ──
+(function () {
+  const _orig = mytRenderContent;
+  mytRenderContent = function (tab) {
+    if (tab === 'transaction-history') {
+      const flt = _txqFilters();
+      if (_txqWantsServer(flt)) {
+        if (_txqSig(flt) !== TXQ.sig) txqFetch(true);                       // เริ่มดึง (async) แล้ววาดสถานะ Loading ก่อน
+      } else if (TXQ.sig) {                                                  // ล้างตัวกรองครบ → กลับโหมดปกติ (HIST)
+        TXQ.sig = ''; TXQ.seq++; TXQ.loading = false; TXQ.error = ''; TXQ.rows = []; TXQ.ui = [];
+      }
+    }
+    const r = _orig.apply(this, arguments);
+    if (tab === 'transaction-history') _txqDecorate();
+    return r;
+  };
+})();
+
+// ── hook 3: mytRenderFilter — เพิ่ม Category + ช่องค้นหาใต้แถบ filter เดิม ──
+(function () {
+  const _orig = mytRenderFilter;
+  mytRenderFilter = function (tab) {
+    const r = _orig.apply(this, arguments);
+    if (tab === 'transaction-history') {
+      const area = document.getElementById('mytFilterArea');
+      if (area) area.insertAdjacentHTML('beforeend', _txqControlsHTML());
+    }
+    return r;
+  };
+})();
+
+// ── hook 4: เปิดแท็บ Transaction History ใหม่ → ดึงสดอีกครั้ง (กรณีมีรายการใหม่ระหว่างที่อยู่หน้าอื่น) ──
+(function () {
+  const _orig = mytSwitchTab;
+  mytSwitchTab = function (tab, el) {
+    if (tab === 'transaction-history' && TXQ.sig) TXQ.sig = '__stale__';
+    return _orig.apply(this, arguments);
   };
 })();
 
@@ -29983,6 +30185,8 @@ async function lgS3go() {
   // ── Login สำเร็จ ──
   LG._attempts = 0;
   _lgSaveSession(LG.member, hash, remember);
+  // [SEC-AUTH] ขอ session token จาก GAS (ไม่ขวาง login ถ้าล้มเหลว — request แรกจะลองขอใหม่เอง)
+  try { await _tccEnsureSession(true); } catch (e) { console.warn('[auth] ensure after login failed:', e && e.message); }
   _applyMemberToProfile({
     uid:           memVal(LG.member, 'id'),
     username:      memVal(LG.member, 'name'),
@@ -30575,11 +30779,23 @@ function _isPermanentDbError(message) {
          m.includes('Contract matured') ||
          m.includes('Fixed (APT-only)') ||
          m.includes('กรุณาเลือก Earn Contract') ||
+         // [FIX-GUARD-FAILCLOSED] GAS logPositionWithGuard ปฏิเสธแบบ fail-closed (ชั่วคราวฝั่งเซิร์ฟเวอร์ แต่ "ไม่ได้บันทึก" แน่นอน)
+         // ถ้าปล่อยเข้า QUEUE → position ค้างบนหน้าจอแล้วอาจถูกเปิดทีหลังด้วยราคาเก่า / โดน [SEC] ทิ้งโดยไม่ rollback (position ผี)
+         // จึงจัดเป็น rejection: แสดง toast + rollback ทันที ให้ผู้ใช้กดสั่งใหม่เอง
+         // ⚠️ ไม่ใส่ 'lock timeout' กว้างๆ — action อื่น (ฝาก/ถอน/โอน) ใช้ข้อความนี้ร่วมกันและพึ่ง QUEUE retry อยู่
+         m.includes('ตรวจสอบสถานะสัญญาไม่สำเร็จชั่วคราว') ||
+         m.includes('ตรวจสอบ position เดิมไม่สำเร็จชั่วคราว') ||
+         m.includes('ระบบกำลังประมวลผลออเดอร์อื่นอยู่ในสัญญานี้') ||
+         // [FIX-FROZEN-GATE] GAS ปฏิเสธเพราะหา Earn Contract ไม่เจอ (อยู่ใน whitelist ฝั่ง GAS แล้ว) — retry ไม่ช่วย
+         m.includes('ไม่พบ Earn Contract') ||
          // [NEW v2.46 AUTO-RENEW] logEarnRedeem reject เพราะสัญญาถูกต่ออายุอัตโนมัติไปแล้ว
          // (status กลับเป็น active ก่อน user กด Redeem บน local state ที่ยังค้างเป็น matured) —
          // business-logic reject จริง retry ไปก็ fail ซ้ำตลอด ต้อง sync สดแทน ไม่ใช่ queue retry
          m.includes('ยังไม่ครบกำหนด ไม่สามารถรับเงินต้นคืนได้') ||
-         m.includes('รับเงินต้นคืนไปแล้ว');
+         m.includes('รับเงินต้นคืนไปแล้ว') ||
+         // [SEC] GAS ปฏิเสธด้วยเหตุผลด้านความปลอดภัย/สิทธิ์/ตรวจค่า — retry ไปก็ไม่ผ่าน
+         m.includes('[SEC]') ||
+         m.includes('[AUTH]');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -30804,7 +31020,41 @@ function dbCallRaw(action, data = {}) {
   });
 })();
 
-async function _dbCallRawOnce(action, data = {}) {
+// ══════════════════════════════════════════════════════════════════
+// [SEC-AUTH v1] Session token — GAS ออก token (HMAC) ให้หลังตรวจ uid+passHash ทุก request ต้องแนบ token
+// เก็บไว้ในออบเจกต์ session เดิม (tcc_login_session) → logout/หมดอายุ session ล้างทิ้งพร้อมกันอยู่แล้ว
+// ══════════════════════════════════════════════════════════════════
+function _tccSessRead() { try { const r = localStorage.getItem('tcc_login_session'); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+function _tccSessWrite(o) { try { localStorage.setItem('tcc_login_session', JSON.stringify(o)); } catch (e) {} }
+function _tccGetToken() {
+  const s = _tccSessRead();
+  if (!s || !s.token) return '';
+  if (s.tokenExp && Date.now() >= s.tokenExp - 60000) return ''; // ใกล้หมดอายุ (<1 นาที) → ขอใหม่
+  return s.token;
+}
+let _tccEnsureP = null;
+function _tccEnsureSession(force) {
+  if (!force && _tccGetToken()) return Promise.resolve(true);
+  if (_tccEnsureP) return _tccEnsureP; // request พร้อมกันตอน boot ใช้ promise เดียว
+  const s = _tccSessRead();
+  if (!s || !s.uid || !s.passHash) return Promise.resolve(false);
+  let remember = false; try { remember = localStorage.getItem('tcc_remember_me') === '1'; } catch (e) {}
+  _tccEnsureP = _dbCallRawOnce('issueSession', { uid: s.uid, passHash: s.passHash, remember })
+    .then(r => {
+      if (!r || !r.token) return false;
+      const cur = _tccSessRead() || s;
+      cur.token = r.token; cur.tokenExp = r.exp_ms || 0;
+      _tccSessWrite(cur);
+      return true;
+    })
+    .catch(e => { console.warn('[auth] issueSession failed:', e && e.message); return false; })
+    .finally(() => { _tccEnsureP = null; });
+  return _tccEnsureP;
+}
+
+async function _dbCallRawOnce(action, data = {}, _authRetry = false) {
+  // [SEC-AUTH] ทุก action (ยกเว้น issueSession) ต้องมี token — ถ้ายังไม่มี/ใกล้หมดอายุ ขอใหม่จาก passHash ใน session
+  if (action !== 'issueSession' && !_tccGetToken()) { await _tccEnsureSession(false); }
   // [v5 FIX SLOW-LOAD/BLACK-SCREEN] เดิม fetch() ไม่มี timeout เลย — ถ้า GAS ช้า/ค้าง
   // (cold start, ScriptLock รอสูงสุด 10s ใน _autoLiquidateContract ฯลฯ) request จะรอ
   // เงียบๆไม่มีสัญญาณอะไรบอกผู้ใช้ ทำให้ต้อง reload เอง (ซึ่งพอ reload cache มักช่วยให้
@@ -30817,7 +31067,7 @@ async function _dbCallRawOnce(action, data = {}) {
     const res = await fetch(SCRIPT_URL, {
       method:   'POST',
       headers:  { 'Content-Type': 'text/plain' },
-      body:     JSON.stringify({ action, data }),
+      body:     JSON.stringify({ action, data, token: (action === 'issueSession' ? '' : _tccGetToken()) }), // [SEC-AUTH]
       redirect: 'follow',
       signal:   _ctrl.signal,
     });
@@ -30837,6 +31087,11 @@ async function _dbCallRawOnce(action, data = {}) {
         _bodyPreview.slice(0, 200));
     }
     const json = await res.json();
+    // [SEC-AUTH] token หมดอายุ/ไม่ถูกต้อง → ขอ session ใหม่ 1 ครั้งแล้วยิง action เดิมซ้ำ
+    if (!json.ok && action !== 'issueSession' && !_authRetry && /\[AUTH\] UNAUTHORIZED/.test(json.error || '')) {
+      const _reauthed = await _tccEnsureSession(true);
+      if (_reauthed) return _dbCallRawOnce(action, data, true);
+    }
     if (!json.ok) throw new Error(json.error || 'GAS error: ' + action);
     // [vx6-DAILY-PNL] sync FDP: getDashboard → เก็บ today; action ที่เปลี่ยน realized PNL → ล้าง cache (ใช้ HIST fallback จนกว่าจะ sync ใหม่)
     try { if (action === 'getDashboard') _fdpApplyDash(json.data); else if (_FDP_INVALIDATE_ACTIONS.test(action)) fdpInvalidate(); } catch (_e) {}
@@ -31393,7 +31648,7 @@ function _mergeDashEarnContracts(gasContracts) {
     if (!_holdEarnSync2 && window._pendingEarnSync) delete window._pendingEarnSync[cid];
     if (_holdEarnSync2) return; // ข้ามสัญญานี้ทั้งก้อนในรอบ merge นี้ — รอ guard หมดอายุก่อน
     if (gc.current_balance !== undefined) { local.currentBalance = parseFloat(gc.current_balance) || local.currentBalance; changed = true; }
-    if (gc.frozen_balance  !== undefined) { local.frozenBalance  = parseFloat(gc.frozen_balance)  || local.frozenBalance;  changed = true; }
+    if (gc.frozen_balance  !== undefined) { const _gfb = parseFloat(gc.frozen_balance); local.frozenBalance = isNaN(_gfb) ? local.frozenBalance : _gfb; changed = true; } // [FIX-FROZEN-FE] GAS = SSOT (รวมค่า 0 ที่ตั้งใจ)
     // [FIX-1] overwrite realizedPnl จาก GAS เสมอ (Source of Truth)
     // เดิมใช้ || 0 → เมื่อ GAS ส่ง realized_pnl=0 มา local ยังคงค่าเก่าบวมไว้ ทำให้ UI แสดงยอดเกินจริง
     if (gc.realized_pnl !== undefined) {
@@ -31986,6 +32241,7 @@ function saveOpenPosition(pos) {
     // ถ้าไม่บันทึก → loadOfflineState คืน earnContractId='' → syncContractBalance
     // คำนวณ drawdown ผิด contract → _autoLiquidate() ปิดทุก position หลัง refresh
     earn_contract_id: pos.earnContractId || '',
+    fill_order_id:   pos.fillOrderId || undefined, // [FIX-LIMITFILL-DOUBLECOUNT] เฉพาะ position ที่เกิดจาก Limit fill — GAS ใช้ตัด margin ของ order นี้ออกจากยอด pending
     status:          'Active',
     opened_at:       new Date().toISOString(),
   };
@@ -32243,6 +32499,13 @@ function saveEarnCreate(data) {
       }
     })
     .catch(err => {
+      // [SEC] GAS ปฏิเสธตามกฎ (เช่น ยอดไม่พอ/แผนไม่ถูกต้อง) → ห้ามเข้าคิว retry; แจ้งผู้ใช้แล้ว sync ยอด+สัญญาจริงจาก GAS ทับ optimistic state
+      if (typeof _isPermanentDbError === 'function' && _isPermanentDbError(err.message)) {
+        console.warn('[saveEarnCreate] rejected by GAS:', err.message);
+        if (typeof showToast === 'function') showToast(tccTF('toast_contract_create_fail', { err: String(err.message || '').replace(/^\[SEC\]\s*/, '') }));
+        if (typeof loadOfflineState === 'function') loadOfflineState();
+        return;
+      }
       // fallback: ถ้า network fail → ส่งผ่าน QUEUE เหมือน dbWrite ปกติ
       console.error('[saveEarnCreate] write failed, queuing:', err.message);
       QUEUE.push({ action: 'logEarnCreate', data: fullData });
@@ -32262,6 +32525,12 @@ function saveEarnClaim(data, action) {
   const gasAction = action || 'logEarnClaim';
   dbWrite(gasAction, fullData, () => {
     _invalidateDashCache();
+  }).catch(() => {
+    // [FIX-CLAIM-IDEMPOTENT] GAS ปฏิเสธ claim แบบถาวร (เช่น [DUPLICATE] จาก idempotency key ของ logEarnClaimTrade,
+    // หรือสัญญาเปลี่ยนสถานะไปแล้ว) แต่ UI ได้บวกยอด main balance / totalClaimed แบบ optimistic ไปก่อนแล้ว
+    // → ดึงสถานะจริงจาก GAS ทับทันที (รูปแบบเดียวกับ saveEarnRedeem) — dbWrite แสดง toast error ให้ผู้ใช้เห็นแล้ว
+    // error ชั่วคราว (เครือข่าย) ไม่เข้าตรงนี้: dbWrite เก็บเข้า QUEUE retry เอง
+    if (typeof loadOfflineState === 'function') loadOfflineState();
   });
 }
 

@@ -485,6 +485,10 @@ tr:hover td{background:var(--bgh)}
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         <span class="lbl">Earn Contracts</span>
       </div>
+      <div class="si" onclick="go('futures')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        <span class="lbl">Futures Direct / Loans</span>
+      </div>
       <div class="sb-sec">รายงาน</div>
       <div class="si" onclick="go('revenue')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -943,6 +947,30 @@ tr:hover td{background:var(--bgh)}
         </div>
       </div>
 
+      <!-- ════ FUTURES DIRECT / LOANS / SPOT COINS (v3 sync) ════ -->
+      <div class="panel" id="p-futures">
+        <div class="sg sg-4">
+          <div class="sc"><div class="sc-lbl">Futures Positions (Active)</div><div class="sc-val" id="fx-pos">—</div><div class="sc-sub">รายการ</div></div>
+          <div class="sc"><div class="sc-lbl">Futures Orders (Open)</div><div class="sc-val" id="fx-ord">—</div><div class="sc-sub">รายการ</div></div>
+          <div class="sc gold"><div class="sc-lbl">Loans Active</div><div class="sc-val" id="fx-loan">—</div><div class="sc-sub">USDT ยืมรวม <span id="fx-loan-amt">—</span></div></div>
+          <div class="sc"><div class="sc-lbl">Spot Coin Rows</div><div class="sc-val" id="fx-coin">—</div><div class="sc-sub">uid × coin</div></div>
+        </div>
+        <div class="fb">
+          <input class="fi" id="fxQ" placeholder="🔍 BNB ID / Symbol / ID..." oninput="rfx(true)">
+          <select class="fs" id="fxTy" onchange="rfx(true)">
+            <option value="pos">Futures Positions</option>
+            <option value="ord">Futures Orders</option>
+            <option value="loans">Loans</option>
+            <option value="coins">Spot Coin Balances</option>
+          </select>
+        </div>
+        <div class="fb-act"><button class="fb-btn" onclick="exportCSV('futures')">⬇ CSV</button></div>
+        <div class="tw">
+          <table><thead id="fxHead"></thead><tbody id="fxTb"></tbody></table>
+          <div class="pg" id="fxPg"></div>
+        </div>
+      </div>
+
       <!-- ════ REVENUE ════ -->
       <div class="panel" id="p-revenue">
         <div class="sg sg-3">
@@ -1160,6 +1188,7 @@ const D = {
   revenue:    [],  // built from members + GAS stats
   teamList:   [],  // GAS: adminGetTeamList
   systemStats:{},  // GAS: adminGetSystemStats
+  futPos:[], futOrd:[], loans:[], spotCoins:[], // v3: FuturesPositions / FuturesOrders / Loans / SpotCoinBalances
 };
 
 let pages = {};
@@ -1364,6 +1393,7 @@ const pgTitles = {
   earncontracts:'Earn Contracts (GAS)', revenue:'รายได้สมาชิก',
   fundingfee:'Funding Fee Log (GAS)', settings:'ตั้งค่า / API Config',
   team:'Team Management', system:'System Center & Reserve Fund',
+  futures:'Futures Direct / Loans / Spot Coins (GAS)',
 };
 
 function go(id) {
@@ -1377,7 +1407,7 @@ function go(id) {
   // lazy render
   const rmap = {deposits:rdep,withdrawals:rwd,txlog:rtx,members:rmem,
     positions:()=>{rpos();updatePosHead()},earncontracts:rec,
-    revenue:rrv,fundingfee:rff,team:rteam,system:rsystem};
+    revenue:rrv,fundingfee:rff,team:rteam,system:rsystem,futures:()=>rfx(true)};
   if (rmap[id]) rmap[id]();
 }
 
@@ -1450,7 +1480,7 @@ async function loadAll() {
   toast('🔄 กำลังโหลดข้อมูล...','');
   try {
     // โหลดทุก API พร้อมกัน — members + ข้อมูลอื่นๆ ทั้งหมดในคราวเดียว (ไม่มี race condition)
-    const [memRes, deps, wds, txs, pos, posH, ords, ec, fund, refs, team, sysStats] =
+    const [memRes, deps, wds, txs, pos, posH, ords, ec, fund, refs, team, sysStats, fPos, fOrd, lns, sCoins] =
       await Promise.allSettled([
         gasAdminCall('adminGetMembers', { limit: 5000 }),
         gasAdminCall('adminGetDeposits', { status: 'all' }),
@@ -1464,6 +1494,10 @@ async function loadAll() {
         gasAdminCall('adminGetReferrals'),
         gasAdminCall('adminGetTeamList'),
         gasAdminCall('adminGetSystemStats'),
+        gasAdminCall('adminGetFuturesPositions'),
+        gasAdminCall('adminGetFuturesOrders'),
+        gasAdminCall('adminGetLoans'),
+        gasAdminCall('adminGetSpotCoins'),
       ]);
 
     // map members (PascalCase legacy fields)
@@ -1504,6 +1538,10 @@ async function loadAll() {
     if (refs.value?.data)  D.referrals   = refs.value.data;
     if (team.value?.data)     D.teamList    = team.value.data;
     if (sysStats.value?.data) D.systemStats = sysStats.value.data;
+    if (fPos.value?.data)   D.futPos    = fPos.value.data;
+    if (fOrd.value?.data)   D.futOrd    = fOrd.value.data;
+    if (lns.value?.data)    D.loans     = lns.value.data;
+    if (sCoins.value?.data) D.spotCoins = sCoins.value.data;
 
     // ── ตรวจ GAS call ล้มเหลวสำหรับ positions/orders — แจ้งเตือนทันที ──
     const posErr  = pos.status  === 'rejected' || !pos.value?.data;
@@ -1558,7 +1596,12 @@ function populateDynamicFilters() {
     'Deposit','Withdraw','Withdraw Fee','Transfer',
     'Commission','Funding Fee','Spot Trade','Realized PNL',
     'Earn Deposit','Earn Claim','Earn Claim (APT)','Earn Claim (Trade)',
-    'Earn Liquidate','Earn Return','Earn Yield','Earn Drawdown Warning'
+    'Earn Liquidate','Earn Return','Earn Yield','Earn Drawdown Warning',
+    // v3 sync — ชนิดที่ไฟล์หลักเขียนจริงเพิ่ม
+    'Futures Direct PNL','Futures Direct Funding Fee','Earn Fixed Claim','Earn Redeem','Earn Deposit Rollback',
+    'Loan Borrow','Loan Repay','Loan Collateral Lock','Loan Collateral Unlock',
+    'MP Topup','MP Withdraw','Commission Transfer','CommissionWithdraw','Correction','CommissionLedgerCorrection',
+    'Withdraw Rejected','Withdraw Confirmed','Admin Adjustment'
   ];
   const txTypesFromData = [...new Set(D.txlog.map(t => t.type).filter(Boolean))].sort();
   // รวมทั้งจากข้อมูลจริงและ fallback ที่รู้จาก GAS schema
@@ -1594,7 +1637,7 @@ function populateDynamicFilters() {
   fillSelect('dpSt', mergedDepStatuses, v => depStatusLabels[v] || v);
 
   // ── 6. Withdrawal Status (wdSt) — ดึงจาก D.withdrawals จริง ──
-  const GAS_WD_STATUSES = ['awaiting_approval','pending','processing','completed','failed'];
+  const GAS_WD_STATUSES = ['awaiting_approval','pending','processing','completed','rejected','failed'];
   const wdStatusLabels = {
     awaiting_approval:'⚠️ รอ Admin อนุมัติ', pending:'Pending (รอ Bot)',
     processing:'⚙️ Processing', completed:'Completed', failed:'Failed/Rejected'
@@ -1970,7 +2013,7 @@ function rwd(resetPage=false) {
     const st=(d.status||'pending').toLowerCase();
     const absIdx = start+i;
     const meta = WD_STATUS_LABEL[st] || { label: st, pill: 'p-pend' };
-    const needsAdmin = st === 'awaiting_approval';
+    const needsAdmin = st === 'awaiting_approval' || (st === 'pending' && String(d.type||'onchain') === 'onchain'); // v3: onchain pending = รอ admin (เงินถูกหักตอน submit)
     return `<tr style="cursor:pointer" onclick="vWd(${absIdx})">
       <td class="mono" style="color:var(--t3);width:40px">${start+i+1}</td>
       <td>
@@ -2000,31 +2043,41 @@ function rwd(resetPage=false) {
   paginate('wdPg',total,wdPg,p=>{wdPg=p;rwd()});
 }
 
-// ⚠️ Approve = ปลดล็อกให้ bot ทำงานต่อ (awaiting_approval → pending) ไม่ใช่ mark completed เอง
+// v3 sync: onchain pending → Approve = ใส่ TxID แล้ว confirmWithdraw (ไฟล์หลัก) | Reject = rejectWithdraw คืน amount+fee
+//          legacy awaiting_approval → ปลดล็อกให้ Bot (เดิม)
+function _wdKind(d){
+  const st=String(d.status||'').toLowerCase();
+  if (st==='awaiting_approval') return 'legacy';
+  if (st==='pending' && String(d.type||'onchain')==='onchain') return 'pending';
+  return '';
+}
 function appWd(idx) {
   const d=(window._wdData||[])[idx]; if(!d) return;
-  if (String(d.status||'').toLowerCase() !== 'awaiting_approval') {
-    toast('Approve ใช้ได้เฉพาะรายการสถานะ "รอ Admin อนุมัติ" เท่านั้น — รายการอื่นระบบอัตโนมัติจัดการอยู่','er');
-    return;
-  }
-  modal('✅ ปลดล็อกรายการถอนเงิน (ส่งต่อให้ Bot ดำเนินการ)',
-    `<p style="margin-bottom:8px">ปลดล็อก <strong style="color:var(--r)">-${fnum(d.amount)} ${d.coin||'USDT'}</strong> ไปยัง</p>
+  const k=_wdKind(d);
+  if (!k) { toast('Approve ใช้ได้เฉพาะรายการ On-chain ที่รอดำเนินการ','er'); return; }
+  const warn = k==='legacy'
+    ? 'การกด Approve จะส่งสถานะกลับเป็น "pending" ให้ Bot หยิบไปโอนต่อ — Admin ไม่ได้โอนเงินเอง'
+    : 'เงินของสมาชิกถูกหักไปแล้วตอนส่งคำขอ — โอนจริงนอกระบบก่อน แล้วกรอก TxID เพื่อปิดรายการ ⚠️ ต้องปิด AUTO_RUN ของ Bot หรือมั่นใจว่า Bot ยังไม่หยิบรายการนี้ ไม่งั้นอาจโอนซ้ำ';
+  modal(k==='legacy'?'✅ ปลดล็อกรายการถอนเงิน':'✅ ยืนยันการถอนเงิน On-chain',
+    `<p style="margin-bottom:8px"><strong style="color:var(--r)">-${fnum(d.amount)} ${d.coin||'USDT'}</strong> (${d.network||''}) ไปยัง</p>
     <p class="mono" style="font-size:10px;color:var(--t2);margin-bottom:12px;word-break:break-all">${d.to_address||'—'}</p>
-    <div style="background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.25);border-radius:var(--rmd);padding:10px;margin-bottom:12px;font-size:11px;color:var(--y)">
-      ⚠️ การกด Approve จะส่งสถานะกลับเป็น "pending" ให้ Bot หยิบไปโอนเงินจริงต่อโดยอัตโนมัติ — Admin ไม่ได้โอนเงินเอง
-    </div>
+    <div style="background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.25);border-radius:var(--rmd);padding:10px;margin-bottom:12px;font-size:11px;color:var(--y)">⚠️ ${warn}</div>
+    ${k==='pending'?'<div class="mf"><label>TxID (บังคับ)</label><input id="wtx" placeholder="0x... / hash การโอนจริง"></div>':''}
     <div class="mf"><label>หมายเหตุ (ถ้ามี)</label><input id="wn" placeholder="หมายเหตุ..."></div>`,
-    [{l:'ยืนยันปลดล็อก',c:'ok',fn:`doAppWd(${idx})`},{l:'ยกเลิก',c:'can',fn:'cm()'}]);
+    [{l:'ยืนยัน',c:'ok',fn:`doAppWd(${idx})`},{l:'ยกเลิก',c:'can',fn:'cm()'}]);
 }
 async function doAppWd(idx) {
   const note=document.getElementById('wn')?.value||'';
+  const txid=(document.getElementById('wtx')?.value||'').trim();
+  const d=(window._wdData||[])[idx]; if(!d) { cm(); return; }
+  const k=_wdKind(d);
+  if (k==='pending' && !txid) { toast('กรุณาระบุ TxID','er'); return; }
   cm();
-  const d=(window._wdData||[])[idx]; if(!d) return;
-  const res = await gasWrite('adminApproveWithdrawal',{withdraw_id:d.withdraw_id, note});
+  const res = await gasWrite('adminApproveWithdrawal',{withdraw_id:d.withdraw_id, note, txid});
   if (res?.status==='ok') {
     const realIdx=D.withdrawals.findIndex(x=>x.withdraw_id===d.withdraw_id);
-    if(realIdx>=0) D.withdrawals[realIdx].status='pending';
-    toast('✅ ปลดล็อกสำเร็จ — Bot จะดำเนินการโอนต่อโดยอัตโนมัติ','ok');
+    if(realIdx>=0){ D.withdrawals[realIdx].status = k==='pending'?'completed':'pending'; if(txid) D.withdrawals[realIdx].txid=txid; }
+    toast(k==='pending'?'✅ ยืนยันการถอนสำเร็จ':'✅ ปลดล็อกสำเร็จ — Bot จะดำเนินการต่อ','ok');
   } else {
     toast('⚠️ '+(res?.message||'เกิดข้อผิดพลาด'),'er');
   }
@@ -2032,14 +2085,13 @@ async function doAppWd(idx) {
 }
 function rejWd(idx) {
   const d=(window._wdData||[])[idx]; if(!d) return;
-  if (String(d.status||'').toLowerCase() !== 'awaiting_approval') {
-    toast('Reject ใช้ได้เฉพาะรายการสถานะ "รอ Admin อนุมัติ" เท่านั้น','er');
-    return;
-  }
+  const k=_wdKind(d);
+  if (!k) { toast('Reject ใช้ได้เฉพาะรายการ On-chain ที่รอดำเนินการ','er'); return; }
+  const info = k==='pending'
+    ? 'ℹ️ เงินถูกหักตอนส่งคำขอแล้ว — ปฏิเสธแล้ว Bot จะ <b>คืน amount+fee</b> ให้สมาชิกอัตโนมัติ (ห้ามคืนซ้ำด้วยมือ)'
+    : 'ℹ️ รอ Admin อนุมัติ: เงินถูกหักตอนส่งคำขอแล้ว — ปฏิเสธแล้ว Bot จะคืน amount+fee ให้อัตโนมัติ (ห้ามคืนซ้ำด้วยมือ)';
   modal('❌ ปฏิเสธการถอนเงิน',
-    `<div style="background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.25);border-radius:var(--rmd);padding:10px;margin-bottom:12px;font-size:11px;color:var(--y)">
-      ℹ️ เงินยังไม่ถูกหักจริง (ยังไม่ถึงขั้นตอนโอน) — ปฏิเสธแล้วไม่ต้องคืนเงินซ้ำ
-    </div>
+    `<div style="background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.25);border-radius:var(--rmd);padding:10px;margin-bottom:12px;font-size:11px;color:var(--y)">${info}</div>
     <div class="mf"><label>เหตุผล (บังคับ)</label><textarea id="wr" placeholder="Wallet Address ไม่ถูกต้อง / เกินวงเงินที่อนุญาต..."></textarea></div>`,
     [{l:'ยืนยันปฏิเสธ',c:'no',fn:`doRejWd(${idx})`},{l:'ยกเลิก',c:'can',fn:'cm()'}]);
 }
@@ -2048,11 +2100,12 @@ async function doRejWd(idx) {
   if(!r.trim()){toast('กรุณาระบุเหตุผล','er');return;}
   cm();
   const d=(window._wdData||[])[idx]; if(!d) return;
+  const k=_wdKind(d);
   const res = await gasWrite('adminRejectWithdrawal',{withdraw_id:d.withdraw_id,note:r});
   if (res?.status==='ok') {
     const realIdx=D.withdrawals.findIndex(x=>x.withdraw_id===d.withdraw_id);
-    if(realIdx>=0){D.withdrawals[realIdx].status='failed'; D.withdrawals[realIdx].note=r;}
-    toast('ปฏิเสธรายการถอนเงินสำเร็จ (ไม่ต้องคืนเงิน เพราะยังไม่ถูกหัก)','er');
+    if(realIdx>=0){D.withdrawals[realIdx].status = 'failed'; D.withdrawals[realIdx].note=r;}
+    toast(k==='pending'?'ปฏิเสธและคืนเงินสำเร็จ':'ปฏิเสธรายการสำเร็จ','er');
   } else {
     toast('⚠️ '+(res?.message||'เกิดข้อผิดพลาด'),'er');
   }
@@ -4910,18 +4963,53 @@ function forceCloseAll() {
 // ══════════════════════════════════════════
 function liquidateContract(contractId) {
   const c=D.earnContracts.find(x=>String(x.contract_id)===String(contractId)); if(!c) return;
-  modal(`⚠️ Liquidate Contract — ยังไม่พร้อมใช้งานจาก Admin Panel นี้`,`
-    <div style="background:var(--rbg);border:1px solid rgba(246,70,93,.3);border-radius:var(--rmd);padding:12px">
-      <div style="color:var(--r);font-weight:700;margin-bottom:4px">forceLiquidateContract เป็นฟังก์ชันใน GAS_TCC_TH_v2 (endpoint หลัก)</div>
-      <div style="font-size:12px;color:var(--t2)">Admin.js (ไฟล์นี้) เป็นไฟล์แยกสำหรับงานแอดมินเท่านั้น ยังไม่ได้เชื่อม forceLiquidateContract เข้ามา
-      หากต้องการใช้งาน ให้เพิ่ม action 'adminForceLiquidateContract' ที่เรียก forceLiquidateContract() ใน Admin.js ก่อน</div>
+  modal('⚠️ Force Liquidate Contract',`
+    <div style="background:var(--rbg);border:1px solid rgba(246,70,93,.3);border-radius:var(--rmd);padding:12px;margin-bottom:12px">
+      <div style="color:var(--r);font-weight:700;margin-bottom:4px">${c.contract_id} · uid ${c.uid}</div>
+      <div style="font-size:12px;color:var(--t2)">ระบบจะเรียก forceLiquidateContract ของไฟล์หลัก — สัญญาเป็น frozen และตัด balance ตามสูตร DD (ย้อนกลับไม่ได้)</div>
     </div>
-  `,[{l:'เข้าใจแล้ว',c:'can',fn:'cm()'}]);
+    <div class="mf"><label>เหตุผล</label><input id="lqr" placeholder="Manual admin override"></div>`,
+    [{l:'ยืนยัน Liquidate',c:'no',fn:`doLiquidate('${String(contractId).replace(/'/g,'')}')`},{l:'ยกเลิก',c:'can',fn:'cm()'}]);
+}
+async function doLiquidate(cid) {
+  const reason=document.getElementById('lqr')?.value||'';
+  const c=D.earnContracts.find(x=>String(x.contract_id)===String(cid)); cm(); if(!c) return;
+  const res=await gasWrite('adminForceLiquidateContract',{contract_id:cid,uid:c.uid,reason});
+  if(res?.status==='ok'){ c.status='frozen'; toast('✅ Liquidate สำเร็จ','ok'); rec(); }
+  else toast('⚠️ '+(res?.message||'เกิดข้อผิดพลาด'),'er');
 }
 
 // ══════════════════════════════════════════
 //  ⬇️ EXPORT CSV
 // ══════════════════════════════════════════
+let fxPg=1;
+const FX_DEF = {
+  pos:  {src:'futPos',  cols:['uid','symbol','side','position_side','mode','lev','entry_price','size','margin','liq_price','realized_pnl','status','opened_at']},
+  ord:  {src:'futOrd',  cols:['order_id','uid','symbol','order_type','side','position_side','size','margin','limit_price','reduce_only','status','created_at']},
+  loans:{src:'loans',   cols:['loan_id','uid','collateral_coin','collateral_amount','borrow_usdt','ltv_current','liq_price','interest_rate','status','created_at']},
+  coins:{src:'spotCoins',cols:['uid','coin','balance','updated_at']},
+};
+function rfx(reset){
+  if(reset) fxPg=1;
+  const ty=document.getElementById('fxTy')?.value||'pos', def=FX_DEF[ty];
+  const q=(document.getElementById('fxQ')?.value||'').toLowerCase().trim();
+  const act=r=>['active','open','pending','partially closed','new'].includes(String(r.status||'').toLowerCase());
+  document.getElementById('fx-pos').textContent=D.futPos.filter(act).length;
+  document.getElementById('fx-ord').textContent=D.futOrd.filter(act).length;
+  const la=D.loans.filter(l=>String(l.status||'').toLowerCase()==='active');
+  document.getElementById('fx-loan').textContent=la.length;
+  document.getElementById('fx-loan-amt').textContent=fnum(la.reduce((t,l)=>t+(parseFloat(l.borrow_usdt)||0),0));
+  document.getElementById('fx-coin').textContent=D.spotCoins.length;
+  const esc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const data=(D[def.src]||[]).filter(r=>!q||def.cols.some(c=>String(r[c]||'').toLowerCase().includes(q)));
+  document.getElementById('fxHead').innerHTML='<tr>'+def.cols.map(c=>`<th>${c}</th>`).join('')+'</tr>';
+  const start=(fxPg-1)*PG, rows=data.slice(start,start+PG);
+  document.getElementById('fxTb').innerHTML=rows.length?rows.map(r=>'<tr>'+def.cols.map(c=>{
+    const v=r[c]; return `<td class="mono" style="font-size:11px">${c.endsWith('_at')?fdt(v):esc(v)}</td>`;}).join('')+'</tr>').join('')
+    :`<tr><td colspan="${def.cols.length}" style="text-align:center;padding:28px;color:var(--t3)">ไม่มีข้อมูล (ตรวจว่า deploy GAS แอดมิน v3.5 แล้ว)</td></tr>`;
+  paginate('fxPg',data.length,fxPg,p=>{fxPg=p;rfx()});
+}
+
 function exportCSV(type) {
   const sources = {
     members:     { data:D.members,     fields:['BNB_ID','Name','Team','Phone','Status','Level A','Level B','ReferrerId','_bal','_fundingBal'] },
@@ -4930,6 +5018,7 @@ function exportCSV(type) {
     positions:   { data:D.positions,   fields:['id','uid','symbol','side','lev','entry_price','size','realized_pnl','status','earn_contract_id','opened_at'] },
     txlog:       { data:D.txlog,       fields:['id','uid','type','asset','amount','symbol','note','created_at'] },
     funding:     { data:D.funding,     fields:['id','uid','symbol','amount','asset','created_at'] },
+    futures:     { data:(D[FX_DEF[document.getElementById('fxTy')?.value||'pos'].src]||[]), fields:FX_DEF[document.getElementById('fxTy')?.value||'pos'].cols },
     revenue:     { data:D.revenue,     fields:['BNB_ID','Name','Team','Trades','WinCount','RealizedPnl','UnrealizedPnl','WalletBalance','EarnBalance'] },
   };
   const src = sources[type];

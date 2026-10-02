@@ -1,3 +1,6 @@
+
+<!-- [vx16-FUTD-OPEN-MARKETABLE] (2026-10-02) Futures → Direct → Open: futdPlaceOrder (Limit) — ถ้า limit ถึงเงื่อนไขแล้ว (Long: limit ≥ mark / Short: limit ≤ mark) → แจ้งเตือน + เปิด Market ทันที (openFuturesPosition) เหมือนฝั่ง Close แทนการบล็อก
+     แก้เฉพาะ client: futdPlaceOrder + i18n key futd_toast_open_marketable ; ไม่ต้อง deploy GAS เพิ่ม (ใช้คู่กับ GAS_easy_TCC_v4_4 เดิม) -->
 <!-- [vx15-CLOSE-TRIM + FUTD-MARKETABLE] (2026-10-02) ต้องใช้คู่กับ GAS_easy_TCC_v4_4 (vx15-) — deploy GAS ก่อน HTML
      [vx15-FUTD-MARKETABLE] Direct Close Limit: ถ้า limit ถึงเงื่อนไขแล้ว (Long: limit ≤ mark / Short: limit ≥ mark) → ปิด Market ทันที เหมือน Contract (ไม่รอ grace 30s ของ GAS)
      [vx15-TRIM-CONTRACT]   _cpsTrimCloseOrdersFor: หลังปิดบางส่วน ตัด reduce-only ค้างที่เกิน size คงเหลือ (ใหม่สุดก่อน) ให้ตรงกับ GAS ; Direct ไม่ต้องแก้ client (futdRefreshAccountStatus ดึง orders ที่ GAS trim แล้ว) -->
@@ -2393,6 +2396,7 @@ const TCC_I18N = {
   'cps_toast_limit_filled':['✅ Limit Close ทำงาน: {side} {amt} {coin} @ {price}','✅ Limit close triggered: {side} {amt} {coin} @ {price}','✅ Lệnh đóng Limit đã khớp: {side} {amt} {coin} @ {price}','✅ Limit close triggered: {side} {amt} {coin} @ {price}','✅ Limit close triggered: {side} {amt} {coin} @ {price}','✅ Limit close triggered: {side} {amt} {coin} @ {price}'],
   'cps_toast_limit_orphan':['⚠️ ยกเลิกออเดอร์ปิด — ไม่พบ Position นี้แล้ว','⚠️ Close order cancelled — position no longer exists','⚠️ Đã hủy lệnh đóng — vị thế không còn tồn tại','⚠️ Close order cancelled — position no longer exists','⚠️ Close order cancelled — position no longer exists','⚠️ Close order cancelled — position no longer exists'],
   'cps_toast_marketable':['ราคา Limit ถึงเงื่อนไขแล้ว — จะปิดตามราคาตลาดทันที','Limit price already reached — will close at market now','Giá Limit đã đạt — sẽ đóng theo giá thị trường ngay','Limit price already reached — will close at market now','Limit price already reached — will close at market now','Limit price already reached — will close at market now'],
+  'futd_toast_open_marketable':['ราคา Limit ถึงเงื่อนไขแล้ว — จะเปิดตามราคาตลาดทันที','Limit price already reached — will open at market now','Giá Limit đã đạt — sẽ mở theo giá thị trường ngay','Limit price already reached — will open at market now','Limit price already reached — will open at market now','Limit price already reached — will open at market now'],
   'cps_toast_enter_price':['กรุณาใส่ราคา','Please enter a price','Vui lòng nhập giá','Please enter a price','Please enter a price','Please enter a price'],
   'cps_toast_enter_amt':['กรุณาระบุจำนวนที่ต้องการปิด','Please enter an amount to close','Vui lòng nhập số lượng cần đóng','Please enter an amount to close','Please enter an amount to close','Please enter an amount to close'],
   'cps_toast_over_reserved':['⚠️ จำนวนที่ตั้งปิดล่วงหน้ารวมเกินขนาด Position (ตั้งเพิ่มได้อีก {avail})','⚠️ Total pending close size exceeds the position (available: {avail})','⚠️ Tổng khối lượng đóng chờ vượt quá vị thế (còn: {avail})','⚠️ Total pending close size exceeds the position (available: {avail})','⚠️ Total pending close size exceeds the position (available: {avail})','⚠️ Total pending close size exceeds the position (available: {avail})'],
@@ -11156,14 +11160,21 @@ function _getSelectedContract() {
 function _refreshAvbl(c) {
   if (!c) return;
 
-  // ── Frozen contract: แสดง 0.00 เสมอ — ห้ามเทรด ──
+  // ── Frozen contract: ห้ามเปิด Order ใหม่ แต่ Avbl ยังคงแสดงตามสูตรเงินจริง ──
+  // เพื่อไม่ให้ยอดเงินถูกทำให้เป็น 0 โดย UI จนกว่าจะ Redeem/ปิดสัญญาตาม workflow
   if (c.status === 'frozen') {
+    const _frozenMap = window._contractDDMap && window._contractDDMap[c.contractId];
+    const _frozenAvbl = (_frozenMap && _frozenMap.available_balance !== undefined)
+      ? parseFloat(_frozenMap.available_balance) : parseFloat(c.stakedAmount || 0);
     const avblEl = document.getElementById('avblVal');
-    if (avblEl) avblEl.textContent = '0.00 USDT';
+    if (avblEl) {
+      avblEl.textContent = `${fmtNum(isNaN(_frozenAvbl) ? 0 : _frozenAvbl, 2)} USDT`;
+      avblEl.title = 'Available Balance = Staked - Used Margin + Unrealized PNL (FROZEN)';
+    }
     const badgeEl = document.getElementById('earnMarginBadge');
     if (badgeEl) {
       badgeEl.className = 'earn-margin-badge danger';
-      badgeEl.textContent = '🔒 Avbl: 0.00 (FROZEN)';
+      badgeEl.textContent = `🔒 Avbl: ${fmtNum(isNaN(_frozenAvbl) ? 0 : _frozenAvbl, 2)} (FROZEN)`;
     }
     const budgetBar = document.getElementById('budgetWarnBar');
     if (budgetBar) budgetBar.style.display = 'none';
@@ -11189,36 +11200,39 @@ function _refreshAvbl(c) {
   const usedForPct     = marginUsed + pendingMargin + realizedLoss;
   const overusePct     = maxAllowed > 0 ? (usedForPct / maxAllowed) * 100 : 0;
 
-  // [FIX-SYNC-3] Avbl display: ใช้ avail_margin จาก GAS ถ้ามี (single source of truth)
-  // GAS คำนวณ: avail_margin = marginCap − marginUsedTotal − realizedLoss (นับ pending orders รวมด้วย)
-  // HTML เดิมคำนวณ: stakedAmount − marginUsed + unrealizedPnl — วัดคนละอย่างกัน
-  // → ถ้า _contractDDMap มี avail_margin ให้ใช้ค่านั้นแทน ป้องกัน user เห็นยอดที่ GAS จะ reject
+  // [v2.78-AVBL-SSOT] แยก 2 ค่าอย่างชัดเจน
+  // Avbl = stakedAmount - totalUsedMargin + unrealizedPnL
+  // Trade Margin Avbl = marginCap(10%) - marginUsed - realizedLoss
+  // ห้ามใช้ trade margin เป็น Avbl เพราะเป็นคนละความหมายและคนละ gate
   const _ddCacheEntry = window._contractDDMap && window._contractDDMap[c.contractId];
-  const _gasAvailMargin = (_ddCacheEntry && _ddCacheEntry.avail_margin !== undefined)
-    ? parseFloat(_ddCacheEntry.avail_margin) : null;
-  // fallback สูตรเดิม (ใช้เมื่อยังไม่มีข้อมูลจาก GAS)
-  const avbl = (_gasAvailMargin !== null && !isNaN(_gasAvailMargin))
-    ? _gasAvailMargin
-    : capRemaining; // [FIX-AVBL] fallback = วงเงินคงเหลือ 10% (สูตรเดียวกับ GAS avail_margin)
+  const _gasAvailableBalance = (_ddCacheEntry && _ddCacheEntry.available_balance !== undefined)
+    ? parseFloat(_ddCacheEntry.available_balance) : NaN;
+  const _gasUnrealized = (_ddCacheEntry && _ddCacheEntry.unrealized_pnl !== undefined)
+    ? parseFloat(_ddCacheEntry.unrealized_pnl) : NaN;
+  const avbl = !isNaN(_gasAvailableBalance)
+    ? _gasAvailableBalance
+    : (c.stakedAmount - (marginUsed + pendingMargin) + (isNaN(_gasUnrealized) ? unrealizedPnl : _gasUnrealized));
+  const tradeAvail = (_ddCacheEntry && _ddCacheEntry.trade_avail_margin !== undefined && !isNaN(parseFloat(_ddCacheEntry.trade_avail_margin)))
+    ? parseFloat(_ddCacheEntry.trade_avail_margin)
+    : capRemaining;
 
-  // [FIX-AVBL-DISPLAY] Avbl = ยอดคงเหลือในสัญญา (currentBalance) ไม่ใช่ avail_margin (10% margin pool)
-  // avail_margin = 10% ของ staked_amount = วงเงินเปิดออเดอร์ (แสดงใน remainingBudgetTxt แล้ว)
-  // avblEl ควรแสดง currentBalance เหมือน exchange-style "Available Balance"
-  // avbl ยังคงใช้สำหรับ badge/warning logic ด้านล่าง — ไม่แตะ
   const avblEl = document.getElementById('avblVal');
-  if (avblEl) { avblEl.textContent = `${fmtNum(Math.max(0, avbl), 2)} USDT`; avblEl.title = 'Contract Balance: ' + fmtNum(c.currentBalance, 2) + ' USDT'; } // [FIX-AVBL] Avbl = วงเงินเปิดออเดอร์ (ตรงกับ badge/GAS)
+  if (avblEl) {
+    avblEl.textContent = `${fmtNum(avbl, 2)} USDT`;
+    avblEl.title = 'Available Balance = Staked - Used Margin + Unrealized PNL';
+  }
 
   const badgeEl = document.getElementById('earnMarginBadge');
   if (badgeEl) {
     badgeEl.className = 'earn-margin-badge';
     if (overusePct > 110) {
       badgeEl.classList.add('danger');
-      badgeEl.textContent = `⚠ Avbl: ${fmtNum(avbl,2)} (${tccT('principal_label')})`;
+      badgeEl.textContent = `⚠ Avbl: ${fmtNum(avbl,2)}`;
     } else if (overusePct > 100) {
       badgeEl.classList.add('warn');
-      badgeEl.textContent = `! Avbl: ${fmtNum(avbl,2)} (>10%)`;
+      badgeEl.textContent = `! Avbl: ${fmtNum(avbl,2)} | Trade Avbl: ${fmtNum(tradeAvail,2)}`;
     } else {
-      badgeEl.textContent = `Avbl: ${fmtNum(avbl,2)}`;
+      badgeEl.textContent = `Avbl: ${fmtNum(avbl,2)} | Trade: ${fmtNum(tradeAvail,2)}`;
     }
   }
 
@@ -11248,11 +11262,11 @@ function _refreshAvbl(c) {
   const remTxt     = document.getElementById('remainingBudgetTxt');
   const switchHint = document.getElementById('switchCoinHint');
   if (remBar && remTxt) {
-    if (capRemaining > 0 && overusePct < 100) {
+    if (tradeAvail > 0 && overusePct < 100) {
       remBar.style.display = 'flex';
       remTxt.textContent = realizedLoss > 0
-        ? `${tccT('budget_remaining')}: ${fmtNum(capRemaining,2)} USDT (${tccT('budget_remaining_loss').replace('—',fmtNum(realizedLoss,2))})`
-        : `${tccT('budget_remaining')}: ${fmtNum(capRemaining,2)} USDT`;
+        ? `Trade Margin Avbl: ${fmtNum(tradeAvail,2)} USDT (${tccT('budget_remaining_loss').replace('—',fmtNum(realizedLoss,2))})`
+        : `Trade Margin Avbl: ${fmtNum(tradeAvail,2)} USDT`;
       if (switchHint) switchHint.style.display = marginUsed > 0 ? 'inline' : 'none';
     } else {
       remBar.style.display = 'none';
@@ -20202,6 +20216,10 @@ function showEarnDetail(id) {
               trading_realized_loss: st.trading_realized_loss,
               apt_yield_accrued:     st.apt_yield_accrued,
               avail_margin:          st.avail_margin,
+              trade_avail_margin:    (st.trade_avail_margin !== undefined ? st.trade_avail_margin : st.avail_margin),
+              available_balance:     st.available_balance,
+              unrealized_pnl:        st.unrealized_pnl,
+              margin_used:           st.margin_used,
               margin_cap:            st.margin_cap,
               isMarginBlocked:       !!st.isMarginBlocked,
               // [v2.46] APT Summary
@@ -21004,6 +21022,10 @@ async function checkCanOpenPosition(earnContractId) {
         isMatured:             !!st.isMatured, // [FIX-GAP-1] เก็บไว้ให้ UI อื่นอ่านค่าสดชุดเดียวกัน
         drawdown_pct:          st.drawdown_pct,
         avail_margin:          st.avail_margin,
+        trade_avail_margin:    (st.trade_avail_margin !== undefined ? st.trade_avail_margin : st.avail_margin),
+        available_balance:     st.available_balance,
+        unrealized_pnl:        st.unrealized_pnl,
+        margin_used:           st.margin_used,
         margin_cap:            st.margin_cap,
         isMarginBlocked:       !!st.isMarginBlocked,
         trading_realized_loss: st.trading_realized_loss,
@@ -21083,6 +21105,10 @@ async function _refreshContractLiqMap(earnContractId) {
       isWarning:             !!st.isWarning,
       drawdown_pct:          st.drawdown_pct,
       avail_margin:          st.avail_margin,
+      trade_avail_margin:    (st.trade_avail_margin !== undefined ? st.trade_avail_margin : st.avail_margin),
+      available_balance:     st.available_balance,
+      unrealized_pnl:        st.unrealized_pnl,
+      margin_used:           st.margin_used,
       margin_cap:            st.margin_cap,
       isMarginBlocked:       !!st.isMarginBlocked,
       trading_realized_loss: st.trading_realized_loss,
@@ -24261,6 +24287,10 @@ async function loadOpenPositionsWithDD() {
           isWarning:             !!ddInfo.isWarning,
           drawdown_pct:          ddInfo.drawdown_pct,
           avail_margin:          ddInfo.avail_margin,
+          trade_avail_margin:    (ddInfo.trade_avail_margin !== undefined ? ddInfo.trade_avail_margin : ddInfo.avail_margin),
+          available_balance:     ddInfo.available_balance,
+          unrealized_pnl:        ddInfo.unrealized_pnl,
+          margin_used:           ddInfo.margin_used,
           margin_cap:            ddInfo.margin_cap,
           isMarginBlocked:       !!ddInfo.isMarginBlocked,
           trading_realized_loss: ddInfo.trading_realized_loss,
@@ -27183,12 +27213,15 @@ function mytAdvFilterConfirm() {
 // ══════════════════════════════════════════════════════════════════════════
 const TXQ_CATEGORIES = [
   ['all','All'], ['wallet','Wallet'], ['earn','Earn'], ['commission','Commission'],
-  ['trading','Trading'], ['futures_direct','Direct'], ['loan','Loan'], ['correction','Correction'],
+  ['trading','Trading'], ['futures_direct','Direct'], ['futures_pnl','Futures PNL'],
+  ['futures_liq','Futures Liquidation'], ['futures_funding','Futures Funding'],
+  ['loan','Loan'], ['correction','Correction'],
 ];
 // type ที่ระบบเขียนลง Transactions จริง (ใช้เติมตัวเลือก Type) — 'Loan History' = กลุ่ม Loan * (FE เดิมรองรับอยู่แล้ว)
 const TXQ_KNOWN_TYPES = [
   'Deposit','Withdraw','Withdraw Confirmed','Withdraw Rejected','Withdraw Fee','Transfer','MP Topup','MP Withdraw',
-  'Commission','Commission Transfer','Realized PNL','Contract PNL','Funding Fee',
+  'Commission','Commission Transfer','CommissionWithdraw','ProfitShareTeam','ProfitShareLevelA','ProfitShareLevelB','Referral',
+  'Realized PNL','Contract PNL','Funding Fee',
   'Earn Deposit','Earn Deposit Rollback','Earn Yield','Earn Claim','Earn Claim (APT)','Earn Claim (Trade)',
   'Earn Fixed Claim','Earn Claim PNL','Earn Redeem','Earn Liquidate','Earn Return','Earn Drawdown Warning',
   'Loan History','Loan Collateral Lock','Loan Collateral Unlock','Loan Borrow','Loan Repay','Correction',
@@ -33735,6 +33768,10 @@ async function _loadOfflineStateCore() {
             isWarning:             !!_st.isWarning,
             drawdown_pct:          _st.drawdown_pct,
             avail_margin:          _st.avail_margin,
+            trade_avail_margin:    (_st.trade_avail_margin !== undefined ? _st.trade_avail_margin : _st.avail_margin),
+            available_balance:     _st.available_balance,
+            unrealized_pnl:        _st.unrealized_pnl,
+            margin_used:           _st.margin_used,
             margin_cap:            _st.margin_cap,
             isMarginBlocked:       !!_st.isMarginBlocked,
             trading_realized_loss: _st.trading_realized_loss,
@@ -40142,40 +40179,37 @@ async function futdPlaceOrder(side) {
   _futdSetBtnLoading(side, true);
   try {
     // ── [v2.70-LIMIT-FIX] แยก path Limit vs Market ──────────────────────────────────────
-    if (FUTD.orderType === 'Limit') {
-      // ── Limit Order: ตรวจ limit_price ก่อน แล้วส่ง placeFuturesOrder (รอ fill) ──
-      const limitPrice = parseFloat(document.getElementById('futdLimitPriceInp')?.value) || 0;
+    // [vx16-FUTD-OPEN-MARKETABLE] (2026-10-02) เหมือนฝั่ง Close (vx15-FUTD-MARKETABLE):
+    //   Limit ที่ราคา "ถึงเงื่อนไขแล้ว" → แจ้งเตือน แล้วเปิด Market ทันที (เดิม FIX-FUTD-F1 บล็อกไม่ให้ place)
+    //   Long  marketable: limit ≥ ราคาตลาด   (ตรงกับ fill rule ของ GAS processFuturesLimitOrders: mkt ≤ limit)
+    //   Short marketable: limit ≤ ราคาตลาด   (mkt ≥ limit)
+    //   ใช้ FUTD.lastPrice (ราคาสดของ symbol ที่เลือก ซึ่งเป็นค่าเดียวกับ entry_price ของ Market path และถูก guard ด้านบนแล้ว)
+    //   ไม่แก้ FUTD.orderType / ช่อง Limit Price → UI ยังอยู่โหมด Limit ตามเดิม ; GAS ไม่ต้องแก้ (ใช้ openFuturesPosition เดิม)
+    let _useLimit  = (FUTD.orderType === 'Limit');
+    let limitPrice = 0;
+    if (_useLimit) {
+      // ── Limit Order: ตรวจ limit_price ก่อน ──
+      limitPrice = parseFloat(document.getElementById('futdLimitPriceInp')?.value) || 0;
       if (limitPrice <= 0) {
         showToast('กรุณาระบุ Limit Price ก่อน');
         return;
       }
 
-      // [v2.72-FIX-FUTD-F1] ตรวจทิศทาง Limit Price vs ราคาตลาด
-      // Long  limit ที่ถูก: limitPrice < mktPrice  (รอราคาลงมาถึงราคาที่ตั้งไว้)
-      // Short limit ที่ถูก: limitPrice > mktPrice  (รอราคาขึ้นมาถึงราคาที่ตั้งไว้)
-      // ถ้าตั้งผิดทิศจะ fill ทันทีที่ trigger cycle ถัดไป (ภายใน 1 นาที) ไม่ใช่ Limit Order จริง
-      // → เตือน user และ block ไม่ให้ place (ใช้ Market Order แทน)
       const _mktNow = FUTD.lastPrice || 0;
       if (_mktNow > 0) {
-        const _isWrongDir = (side === 'long'  && limitPrice >= _mktNow) ||
+        const _marketable = (side === 'long'  && limitPrice >= _mktNow) ||
                             (side === 'short' && limitPrice <= _mktNow);
-        if (_isWrongDir) {
-          const _dir  = side === 'long' ? 'Long' : 'Short';
-          const _rule = side === 'long'
-            ? 'Long Limit ต้องต่ำกว่าราคาตลาด (รอราคาลง)'
-            : 'Short Limit ต้องสูงกว่าราคาตลาด (รอราคาขึ้น)';
-          showToast(
-            '⚠️ Limit Price (' + limitPrice.toLocaleString('en', { maximumFractionDigits: 4 }) + ') ' +
-            'อยู่' + (side === 'long' ? 'เหนือ' : 'ต่ำกว่า') + 'ราคาตลาด (' +
-            _mktNow.toLocaleString('en', { maximumFractionDigits: 4 }) + ')\n' +
-            _rule + '\nหากต้องการเปิดทันที ให้ใช้ Market Order'
-          );
-          console.warn('[FIX-FUTD-F1] Limit direction wrong: side=' + side +
+        if (_marketable) {
+          showToast(tccT('futd_toast_open_marketable'), 'warn');
+          console.info('[vx16-FUTD-OPEN-MARKETABLE] limit reached → Market: side=' + side +
                        ' limitPrice=' + limitPrice + ' mktPrice=' + _mktNow);
-          return;
+          _useLimit = false;   // ตกไป Market path ด้านล่าง (openFuturesPosition)
         }
       }
-      // ─── End FIX-FUTD-F1 ────────────────────────────────────────────────────────
+    }
+
+    if (_useLimit) {
+      // ── Limit Order: ส่ง placeFuturesOrder (รอ fill) ──
 
       const _res = await dbCallRaw('placeFuturesOrder', {
         uid,

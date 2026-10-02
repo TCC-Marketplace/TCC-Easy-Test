@@ -1,4 +1,7 @@
-
+<!-- [vx13-FUTD-CPS] (2026-10-02) Futures → ⚡ Direct: ปิด Position บางส่วน (Market) ผ่าน cpsSheet เดิม — ค้นด้วยแท็ก "vx13-"
+     • futdOpenCloseConfirm → openDirectClosePosSheet (adapter _cpsDirectPos จาก FUTD.status) ; flag FUTD_CPS_PARTIAL=false = กลับไป closeConfirmSheet เดิม
+     • futdCloseposition(posId, closeSize?) : ไม่ส่ง/ปิดเต็ม = เส้นทางเดิม ; บางส่วน = _futdClosePartial (optimistic + rollback, FUTD._reducing กัน poll size เก่า)
+     • ส่ง close_size + close_id ไป GAS closeFuturesPosition (ต้อง deploy GAS vx13 / v3.3-FD-PARTIAL ก่อน) ; เฟส 2 (Limit close) ยังไม่ทำ -->
 <!--
   ══════════════════════════════════════════════════════════════════
   ⚠️  AI AGENT — อ่านก่อนแก้ไขทุกครั้ง (เพิ่ม ก.ค. 2026)
@@ -11479,12 +11482,35 @@ function confirmClosePos() {
 // ═══════════════════════════════════════════════════════════════════════
 const CPS_ENABLE_LIMIT = true;
 const CPS_STEPS = [0, 25, 50, 75, 100];
-const _cps = { posId: null, pct: 100, size: 0, type: 'Market', limitPrice: null, busy: false, inited: false, dragging: false, timer: null };
+const _cps = { mode: 'contract', posId: null, pct: 100, size: 0, type: 'Market', limitPrice: null, busy: false, inited: false, dragging: false, timer: null };
 
 function _cpsEl(id) { return document.getElementById(id); }
-function _cpsPos() { return (_cps.posId == null) ? null : (S.positions.find(x => x.id == _cps.posId) || null); }
+function _cpsPos() {
+  if (_cps.posId == null) return null;
+  if (_cps.mode === 'direct') return _cpsDirectPos(_cps.posId);   // [vx13-FUTD-CPS] Futures Direct
+  return S.positions.find(x => x.id == _cps.posId) || null;
+}
+// [vx13-FUTD-CPS] adapter: position ของ Futures Direct (FUTD.status.positions, GAS row) → รูปแบบเดียวกับ S.positions ที่ _cps* ใช้
+// อ่านสดจาก FUTD.status ทุกครั้ง (poll เปลี่ยน object ได้) ; position ที่กำลังปิดเต็ม (_closingIds) ถือว่าไม่มีแล้ว
+function _cpsDirectPos(id) {
+  if (typeof FUTD === 'undefined' || !FUTD.status) return null;
+  if (FUTD._closingIds && FUTD._closingIds[id]) return null;
+  const sp = (FUTD.status.positions || []).find(x => String(x.id) === String(id));
+  if (!sp) return null;
+  const sym = sp.symbol || '';
+  return {
+    id: sp.id, symbol: sym, coin: sym.replace('USDT', ''),
+    side: String(sp.side || '').toLowerCase(), lev: parseFloat(sp.lev) || 1,
+    size: parseFloat(sp.size) || 0, entry: parseFloat(sp.entry_price) || 0,
+    margin: parseFloat(sp.margin) || 0, mark: 0, _direct: true,
+  };
+}
 // ราคาของ coin ของ position นั้นๆ เท่านั้น (ไม่ใช้ S.markPrice) — fallback chain เดียวกับ posClose
 function _cpsMark(p) {
+  if (p._direct) {   // [vx13-FUTD-CPS] ราคา Direct มาจาก FUTD.prices (Hyperliquid) ไม่ใช่ S.coinPrices
+    const dp = parseFloat((FUTD.prices || {})[p.coin]);
+    return dp > 0 ? dp : p.entry;
+  }
   const cp = parseFloat(S.coinPrices[p.coin]);
   return cp > 0 ? cp : (p.mark > 0 ? p.mark : p.entry);
 }
@@ -11516,6 +11542,7 @@ function _cpsExecPrice(p) {
 }
 // จำนวนที่ถูกจองโดย reduce-only orders ที่ค้างอยู่ของ position นี้
 function _cpsReservedSize(posId) {
+  if (_cps.mode === 'direct') return 0;   // [vx13-FUTD-CPS] เฟส 1: Direct ยังไม่มี Limit close (reduce-only)
   return (S.openOrders || [])
     .filter(o => o.reduceOnly && String(o.closePosId) === String(posId))
     .reduce((s, o) => s + (parseFloat(o.size) || 0), 0);
@@ -11559,11 +11586,11 @@ function _cpsRender(skipInputs) {
     }
   } else { hint.textContent = ''; hint.className = 'cps-hint'; }
 
-  _cpsEl('cpsConfirm').disabled = !(_cps.size > 0) || _cps.busy;
+  _cpsEl('cpsConfirm').disabled = !(_cps.size > 0) || _cps.busy || (p._direct && _futdIsReducing(p.id));
 }
 
 function _cpsSetType(t, focus) {
-  if (t === 'Limit' && !CPS_ENABLE_LIMIT) t = 'Market';
+  if (t === 'Limit' && (!CPS_ENABLE_LIMIT || _cps.mode === 'direct')) t = 'Market';   // [vx13-FUTD-CPS] Direct = Market เท่านั้น (เฟส 1)
   const p = _cpsPos(); if (!p) return;
   _cps.type = t;
   _cpsEl('cpsTypeTxt').textContent = t;
@@ -11640,6 +11667,9 @@ function openClosePosSheet(id) {
   // fallback: ถ้า sheet ใหม่ไม่อยู่ใน DOM (เช่น HTML ไม่ครบ) → ใช้ sheet เดิมเสมอ
   if (!_cpsEl('cpsSheet')) { openCloseConfirm(id); return; }
   _cpsInit();
+  _cps.mode = 'contract';
+  _cpsEl('cpsTypeSel').style.display = CPS_ENABLE_LIMIT ? '' : 'none';   // [vx13-FUTD-CPS] โหมด Direct ซ่อนไว้ → คืนค่า
+  _cpsEl('cpsPrice').disabled = !CPS_ENABLE_LIMIT;
   _cps.posId = id; _cps.busy = false; _cps.limitPrice = null;
   _cps.type = 'Market';
   _cpsEl('cpsPrice').value = ''; _cpsEl('cpsPrice').placeholder = 'Market Price';
@@ -11666,10 +11696,50 @@ function cpsClose() {
   const m = _cpsEl('cpsMenu'); if (m) m.classList.remove('show');
   clearInterval(_cps.timer); _cps.timer = null;
   _cps.posId = null; _cps.busy = false; _cps.dragging = false;
+  _cps.mode = 'contract';
+}
+
+// ── [vx13-FUTD-CPS] เปิด cpsSheet สำหรับ Futures Direct (Market + ปิดบางส่วน) — คืน false = เปิดไม่ได้ ให้ผู้เรียก fallback ไป sheet เดิม ──
+function openDirectClosePosSheet(posId) {
+  if (!_cpsEl('cpsSheet')) return false;
+  if (!_cpsDirectPos(posId)) return false;
+  _cpsInit();
+  _cps.mode = 'direct';
+  _cps.posId = posId; _cps.busy = false; _cps.limitPrice = null; _cps.type = 'Market';
+  _cpsEl('cpsTypeSel').style.display = 'none';    // Direct เฟส 1: ไม่มี Limit
+  const pr = _cpsEl('cpsPrice');
+  pr.value = ''; pr.placeholder = 'Market Price'; pr.disabled = true;
+  _cpsEl('cpsTypeTxt').textContent = 'Market';
+  _cpsEl('cpsMenu').classList.remove('show');
+  _cpsSetPct(100);
+  _cpsRender();
+  _cpsEl('cpsSheet').classList.add('open');
+  clearInterval(_cps.timer);
+  _cps.timer = setInterval(() => {
+    if (!_cpsPos()) { cpsClose(); return; }   // position ถูกปิดไปแล้ว (TP/SL, Liquidation, ปิดจากที่อื่น)
+    _cpsRender();
+  }, 1000);
+  return true;
+}
+
+function _cpsConfirmDirect() {
+  const p = _cpsPos();
+  if (!p) { cpsClose(); return; }
+  const dec = _cpsDec(p);
+  const size = Math.min(p.size, +(_cps.size).toFixed(dec) || 0);
+  if (!(size > 0)) { showToast(tccT('cps_toast_enter_amt')); return; }
+  if (_futdIsReducing(p.id)) { showToast('⏳ กำลังปิดบางส่วนอยู่ รอสักครู่'); return; }
+  const isFull = (p.size - size) <= 0.0001;       // เกณฑ์เดียวกับ Contract + GAS (_isFull)
+  const id = p.id;
+  cpsClose();
+  // ปิดเต็ม → futdCloseposition(id) เดิมทุกประการ (ไม่ส่ง close_size) ; ปิดบางส่วน → ส่ง close_size
+  if (isFull) futdCloseposition(id);
+  else futdCloseposition(id, size);
 }
 
 function cpsConfirm() {
   if (_cps.busy) return;
+  if (_cps.mode === 'direct') { _cpsConfirmDirect(); return; }
   const p = _cpsPos();
   if (!p) { cpsClose(); return; }
   const dec = _cpsDec(p);
@@ -40293,6 +40363,26 @@ async function futdRefreshAccountStatus() {
           return false;
         })
       : _incomingPos;
+    // [vx13-FUTD-CPS] ปิดบางส่วน (FUTD._reducing): server อาจยังตอบ size/margin เก่า (poll ยิงก่อน GAS เขียนเสร็จ)
+    // → ใช้ค่าที่ลดแล้วทับ + ปรับ margin_used/avail_margin ให้สอดคล้อง ; server ตอบ size ที่ลดแล้ว (หรือครบ 20s) → เลิกทับ
+    const _red = FUTD._reducing || {};
+    if (Object.keys(_red).length) {
+      const _nowT = Date.now();
+      _incomingFinal.forEach(sp => {
+        const r = _red[sp.id];
+        if (!r) return;
+        if (!r.busy && _nowT > r.until) { delete _red[sp.id]; return; }
+        const _spSize = parseFloat(sp.size) || 0;
+        if (_spSize > r.size + 0.0001) {
+          const _dM = Math.max(0, (parseFloat(sp.margin) || 0) - r.margin);
+          sp.size = r.size; sp.margin = r.margin;
+          status.margin_used  = Math.max(0, (parseFloat(status.margin_used)  || 0) - _dM);
+          status.avail_margin = (parseFloat(status.avail_margin) || 0) + _dM;
+        } else if (!r.busy) {
+          delete _red[sp.id];
+        }
+      });
+    }
     status.positions = _incomingFinal;
     FUTD.status = status;
     // [vx12-AVBL-LIVE] status เพิ่งถูกปรับ (ตัด position ที่กำลังปิด + คืน margin) → คำนวณ Avbl live ใหม่จากค่าที่ถูกต้อง
@@ -41011,11 +41101,25 @@ function _futdOptimisticSync() {
   } catch (e) { console.warn('[futdOptimisticSync]', e.message); }
 }
 
-async function futdCloseposition(posId) {
+// [vx13-FUTD-CPS] closeSize (optional): ไม่ส่ง / ≥ size−0.0001 = ปิดเต็มตามเส้นทางเดิมทุกบรรทัด ; น้อยกว่า = ปิดบางส่วน (_futdClosePartial)
+function _futdIsReducing(posId) {
+  const r = FUTD._reducing && FUTD._reducing[posId];
+  return !!(r && r.busy);
+}
+
+async function futdCloseposition(posId, closeSize) {
   const uid = _futdCurrentUid();
   const pos = ((FUTD.status && FUTD.status.positions) || []).find(p => p.id === posId);
   if (!pos) return;
   const coin = (pos.symbol || '').replace('USDT', '');
+
+  // [vx13-FUTD-CPS] ปิดบางส่วน
+  const _reqSz = parseFloat(closeSize);
+  if (isFinite(_reqSz) && _reqSz > 0 && ((parseFloat(pos.size) || 0) - _reqSz) > 0.0001) {
+    return _futdClosePartial(pos, _reqSz);
+  }
+  // กำลังปิดบางส่วนของ position นี้อยู่ → ห้ามปิดเต็มซ้อน (size/margin ใน local ยังไม่นิ่ง)
+  if (_futdIsReducing(posId)) { showToast('⏳ กำลังปิดบางส่วนอยู่ รอสักครู่'); return; }
 
   // ── 1) หาราคาปิด — ยังไม่แตะ UI: ถ้าพลาดตรงนี้ position ต้องอยู่ตามเดิม
   // ใช้ราคาจาก FUTD.prices ก่อน (มักมีอยู่แล้ว) ถ้าไม่มีค่อย fetch ใหม่
@@ -41096,13 +41200,141 @@ async function futdCloseposition(posId) {
   }
 }
 
+/**
+ * [vx13-FUTD-CPS] _futdClosePartial — ปิด Direct position "บางส่วน" ที่ราคาตลาด (optimistic + rollback)
+ * GAS closeFuturesPosition({close_size}) → { action:'reduced', realized_pnl, close_size, closed_margin, remaining_size, remaining_margin }
+ *   • position ยังอยู่ใน FUTD.status.positions (status Active) แค่ size/margin ลดลง — ไม่ใช้ _closingIds (อันนั้นซ่อน position ทั้งแถว)
+ *   • FUTD._reducing[posId] = { busy, size, margin, until } กันกดซ้ำ/ปิดเต็มซ้อน และกัน poll ที่ตอบ size เก่า (ดู futdRefreshAccountStatus)
+ *   • GAS ตอบ action:'closed' (เช่น GAS เก่าที่ไม่รู้จัก close_size, หรือ size เปลี่ยนจนเหลือ ≤ 0.0001) → ถือว่า position ปิดเต็ม
+ */
+async function _futdClosePartial(pos, closeSize) {
+  const uid   = _futdCurrentUid();
+  const posId = pos.id;
+  const coin  = (pos.symbol || '').replace('USDT', '');
+  FUTD._reducing   = FUTD._reducing   || {};
+  FUTD._closingIds = FUTD._closingIds || {};
+  if (FUTD._closingIds[posId]) return;
+  if (_futdIsReducing(posId)) { showToast('⏳ กำลังปิดบางส่วนอยู่ รอสักครู่'); return; }
+
+  // 1) ราคาปิด — ยังไม่แตะ UI
+  let exitPrice = FUTD.prices[coin] || 0;
+  try {
+    if (!exitPrice) {
+      const mids = await hlPost({ type: 'allMids' });
+      exitPrice = parseFloat(mids[coin]) || 0;
+    }
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'ปิด Position ไม่สำเร็จ'));
+    return;
+  }
+  if (!exitPrice) { showToast('ไม่สามารถดึงราคาปัจจุบันได้ ลองใหม่อีกครั้ง'); return; }
+
+  // 2) ตรวจสถานะซ้ำหลัง await (position อาจถูกปิด/ลดไปแล้ว) แล้วลด size+margin ใน local ทันที
+  const _list = (FUTD.status && FUTD.status.positions) || [];
+  const _idx  = _list.findIndex(p => p.id === posId);
+  if (_idx < 0 || FUTD._closingIds[posId] || _futdIsReducing(posId)) return;
+  const cur     = _list[_idx];
+  const curSize = parseFloat(cur.size)   || 0;
+  const curMgn  = parseFloat(cur.margin) || 0;
+  if (!((curSize - closeSize) > 0.0001)) { showToast('ขนาด Position เปลี่ยนไป กรุณาลองใหม่อีกครั้ง'); return; }
+  const remSize = +(curSize - closeSize).toFixed(8);
+  const remMgn  = +(curMgn * (remSize / curSize)).toFixed(8);
+  const dMgn    = curMgn - remMgn;
+  const closeId = 'fcp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);   // 1 การกด = 1 id (GAS กันบันทึกซ้ำ)
+
+  FUTD._reducing[posId] = { busy: true, size: remSize, margin: remMgn, until: Date.now() + 20000 };
+  FUTD.status.positions    = _list.map(p => p.id === posId ? Object.assign({}, p, { size: remSize, margin: remMgn }) : p);
+  FUTD.status.margin_used  = Math.max(0, (parseFloat(FUTD.status.margin_used) || 0) - dMgn);
+  FUTD.status.avail_margin = (parseFloat(FUTD.status.avail_margin) || 0) + dMgn;
+  _futdOptimisticSync();
+  showToast('⏳ กำลังปิดบางส่วน...');
+
+  // 3) GAS — fail → คืน size/margin เดิม
+  let result;
+  try {
+    result = await dbCallRaw('closeFuturesPosition', { id: posId, uid, exit_price: exitPrice, close_size: closeSize, close_id: closeId });
+  } catch (e) {
+    delete FUTD._reducing[posId];
+    if (FUTD.status) {
+      const cur2 = FUTD.status.positions || [];
+      const i2 = cur2.findIndex(p => p.id === posId);
+      if (i2 >= 0) {   // ถ้า position หายไปแล้ว (ถูกปิดจากที่อื่น) ไม่เอากลับมา — ปล่อยให้ refresh ด้านล่างตัดสิน
+        cur2[i2] = Object.assign({}, cur2[i2], { size: curSize, margin: curMgn });
+        FUTD.status.margin_used  = (parseFloat(FUTD.status.margin_used) || 0) + dMgn;
+        FUTD.status.avail_margin = Math.max(0, (parseFloat(FUTD.status.avail_margin) || 0) - dMgn);
+      }
+      _futdOptimisticSync();
+    }
+    showToast('❌ ' + (e.message || 'ปิดบางส่วนไม่สำเร็จ'));
+    // Timeout ตอบไม่ได้ว่า GAS เขียนแล้วหรือยัง → sync สถานะจริงจาก server เร็วๆ
+    setTimeout(() => { futdRefreshAccountStatus(); }, 1500);
+    return;
+  }
+
+  // 4) GAS confirm
+  const act   = result && result.action;
+  const _rpnl = (result && result.realized_pnl !== undefined) ? parseFloat(result.realized_pnl) : NaN;
+  if (FUTD.status && isFinite(_rpnl)) {
+    FUTD.status.futures_balance = (parseFloat(FUTD.status.futures_balance) || 0) + _rpnl;
+    FUTD.status.avail_margin    = Math.max(0, (parseFloat(FUTD.status.avail_margin) || 0) + _rpnl);
+    setDirectWalletBalance(FUTD.status.futures_balance);
+    try { futdUpdateBalanceBar(FUTD.status); } catch (e) {}
+  }
+
+  if (act === 'closed') {
+    // server ปิดเต็ม (GAS เก่าไม่รู้จัก close_size / size เปลี่ยน) → ตัด position ออกเหมือนปิดเต็ม
+    delete FUTD._reducing[posId];
+    FUTD._closingIds[posId] = true;
+    setTimeout(() => { if (FUTD._closingIds) delete FUTD._closingIds[posId]; }, 20000);
+    if (FUTD.status) {
+      FUTD.status.positions    = (FUTD.status.positions || []).filter(p => p.id !== posId);
+      FUTD.status.margin_used  = Math.max(0, (parseFloat(FUTD.status.margin_used) || 0) - remMgn);
+      FUTD.status.avail_margin = (parseFloat(FUTD.status.avail_margin) || 0) + remMgn;
+      _futdOptimisticSync();
+    }
+    _futdLogCloseToHist(cur, exitPrice, result || {});
+    showToast('⚠️ Position ถูกปิดเต็มจำนวน');
+  } else if (act === 'reduced') {
+    const rs = parseFloat(result.remaining_size), rm = parseFloat(result.remaining_margin);
+    if (isFinite(rs) && isFinite(rm) && FUTD.status) {
+      FUTD._reducing[posId] = { busy: false, size: rs, margin: rm, until: Date.now() + 20000 };
+      const arr = FUTD.status.positions || [];
+      const i3 = arr.findIndex(p => p.id === posId);
+      if (i3 >= 0) {
+        arr[i3] = Object.assign({}, arr[i3], { size: rs, margin: rm });
+        const diff = remMgn - rm;   // ค่า optimistic เทียบค่าจริงจาก server (ปกติ = 0)
+        FUTD.status.margin_used  = Math.max(0, (parseFloat(FUTD.status.margin_used) || 0) - diff);
+        FUTD.status.avail_margin = Math.max(0, (parseFloat(FUTD.status.avail_margin) || 0) + diff);
+        _futdOptimisticSync();
+      }
+    } else if (FUTD._reducing[posId]) { FUTD._reducing[posId].busy = false; }
+    _futdLogCloseToHist(cur, exitPrice, result);
+    showToast('✅ ปิดบางส่วนสำเร็จ');
+  } else {
+    // 'skipped' (ถูกปิดไปแล้วจากที่อื่น) หรือ response ที่ไม่รู้จัก → ไม่เดา ให้ server ตัดสิน
+    delete FUTD._reducing[posId];
+    showToast('ℹ️ Position ถูกปิดไปแล้ว');
+  }
+  // คงค่า override 20s กัน poll ที่ยิงก่อนปิดแต่ตอบช้า แล้วเลิก
+  setTimeout(() => { const r = FUTD._reducing && FUTD._reducing[posId]; if (r && !r.busy) delete FUTD._reducing[posId]; }, 20000);
+
+  futdRefreshAccountStatus();
+  if (typeof aftdRefreshDirectSummary === 'function') setTimeout(() => { aftdRefreshDirectSummary(); }, 0);
+}
+
 // ── [v2.63-CLOSE-CONFIRM] futd Close Position Confirm ──────────────────────
 // ใช้ closeConfirmSheet เดียวกับ Contract tab แต่ trigger futdCloseposition แทน posClose
 let _futdCloseConfirmPosId = null;
 
+// [vx13-FUTD-CPS] ตั้ง false = กลับไปใช้ closeConfirmSheet เดิม (ปิดเต็มอย่างเดียว) — ใช้ตอน GAS ยังไม่ได้ deploy เวอร์ชัน vx13
+// (HTML ที่ส่ง close_size ไป GAS เก่า → GAS จะปิดเต็ม position) ต้อง deploy GAS ก่อนเสมอ
+const FUTD_CPS_PARTIAL = true;
+
 function futdOpenCloseConfirm(posId) {
   const p = ((FUTD.status && FUTD.status.positions) || []).find(x => x.id === posId);
   if (!p) return;
+  // ทั้ง 2 จุดเรียก (ปุ่ม Close ในรายการ position + My Trades → Open Orders) ผ่านฟังก์ชันนี้ → แก้จุดเดียวครอบคลุม
+  if (FUTD_CPS_PARTIAL && typeof openDirectClosePosSheet === 'function' && openDirectClosePosSheet(posId)) return;
   _futdCloseConfirmPosId = posId;
 
   const coin    = (p.symbol || '').replace('USDT', '');
@@ -41179,8 +41411,10 @@ function _futdLogCloseToHist(pos, exitPrice, result) {
     const coin       = sym.replace('USDT','');
     const side       = String(pos.side || '').toLowerCase();
     const entryP     = parseFloat(pos.entry_price) || 0;
-    const size       = parseFloat(pos.size)        || 0;
-    const margin     = parseFloat(pos.margin)      || 0;
+    // [vx13-FUTD-CPS] ปิดบางส่วน (result.action==='reduced'): size/margin = ส่วนที่ปิดจริง (server) ไม่ใช่ทั้ง position
+    const isPartial  = result.action === 'reduced';
+    const size       = isPartial ? (parseFloat(result.close_size)    || 0) : (parseFloat(pos.size)   || 0);
+    const margin     = isPartial ? (parseFloat(result.closed_margin) || 0) : (parseFloat(pos.margin) || 0);
     const lev        = pos.lev || 1;
     const modeStr    = String(pos.mode || 'Cross').toUpperCase() + ' ' + lev + 'x';
     const posSide    = String(pos.position_side || 'BOTH').toUpperCase();
@@ -41220,8 +41454,9 @@ function _futdLogCloseToHist(pos, exitPrice, result) {
       positionSide: posSide,
       ts: now,
     };
+    // ปิดบางส่วน: position ยัง Active บน server (ไม่มีแถว Closed) → ไม่ใส่ Position History (ตรงกับหลัง refresh) ; Trade/Transaction/Order ยังบันทึกครบ
     if (!HIST.futdPositionHistory) HIST.futdPositionHistory = [];
-    HIST.futdPositionHistory.unshift(posHistEntry);
+    if (!isPartial) HIST.futdPositionHistory.unshift(posHistEntry);
 
     // 2. futdTradeHistory
     if (!HIST.futdTradeHistory) HIST.futdTradeHistory = [];

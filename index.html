@@ -1,7 +1,12 @@
-<!-- [vx13-FUTD-CPS] (2026-10-02) Futures → ⚡ Direct: ปิด Position บางส่วน (Market) ผ่าน cpsSheet เดิม — ค้นด้วยแท็ก "vx13-"
-     • futdOpenCloseConfirm → openDirectClosePosSheet (adapter _cpsDirectPos จาก FUTD.status) ; flag FUTD_CPS_PARTIAL=false = กลับไป closeConfirmSheet เดิม
-     • futdCloseposition(posId, closeSize?) : ไม่ส่ง/ปิดเต็ม = เส้นทางเดิม ; บางส่วน = _futdClosePartial (optimistic + rollback, FUTD._reducing กัน poll size เก่า)
-     • ส่ง close_size + close_id ไป GAS closeFuturesPosition (ต้อง deploy GAS vx13 / v3.3-FD-PARTIAL ก่อน) ; เฟส 2 (Limit close) ยังไม่ทำ -->
+<!-- [vx15-CLOSE-TRIM + FUTD-MARKETABLE] (2026-10-02) ต้องใช้คู่กับ GAS_easy_TCC_v4_4 (vx15-) — deploy GAS ก่อน HTML
+     [vx15-FUTD-MARKETABLE] Direct Close Limit: ถ้า limit ถึงเงื่อนไขแล้ว (Long: limit ≤ mark / Short: limit ≥ mark) → ปิด Market ทันที เหมือน Contract (ไม่รอ grace 30s ของ GAS)
+     [vx15-TRIM-CONTRACT]   _cpsTrimCloseOrdersFor: หลังปิดบางส่วน ตัด reduce-only ค้างที่เกิน size คงเหลือ (ใหม่สุดก่อน) ให้ตรงกับ GAS ; Direct ไม่ต้องแก้ client (futdRefreshAccountStatus ดึง orders ที่ GAS trim แล้ว) -->
+<!-- [FUTD-CPS] (2026-10-02) Futures Direct → Close Position Sheet: Market + Partial + Limit
+     • futdOpenCloseConfirm → openDirectClosePosSheet (adapter _cpsDirectPos จาก FUTD.status)
+     • Market full/partial ใช้ futdCloseposition / _futdClosePartial เดิม ไม่รื้อ optimistic + rollback
+     • Limit close ใช้ placeFuturesOrder({reduce_only:true, position_id, size, limit_price}) → FuturesOrders
+     • Contract CloseLimit ใช้ OpenOrders + client fast-fill + GAS processLimitOrders safety-net
+     • CloseLimit ใช้ order_id/close_id เป็น idempotency key เพื่อกัน client + server ปิดซ้ำ -->
 <!--
   ══════════════════════════════════════════════════════════════════
   ⚠️  AI AGENT — อ่านก่อนแก้ไขทุกครั้ง (เพิ่ม ก.ค. 2026)
@@ -11476,9 +11481,9 @@ function confirmClosePos() {
 //  • ปิดบางส่วน  → posClosePartial() = logic เดียวกับ trade-panel Close tab (HIST.logClose isFull=false)
 //                  GAS closePosition รองรับ close_size อยู่แล้ว (server คำนวณ PNL + ลด size เอง)
 //  • Limit close → order { reduceOnly:true, orderType:'CloseLimit', closePosId } ใน S.openOrders
-//                  fill ฝั่ง client ใน _checkLimitOrderFill → _cpsFillCloseOrder → posClose/posClosePartial
-//                  GAS: order_type 'CloseLimit' ถูกข้ามใน processLimitOrders + ไม่นับ pending margin
-//  • ตั้ง CPS_ENABLE_LIMIT = false เพื่อปิด Limit (เหลือ Market + บางส่วน) หากยังไม่ได้ deploy GAS เวอร์ชันใหม่
+//                  Contract: client fill ได้ทันที + GAS processLimitOrders เป็น safety-net เมื่อ browser ไม่ทำงาน
+//                  Direct: ส่ง reduce_only=true ไป placeFuturesOrder → FuturesOrders/engine ของ Direct เดิม
+//                  ทั้งสองฝั่งใช้ order_id เป็น idempotency key เพื่อกัน client/engine ปิดซ้ำ
 // ═══════════════════════════════════════════════════════════════════════
 const CPS_ENABLE_LIMIT = true;
 const CPS_STEPS = [0, 25, 50, 75, 100];
@@ -11490,7 +11495,7 @@ function _cpsPos() {
   if (_cps.mode === 'direct') return _cpsDirectPos(_cps.posId);   // [vx13-FUTD-CPS] Futures Direct
   return S.positions.find(x => x.id == _cps.posId) || null;
 }
-// [vx13-FUTD-CPS] adapter: position ของ Futures Direct (FUTD.status.positions, GAS row) → รูปแบบเดียวกับ S.positions ที่ _cps* ใช้
+// [FUTD-CPS] adapter: position ของ Futures Direct (FUTD.status.positions, GAS row) → รูปแบบเดียวกับ S.positions ที่ _cps* ใช้
 // อ่านสดจาก FUTD.status ทุกครั้ง (poll เปลี่ยน object ได้) ; position ที่กำลังปิดเต็ม (_closingIds) ถือว่าไม่มีแล้ว
 function _cpsDirectPos(id) {
   if (typeof FUTD === 'undefined' || !FUTD.status) return null;
@@ -11542,7 +11547,12 @@ function _cpsExecPrice(p) {
 }
 // จำนวนที่ถูกจองโดย reduce-only orders ที่ค้างอยู่ของ position นี้
 function _cpsReservedSize(posId) {
-  if (_cps.mode === 'direct') return 0;   // [vx13-FUTD-CPS] เฟส 1: Direct ยังไม่มี Limit close (reduce-only)
+  if (_cps.mode === 'direct') {
+    // Direct: reservation อยู่ใน FuturesOrders (status.orders) จาก GAS
+    return ((FUTD.status && FUTD.status.orders) || [])
+      .filter(o => /^close[\s_-]?limit$/i.test(String(o.order_type || '')) && String(o.position_id) === String(posId))
+      .reduce((s, o) => s + (parseFloat(o.size) || 0), 0);
+  }
   return (S.openOrders || [])
     .filter(o => o.reduceOnly && String(o.closePosId) === String(posId))
     .reduce((s, o) => s + (parseFloat(o.size) || 0), 0);
@@ -11590,7 +11600,7 @@ function _cpsRender(skipInputs) {
 }
 
 function _cpsSetType(t, focus) {
-  if (t === 'Limit' && (!CPS_ENABLE_LIMIT || _cps.mode === 'direct')) t = 'Market';   // [vx13-FUTD-CPS] Direct = Market เท่านั้น (เฟส 1)
+  if (t === 'Limit' && !CPS_ENABLE_LIMIT) t = 'Market';
   const p = _cpsPos(); if (!p) return;
   _cps.type = t;
   _cpsEl('cpsTypeTxt').textContent = t;
@@ -11699,16 +11709,16 @@ function cpsClose() {
   _cps.mode = 'contract';
 }
 
-// ── [vx13-FUTD-CPS] เปิด cpsSheet สำหรับ Futures Direct (Market + ปิดบางส่วน) — คืน false = เปิดไม่ได้ ให้ผู้เรียก fallback ไป sheet เดิม ──
+// ── [FUTD-CPS] เปิด cpsSheet สำหรับ Futures Direct (Market + Partial + Limit) ──
 function openDirectClosePosSheet(posId) {
   if (!_cpsEl('cpsSheet')) return false;
   if (!_cpsDirectPos(posId)) return false;
   _cpsInit();
   _cps.mode = 'direct';
   _cps.posId = posId; _cps.busy = false; _cps.limitPrice = null; _cps.type = 'Market';
-  _cpsEl('cpsTypeSel').style.display = 'none';    // Direct เฟส 1: ไม่มี Limit
+  _cpsEl('cpsTypeSel').style.display = '';
   const pr = _cpsEl('cpsPrice');
-  pr.value = ''; pr.placeholder = 'Market Price'; pr.disabled = true;
+  pr.value = ''; pr.placeholder = 'Market Price'; pr.disabled = false;
   _cpsEl('cpsTypeTxt').textContent = 'Market';
   _cpsEl('cpsMenu').classList.remove('show');
   _cpsSetPct(100);
@@ -11722,17 +11732,71 @@ function openDirectClosePosSheet(posId) {
   return true;
 }
 
-function _cpsConfirmDirect() {
+async function _cpsPlaceDirectCloseLimit(p, size, price) {
+  const uid = _futdCurrentUid();
+  if (!uid) { showToast('กรุณาเข้าสู่ระบบก่อน'); return false; }
+  const orderId = 'fcl_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  try {
+    const res = await dbCallRaw('placeFuturesOrder', {
+      uid,
+      order_id: orderId,
+      reduce_only: true,
+      position_id: p.id,
+      size,
+      limit_price: price,
+    });
+    if (!res || !res.order_id) throw new Error('GAS ไม่ได้ยืนยันการวาง Close Limit');
+    await futdRefreshAccountStatus();
+    showToast('📋 Close Limit วางแล้ว — ' + (p.side === 'long' ? 'Close Long' : 'Close Short') +
+              ' ' + size.toFixed(_cpsDec(p)) + ' ' + p.coin + ' @ ' + fmtP(price));
+    futdSwitchSubTab('ord');
+    if (typeof mytRefreshIfOpen === 'function') mytRefreshIfOpen();
+    return true;
+  } catch (e) {
+    console.error('[CPS] Direct CloseLimit place failed:', e);
+    showToast('❌ ' + (e.message || 'วาง Close Limit ไม่สำเร็จ'));
+    return false;
+  }
+}
+
+async function _cpsConfirmDirect() {
   const p = _cpsPos();
   if (!p) { cpsClose(); return; }
   const dec = _cpsDec(p);
   const size = Math.min(p.size, +(_cps.size).toFixed(dec) || 0);
   if (!(size > 0)) { showToast(tccT('cps_toast_enter_amt')); return; }
   if (_futdIsReducing(p.id)) { showToast('⏳ กำลังปิดบางส่วนอยู่ รอสักครู่'); return; }
-  const isFull = (p.size - size) <= 0.0001;       // เกณฑ์เดียวกับ Contract + GAS (_isFull)
+
+  const isFull = (p.size - size) <= 0.0001;
+  let useLimit = (_cps.type === 'Limit' && CPS_ENABLE_LIMIT);
+  if (useLimit) {
+    const lp0 = parseFloat(_cps.limitPrice) || 0;
+    if (!(lp0 > 0)) { showToast(tccT('cps_toast_enter_price')); return; }
+    // [vx15-FUTD-MARKETABLE] เหมือนฝั่ง Contract: Limit ที่ราคาถึงเงื่อนไขแล้ว (Long: limit ≤ mark / Short: limit ≥ mark) = ปิดตามตลาดทันที
+    // ไม่ต้องรอ grace 30s ของ GAS — ใช้เฉพาะเมื่อมีราคาสดจริง (FUTD.prices) กันตัดสินจาก fallback entry
+    const livePx = parseFloat((FUTD.prices || {})[p.coin]);
+    if (livePx > 0) {
+      const marketable = p.side === 'long' ? lp0 <= livePx : lp0 >= livePx;
+      if (marketable) { showToast(tccT('cps_toast_marketable')); useLimit = false; }
+    }
+  }
+  if (useLimit) {
+    const lp = parseFloat(_cps.limitPrice) || 0;
+    const reserved = _cpsReservedSize(p.id);
+    const avail = Math.max(0, p.size - reserved);
+    if (size > avail + 1e-9) {
+      showToast(tccTF('cps_toast_over_reserved', { avail: avail.toFixed(dec) }));
+      return;
+    }
+    _cps.busy = true;
+    const ok = await _cpsPlaceDirectCloseLimit(p, size, lp);
+    _cps.busy = false;
+    if (ok) cpsClose();
+    return;
+  }
+
   const id = p.id;
   cpsClose();
-  // ปิดเต็ม → futdCloseposition(id) เดิมทุกประการ (ไม่ส่ง close_size) ; ปิดบางส่วน → ส่ง close_size
   if (isFull) futdCloseposition(id);
   else futdCloseposition(id, size);
 }
@@ -11865,18 +11929,14 @@ function _cpsFillCloseOrder(o) {
   const closeSz = Math.min(parseFloat(o.size) || 0, p.size);   // clamp: position อาจเล็กลงหลังปิดบางส่วนก่อนหน้า
   if (!(closeSz > 0)) { _gas(() => dbCallRaw('cancelOrder', { order_id: o.id }).catch(() => {})); return; }
   const posId = p.id, coin = p.coin, posSide = p.side;
+  // [CPS-RACE] ใช้ order_id เดิมเป็น idempotency key ใน logClose/GAS
+  // เพื่อให้ client fill และ server safety-net แข่งกันได้โดยไม่ปิด position ซ้ำ
+  p._closeOrderId = String(o.id);
   if (p.size - closeSz <= 0.0001) posClose(posId);
   else posClosePartial(posId, closeSz);
 
-  // ปิด order ใน GAS เป็น Filled (retry เหมือน flow Limit เดิม)
-  const _markFilled = (attempt) => {
-    dbCallRaw('markOrderFilled', { order_id: o.id, position_id: posId }).catch(err => {
-      const _delays = [5000, 10000, 20000];
-      if (attempt < _delays.length) setTimeout(() => _markFilled(attempt + 1), _delays[attempt]);
-      else console.warn('[CPS] markOrderFilled failed for order_id=' + o.id + ' — processLimitOrders ข้ามออเดอร์ปิดอยู่แล้ว ไม่เปิด position ซ้ำ');
-    });
-  };
-  _gas(() => _markFilled(0));
+  // [CPS-RACE] ไม่เรียก markOrderFilled แยกอีกแล้ว — logClose → GAS closePosition
+  // จะ mark CloseLimit เป็น Filled ภายใต้ lock เดียวกับการลด position
   showToast(tccTF('cps_toast_limit_filled', {
     side: posSide === 'long' ? 'Long' : 'Short', amt: closeSz.toFixed(3), coin: coin, price: fmtP(o.limitPrice)
   }));
@@ -11894,6 +11954,35 @@ function _cpsCancelCloseOrdersFor(posId) {
     if (typeof dbCallRaw === 'function') dbCallRaw('cancelOrder', { order_id: o.id }).catch(() => {});
   });
   if (typeof syncOpenOrdersToGAS === 'function') syncOpenOrdersToGAS();
+  if (typeof renderOpenOrders === 'function') renderOpenOrders();
+  if (typeof mytRefreshIfOpen === 'function') mytRefreshIfOpen();
+}
+// ── [vx15-TRIM-CONTRACT] ปิดบางส่วนแล้ว reduce-only ที่ค้างรวมเกิน size คงเหลือ → ตัดฝั่ง client ให้ตรงกับ GAS (_trimContractCloseOrders_) ──
+// นโยบายเดียวกัน: ตัดออเดอร์ใหม่สุดก่อน (เต็มก้อน = ยกเลิก, ก้อนสุดท้ายที่เกินบางส่วน = ลด size) — GAS เป็น source of truth, ที่นี่แค่ให้ UI/fast-fill ไม่ใช้ค่าเก่า
+function _cpsTrimCloseOrdersFor(posId, remainSize) {
+  if (!S.openOrders || !S.openOrders.length) return;
+  const mine = S.openOrders.filter(o => o.reduceOnly && String(o.closePosId) === String(posId));
+  if (!mine.length) return;
+  let excess = mine.reduce((s, o) => s + (parseFloat(o.size) || 0), 0) - Math.max(0, remainSize || 0);
+  if (excess <= 1e-9) return;
+  window._filledOrderIds = window._filledOrderIds || new Set();
+  const newestFirst = mine.slice().sort((a, b) => ((b.createdAt || 0) - (a.createdAt || 0)) || (S.openOrders.indexOf(b) - S.openOrders.indexOf(a)));
+  const drop = [];
+  for (const o of newestFirst) {
+    if (excess <= 1e-9) break;
+    const sz = parseFloat(o.size) || 0;
+    if (sz <= excess + 1e-9) { drop.push(o); excess -= sz; }
+    else {
+      const ns = +(sz - excess).toFixed(8);
+      excess = 0;
+      if (ns <= 0.0001) drop.push(o); else o.size = ns;
+    }
+  }
+  drop.forEach(o => {
+    window._filledOrderIds.add(o.id);   // กัน _checkLimitOrderFill หยิบซ้ำ
+    if (typeof dbCallRaw === 'function') dbCallRaw('cancelOrder', { order_id: o.id }).catch(() => {});
+  });
+  if (drop.length) S.openOrders = S.openOrders.filter(o => drop.indexOf(o) === -1);
   if (typeof renderOpenOrders === 'function') renderOpenOrders();
   if (typeof mytRefreshIfOpen === 'function') mytRefreshIfOpen();
 }
@@ -24660,6 +24749,8 @@ function _origMytRenderContent(tab){
     if(!futdPos.length && !futdOrds.length){ el.innerHTML = `<div class="myt-empty"><span>No open orders</span></div>`; return; }
     [...futdPos.map(p=>({...p,_type:'pos'})), ...futdOrds.map(o=>({...o,_type:'ord'}))].forEach(d => {
       const isPos   = d._type === 'pos';
+      const isCloseOrd = !isPos && (/^close[\s_-]?limit$/i.test(String(d.order_type || '')) ||
+                         String(d.reduce_only || '').toLowerCase() === 'true' || d.reduce_only === true);
       const sideStr = String(d.side||'').toLowerCase();
       const ps      = String(d.position_side||'BOTH').toUpperCase();
       const psBadge = (ps==='LONG'||ps==='SHORT') ? `<span style="font-size:9px;color:#7289da;border:1px solid rgba(114,137,218,.4);border-radius:3px;padding:1px 4px;margin-left:4px">HEDGE</span>` : '';
@@ -24669,7 +24760,7 @@ function _origMytRenderContent(tab){
           <span class="myt-badge">${isPos?'Active':'Pending'}</span>${psBadge}
           <span class="myt-timestamp" style="margin-left:auto">${d.opened_at||d.created_at||''}</span>
         </div>
-        <div class="myt-direction ${sideStr==='long'?'open-long':'open-short'}">${sideStr==='long'?'Open Long':'Open Short'} x${d.lev||''}</div>
+        <div class="myt-direction ${isCloseOrd ? (sideStr==='long'?'close-long':'close-short') : (sideStr==='long'?'open-long':'open-short')}">${isCloseOrd ? (sideStr==='long'?'Close Long':'Close Short') : (sideStr==='long'?'Open Long':'Open Short')} x${d.lev||''}</div>
         <div class="myt-row"><span class="myt-lbl">Size / Margin</span><span class="myt-val">${d.size||0} / ${parseFloat(d.margin||0).toFixed(2)} USDT</span></div>
         <div class="myt-row"><span class="myt-lbl">Mode</span><span class="myt-val">${String(d.mode||'cross').toUpperCase()}</span></div>
         ${isPos ? `<div class="myt-row"><span class="myt-lbl">Liq. Price</span><span class="myt-val red">${parseFloat(d.liq_price||0).toLocaleString('en',{maximumFractionDigits:4})}</span></div>` : `<div class="myt-row"><span class="myt-lbl">Limit Price</span><span class="myt-val">${parseFloat(d.limit_price||0).toLocaleString('en',{maximumFractionDigits:4})}</span></div>`}
@@ -32819,7 +32910,10 @@ function saveClosePosition(pos, realizedPnl, roi, avgClose, isFull, closeAmt) {
   // (realized_pnl ที่ส่งไปเป็นแค่ข้อมูลอ้างอิง GAS ไม่เชื่อ) close_id คงที่ต่อการปิดหนึ่งครั้ง → QUEUE retry ไม่ปิดซ้ำ
   // หมายเหตุ: pos.size ณ จุดนี้อาจถูกหักไปแล้ว (Close tab) จึงใช้ closeAmt เป็นหลัก
   const _closeSz = (parseFloat(closeAmt) > 0) ? parseFloat(closeAmt) : (parseFloat(pos.size) || 0);
-  const _closeId = 'cl_' + String(pos.id) + '_' + Date.now().toString(36) + '_' + Math.round(_closeSz * 1e8).toString(36);
+  const _closeOrderId = pos._closeOrderId ? String(pos._closeOrderId) : '';
+  const _closeId = _closeOrderId
+    ? ('cclo_' + _closeOrderId)
+    : ('cl_' + String(pos.id) + '_' + Date.now().toString(36) + '_' + Math.round(_closeSz * 1e8).toString(36));
   // [FIX-ROOT] เพิ่ม uid และ earn_contract_id ใน data ที่ส่งไป GAS
   // GAS closePosition (บรรทัด 2259): ใช้ทั้งสองค่านี้เพื่อเรียก _accumulateEarnPnl
   // ถ้าไม่มี → GAS log ⚠️ "ไม่พบ earn_contract_id หรือ uid" → ข้าม _accumulateEarnPnl ทั้งหมด
@@ -32836,7 +32930,8 @@ function saveClosePosition(pos, realizedPnl, roi, avgClose, isFull, closeAmt) {
     closed_at:        new Date().toISOString(),
     lasting_ms:       Date.now() - (pos.openedTs || Date.now()),
     close_size:       _closeSz,   // [FIX-C1]
-    close_id:         _closeId,   // [FIX-C1]
+    close_id:         _closeId,   // [FIX-C1] stable for CloseLimit race
+    ...(_closeOrderId ? { order_id: _closeOrderId } : {}),
   };
   dbWrite('logClose', data, () => {
     _invalidateDashCache();
@@ -33921,6 +34016,8 @@ HIST.logClose = function(pos, closeAmt, exitPrice, realizedPnl, isFull) {
   _origLogClose(pos, closeAmt, exitPrice, realizedPnl, isFull);
   // [CPS] position ปิดหมดแล้ว (manual / TP-SL / Limit close) → เคลียร์ Limit close ที่ค้างของ position นี้
   if (isFull && typeof _cpsCancelCloseOrdersFor === 'function') { try { _cpsCancelCloseOrdersFor(pos.id); } catch (_e) {} }
+  // [vx15-TRIM-CONTRACT] ปิดบางส่วน → ตัด reduce-only ที่ค้างเกิน size คงเหลือ (pos.size = คงเหลือหลังหักแล้ว)
+  else if (!isFull && typeof _cpsTrimCloseOrdersFor === 'function' && pos.size >= 0) { try { _cpsTrimCloseOrdersFor(pos.id, pos.size); } catch (_e) {} }
   // [FIX] คำนวณ ROI จริง: margin = (entry * size) / lev
   // [FIX-C1] ใช้ขนาดที่ปิดจริง (closeAmt) — pos.size อาจถูกหักไปแล้วจาก Close tab
   const _roiSz = (parseFloat(closeAmt) > 0) ? parseFloat(closeAmt) : pos.size;
@@ -40795,9 +40892,18 @@ function futdRenderOrders(orders) {
   }
 
   if (!filteredOrd.length) { el.innerHTML = '<div class="futd-empty">ไม่มี Order ที่รอ Fill</div>'; return; }
-  el.innerHTML = filteredOrd.map(o => `<div class="futd-pos-row">
+  el.innerHTML = filteredOrd.map(o => {
+    const isClose = /^close[\s_-]?limit$/i.test(String(o.order_type || '')) ||
+                    String(o.reduce_only || '').toLowerCase() === 'true' || o.reduce_only === true;
+    const sideLabel = isClose
+      ? (String(o.side || '').toLowerCase() === 'long' ? 'CLOSE LONG' : 'CLOSE SHORT')
+      : (String(o.side || '').toLowerCase() === 'long' ? 'LONG' : 'SHORT');
+    const sideClass = isClose
+      ? (String(o.side || '').toLowerCase() === 'long' ? 'long' : 'short')
+      : o.side;
+    return `<div class="futd-pos-row">
       <div class="futd-pos-top">
-        <div><span class="futd-pos-sym">${o.symbol}</span><span class="futd-pos-side ${o.side}">${o.side === 'long' ? 'LONG' : 'SHORT'} x${o.lev}</span></div>
+        <div><span class="futd-pos-sym">${o.symbol}</span><span class="futd-pos-side ${sideClass}">${sideLabel} x${o.lev}</span></div>
       </div>
       <div class="futd-pos-detail">
         <div>Limit Price<b>${(parseFloat(o.limit_price)||0).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:4})}</b></div>
@@ -40805,10 +40911,11 @@ function futdRenderOrders(orders) {
         <div>Margin<b>${(parseFloat(o.margin)||0).toFixed(2)}</b></div>
       </div>
       <div class="futd-pos-actions">
-        <div class="futd-btn-sm warn" onclick="futdOpenEditOrderSheet('${o.order_id}')">แก้ไข</div>
+        ${isClose ? '' : `<div class="futd-btn-sm warn" onclick="futdOpenEditOrderSheet('${o.order_id}')">แก้ไข</div>`}
         <div class="futd-btn-sm danger" onclick="futdCancelorder('${o.order_id}')">ยกเลิก</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── Open / Close / Cancel ──────────────────────────────────────────

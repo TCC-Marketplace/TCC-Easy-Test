@@ -1,3 +1,4 @@
+
 <!--
   ══════════════════════════════════════════════════════════════════
   ⚠️  AI AGENT — อ่านก่อนแก้ไขทุกครั้ง (เพิ่ม ก.ค. 2026)
@@ -2380,6 +2381,16 @@ const TCC_I18N = {
   'toast_no_position_side':['❌ ไม่มี Position {side} ให้ปิด','❌ No {side} position to close','❌ Không có vị thế {side} để đóng','❌ គ្មាន Position {side} ត្រូវបិទ','❌ ပိတ်ရန် {side} Position မရှိပါ','❌ No {side} position to close'],
   'toast_position_closed':['✅ Position ปิดแล้ว | Realized PNL: {pnl} USDT','✅ Position closed | Realized PNL: {pnl} USDT','✅ Đã đóng vị thế | Realized PNL: {pnl} USDT','✅ Position បានបិទ | Realized PNL: {pnl} USDT','✅ Position ပိတ်ပြီး | Realized PNL: {pnl} USDT','✅ Position closed | Realized PNL: {pnl} USDT'],
   'toast_reduce_position':['📉 ลด Position: {amt} {coin} เหลือ {size}','📉 Reduced position: {amt} {coin}, remaining {size}','📉 Đã giảm vị thế: {amt} {coin}, còn lại {size}','📉 កាត់បន្ថយ Position: {amt} {coin} នៅសល់ {size}','📉 Position လျှော့ချ: {amt} {coin} ကျန် {size}','📉 Reduced position: {amt} {coin}, remaining {size}'],
+  'cps_toast_limit_placed':['📋 ตั้งราคาปิด {side} {amt} {coin} @ {price} — รอราคาตลาดถึง','📋 Limit close set: {side} {amt} {coin} @ {price} — waiting for price','📋 Đã đặt lệnh đóng {side} {amt} {coin} @ {price} — chờ giá chạm','📋 Limit close set: {side} {amt} {coin} @ {price} — waiting for price','📋 Limit close set: {side} {amt} {coin} @ {price} — waiting for price','📋 Limit close set: {side} {amt} {coin} @ {price} — waiting for price'],
+  'cps_toast_limit_filled':['✅ Limit Close ทำงาน: {side} {amt} {coin} @ {price}','✅ Limit close triggered: {side} {amt} {coin} @ {price}','✅ Lệnh đóng Limit đã khớp: {side} {amt} {coin} @ {price}','✅ Limit close triggered: {side} {amt} {coin} @ {price}','✅ Limit close triggered: {side} {amt} {coin} @ {price}','✅ Limit close triggered: {side} {amt} {coin} @ {price}'],
+  'cps_toast_limit_orphan':['⚠️ ยกเลิกออเดอร์ปิด — ไม่พบ Position นี้แล้ว','⚠️ Close order cancelled — position no longer exists','⚠️ Đã hủy lệnh đóng — vị thế không còn tồn tại','⚠️ Close order cancelled — position no longer exists','⚠️ Close order cancelled — position no longer exists','⚠️ Close order cancelled — position no longer exists'],
+  'cps_toast_marketable':['ราคา Limit ถึงเงื่อนไขแล้ว — จะปิดตามราคาตลาดทันที','Limit price already reached — will close at market now','Giá Limit đã đạt — sẽ đóng theo giá thị trường ngay','Limit price already reached — will close at market now','Limit price already reached — will close at market now','Limit price already reached — will close at market now'],
+  'cps_toast_enter_price':['กรุณาใส่ราคา','Please enter a price','Vui lòng nhập giá','Please enter a price','Please enter a price','Please enter a price'],
+  'cps_toast_enter_amt':['กรุณาระบุจำนวนที่ต้องการปิด','Please enter an amount to close','Vui lòng nhập số lượng cần đóng','Please enter an amount to close','Please enter an amount to close','Please enter an amount to close'],
+  'cps_toast_over_reserved':['⚠️ จำนวนที่ตั้งปิดล่วงหน้ารวมเกินขนาด Position (ตั้งเพิ่มได้อีก {avail})','⚠️ Total pending close size exceeds the position (available: {avail})','⚠️ Tổng khối lượng đóng chờ vượt quá vị thế (còn: {avail})','⚠️ Total pending close size exceeds the position (available: {avail})','⚠️ Total pending close size exceeds the position (available: {avail})','⚠️ Total pending close size exceeds the position (available: {avail})'],
+  'cps_toast_failed':['❌ ปิด Position ไม่สำเร็จ','❌ Failed to close position','❌ Đóng vị thế thất bại','❌ Failed to close position','❌ Failed to close position','❌ Failed to close position'],
+  'cps_hint_up':['ปิดเมื่อราคาตลาด ≥ {price}','Closes when market price ≥ {price}','Đóng khi giá thị trường ≥ {price}','Closes when market price ≥ {price}','Closes when market price ≥ {price}','Closes when market price ≥ {price}'],
+  'cps_hint_down':['ปิดเมื่อราคาตลาด ≤ {price}','Closes when market price ≤ {price}','Đóng khi giá thị trường ≤ {price}','Closes when market price ≤ {price}','Closes when market price ≤ {price}','Closes when market price ≤ {price}'],
   'toast_cancel_order':['🗑️ ยกเลิก Order {side} @ {price} แล้ว','🗑️ Cancelled {side} order @ {price}','🗑️ Đã hủy lệnh {side} @ {price}','🗑️ បានលុបចោលការបញ្ជាទិញ {side} @ {price}','🗑️ {side} အမိန့် @ {price} ကို ပယ်ဖျက်ပြီး','🗑️ Cancelled {side} order @ {price}'],
   'toast_tp_side_error':['⚠️ TP ต้องอยู่ {dir} Mark Price ({price})','⚠️ TP must be {dir} Mark Price ({price})','⚠️ TP phải {dir} Mark Price ({price})','⚠️ TP ត្រូវតែ {dir} Mark Price ({price})','⚠️ TP သည် Mark Price ({price}) ထက် {dir} ဖြစ်ရမည်','⚠️ TP must be {dir} Mark Price ({price})'],
   'toast_sl_side_error':['⚠️ SL ต้องอยู่ {dir} Mark Price ({price})','⚠️ SL must be {dir} Mark Price ({price})','⚠️ SL phải {dir} Mark Price ({price})','⚠️ SL ត្រូវតែ {dir} Mark Price ({price})','⚠️ SL သည် Mark Price ({price}) ထက် {dir} ဖြစ်ရမည်','⚠️ SL must be {dir} Mark Price ({price})'],
@@ -5068,6 +5079,59 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   overflow:hidden;
 }
 #closeConfirmSheet.open #closeConfirmPanel{transform:translateX(-50%) translateY(0)}
+/* ═══ [CPS v1] Close Position Sheet ใหม่ (Contract) — scoped ด้วย #cpsSheet ทั้งหมด ไม่ชนกับ CSS เดิม ═══ */
+#cpsSheet{position:fixed;inset:0;z-index:1001;pointer-events:none}
+#cpsSheet.open{pointer-events:all}
+#cpsBg{position:absolute;inset:0;background:rgba(0,0,0,.62);opacity:0;transition:opacity .25s}
+#cpsSheet.open #cpsBg{opacity:1}
+#cpsPanel{position:absolute;bottom:0;left:50%;transform:translateX(-50%) translateY(105%);width:100%;max-width:480px;
+  max-height:94vh;overflow-y:auto;overscroll-behavior:contain;background:#1e2431;color:#eaecef;border-radius:16px 16px 0 0;
+  padding:10px 16px calc(14px + env(safe-area-inset-bottom,0px));transition:transform .3s cubic-bezier(.32,1,.23,1);
+  font-variant-numeric:tabular-nums;-webkit-tap-highlight-color:transparent}
+#cpsSheet.open #cpsPanel{transform:translateX(-50%) translateY(0)}
+#cpsSheet .cps-grab{width:40px;height:4px;border-radius:2px;background:#475063;margin:0 auto 14px}
+#cpsSheet .cps-title{font-size:17px;font-weight:600;margin:0 0 16px}
+#cpsSheet .cps-kv{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-bottom:10px}
+#cpsSheet .cps-kv>span:first-child{color:#848e9c}
+#cpsSheet .cps-kv b{font-weight:600}
+#cpsSheet .cps-sym{display:flex;gap:5px;align-items:center}
+#cpsSheet .cps-tag{font-style:normal;font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px;background:#262d3b;border:1px solid #333b4c;color:#c7ccd4}
+#cpsSheet .cps-tag.cps-lev{background:#17382f;color:#2ebd85;border-color:transparent}
+#cpsSheet .cps-tag.cps-lev.short{background:#3d1b22;color:#f6465d}
+#cpsSheet .cps-hr{border-top:1px solid #323a4a;margin:14px 0}
+#cpsSheet .cps-label{color:#848e9c;font-size:12px;margin:0 0 8px}
+#cpsSheet .cps-inrow{display:flex;gap:8px;margin-bottom:10px}
+#cpsSheet .cps-field{position:relative;background:#2b3140;border-radius:8px;height:44px;display:flex;align-items:center;padding:0 12px;
+  font-size:14px;color:#eaecef;border:1px solid transparent}
+#cpsSheet .cps-field:focus-within{border-color:#fcd535}
+#cpsSheet .cps-field input{all:unset;flex:1;min-width:0;font-size:16px;color:#eaecef}
+#cpsSheet .cps-field input::placeholder{color:#6c7686}
+#cpsSheet .cps-field input:disabled{cursor:not-allowed}
+#cpsSheet .cps-grow{flex:1}
+#cpsSheet .cps-unit{margin-left:6px;font-size:13px}
+#cpsSheet .cps-select{width:118px;justify-content:center;gap:10px;font-weight:600;cursor:pointer;user-select:none}
+#cpsSheet .cps-caret{width:0;height:0;border:5px solid transparent;border-top:6px solid #8b95a5;border-bottom:0}
+#cpsSheet .cps-menu{position:absolute;left:0;right:0;bottom:50px;background:#2b3140;border-radius:8px;overflow:hidden;display:none;z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+#cpsSheet .cps-menu.show{display:block}
+#cpsSheet .cps-menu div{padding:12px;text-align:center;font-weight:500;font-size:13px}
+#cpsSheet .cps-menu div.on{color:#fcd535}
+#cpsSheet .cps-hint{font-size:11px;color:#848e9c;margin:-4px 0 12px;line-height:1.4;min-height:0}
+#cpsSheet .cps-hint:empty{display:none}
+#cpsSheet .cps-hint.warn{color:#fcd535}
+/* slider */
+#cpsSheet .cps-slider{position:relative;height:28px;margin:4px 8px 18px;touch-action:none;cursor:pointer}
+#cpsSheet .cps-track{position:absolute;left:0;right:0;top:13px;height:2px;background:#fff;border-radius:2px}
+#cpsSheet .cps-fill{position:absolute;left:0;top:13px;height:2px;background:#fff}
+#cpsSheet .cps-stop{position:absolute;top:6px;width:14px;height:14px;margin-left:-7px;transform:rotate(45deg);background:#1e2431;border:2px solid #fff;border-radius:3px}
+#cpsSheet .cps-stop.on{background:#fff}
+#cpsSheet .cps-thumb{position:absolute;top:3px;width:20px;height:20px;margin-left:-10px;transform:rotate(45deg);background:#1e2431;border:2px solid #fff;border-radius:4px;box-shadow:0 0 0 3px #1e2431}
+#cpsSheet .cps-sum{margin-top:4px}
+#cpsSheet .cps-dotted{border-bottom:1.5px dotted #6c7686;padding-bottom:1px}
+#cpsSheet .cps-btn{width:100%;height:46px;border:0;border-radius:8px;background:#fcd535;color:#1e2026;font-size:15px;font-weight:600;margin-top:14px;cursor:pointer;font-family:inherit}
+#cpsSheet .cps-btn:active{filter:brightness(.92)}
+#cpsSheet .cps-btn:disabled{opacity:.4;cursor:not-allowed}
+#cpsSheet .cps-pos{color:#2ebd85}
+#cpsSheet .cps-neg{color:#f6465d}
 .tssh-handle{width:36px;height:4px;background:var(--bl);border-radius:2px;margin:10px auto 6px}
 .tssh-title{font-size:16px;font-weight:700;padding:4px 16px 12px;border-bottom:1px solid var(--border)}
 .tssh-info-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px}
@@ -11067,7 +11131,7 @@ function buildPosCard(p) {
     <div class="act-btns">
       <button class="act-btn" onclick="posAdjLeverage('${p.id}')">Leverage</button>
       <button class="act-btn" onclick="openTpslSheet('${p.id}')">TP/SL</button>
-      <button class="act-btn cl" onclick="openCloseConfirm('${p.id}')">Close</button>
+      <button class="act-btn cl" onclick="openClosePosSheet('${p.id}')">Close</button>
     </div>
   </div>`;
 }
@@ -11396,6 +11460,372 @@ function confirmClosePos() {
   const id = _closeConfirmPosId;
   cancelClosePos();
   posClose(id);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  [CPS v1] Close Position Sheet ใหม่ (Futures → Contract)
+//  ───────────────────────────────────────────────────────────────────────
+//  • ปิดทั้งหมด / ปิดบางส่วน (สไลเดอร์ 0/25/50/75/100% หรือพิมพ์จำนวนเอง)
+//  • Market = ปิดทันที | Limit = ตั้งราคาปิดล่วงหน้า (reduce-only order อยู่ใน S.openOrders)
+//  • ไม่แตะ closeConfirmSheet / openCloseConfirm / confirmClosePos / posClose เดิม
+//    (ยังถูกใช้โดย My Trades > Open Orders, Assets และ Futures Direct)
+//  • ปิดเต็มจำนวน → เรียก posClose() เดิมทุกประการ
+//  • ปิดบางส่วน  → posClosePartial() = logic เดียวกับ trade-panel Close tab (HIST.logClose isFull=false)
+//                  GAS closePosition รองรับ close_size อยู่แล้ว (server คำนวณ PNL + ลด size เอง)
+//  • Limit close → order { reduceOnly:true, orderType:'CloseLimit', closePosId } ใน S.openOrders
+//                  fill ฝั่ง client ใน _checkLimitOrderFill → _cpsFillCloseOrder → posClose/posClosePartial
+//                  GAS: order_type 'CloseLimit' ถูกข้ามใน processLimitOrders + ไม่นับ pending margin
+//  • ตั้ง CPS_ENABLE_LIMIT = false เพื่อปิด Limit (เหลือ Market + บางส่วน) หากยังไม่ได้ deploy GAS เวอร์ชันใหม่
+// ═══════════════════════════════════════════════════════════════════════
+const CPS_ENABLE_LIMIT = true;
+const CPS_STEPS = [0, 25, 50, 75, 100];
+const _cps = { posId: null, pct: 100, size: 0, type: 'Market', limitPrice: null, busy: false, inited: false, dragging: false, timer: null };
+
+function _cpsEl(id) { return document.getElementById(id); }
+function _cpsPos() { return (_cps.posId == null) ? null : (S.positions.find(x => x.id == _cps.posId) || null); }
+// ราคาของ coin ของ position นั้นๆ เท่านั้น (ไม่ใช้ S.markPrice) — fallback chain เดียวกับ posClose
+function _cpsMark(p) {
+  const cp = parseFloat(S.coinPrices[p.coin]);
+  return cp > 0 ? cp : (p.mark > 0 ? p.mark : p.entry);
+}
+// จำนวนทศนิยมของ size: อย่างน้อย 3 ตำแหน่ง, position เล็กมากขยายเพิ่มเพื่อให้ปิดบางส่วนได้จริง
+function _cpsDec(p) {
+  const s = p.size;
+  if (!(s > 0)) return 3;
+  return Math.max(3, Math.min(8, Math.ceil(-Math.log10(s)) + 2));
+}
+function _cpsPxDec(v) { return v >= 10 ? 2 : (v >= 1 ? 4 : 6); }
+
+function _cpsSetPct(pct) {
+  const p = _cpsPos(); if (!p) return;
+  pct = Math.max(0, Math.min(100, pct));
+  _cps.pct = pct;
+  if (pct >= 100) { _cps.size = p.size; return; }
+  const dec = _cpsDec(p), step = Math.pow(10, -dec);
+  _cps.size = +(Math.floor(p.size * pct / 100 / step + 1e-9) * step).toFixed(dec);
+}
+function _cpsSetSize(sz) {
+  const p = _cpsPos(); if (!p) return;
+  sz = Math.max(0, Math.min(p.size, isFinite(sz) ? sz : 0));
+  _cps.size = sz;
+  _cps.pct = p.size > 0 ? Math.round(sz / p.size * 10000) / 100 : 0;
+}
+// ราคาที่ใช้ประมาณ PNL: Limit (มีราคา) = ราคา limit, นอกนั้น = mark
+function _cpsExecPrice(p) {
+  return (_cps.type === 'Limit' && _cps.limitPrice > 0) ? _cps.limitPrice : _cpsMark(p);
+}
+// จำนวนที่ถูกจองโดย reduce-only orders ที่ค้างอยู่ของ position นี้
+function _cpsReservedSize(posId) {
+  return (S.openOrders || [])
+    .filter(o => o.reduceOnly && String(o.closePosId) === String(posId))
+    .reduce((s, o) => s + (parseFloat(o.size) || 0), 0);
+}
+
+function _cpsRender(skipInputs) {
+  const p = _cpsPos(); if (!p) return;
+  const dec = _cpsDec(p), mark = _cpsMark(p);
+  const dirSign = p.side === 'long' ? 1 : -1;
+  _cpsEl('cpsSym').textContent = p.symbol;
+  const sd = _cpsEl('cpsSide');
+  sd.textContent = (p.side === 'long' ? 'Long ' : 'Short ') + p.lev + 'x';
+  sd.classList.toggle('short', p.side === 'short');
+  _cpsEl('cpsEntry').textContent = fmtP(p.entry);
+  _cpsEl('cpsMark').textContent = fmtP(mark);
+  _cpsEl('cpsUnit').textContent = p.coin || '';
+  _cpsEl('cpsPos').textContent = p.size.toFixed(dec) + ' ' + (p.coin || '');
+
+  const amt = _cpsEl('cpsAmt');
+  if (!skipInputs && document.activeElement !== amt) {
+    amt.value = (Math.round(_cps.pct * 100) / 100) + '% (≈' + _cps.size.toFixed(dec) + ')';
+  }
+  const pnl = (_cpsExecPrice(p) - p.entry) * _cps.size * dirSign;
+  const pe = _cpsEl('cpsPnl');
+  pe.textContent = (pnl > 0 ? '+' : pnl < 0 ? '-' : '') + fmtNum(Math.abs(pnl), 2) + ' USDT';
+  pe.className = pnl >= 0 ? 'cps-pos' : 'cps-neg';
+
+  const x = _cps.pct + '%';
+  _cpsEl('cpsThumb').style.left = x;
+  _cpsEl('cpsFill').style.width = x;
+  [..._cpsEl('cpsStops').children].forEach((el, i) => el.classList.toggle('on', CPS_STEPS[i] < _cps.pct));
+
+  // hint ของ Limit
+  const hint = _cpsEl('cpsHint');
+  if (_cps.type === 'Limit' && _cps.limitPrice > 0) {
+    const marketable = p.side === 'long' ? _cps.limitPrice <= mark : _cps.limitPrice >= mark;
+    if (marketable) { hint.textContent = tccT('cps_toast_marketable'); hint.className = 'cps-hint warn'; }
+    else {
+      hint.textContent = tccTF(p.side === 'long' ? 'cps_hint_up' : 'cps_hint_down', { price: fmtP(_cps.limitPrice) });
+      hint.className = 'cps-hint';
+    }
+  } else { hint.textContent = ''; hint.className = 'cps-hint'; }
+
+  _cpsEl('cpsConfirm').disabled = !(_cps.size > 0) || _cps.busy;
+}
+
+function _cpsSetType(t, focus) {
+  if (t === 'Limit' && !CPS_ENABLE_LIMIT) t = 'Market';
+  const p = _cpsPos(); if (!p) return;
+  _cps.type = t;
+  _cpsEl('cpsTypeTxt').textContent = t;
+  _cpsEl('cpsMenu').querySelectorAll('div').forEach(x => x.classList.toggle('on', x.dataset.v === t));
+  const price = _cpsEl('cpsPrice');
+  if (t === 'Limit') {
+    price.placeholder = 'Price';
+    if (!(_cps.limitPrice > 0)) _cps.limitPrice = _cpsMark(p);
+    price.value = String(+_cps.limitPrice.toFixed(_cpsPxDec(_cps.limitPrice)));
+    if (focus) { price.focus(); price.select(); }
+  } else {
+    price.placeholder = 'Market Price'; price.value = '';
+    if (document.activeElement === price) price.blur();
+  }
+  _cpsRender();
+}
+
+function _cpsPctFromEvent(e) {
+  const r = _cpsEl('cpsSlider').getBoundingClientRect();
+  const cx = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+  let pc = Math.max(0, Math.min(100, (cx - r.left) / r.width * 100));
+  const snap = CPS_STEPS.find(s => Math.abs(s - pc) < 3);   // ดูดเข้าจุด 0/25/50/75/100
+  if (snap !== undefined) pc = snap;
+  return Math.round(pc * 100) / 100;
+}
+
+function _cpsInit() {
+  if (_cps.inited) return;
+  _cps.inited = true;
+  CPS_STEPS.forEach(v => {
+    const d = document.createElement('div'); d.className = 'cps-stop'; d.style.left = v + '%';
+    _cpsEl('cpsStops').appendChild(d);
+  });
+  const sl = _cpsEl('cpsSlider');
+  sl.addEventListener('pointerdown', e => { _cps.dragging = true; try { sl.setPointerCapture(e.pointerId); } catch (_) {} _cpsSetPct(_cpsPctFromEvent(e)); _cpsRender(); });
+  sl.addEventListener('pointermove', e => { if (_cps.dragging) { _cpsSetPct(_cpsPctFromEvent(e)); _cpsRender(); } });
+  sl.addEventListener('pointerup', () => { _cps.dragging = false; });
+  sl.addEventListener('pointercancel', () => { _cps.dragging = false; });
+
+  // Amount: พิมพ์จำนวนเหรียญเองได้
+  const amt = _cpsEl('cpsAmt');
+  amt.addEventListener('focus', () => { const p = _cpsPos(); if (!p) return; amt.value = _cps.size.toFixed(_cpsDec(p)); amt.select(); });
+  amt.addEventListener('input', () => {
+    const v = parseFloat(amt.value.replace(/[^\d.]/g, ''));
+    _cpsSetSize(isNaN(v) ? 0 : v);
+    _cpsRender(true);
+  });
+  amt.addEventListener('blur', () => _cpsRender());
+  amt.addEventListener('keydown', e => { if (e.key === 'Enter') amt.blur(); });
+
+  // Market / Limit
+  const menu = _cpsEl('cpsMenu'), price = _cpsEl('cpsPrice');
+  if (!CPS_ENABLE_LIMIT) { _cpsEl('cpsTypeSel').style.display = 'none'; price.disabled = true; }
+  _cpsEl('cpsTypeSel').addEventListener('click', e => { e.stopPropagation(); menu.classList.toggle('show'); });
+  menu.querySelectorAll('div').forEach(d => d.addEventListener('click', e => {
+    e.stopPropagation(); menu.classList.remove('show'); _cpsSetType(d.dataset.v, true);
+  }));
+  _cpsEl('cpsPanel').addEventListener('click', e => { if (!e.target.closest('#cpsTypeSel')) menu.classList.remove('show'); });
+  // แตะ/พิมพ์ในช่อง Price ขณะเป็น Market → สลับเป็น Limit อัตโนมัติ
+  price.addEventListener('focus', () => { if (_cps.type === 'Market') _cpsSetType('Limit', false); setTimeout(() => price.select(), 0); });
+  price.addEventListener('input', () => {
+    let v = price.value.replace(/[^\d.]/g, '');
+    const i = v.indexOf('.'); if (i >= 0) v = v.slice(0, i + 1) + v.slice(i + 1).replace(/\./g, '');
+    price.value = v;
+    _cps.limitPrice = parseFloat(v) || null;
+    _cpsRender();
+  });
+  price.addEventListener('keydown', e => { if (e.key === 'Enter') price.blur(); });
+}
+
+function openClosePosSheet(id) {
+  const p = S.positions.find(x => x.id == id);
+  if (!p) return;
+  // fallback: ถ้า sheet ใหม่ไม่อยู่ใน DOM (เช่น HTML ไม่ครบ) → ใช้ sheet เดิมเสมอ
+  if (!_cpsEl('cpsSheet')) { openCloseConfirm(id); return; }
+  _cpsInit();
+  _cps.posId = id; _cps.busy = false; _cps.limitPrice = null;
+  _cps.type = 'Market';
+  _cpsEl('cpsPrice').value = ''; _cpsEl('cpsPrice').placeholder = 'Market Price';
+  _cpsEl('cpsTypeTxt').textContent = 'Market';
+  _cpsEl('cpsMenu').classList.remove('show');
+  _cpsEl('cpsMenu').querySelectorAll('div').forEach(x => x.classList.toggle('on', x.dataset.v === 'Market'));
+  _cpsSetPct(100);
+  _cpsRender();
+  _cpsEl('cpsSheet').classList.add('open');
+  // อัปเดต Mark / PNL สดขณะ sheet เปิดอยู่ (ไม่แตะช่องที่ผู้ใช้กำลังพิมพ์)
+  clearInterval(_cps.timer);
+  _cps.timer = setInterval(() => {
+    if (!_cpsPos()) { cpsClose(); return; }   // position ถูกปิดไปแล้ว (เช่น TP/SL)
+    _cpsRender();
+  }, 1000);
+}
+
+function cpsClose() {
+  const sh = _cpsEl('cpsSheet');
+  // ปล่อย focus ของช่องที่กำลังพิมพ์ (กันคีย์บอร์ดมือถือค้าง และกัน focus event ไม่ยิงตอนเปิด sheet รอบถัดไป)
+  const _ae = document.activeElement, _pn = _cpsEl('cpsPanel');
+  if (_ae && _pn && _pn.contains(_ae) && typeof _ae.blur === 'function') { _cps.posId = null; _ae.blur(); }
+  if (sh) sh.classList.remove('open');
+  const m = _cpsEl('cpsMenu'); if (m) m.classList.remove('show');
+  clearInterval(_cps.timer); _cps.timer = null;
+  _cps.posId = null; _cps.busy = false; _cps.dragging = false;
+}
+
+function cpsConfirm() {
+  if (_cps.busy) return;
+  const p = _cpsPos();
+  if (!p) { cpsClose(); return; }
+  const dec = _cpsDec(p);
+  const size = Math.min(p.size, +(_cps.size).toFixed(dec) || 0);
+  if (!(size > 0)) { showToast(tccT('cps_toast_enter_amt')); return; }
+  const mark = _cpsMark(p);
+  const isFull = (p.size - size) <= 0.0001;      // เกณฑ์เดียวกับ trade-panel + GAS (_isFull)
+
+  let useLimit = (_cps.type === 'Limit' && CPS_ENABLE_LIMIT);
+  const lp = _cps.limitPrice;
+  if (useLimit) {
+    if (!(lp > 0)) { showToast(tccT('cps_toast_enter_price')); return; }
+    // Limit ที่ราคาถึงเงื่อนไขแล้ว (Long: limit ≤ mark / Short: limit ≥ mark) = ปิดทันทีตามตลาด
+    const marketable = p.side === 'long' ? lp <= mark : lp >= mark;
+    if (marketable) { showToast(tccT('cps_toast_marketable')); useLimit = false; }
+  }
+  if (useLimit) {
+    // กันตั้งปิดล่วงหน้ารวมเกินขนาด position
+    const avail = p.size - _cpsReservedSize(p.id);
+    if (size > avail + 1e-9) {
+      showToast(tccTF('cps_toast_over_reserved', { avail: Math.max(0, avail).toFixed(dec) }));
+      return;
+    }
+  }
+
+  _cps.busy = true;
+  let ok = true;
+  try {
+    if (useLimit) ok = _cpsPlaceCloseLimit(p, size, lp);
+    else if (isFull) { posClose(p.id); }
+    else ok = posClosePartial(p.id, size);
+  } catch (err) {
+    ok = false; console.error('[CPS] confirm error:', err);
+  }
+  _cps.busy = false;
+  if (ok === false) { showToast(tccT('cps_toast_failed')); _cpsRender(); return; }
+  cpsClose();
+}
+
+// ── ปิดบางส่วนที่ราคาตลาด ─────────────────────────────────────────────
+// ใช้ logic เดียวกับ trade-panel Close tab (S.oc==='close') ที่ใช้งานจริงอยู่แล้ว
+// ปิดเต็ม (เหลือ ≤ 0.0001) → ส่งต่อ posClose() เดิม จึงไม่เกิด path ใหม่ของการปิดเต็ม
+function posClosePartial(id, closeAmt) {
+  const p = S.positions.find(x => x.id == id);
+  if (!p) return false;
+  closeAmt = Math.min(parseFloat(closeAmt) || 0, p.size);
+  if (!(closeAmt > 0)) return false;
+  if (p.size - closeAmt <= 0.0001) { posClose(id); return true; }
+
+  const coinPrice = parseFloat(S.coinPrices[p.coin]);
+  const exitPrice = coinPrice > 0 ? coinPrice : (p.mark > 0 ? p.mark : p.entry);
+  const priceDiff = p.side === 'long' ? exitPrice - p.entry : p.entry - exitPrice;
+  const realizedPnl = priceDiff * closeAmt;
+  const originalSize = p.size;                 // บันทึกก่อนหัก (ใช้คำนวณสัดส่วน margin)
+
+  p.size -= closeAmt;
+  p.realized = (p.realized || 0) + realizedPnl;
+  p.margin = p.margin * (1 - closeAmt / originalSize);
+
+  const c = earnContracts.find(x => x.contractId === p.earnContractId);
+  if (c) {
+    c.realizedPnl = (c.realizedPnl || 0) + realizedPnl;
+    // กัน GAS sync รอบถัดไปทับค่านี้ด้วยค่าเก่า ก่อน write ปิด position commit เสร็จ
+    window._pendingEarnSync = window._pendingEarnSync || {};
+    window._pendingEarnSync[c.contractId] = Date.now() + 12000;
+    _refreshAvbl(c);
+  }
+  // HIST.logClose (wrapper) → saveClosePosition → GAS logClose พร้อม close_size + close_id
+  if (typeof HIST !== 'undefined') HIST.logClose(p, closeAmt, exitPrice, realizedPnl, false);
+  showToast(tccTF('toast_reduce_position', { amt: fmtNum(closeAmt, _cpsDec({ size: originalSize })), coin: p.coin, size: fmtNum(p.size, _cpsDec(p)) }));
+
+  renderPositions();
+  renderOpenOrders();
+  if (typeof renderEarnContracts === 'function') renderEarnContracts();
+  _updatePosBadge();
+  if (typeof mytRefreshIfOpen === 'function') mytRefreshIfOpen();
+  return true;
+}
+
+// ── Limit close: วาง reduce-only order ──────────────────────────────────
+function _cpsPlaceCloseLimit(p, size, price) {
+  const ord = {
+    id:             Date.now(),
+    symbol:         p.symbol,
+    coin:           p.coin,
+    side:           p.side === 'long' ? 'short' : 'long',   // ทิศของ order (ขายเพื่อปิด Long / ซื้อเพื่อปิด Short) — ใช้เงื่อนไข fill เดียวกับ Limit เดิม
+    type:           'Limit',
+    orderType:      'CloseLimit',                           // GAS syncOpenOrders เลือก o.orderType ก่อน → ชีตเก็บเป็น 'CloseLimit'
+    reduceOnly:     true,
+    closePosId:     p.id,
+    positionId:     p.id,                                   // → คอลัมน์ position_id ในชีต OpenOrders
+    lev:            p.lev,
+    size:           size,
+    limitPrice:     price,
+    margin:         0,                                      // reduce-only ไม่กิน margin (ทุกจุดที่รวม o.margin จึงไม่ได้รับผลกระทบ)
+    liq:            0,
+    tp: null, sl: null,
+    earnContractId: p.earnContractId,
+    createdAt:      Date.now(),
+  };
+  S.openOrders = S.openOrders || [];
+  S.openOrders.push(ord);
+  if (typeof syncOpenOrdersToGAS === 'function') syncOpenOrdersToGAS();
+  renderOpenOrders();
+  showToast(tccTF('cps_toast_limit_placed', {
+    side: p.side === 'long' ? 'Long' : 'Short', amt: size.toFixed(_cpsDec(p)), coin: p.coin, price: fmtP(price)
+  }));
+  if (typeof switchTab === 'function') switchTab('ord');
+  if (typeof mytRefreshIfOpen === 'function') mytRefreshIfOpen();
+  return true;
+}
+
+// ── Limit close: ราคาถึงแล้ว (เรียกจาก _checkLimitOrderFill — order ถูกลบออกจาก S.openOrders แล้ว) ──
+function _cpsFillCloseOrder(o) {
+  const _gas = (fn) => { if (typeof dbCallRaw === 'function') { try { fn(); } catch (_) {} } };
+  const p = S.positions.find(x => String(x.id) === String(o.closePosId));
+  if (!p || p.side === o.side || !(p.size > 0)) {
+    // position ถูกปิดไปแล้ว (หรือ side ไม่ตรง) → ยกเลิก order ที่ค้าง ไม่เปิด position ใหม่เด็ดขาด
+    _gas(() => dbCallRaw('cancelOrder', { order_id: o.id }).catch(() => {}));
+    showToast(tccT('cps_toast_limit_orphan'));
+    return;
+  }
+  const closeSz = Math.min(parseFloat(o.size) || 0, p.size);   // clamp: position อาจเล็กลงหลังปิดบางส่วนก่อนหน้า
+  if (!(closeSz > 0)) { _gas(() => dbCallRaw('cancelOrder', { order_id: o.id }).catch(() => {})); return; }
+  const posId = p.id, coin = p.coin, posSide = p.side;
+  if (p.size - closeSz <= 0.0001) posClose(posId);
+  else posClosePartial(posId, closeSz);
+
+  // ปิด order ใน GAS เป็น Filled (retry เหมือน flow Limit เดิม)
+  const _markFilled = (attempt) => {
+    dbCallRaw('markOrderFilled', { order_id: o.id, position_id: posId }).catch(err => {
+      const _delays = [5000, 10000, 20000];
+      if (attempt < _delays.length) setTimeout(() => _markFilled(attempt + 1), _delays[attempt]);
+      else console.warn('[CPS] markOrderFilled failed for order_id=' + o.id + ' — processLimitOrders ข้ามออเดอร์ปิดอยู่แล้ว ไม่เปิด position ซ้ำ');
+    });
+  };
+  _gas(() => _markFilled(0));
+  showToast(tccTF('cps_toast_limit_filled', {
+    side: posSide === 'long' ? 'Long' : 'Short', amt: closeSz.toFixed(3), coin: coin, price: fmtP(o.limitPrice)
+  }));
+}
+
+// ── ยกเลิก reduce-only orders ของ position ที่ถูกปิดเต็มจำนวนแล้ว (hook จาก HIST.logClose isFull) ──
+function _cpsCancelCloseOrdersFor(posId) {
+  if (!S.openOrders || !S.openOrders.length) return;
+  const gone = S.openOrders.filter(o => o.reduceOnly && String(o.closePosId) === String(posId));
+  if (!gone.length) return;
+  window._filledOrderIds = window._filledOrderIds || new Set();
+  S.openOrders = S.openOrders.filter(o => gone.indexOf(o) === -1);
+  gone.forEach(o => {
+    window._filledOrderIds.add(o.id);   // กัน _checkLimitOrderFill หยิบซ้ำ
+    if (typeof dbCallRaw === 'function') dbCallRaw('cancelOrder', { order_id: o.id }).catch(() => {});
+  });
+  if (typeof syncOpenOrdersToGAS === 'function') syncOpenOrdersToGAS();
+  if (typeof renderOpenOrders === 'function') renderOpenOrders();
+  if (typeof mytRefreshIfOpen === 'function') mytRefreshIfOpen();
 }
 // ── [v9] TP/SL Grace Period Helper ─────────────────────────────────────
 // ป้องกัน TP/SL trigger ทันทีหลังเปิด position หรือหลัง set TP/SL ใหม่
@@ -12843,7 +13273,7 @@ function renderOpenOrders() {
     const isBuy  = o.side === 'long';
     const clr    = isBuy ? 'var(--g)' : 'var(--r)';
     const bgClr  = isBuy ? 'var(--gbg)' : 'var(--rbg)';
-    const lbl    = isBuy ? 'Long' : 'Short';
+    const lbl    = o.reduceOnly ? ('Close ' + (isBuy ? 'Short' : 'Long')) : (isBuy ? 'Long' : 'Short'); // [CPS]
     const mark   = S.markPrice || 0;
     const diff   = mark > 0 ? ((o.limitPrice - mark) / mark * 100).toFixed(2) : '—';
     const diffTxt = mark > 0
@@ -12854,7 +13284,7 @@ function renderOpenOrders() {
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:11px;font-weight:800;color:${clr};background:${bgClr};padding:2px 7px;border-radius:3px">${lbl}</span>
           <span style="font-size:12px;font-weight:700;color:var(--t1)">${o.symbol}</span>
-          <span style="font-size:10px;color:var(--t2);background:var(--bg4);padding:1px 5px;border-radius:3px">${o.type} ${o.lev}x</span>
+          <span style="font-size:10px;color:var(--t2);background:var(--bg4);padding:1px 5px;border-radius:3px">${o.type} ${o.lev}x${o.reduceOnly ? ' · Reduce-Only' : ''}</span>
         </div>
         <button onclick="cancelOrder(${o.id})" style="font-size:11px;color:var(--r);background:var(--rbg);border:1px solid var(--r);border-radius:4px;padding:2px 9px;cursor:pointer;font-family:inherit">Cancel</button>
       </div>
@@ -12867,7 +13297,7 @@ function renderOpenOrders() {
           <div style="font-family:var(--mono);font-weight:600;color:var(--t1)">${o.size.toFixed(3)} ${o.coin}</div>
         </div>
         <div><div style="color:var(--t2);margin-bottom:2px">Margin</div>
-          <div style="font-family:var(--mono);font-weight:600;color:var(--t1)">${fmtNum(o.margin,2)} USDT</div>
+          <div style="font-family:var(--mono);font-weight:600;color:var(--t1)">${o.reduceOnly ? '—' : fmtNum(o.margin,2) + ' USDT'}</div>
         </div>
       </div>
       ${(o.tp || o.sl) ? `<div style="display:flex;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
@@ -12933,6 +13363,11 @@ function _checkLimitOrderFill() {
     window._filledOrderIds.add(o.id); // [v9 FIX] mark ว่า fill แล้วก่อนทำงานต่อ
     // ลบออกจาก pending ก่อน
     S.openOrders = S.openOrders.filter(x => x.id !== o.id);
+    // [CPS] reduce-only (Limit close) → ปิด position เดิม ไม่สร้าง/merge position ใหม่
+    if (o.reduceOnly) {
+      try { _cpsFillCloseOrder(o); } catch (_cpsErr) { console.warn('[CPS] _cpsFillCloseOrder error:', _cpsErr && _cpsErr.message); }
+      return;
+    }
     // สร้าง/merge position
     const _newPos = _fillOrderToPosition({ ...o, price: o.limitPrice, amt: o.size });
     // [v2.36 FIX-S2] เปลี่ยนจาก fire-and-forget → retry สูงสุด 3 ครั้ง
@@ -22099,6 +22534,48 @@ window.addEventListener('resize', () => {
     </div>
   </div>
 </div>
+<!-- ══════════════════════════════════════════
+     [CPS v1] CLOSE POSITION SHEET (Contract) — ปิดทั้งหมด / บางส่วน / Market / Limit
+     (closeConfirmSheet ด้านบนยังคงอยู่ — ใช้โดย My Trades, Assets, Futures Direct)
+══════════════════════════════════════════ -->
+<div id="cpsSheet">
+  <div id="cpsBg" onclick="cpsClose()"></div>
+  <div id="cpsPanel" role="dialog" aria-label="Close Position">
+    <div class="cps-grab"></div>
+    <div class="cps-title">Close Position</div>
+
+    <div class="cps-kv"><span>Symbol</span>
+      <span class="cps-sym"><b id="cpsSym">—</b><i class="cps-tag">Perp</i><i class="cps-tag cps-lev" id="cpsSide">Long</i></span></div>
+    <div class="cps-kv"><span>Entry Price (USDT)</span><b id="cpsEntry">—</b></div>
+    <div class="cps-kv"><span>Mark Price (USDT)</span><b id="cpsMark">—</b></div>
+    <div class="cps-hr"></div>
+
+    <div class="cps-label">Price</div>
+    <div class="cps-inrow">
+      <div class="cps-field cps-grow"><input id="cpsPrice" inputmode="decimal" placeholder="Market Price" autocomplete="off"></div>
+      <div class="cps-field cps-select" id="cpsTypeSel"><span id="cpsTypeTxt">Market</span><i class="cps-caret"></i>
+        <div class="cps-menu" id="cpsMenu"><div data-v="Market" class="on">Market</div><div data-v="Limit">Limit</div></div>
+      </div>
+    </div>
+    <div class="cps-hint" id="cpsHint"></div>
+
+    <div class="cps-label">Amount</div>
+    <div class="cps-field" style="margin-bottom:16px">
+      <input id="cpsAmt" inputmode="decimal" autocomplete="off"><span class="cps-unit" id="cpsUnit">—</span>
+    </div>
+
+    <div class="cps-slider" id="cpsSlider">
+      <div class="cps-track"></div><div class="cps-fill" id="cpsFill"></div>
+      <div id="cpsStops"></div><div class="cps-thumb" id="cpsThumb"></div>
+    </div>
+
+    <div class="cps-sum">
+      <div class="cps-kv"><span>Position Amount</span><b id="cpsPos">—</b></div>
+      <div class="cps-kv"><span class="cps-dotted">Estimated PNL</span><b id="cpsPnl">—</b></div>
+    </div>
+    <button class="cps-btn" id="cpsConfirm" onclick="cpsConfirm()">Confirm</button>
+  </div>
+</div>
 <script>
 // ── Transfer State ──
 const TF = {
@@ -23554,16 +24031,17 @@ const MYT = {
       const pendingItems = hideOrdersFiltered.map(o => {
         const sym = o.symbol || (o.coin + 'USDT');
         const isLong = o.side === 'long';
+        const _ro = !!o.reduceOnly; // [CPS] order ปิดแบบ Limit
         return {
           coin: sym, badge:'Perp',
-          dir: (o.type||'Limit') + ' / ' + (isLong ? 'Open Long' : 'Open Short'),
-          dirClass: isLong ? 'open-long' : 'open-short',
+          dir: (o.type||'Limit') + ' / ' + (_ro ? (isLong ? 'Close Short' : 'Close Long') : (isLong ? 'Open Long' : 'Open Short')),
+          dirClass: _ro ? (isLong ? 'close-short' : 'close-long') : (isLong ? 'open-long' : 'open-short'),
           time: HIST.fmtTime(o.id),
           filled: '0.000',
           amount: HIST.fmtNum(o.size),
           unit: o.coin,
           price: HIST.fmtPrice(o.limitPrice),
-          reduceOnly: 'False', pct: 0,
+          reduceOnly: _ro ? 'True' : 'False', pct: 0,
           _posId: o.id,
           _isLimitPending: true,
         };
@@ -32265,8 +32743,13 @@ function saveOpenPosition(pos) {
 }
 
 // ── Futures Position Close ────────────────────────────────────────
-function saveClosePosition(pos, realizedPnl, roi, avgClose, isFull) {
+function saveClosePosition(pos, realizedPnl, roi, avgClose, isFull, closeAmt) {
   const uid = USER_PROFILE && USER_PROFILE.uid;
+  // [FIX-C1] ส่งขนาดที่ปิดจริง (close_size) + close_id ไป GAS — GAS คำนวณ PnL และลด size เองจากค่านี้
+  // (realized_pnl ที่ส่งไปเป็นแค่ข้อมูลอ้างอิง GAS ไม่เชื่อ) close_id คงที่ต่อการปิดหนึ่งครั้ง → QUEUE retry ไม่ปิดซ้ำ
+  // หมายเหตุ: pos.size ณ จุดนี้อาจถูกหักไปแล้ว (Close tab) จึงใช้ closeAmt เป็นหลัก
+  const _closeSz = (parseFloat(closeAmt) > 0) ? parseFloat(closeAmt) : (parseFloat(pos.size) || 0);
+  const _closeId = 'cl_' + String(pos.id) + '_' + Date.now().toString(36) + '_' + Math.round(_closeSz * 1e8).toString(36);
   // [FIX-ROOT] เพิ่ม uid และ earn_contract_id ใน data ที่ส่งไป GAS
   // GAS closePosition (บรรทัด 2259): ใช้ทั้งสองค่านี้เพื่อเรียก _accumulateEarnPnl
   // ถ้าไม่มี → GAS log ⚠️ "ไม่พบ earn_contract_id หรือ uid" → ข้าม _accumulateEarnPnl ทั้งหมด
@@ -32282,6 +32765,8 @@ function saveClosePosition(pos, realizedPnl, roi, avgClose, isFull) {
     status:           isFull ? 'Closed' : 'Partially Closed',
     closed_at:        new Date().toISOString(),
     lasting_ms:       Date.now() - (pos.openedTs || Date.now()),
+    close_size:       _closeSz,   // [FIX-C1]
+    close_id:         _closeId,   // [FIX-C1]
   };
   dbWrite('logClose', data, () => {
     _invalidateDashCache();
@@ -32345,7 +32830,7 @@ function saveClosePosition(pos, realizedPnl, roi, avgClose, isFull) {
   // [FIX] บันทึก Commission fee ฝั่ง Close ไป GAS (taker 0.05%)
   if (uid) {
     const _exitPrice = pos.exitPrice || pos.entry || 0;
-    const _closeSize = pos.size || 0;
+    const _closeSize = _closeSz; // [FIX-C1] เดิม pos.size (ถูกหักแล้วใน Close tab → ค่าคอมผิด/เป็น 0 ตอนปิดหมด)
     const _closeFee = +(_exitPrice * _closeSize * 0.0005).toFixed(6);
     if (_closeFee > 0) {
       dbWrite('logTransaction', {
@@ -32908,21 +33393,24 @@ async function _loadOfflineStateCore() {
       const sz = parseFloat(r.size)        || 0;
       const lp = parseFloat(r.limit_price) || 0;
       const lv = parseFloat(r.lev)         || 1;
+      // [CPS] order_type 'CloseLimit' = reduce-only (Limit close) — ไม่กิน margin, ผูกกับ position_id
+      const _isCL = /^close[\s_-]?limit$/i.test(String(r.order_type || ''));
       return {
         id:             r.order_id,
         symbol:         r.symbol || '',
         coin:           (r.symbol || '').replace('USDT',''),
         side:           r.side          || 'long',
-        type:           r.order_type    || 'Limit',
+        type:           _isCL ? 'Limit' : (r.order_type || 'Limit'),
         lev:            lv,
         size:           sz,
         limitPrice:     lp,
-        margin:         sz * lp / lv,
+        margin:         _isCL ? 0 : sz * lp / lv,
         tp:             parseFloat(r.tp_price) || null,
         sl:             parseFloat(r.sl_price) || null,
         earnContractId: r.contract_id   || '',
         status:         'Pending',
         createdAt:      r.created_at ? new Date(r.created_at).getTime() : Date.now(),
+        ...(_isCL ? { reduceOnly: true, orderType: 'CloseLimit', closePosId: r.position_id || '', positionId: r.position_id || '' } : {}),
       };
     }
 
@@ -33361,12 +33849,16 @@ HIST.logOpen = function(pos) {
 const _origLogClose = HIST.logClose.bind(HIST);
 HIST.logClose = function(pos, closeAmt, exitPrice, realizedPnl, isFull) {
   _origLogClose(pos, closeAmt, exitPrice, realizedPnl, isFull);
+  // [CPS] position ปิดหมดแล้ว (manual / TP-SL / Limit close) → เคลียร์ Limit close ที่ค้างของ position นี้
+  if (isFull && typeof _cpsCancelCloseOrdersFor === 'function') { try { _cpsCancelCloseOrdersFor(pos.id); } catch (_e) {} }
   // [FIX] คำนวณ ROI จริง: margin = (entry * size) / lev
-  const _margin = (pos.entry && pos.size && pos.lev)
-    ? (pos.entry * pos.size) / pos.lev
+  // [FIX-C1] ใช้ขนาดที่ปิดจริง (closeAmt) — pos.size อาจถูกหักไปแล้วจาก Close tab
+  const _roiSz = (parseFloat(closeAmt) > 0) ? parseFloat(closeAmt) : pos.size;
+  const _margin = (pos.entry && _roiSz && pos.lev)
+    ? (pos.entry * _roiSz) / pos.lev
     : pos.margin || 0;
   const _roi = _margin > 0 ? (realizedPnl / _margin) * 100 : 0;
-  saveClosePosition({ ...pos, exitPrice }, realizedPnl, +_roi.toFixed(2), exitPrice, isFull);
+  saveClosePosition({ ...pos, exitPrice }, realizedPnl, +_roi.toFixed(2), exitPrice, isFull, closeAmt);
   saveTrade({
     position_id:  pos.id,
     symbol:       pos.symbol || pos.coin + 'USDT',

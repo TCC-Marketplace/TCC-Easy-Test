@@ -4,31 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TCC Admin Panel</title>
-
-<!-- Favicon -->
-<link rel="icon" href="https://i.ibb.co/7xc9KFL5/TCC-Small-1-Logo.png" type="image/png">
-<link rel="apple-touch-icon" href="https://i.ibb.co/7xc9KFL5/TCC-Small-1-Logo.png">
-
-<!-- Open Graph (สำคัญสำหรับ Line, Facebook, Telegram) -->
-<meta property="og:title" content="Trader Cafe Club - TCC Trader Agency">
-<meta property="og:description" content="เราเป็นแพลตฟอร์ม Digital Trader Agency ด้านการเทรดคริปโตและการลงทุนที่ทันสมัย | Trade • Earn • Wallet • Loans">
-<meta property="og:image" content="https://i.ibb.co/MDMqT92z/f5e6a70f5a69.jpg">
-<meta property="og:url" content="https://tradercafeclub.com">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Trader Cafe Club">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-
-<!-- Twitter / X Card (สำคัญสำหรับ Twitter/X) -->
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Trader Cafe Club - TCC Trader Agency">
-<meta name="twitter:description" content="เราเป็นแพลตฟอร์ม Digital Trader Agency ด้านการเทรดคริปโตและการลงทุนที่ทันสมัย | Trade • Earn • Wallet • Loans">
-<meta name="twitter:image" content="https://i.ibb.co/MDMqT92z/f5e6a70f5a69.jpg">
-
-
-
-
-   
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
@@ -1626,7 +1601,9 @@ function populateDynamicFilters() {
     'Futures Direct PNL','Futures Direct Funding Fee','Earn Fixed Claim','Earn Redeem','Earn Deposit Rollback',
     'Loan Borrow','Loan Repay','Loan Collateral Lock','Loan Collateral Unlock',
     'MP Topup','MP Withdraw','Commission Transfer','CommissionWithdraw','Correction','CommissionLedgerCorrection',
-    'Withdraw Rejected','Withdraw Confirmed','Admin Adjustment'
+    'Withdraw Rejected','Withdraw Confirmed','Admin Adjustment',
+    // ไฟล์หลัก v4 (v2.77-TXHIST) + type ที่ยังไม่ได้ใส่
+    'Contract PNL','ReferralFlat','ReferralTier','ReferralReserved','ProfitShareTeam'
   ];
   const txTypesFromData = [...new Set(D.txlog.map(t => t.type).filter(Boolean))].sort();
   // รวมทั้งจากข้อมูลจริงและ fallback ที่รู้จาก GAS schema
@@ -1662,10 +1639,10 @@ function populateDynamicFilters() {
   fillSelect('dpSt', mergedDepStatuses, v => depStatusLabels[v] || v);
 
   // ── 6. Withdrawal Status (wdSt) — ดึงจาก D.withdrawals จริง ──
-  const GAS_WD_STATUSES = ['awaiting_approval','pending','processing','completed','rejected','failed'];
+  const GAS_WD_STATUSES = ['awaiting_approval','pending','processing','needs_review','completed','rejected','failed'];
   const wdStatusLabels = {
     awaiting_approval:'⚠️ รอ Admin อนุมัติ', pending:'Pending (รอ Bot)',
-    processing:'⚙️ Processing', completed:'Completed', failed:'Failed/Rejected'
+    processing:'⚙️ Processing', needs_review:'🔍 ตรวจ on-chain', completed:'Completed', failed:'Failed/Rejected'
   };
   const wdStatusesFromData = [...new Set(D.withdrawals.map(d => (d.status||'').toLowerCase()).filter(Boolean))];
   const mergedWdStatuses = [...new Set([...GAS_WD_STATUSES, ...wdStatusesFromData])];
@@ -1972,6 +1949,7 @@ const WD_STATUS_LABEL = {
   pending:            { label: 'Pending (รอ Bot)',        pill: 'p-pend' },
   processing:         { label: '⚙️ Processing',           pill: 'p-pend' },
   awaiting_approval:  { label: '⚠️ รอ Admin อนุมัติ',      pill: 'p-no'   },
+  needs_review:       { label: '🔍 ตรวจ on-chain (TX ส่งแล้ว)', pill: 'p-no' },
   completed:          { label: 'Completed',               pill: 'p-ok'   },
   failed:             { label: 'Failed/Rejected',          pill: 'p-no'   },
 };
@@ -1995,7 +1973,7 @@ function rwd(resetPage=false) {
       || String(d.amount||'').includes(q);
     return matchQ&&(st==='all'||s===st);
   });
-  const pw = D.withdrawals.filter(d=>['pending','awaiting_approval'].includes((d.status||'').toLowerCase())).length;
+  const pw = D.withdrawals.filter(d=>['pending','awaiting_approval','needs_review'].includes((d.status||'').toLowerCase())).length;
   const tw2 = D.withdrawals.filter(d=>isToday(d.updated_at||d.created_at)&&(d.status||'').toLowerCase()==='completed');
   const wdRej  = D.withdrawals.filter(d=>['rejected','cancelled','failed'].includes((d.status||'').toLowerCase())).length;
   const wdProc = D.withdrawals.filter(d=>(d.status||'').toLowerCase()==='processing').length;
@@ -2017,7 +1995,7 @@ function rwd(resetPage=false) {
     wdFBar.style.display = isWdFiltered ? 'block' : 'none';
     if (isWdFiltered) {
       const wfOk   = data.filter(d=>(d.status||'').toLowerCase()==='completed').length;
-      const wfPend = data.filter(d=>['pending','processing','awaiting_approval'].includes((d.status||'').toLowerCase())).length;
+      const wfPend = data.filter(d=>['pending','processing','awaiting_approval','needs_review'].includes((d.status||'').toLowerCase())).length;
       const wfRej  = data.filter(d=>['rejected','cancelled','failed'].includes((d.status||'').toLowerCase())).length;
       const wfAmt  = data.filter(d=>(d.status||'').toLowerCase()==='completed')
                          .reduce((s,d)=>s+parseFloat(d.amount||0),0);
@@ -2038,7 +2016,7 @@ function rwd(resetPage=false) {
     const st=(d.status||'pending').toLowerCase();
     const absIdx = start+i;
     const meta = WD_STATUS_LABEL[st] || { label: st, pill: 'p-pend' };
-    const needsAdmin = st === 'awaiting_approval' || (st === 'pending' && String(d.type||'onchain') === 'onchain'); // v3: onchain pending = รอ admin (เงินถูกหักตอน submit)
+    const needsAdmin = st === 'awaiting_approval' || st === 'needs_review' || (st === 'pending' && String(d.type||'onchain') === 'onchain'); // v3: onchain pending = รอ admin (เงินถูกหักตอน submit)
     return `<tr style="cursor:pointer" onclick="vWd(${absIdx})">
       <td class="mono" style="color:var(--t3);width:40px">${start+i+1}</td>
       <td>
@@ -2073,6 +2051,7 @@ function rwd(resetPage=false) {
 function _wdKind(d){
   const st=String(d.status||'').toLowerCase();
   if (st==='awaiting_approval') return 'legacy';
+  if (st==='needs_review') return 'review';
   if (st==='pending' && String(d.type||'onchain')==='onchain') return 'pending';
   return '';
 }
@@ -2080,14 +2059,16 @@ function appWd(idx) {
   const d=(window._wdData||[])[idx]; if(!d) return;
   const k=_wdKind(d);
   if (!k) { toast('Approve ใช้ได้เฉพาะรายการ On-chain ที่รอดำเนินการ','er'); return; }
-  const warn = k==='legacy'
+  const warn = k==='review'
+    ? '🔍 TX ถูกส่งออกไปแล้วแต่ยืนยันไม่ได้ — เปิดตรวจ TxID บน block explorer ก่อน ถ้า "ถึงปลายทางแล้ว" ให้กดยืนยันเพื่อปิดรายการ (ถ้าไม่ถึงจริงให้ใช้ปุ่มปฏิเสธเพื่อคืนเงิน)'
+    : k==='legacy'
     ? 'การกด Approve จะส่งสถานะกลับเป็น "pending" ให้ Bot หยิบไปโอนต่อ — Admin ไม่ได้โอนเงินเอง'
     : 'เงินของสมาชิกถูกหักไปแล้วตอนส่งคำขอ — โอนจริงนอกระบบก่อน แล้วกรอก TxID เพื่อปิดรายการ ⚠️ ต้องปิด AUTO_RUN ของ Bot หรือมั่นใจว่า Bot ยังไม่หยิบรายการนี้ ไม่งั้นอาจโอนซ้ำ';
-  modal(k==='legacy'?'✅ ปลดล็อกรายการถอนเงิน':'✅ ยืนยันการถอนเงิน On-chain',
+  modal(k==='legacy'?'✅ ปลดล็อกรายการถอนเงิน':(k==='review'?'🔍 ยืนยันหลังตรวจ on-chain':'✅ ยืนยันการถอนเงิน On-chain'),
     `<p style="margin-bottom:8px"><strong style="color:var(--r)">-${fnum(d.amount)} ${d.coin||'USDT'}</strong> (${d.network||''}) ไปยัง</p>
     <p class="mono" style="font-size:10px;color:var(--t2);margin-bottom:12px;word-break:break-all">${d.to_address||'—'}</p>
     <div style="background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.25);border-radius:var(--rmd);padding:10px;margin-bottom:12px;font-size:11px;color:var(--y)">⚠️ ${warn}</div>
-    ${k==='pending'?'<div class="mf"><label>TxID (บังคับ)</label><input id="wtx" placeholder="0x... / hash การโอนจริง"></div>':''}
+    ${(k==='pending'||k==='review')?`<div class="mf"><label>TxID (บังคับ)</label><input id="wtx" value="${k==='review'?String(d.txid||'').replace(/"/g,''):''}" placeholder="0x... / hash การโอนจริง"></div>`:''}
     <div class="mf"><label>หมายเหตุ (ถ้ามี)</label><input id="wn" placeholder="หมายเหตุ..."></div>`,
     [{l:'ยืนยัน',c:'ok',fn:`doAppWd(${idx})`},{l:'ยกเลิก',c:'can',fn:'cm()'}]);
 }
@@ -2096,13 +2077,13 @@ async function doAppWd(idx) {
   const txid=(document.getElementById('wtx')?.value||'').trim();
   const d=(window._wdData||[])[idx]; if(!d) { cm(); return; }
   const k=_wdKind(d);
-  if (k==='pending' && !txid) { toast('กรุณาระบุ TxID','er'); return; }
+  if ((k==='pending'||k==='review') && !txid) { toast('กรุณาระบุ TxID','er'); return; }
   cm();
   const res = await gasWrite('adminApproveWithdrawal',{withdraw_id:d.withdraw_id, note, txid});
   if (res?.status==='ok') {
     const realIdx=D.withdrawals.findIndex(x=>x.withdraw_id===d.withdraw_id);
-    if(realIdx>=0){ D.withdrawals[realIdx].status = k==='pending'?'completed':'pending'; if(txid) D.withdrawals[realIdx].txid=txid; }
-    toast(k==='pending'?'✅ ยืนยันการถอนสำเร็จ':'✅ ปลดล็อกสำเร็จ — Bot จะดำเนินการต่อ','ok');
+    if(realIdx>=0){ D.withdrawals[realIdx].status = k==='legacy'?'pending':'completed'; if(txid) D.withdrawals[realIdx].txid=txid; }
+    toast(k==='legacy'?'✅ ปลดล็อกสำเร็จ — Bot จะดำเนินการต่อ':'✅ ยืนยันการถอนสำเร็จ','ok');
   } else {
     toast('⚠️ '+(res?.message||'เกิดข้อผิดพลาด'),'er');
   }
@@ -2112,7 +2093,9 @@ function rejWd(idx) {
   const d=(window._wdData||[])[idx]; if(!d) return;
   const k=_wdKind(d);
   if (!k) { toast('Reject ใช้ได้เฉพาะรายการ On-chain ที่รอดำเนินการ','er'); return; }
-  const info = k==='pending'
+  const info = k==='review'
+    ? '⚠️ TX ถูกส่งออกไปแล้ว — ปฏิเสธ (คืนเงิน) เฉพาะเมื่อตรวจ on-chain แล้วว่า TX ไม่สำเร็จจริง ไม่งั้นสมาชิกจะได้ทั้งเงินโอนและเงินคืน'
+    : k==='pending'
     ? 'ℹ️ เงินถูกหักตอนส่งคำขอแล้ว — ปฏิเสธแล้ว Bot จะ <b>คืน amount+fee</b> ให้สมาชิกอัตโนมัติ (ห้ามคืนซ้ำด้วยมือ)'
     : 'ℹ️ รอ Admin อนุมัติ: เงินถูกหักตอนส่งคำขอแล้ว — ปฏิเสธแล้ว Bot จะคืน amount+fee ให้อัตโนมัติ (ห้ามคืนซ้ำด้วยมือ)';
   modal('❌ ปฏิเสธการถอนเงิน',

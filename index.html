@@ -11164,17 +11164,21 @@ function _refreshAvbl(c) {
   // เพื่อไม่ให้ยอดเงินถูกทำให้เป็น 0 โดย UI จนกว่าจะ Redeem/ปิดสัญญาตาม workflow
   if (c.status === 'frozen') {
     const _frozenMap = window._contractDDMap && window._contractDDMap[c.contractId];
-    const _frozenAvbl = (_frozenMap && _frozenMap.available_balance !== undefined)
-      ? parseFloat(_frozenMap.available_balance) : parseFloat(c.stakedAmount || 0);
+    // [v4.9-AVBL-FROZEN] เดิม fallback = stakedAmount (ไม่หัก buffer/loss) → ผิดจากยอดที่ Redeem คืนจริง
+    //   ใหม่: GAS available_balance (= frozen_balance) → frozenBalance ที่ sync จาก Sheet (>0) → ไม่มีข้อมูล = แสดง '—' (ไม่เดาจาก staked)
+    const _frozenAvbl = (_frozenMap && _frozenMap.available_balance !== undefined && _frozenMap.available_balance !== null)
+      ? parseFloat(_frozenMap.available_balance)
+      : (parseFloat(c.frozenBalance) > 0 ? parseFloat(c.frozenBalance) : NaN);
+    const _frozenAvblTxt = isNaN(_frozenAvbl) ? '—' : fmtNum(_frozenAvbl, 2);
     const avblEl = document.getElementById('avblVal');
     if (avblEl) {
-      avblEl.textContent = `${fmtNum(isNaN(_frozenAvbl) ? 0 : _frozenAvbl, 2)} USDT`;
-      avblEl.title = 'Available Balance = Staked - Used Margin + Unrealized PNL (FROZEN)';
+      avblEl.textContent = isNaN(_frozenAvbl) ? '—' : `${_frozenAvblTxt} USDT`; // [v4.9-AVBL-FROZEN]
+      avblEl.title = 'Available Balance (FROZEN) = frozen_balance จาก Server — ยอดที่จะได้รับคืนตอน Redeem';
     }
     const badgeEl = document.getElementById('earnMarginBadge');
     if (badgeEl) {
       badgeEl.className = 'earn-margin-badge danger';
-      badgeEl.textContent = `🔒 Avbl: ${fmtNum(isNaN(_frozenAvbl) ? 0 : _frozenAvbl, 2)} (FROZEN)`;
+      badgeEl.textContent = `🔒 Avbl: ${_frozenAvblTxt} (FROZEN)`; // [v4.9-AVBL-FROZEN]
     }
     const budgetBar = document.getElementById('budgetWarnBar');
     if (budgetBar) budgetBar.style.display = 'none';
@@ -11221,7 +11225,7 @@ function _refreshAvbl(c) {
   const avblEl = document.getElementById('avblVal');
   if (avblEl) {
     avblEl.textContent = `${fmtNum(avbl, 2)} USDT`;
-    avblEl.title = 'Available Balance = Staked - Used Margin + Unrealized PNL';
+    avblEl.title = 'Available Balance = Staked - Used Margin + Unrealized PNL' + (isNaN(_gasAvailableBalance) ? ' (ประมาณการ — รอข้อมูลจาก Server)' : ''); // [v4.9-AVBL-FROZEN]
   }
 
   const badgeEl = document.getElementById('earnMarginBadge');

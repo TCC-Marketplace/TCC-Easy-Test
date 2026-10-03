@@ -1,3 +1,14 @@
+<!-- [v4.11-AVBL-NOFALLBACK] (2026-10-03) ใช้คู่กับ GAS_easy_TCC_v4_11_CLOSEATOMIC (ไม่บังคับ — แก้เฉพาะ client แสดงผล) — ค้นด้วยแท็ก "v4.11-"
+     [v4.11-AVBL-NOFALLBACK] _refreshAvbl (สัญญา active): ไม่มี available_balance จาก GAS → แสดง '—' (เดิมประมาณเองจาก staked − margin + unrealized แล้วแสดงเป็นยอดจริง)
+                             + _avblScheduleRetry: ดึง getContractStatus ซ้ำผ่าน _refreshContractLiqMap (สูงสุด 3 ครั้ง ห่างกัน ≥ 8 วิ แล้วพัก 60 วิ) แล้ววาด Avbl ใหม่เมื่อได้ค่า
+                             สูตรเมื่อมีค่าจาก GAS ไม่เปลี่ยน (GAS snapshot − unrealized ของ GAS + unrealized สดจาก S.positions) · Avbl เป็นการแสดงผลอย่างเดียว ไม่ได้ใช้ gate การเปิดออเดอร์
+     ไม่แก้: ข้อ 13 (optimistic balance ใน HTML) ยังเปิดอยู่ -->
+<!-- [v4.10-REQID] (2026-10-03) ต้องใช้คู่กับ GAS_easy_TCC_v4_10_REQID (deploy GAS ก่อน HTML) — ค้นด้วยแท็ก "v4.10-"
+     [v4.10-REQID]  dbCallRaw: action เงินของสมาชิก 10 ตัว (submitWithdraw/logTransfer/logEarnClaim*/logEarnRedeem/logCommissionTransfer/createLoan/repayLoan)
+                    แนบ request_id ต่อ 1 การกระทำ · เก็บใน data เดียวกับที่ QUEUE persist (retry/replay ใช้ id เดิม) · caller ที่เรียกตรง = sticky id ต่อคำขอหน้าตาเดียวกัน (ล้างเมื่อสำเร็จ)
+                    [REQ_UNCERTAIN] = permanent (ห้าม retry) · [REQ_IN_PROGRESS] = retry ได้ · QUEUE.push: op ที่มี request_id เทียบด้วย request_id (เดิมทับกันเมื่อไม่มี data.id)
+     [v4.10-TXFILTER] TXQ_KNOWN_TYPES เติม 'Spot Trade' / 'CommissionLedgerCorrection'
+     ไม่แก้: สูตร/ยอดเงิน/optimistic balance ใด ๆ, UI, action อื่น (ข้อ 13 ยังเปิดอยู่) -->
 <!-- [vx16-FUTD-OPEN-MARKETABLE] (2026-10-02) Futures → Direct → Open: futdPlaceOrder (Limit) — ถ้า limit ถึงเงื่อนไขแล้ว (Long: limit ≥ mark / Short: limit ≤ mark) → แจ้งเตือน + เปิด Market ทันที (openFuturesPosition) เหมือนฝั่ง Close แทนการบล็อก
      แก้เฉพาะ client: futdPlaceOrder + i18n key futd_toast_open_marketable ; ไม่ต้อง deploy GAS เพิ่ม (ใช้คู่กับ GAS_easy_TCC_v4_4 เดิม) -->
 <!-- [vx15-CLOSE-TRIM + FUTD-MARKETABLE] (2026-10-02) ต้องใช้คู่กับ GAS_easy_TCC_v4_4 (vx15-) — deploy GAS ก่อน HTML
@@ -11155,6 +11166,29 @@ function _getSelectedContract() {
   return earnContracts.find(c => c.contractId === selectedEarnContractId) || null;
 }
 
+// [v4.11-AVBL-NOFALLBACK] ไม่มี available_balance จาก GAS → ดึง getContractStatus ซ้ำ (ผ่าน _refreshContractLiqMap) แล้ววาด Avbl ใหม่
+//   สูงสุด 3 ครั้ง ห่างกัน ≥ 8 วิ · ครบแล้วพัก 60 วิก่อนลองรอบใหม่ · ไม่เคยเขียนยอดใดๆ กลับ (อ่านอย่างเดียว)
+function _avblScheduleRetry(c) {
+  try {
+    if (!c || !c.contractId || typeof _refreshContractLiqMap !== 'function') return;
+    const st = (window._avblRetry = window._avblRetry || {});
+    const e  = st[c.contractId] || (st[c.contractId] = { n: 0, at: 0, busy: false });
+    const now = Date.now();
+    if (e.busy) return;
+    if (e.n >= 3) { if (now - e.at < 60000) return; e.n = 0; }
+    if (now - e.at < 8000) return;
+    e.busy = true; e.at = now; e.n++;
+    Promise.resolve(_refreshContractLiqMap(c.contractId)).then(function () {
+      e.busy = false;
+      const m = window._contractDDMap && window._contractDDMap[c.contractId];
+      if (m && m.available_balance !== undefined && m.available_balance !== null && !isNaN(parseFloat(m.available_balance))) {
+        e.n = 0;
+        try { _refreshAvbl(c); } catch (_) {}
+      }
+    }).catch(function () { e.busy = false; });
+  } catch (_) {}
+}
+
 // Refresh Avbl display + badge color based on margin usage
 // Avbl = stakedAmount − totalUsedMargin +/− unrealizedPnL  (ไม่รวม realizedPnl)
 function _refreshAvbl(c) {
@@ -11215,17 +11249,21 @@ function _refreshAvbl(c) {
     ? parseFloat(_ddCacheEntry.unrealized_pnl) : NaN;
   // [v4.6 FIX-LIVE-AVBL] GAS available_balance เป็น snapshot (ราคา ณ ตอน sync) → ไม่ขยับตาม tick
   // ใช้ฐาน (available_balance − unrealized_pnl จาก GAS = staked − margin) + unrealized สดจาก S.positions
+  // [v4.11-AVBL-NOFALLBACK] เดิม: ไม่มีค่าจาก GAS → คำนวณเอง (staked − margin + unrealized) แล้วแสดงเหมือนยอดจริง
+  //   ใหม่: ไม่มีค่าจาก GAS = NaN → แสดง '—' แล้ว retry ดึงจาก GAS (สูตรกลางอยู่ที่ GAS getContractStatus ที่เดียว)
   const avbl = !isNaN(_gasAvailableBalance)
     ? (!isNaN(_gasUnrealized) ? (_gasAvailableBalance - _gasUnrealized + unrealizedPnl) : _gasAvailableBalance)
-    : (c.stakedAmount - (marginUsed + pendingMargin) + (isNaN(_gasUnrealized) ? unrealizedPnl : _gasUnrealized));
+    : NaN;
+  const _avblTxt = isNaN(avbl) ? '—' : fmtNum(avbl, 2);
+  if (isNaN(avbl)) _avblScheduleRetry(c);
   const tradeAvail = (_ddCacheEntry && _ddCacheEntry.trade_avail_margin !== undefined && !isNaN(parseFloat(_ddCacheEntry.trade_avail_margin)))
     ? parseFloat(_ddCacheEntry.trade_avail_margin)
     : capRemaining;
 
   const avblEl = document.getElementById('avblVal');
   if (avblEl) {
-    avblEl.textContent = `${fmtNum(avbl, 2)} USDT`;
-    avblEl.title = 'Available Balance = Staked - Used Margin + Unrealized PNL' + (isNaN(_gasAvailableBalance) ? ' (ประมาณการ — รอข้อมูลจาก Server)' : ''); // [v4.9-AVBL-FROZEN]
+    avblEl.textContent = isNaN(avbl) ? '—' : `${_avblTxt} USDT`; // [v4.11-AVBL-NOFALLBACK]
+    avblEl.title = 'Available Balance = Staked - Used Margin + Unrealized PNL' + (isNaN(avbl) ? ' (รอข้อมูลจาก Server — กำลังดึงซ้ำ)' : ''); // [v4.9-AVBL-FROZEN]
   }
 
   const badgeEl = document.getElementById('earnMarginBadge');
@@ -11233,12 +11271,12 @@ function _refreshAvbl(c) {
     badgeEl.className = 'earn-margin-badge';
     if (overusePct > 110) {
       badgeEl.classList.add('danger');
-      badgeEl.textContent = `⚠ Avbl: ${fmtNum(avbl,2)}`;
+      badgeEl.textContent = `⚠ Avbl: ${_avblTxt}`;
     } else if (overusePct > 100) {
       badgeEl.classList.add('warn');
-      badgeEl.textContent = `! Avbl: ${fmtNum(avbl,2)} | Trade Avbl: ${fmtNum(tradeAvail,2)}`;
+      badgeEl.textContent = `! Avbl: ${_avblTxt} | Trade Avbl: ${fmtNum(tradeAvail,2)}`;
     } else {
-      badgeEl.textContent = `Avbl: ${fmtNum(avbl,2)} | Trade: ${fmtNum(tradeAvail,2)}`;
+      badgeEl.textContent = `Avbl: ${_avblTxt} | Trade: ${fmtNum(tradeAvail,2)}`;
     }
   }
 
@@ -27252,7 +27290,8 @@ const TXQ_CATEGORIES = [
 const TXQ_KNOWN_TYPES = [
   'Deposit','Withdraw','Withdraw Confirmed','Withdraw Rejected','Withdraw Fee','Transfer','MP Topup','MP Withdraw',
   'Commission','Commission Transfer','CommissionWithdraw','ProfitShareTeam','ProfitShareLevelA','ProfitShareLevelB','Referral',
-  'Realized PNL','Contract PNL','Funding Fee',
+  'CommissionLedgerCorrection', // [v4.10-TXFILTER] GAS จัดเข้าหมวด commission แล้ว
+  'Realized PNL','Contract PNL','Funding Fee','Spot Trade', // [v4.10-TXFILTER] 'Spot Trade' = หมวด trading (HTML เขียนผ่าน logTransaction)
   'Earn Deposit','Earn Deposit Rollback','Earn Yield','Earn Claim','Earn Claim (APT)','Earn Claim (Trade)',
   'Earn Fixed Claim','Earn Claim PNL','Earn Redeem','Earn Liquidate','Earn Return','Earn Drawdown Warning',
   'Loan History','Loan Collateral Lock','Loan Collateral Unlock','Loan Borrow','Loan Repay','Correction',
@@ -31498,7 +31537,10 @@ function _isPermanentDbError(message) {
          m.includes('รับเงินต้นคืนไปแล้ว') ||
          // [SEC] GAS ปฏิเสธด้วยเหตุผลด้านความปลอดภัย/สิทธิ์/ตรวจค่า — retry ไปก็ไม่ผ่าน
          m.includes('[SEC]') ||
-         m.includes('[AUTH]');
+         m.includes('[AUTH]') ||
+         // [v4.10-REQID] GAS ไม่ทราบผลของคำขอเดิม (อาจสำเร็จแล้ว) → ห้าม QUEUE retry/ส่งซ้ำเด็ดขาด ต้องตรวจประวัติ/ติดต่อแอดมิน
+         // ([REQ_IN_PROGRESS] = กำลังประมวลผลอยู่ → ไม่ใส่ที่นี่ ปล่อยให้ QUEUE retry ได้ตามปกติ แล้ว GAS จะคืนผลเดิม)
+         m.includes('[REQ_UNCERTAIN]');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -31510,8 +31552,11 @@ const QUEUE = {
   _flushing: false,
 
   push(op) {
+    // [v4.10-REQID] op ที่มี request_id: 1 request_id = 1 รายการในคิว (เดิมเทียบด้วย data.id ซึ่ง action เงินไม่มี → undefined===undefined
+    //   ทำให้ logTransfer/Claim ตัวที่ 2 ที่เข้าคิวไป "ทับ" ตัวที่ 1 ที่ยังไม่ถูกส่ง = หายเงียบๆ) · op ที่ไม่มี request_id = พฤติกรรมเดิมทุกประการ
     const existing = this._q.findIndex(
-      x => x.action === op.action && x.data && op.data && x.data.id === op.data.id
+      x => x.action === op.action && x.data && op.data &&
+           (op.data.request_id ? x.data.request_id === op.data.request_id : x.data.id === op.data.id)
     );
     if (existing > -1) this._q[existing] = op;
     else this._q.push({ ...op, _retry: 0, _ts: Date.now() });
@@ -31697,7 +31742,97 @@ const _DB_READ_ACTIONS = new Set(['getDashboard','getFuturesAccountSummary','get
   // [PERF-BATCH] read-only ทั้งหมด → dedupe request ที่บินอยู่ + retry 1 ครั้งเมื่อ Timeout (cold start)
   'getOpenPositions','getOpenPositionsWithDD','getContractStatus','getContractStatusBatch']);
 const _DB_INFLIGHT = new Map();
+
+// ══════════════════════════════════════════════════════════════════
+// [v4.10-REQID] request_id — idempotency คงทนสำหรับ action เงินของสมาชิก (คู่กับ GAS v4.10 ชีต RequestLog)
+// ──────────────────────────────────────────────────────────────────
+//  • 1 การกระทำของผู้ใช้ = 1 request_id · เขียนลง "data object เดิม" → QUEUE (dbWrite ล้มแล้วเข้าคิว / persist ลง localStorage)
+//    เก็บ id นี้ไปด้วย → retry / replay หลังรีโหลดแอป ใช้ id เดิมเสมอ
+//  • caller ที่เรียก dbCallRaw ตรงๆ (ถอน / โอนคอมมิชชั่น / สินเชื่อ) สร้าง object ใหม่ทุกครั้ง → ใช้ "sticky id" ต่อคำขอหน้าตาเดียวกัน
+//    (fingerprint = action + ข้อมูล ไม่รวม request_id) จนกว่าจะสำเร็จ → timeout / ปิดแอปแล้วกดใหม่ = ส่ง id เดิม
+//    → GAS คืนผลเดิม (replay) หรือแจ้งว่ายังประมวลผลอยู่ (ไม่จ่ายซ้ำ)
+//  • สำเร็จ = ล้าง sticky (ทำรายการเดิมซ้ำโดยตั้งใจครั้งถัดไป = คำขอใหม่) · [REQ_UNCERTAIN] = เก็บ sticky ไว้นาน (ห้ามส่งซ้ำด้วย id ใหม่)
+//  • รายการ action ต้องตรงกับ REQ_IDEM_ACTIONS ฝั่ง GAS · GAS เก่าไม่รู้จักฟิลด์นี้ = เมิน (พฤติกรรมเดิม)
+//  • ไม่แตะสูตร/ยอดเงินใดๆ ฝั่ง client
+// ══════════════════════════════════════════════════════════════════
+const _REQ_ID_ACTIONS = new Set([
+  'submitWithdraw', 'logTransfer',
+  'logEarnClaim', 'logEarnClaimTrade', 'logEarnClaimApt', 'logEarnClaimFixed',
+  'logEarnRedeem', 'logCommissionTransfer', 'createLoan', 'repayLoan',
+]);
+const _REQ_STICKY_LS_KEY = 'tcc_req_sticky_v1';           // ไม่ใช้ prefix ของ LS เพื่อไม่ให้ LS.evictOld() แตะ
+const _REQ_STICKY_TTL_MS = 30 * 60 * 1000;                // 30 นาที
+const _REQ_STICKY_HOLD_UNCERTAIN_MS = 48 * 60 * 60 * 1000; // ไม่รู้ผล → เก็บ id นานพอให้แอดมินตรวจ/resolve
+let _reqStickyMem = null;
+
+/** request_id รูปแบบที่ GAS รับ: ^[A-Za-z0-9_.:\-]{16,80}$ (ที่นี่ ~32 ตัวอักษร) */
+function _reqNewId() {
+  let rnd = '';
+  try {
+    const a = new Uint8Array(10);
+    (self.crypto || window.crypto).getRandomValues(a);
+    rnd = Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+  } catch (e) {
+    rnd = (Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2) + '00000000000000000000').slice(0, 20);
+  }
+  return 'rq_' + Date.now().toString(36) + '_' + rnd;
+}
+function _reqFingerprint(action, data) {
+  try {
+    const o = {};
+    Object.keys(data || {}).filter(function (k) { return k !== 'request_id' && k !== 'token'; }).sort()
+      .forEach(function (k) { o[k] = data[k]; });
+    return action + '|' + JSON.stringify(o);
+  } catch (e) { return ''; }
+}
+function _reqStickyLoad() {
+  if (_reqStickyMem) return _reqStickyMem;
+  let m = {};
+  try { const raw = localStorage.getItem(_REQ_STICKY_LS_KEY); if (raw) m = JSON.parse(raw) || {}; } catch (e) { m = {}; }
+  _reqStickyMem = (m && typeof m === 'object') ? m : {};
+  return _reqStickyMem;
+}
+function _reqStickySave() { try { localStorage.setItem(_REQ_STICKY_LS_KEY, JSON.stringify(_reqStickyMem || {})); } catch (e) {} }
+function _reqStickyGet(fp) {
+  if (!fp) return '';
+  const m = _reqStickyLoad(), e = m[fp];
+  if (!e || !e.id) return '';
+  if (Date.now() > e.exp) { delete m[fp]; _reqStickySave(); return ''; }
+  return String(e.id);
+}
+function _reqStickySet(fp, id, holdMs) {
+  if (!fp || !id) return;
+  const m = _reqStickyLoad(), now = Date.now();
+  Object.keys(m).forEach(function (k) { if (!m[k] || now > m[k].exp) delete m[k]; }); // ล้างของหมดอายุ ไม่ให้โตไม่จำกัด
+  const prev = m[fp];
+  const keepExp = (prev && prev.id === id) ? prev.exp : 0;                            // ไม่ย่นเวลา hold ที่ยาวกว่าเดิม
+  m[fp] = { id: String(id), exp: Math.max(now + (holdMs || _REQ_STICKY_TTL_MS), keepExp) };
+  _reqStickySave();
+}
+function _reqStickyDel(fp) {
+  if (!fp) return;
+  const m = _reqStickyLoad();
+  if (m[fp]) { delete m[fp]; _reqStickySave(); }
+}
+async function _dbCallRawIdem(action, data) {
+  if (!data || typeof data !== 'object' || Object.isFrozen(data)) return _dbCallRawOnce(action, data);
+  const fp = _reqFingerprint(action, data);
+  // เขียนลง data เดิม (ไม่ clone) → dbWrite → QUEUE.push({action,data}) จึงเก็บ id เดียวกันไปด้วย
+  if (!data.request_id) data.request_id = _reqStickyGet(fp) || _reqNewId();
+  _reqStickySet(fp, data.request_id, 0);
+  try {
+    const res = await _dbCallRawOnce(action, data);
+    _reqStickyDel(fp);
+    return res;
+  } catch (e) {
+    const m = String((e && e.message) || '');
+    if (m.indexOf('[REQ_UNCERTAIN]') > -1) _reqStickySet(fp, data.request_id, _REQ_STICKY_HOLD_UNCERTAIN_MS);
+    throw e;
+  }
+}
+
 function dbCallRaw(action, data = {}) {
+  if (_REQ_ID_ACTIONS.has(action)) return _dbCallRawIdem(action, data); // [v4.10-REQID]
   if (!_DB_READ_ACTIONS.has(action)) return _dbCallRawOnce(action, data);
   let key; try { key = action + '|' + JSON.stringify(data); } catch (e) { return _dbCallRawOnce(action, data); }
   if (_DB_INFLIGHT.has(key)) return _DB_INFLIGHT.get(key);

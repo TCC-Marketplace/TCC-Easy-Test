@@ -1,3 +1,7 @@
+<!-- [v4.12-CONTRACT-HEDGE] (2026-10-03) ใช้คู่กับ GAS_easy_TCC_v4_12_CONTRACT_HEDGE — ค้นด้วยแท็ก "v4.12-"
+     [v4.12-DD-NET]     Margin Ratio (Contract tab) = unrealized สุทธิทั้งสัญญา (หักกลบ Long/Short) ตรงกับ DD/Liq ฝั่ง GAS
+     [v4.12-MERGE-LEV]  _fillOrderToPosition: merge lev ต่างกัน → ตั้ง lev ให้ margin รวมคงเดิม · ส่ง lev ของ order ใหม่ไป GAS ตอน logOpen
+     Liq. Price ยังอ่านจาก window._liqPriceMap (GAS getContractStatus) เท่านั้น — ไม่มี local formula -->
 <!-- [v4.11-AVBL-NOFALLBACK] (2026-10-03) ใช้คู่กับ GAS_easy_TCC_v4_11_CLOSEATOMIC (ไม่บังคับ — แก้เฉพาะ client แสดงผล) — ค้นด้วยแท็ก "v4.11-"
      [v4.11-AVBL-NOFALLBACK] _refreshAvbl (สัญญา active): ไม่มี available_balance จาก GAS → แสดง '—' (เดิมประมาณเองจาก staked − margin + unrealized แล้วแสดงเป็นยอดจริง)
                              + _avblScheduleRetry: ดึง getContractStatus ซ้ำผ่าน _refreshContractLiqMap (สูงสุด 3 ครั้ง ห่างกัน ≥ 8 วิ แล้วพัก 60 วิ) แล้ววาด Avbl ใหม่เมื่อได้ค่า
@@ -12113,15 +12117,17 @@ function updatePositionsPNL() {
     {
       const _c = earnContracts.find(x => x.contractId === p.earnContractId);
       if (_c && _c.stakedAmount > 0) {
-        // รวม unrealized loss ทุก position ในสัญญาเดียวกัน (เฉพาะตัวที่ loss เท่านั้น)
+        // [v4.12-DD-NET] unrealized "สุทธิ" ทุก position ในสัญญาเดียวกัน (Long กำไรหักกลบ Short ขาดทุนได้) — ตรงกับ DD/Liq ฝั่ง GAS
+        //   เดิม: รวมเฉพาะตัวที่ขาดทุน (gross) → Hedge Long+Short โชว์ Margin Ratio สูงเกินจริง
         const _contractPositions = S.positions.filter(
           pp => pp.earnContractId === p.earnContractId && (pp.status === 'Active' || pp.status === 'Partially Closed' || !pp.status)
         );
-        const _totalContractLoss = _contractPositions.reduce((sum, pp) => {
+        const _netContractPnl = _contractPositions.reduce((sum, pp) => {
           // ใช้ pnl ที่คำนวณแล้วสำหรับ position นี้ หรือ property pnl สำหรับ position อื่นในสัญญา
           const ppPnl = (pp.id === p.id) ? p.pnl : (pp.pnl || 0);
-          return ppPnl < 0 ? sum + Math.abs(ppPnl) : sum;
+          return sum + ppPnl;
         }, 0);
+        const _totalContractLoss = Math.max(0, -_netContractPnl);
         p.marginRatio = Math.min(100, (_totalContractLoss / _c.stakedAmount) * 100);
       } else {
         // fallback: ถ้าไม่มีสัญญาหรือ stakedAmount=0 ใช้ per-position loss / margin
@@ -13429,6 +13435,14 @@ function _fillOrderToPosition(order) {
     const totalSize    = existing.size + amt;
     const avgEntry     = (existing.entry * existing.size + price * amt) / totalSize;
     const newMarginTot = existing.margin + margin;
+    // [v4.12-MERGE-LEV] lev ของ order ใหม่ (ส่งให้ GAS) + lev หลัง merge ที่คง margin รวม (สูตรเดียวกับ GAS logPositionWithGuard)
+    //   lev เท่ากัน → ไม่เปลี่ยน lev ของ position เดิมเลย
+    const _orderLev = parseFloat(order.lev || S.lev) || parseFloat(existing.lev) || 150;
+    const _oldLev   = parseFloat(existing.lev) || 0;
+    if (_oldLev > 0 && _orderLev > 0 && Math.abs(_oldLev - _orderLev) > 1e-9) {
+      const _mSum = (existing.entry * existing.size) / _oldLev + (price * amt) / _orderLev;
+      if (_mSum > 0) existing.lev = parseFloat(((avgEntry * totalSize) / _mSum).toFixed(2));
+    }
     existing.size   = totalSize;
     existing.entry  = avgEntry;
     existing.margin = newMarginTot;
@@ -13437,7 +13451,7 @@ function _fillOrderToPosition(order) {
     if (tp) existing.tp = tp;
     if (sl) existing.sl = sl;
     const _logOpenP = (typeof HIST !== 'undefined')
-      ? HIST.logOpen({...existing, size: amt, entry: price, id: _genUniqueId(), fillOrderId: order.id}) // [FIX-LIMITFILL-DOUBLECOUNT] บอก GAS ว่า position นี้มาจาก order ไหน
+      ? HIST.logOpen({...existing, size: amt, entry: price, lev: _orderLev, id: _genUniqueId(), fillOrderId: order.id}) // [FIX-LIMITFILL-DOUBLECOUNT] บอก GAS ว่า position นี้มาจาก order ไหน · [v4.12-MERGE-LEV] lev = ของ order ใหม่ (ไม่ใช่ lev หลัง merge)
       : null;
     // [BUGFIX] ดึง liq_price_map ใหม่หลัง logOpen เขียนเสร็จ — กัน "Liq. Price" โชว์ "—" ค้าง
     _refreshLiqAfterLogOpen(_logOpenP);

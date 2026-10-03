@@ -1,4 +1,3 @@
-
 <!-- [vx16-FUTD-OPEN-MARKETABLE] (2026-10-02) Futures → Direct → Open: futdPlaceOrder (Limit) — ถ้า limit ถึงเงื่อนไขแล้ว (Long: limit ≥ mark / Short: limit ≤ mark) → แจ้งเตือน + เปิด Market ทันที (openFuturesPosition) เหมือนฝั่ง Close แทนการบล็อก
      แก้เฉพาะ client: futdPlaceOrder + i18n key futd_toast_open_marketable ; ไม่ต้อง deploy GAS เพิ่ม (ใช้คู่กับ GAS_easy_TCC_v4_4 เดิม) -->
 <!-- [vx15-CLOSE-TRIM + FUTD-MARKETABLE] (2026-10-02) ต้องใช้คู่กับ GAS_easy_TCC_v4_4 (vx15-) — deploy GAS ก่อน HTML
@@ -11008,6 +11007,7 @@ function _updatePosBadge() {
 }
 
 function renderPositions() {
+  if (typeof _aftScheduleRerender === 'function') _aftScheduleRerender(); // [v4.6 FIX-AST-RERENDER]
   const list = document.getElementById('posList');
   const cnt = document.getElementById('cntPos');
   if (!list) return;
@@ -11209,8 +11209,10 @@ function _refreshAvbl(c) {
     ? parseFloat(_ddCacheEntry.available_balance) : NaN;
   const _gasUnrealized = (_ddCacheEntry && _ddCacheEntry.unrealized_pnl !== undefined)
     ? parseFloat(_ddCacheEntry.unrealized_pnl) : NaN;
+  // [v4.6 FIX-LIVE-AVBL] GAS available_balance เป็น snapshot (ราคา ณ ตอน sync) → ไม่ขยับตาม tick
+  // ใช้ฐาน (available_balance − unrealized_pnl จาก GAS = staked − margin) + unrealized สดจาก S.positions
   const avbl = !isNaN(_gasAvailableBalance)
-    ? _gasAvailableBalance
+    ? (!isNaN(_gasUnrealized) ? (_gasAvailableBalance - _gasUnrealized + unrealizedPnl) : _gasAvailableBalance)
     : (c.stakedAmount - (marginUsed + pendingMargin) + (isNaN(_gasUnrealized) ? unrealizedPnl : _gasUnrealized));
   const tradeAvail = (_ddCacheEntry && _ddCacheEntry.trade_avail_margin !== undefined && !isNaN(parseFloat(_ddCacheEntry.trade_avail_margin)))
     ? parseFloat(_ddCacheEntry.trade_avail_margin)
@@ -12202,6 +12204,19 @@ function updatePositionsPNL() {
       upnlUsdEl.textContent = '≈ $' + fmtSign(totalUnrealized);
       upnlUsdEl.style.color = totalUnrealized >= 0 ? 'var(--g)' : 'var(--r)';
     }
+
+    // [v4.6 FIX-AST-GRP] อัปเดตหัวกลุ่มสัญญา (Unreal. รวม + Balance) แบบ live
+    earnContracts.filter(Boolean).forEach(c => {
+      const gU = document.getElementById('aft-grp-upnl-' + c.contractId);
+      const gB = document.getElementById('aft-grp-bal-' + c.contractId);
+      if (!gU && !gB) return;
+      const u = S.positions.filter(p => p.earnContractId === c.contractId).reduce((s, p) => s + (p.pnl || 0), 0);
+      if (gU) { gU.textContent = 'Unreal. ' + fmtSign(u); gU.style.color = u >= 0 ? 'var(--g)' : 'var(--r)'; }
+      if (gB) {
+        const bv = c.status === 'frozen' ? (c.frozenBalance ?? c.currentBalance) : (c.currentBalance || 0);
+        gB.innerHTML = fmt2(bv || 0) + ' <span style="font-size:10px;color:var(--t2)">USDT</span>';
+      }
+    });
 
     // อัปเดต inline DOM ของแต่ละ position card ใน AFT tab
     S.positions.forEach(p => {
@@ -25993,7 +26008,7 @@ function renderAstFuturesTab() {
   const _aftTodayStartMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
   const _aftTodayRealized = (typeof fdpToday === 'function' && fdpToday('contract') !== null) ? fdpToday('contract') : (typeof HIST !== 'undefined' && HIST.transactionHistory)
     ? HIST.transactionHistory.reduce((s, tx) => {
-        if (tx.type !== 'Realized PNL') return s;
+        if (tx.type !== 'Realized PNL' && tx.type !== 'Contract PNL') return s; // [v4.8]
         if ((tx.ts || 0) < _aftTodayStartMs) return s;
         if ((tx.symbol || '') === 'Earn') return s;
         return s + (parseFloat(String(tx.amount || '0').replace('+','')) || 0);
@@ -26081,8 +26096,8 @@ function renderAstFuturesTab() {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--y)" stroke-width="2.2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
           </div>
           <div class="aft-contract-bal">
-            <div class="aft-contract-bal-val">${fmt2(contract.status === 'frozen' ? (contract.frozenBalance ?? contract.currentBalance) : (contract.currentBalance || 0))} <span style="font-size:10px;color:var(--t2)">USDT</span></div>
-            <div class="aft-contract-bal-sub" style="color:${grpUnrealized>=0?'var(--g)':'var(--r)'}">Unreal. ${fmtSign(grpUnrealized)}</div>
+            <div class="aft-contract-bal-val" id="aft-grp-bal-${contract.contractId}">${fmt2(contract.status === 'frozen' ? (contract.frozenBalance ?? contract.currentBalance) : (contract.currentBalance || 0))} <span style="font-size:10px;color:var(--t2)">USDT</span></div>
+            <div class="aft-contract-bal-sub" id="aft-grp-upnl-${contract.contractId}" style="color:${grpUnrealized>=0?'var(--g)':'var(--r)'}">Unreal. ${fmtSign(grpUnrealized)}</div>
           </div>
         </div>
       </div>`;
@@ -26176,6 +26191,18 @@ function renderAstFuturesTab() {
 
   // ── 7. Rebuild filter options sheet ──
   _aftBuildFilterOptions();
+}
+
+// [v4.6 FIX-AST-RERENDER] เปิด/ปิด/ปิดบางส่วน Position → renderPositions() ถูกเรียกเสมอ
+// แต่เดิมไม่ได้ rebuild list ของ Assets→Futures-Contract (ต้องกดรีเฟรช) → debounce rebuild เมื่อแท็บนั้นเปิดอยู่
+let _aftRerenderTimer = null;
+function _aftScheduleRerender() {
+  if (typeof astCurrentTab === 'undefined' || astCurrentTab !== 'futures-a') return;
+  if (_aftRerenderTimer) return;
+  _aftRerenderTimer = setTimeout(() => {
+    _aftRerenderTimer = null;
+    try { if (typeof renderAstFuturesTab === 'function') renderAstFuturesTab(); } catch (e) { console.warn('[aftRerender]', e.message); }
+  }, 120);
 }
 
 // ── Helper: set text content ──
@@ -38586,11 +38613,12 @@ function aftdUpdateUnrealizedPnl() {
   const _fmt2    = v => (parseFloat(v) || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const _fmtSign = v => (v >= 0 ? '+' : '') + _fmt2(v);
 
-  let _upnl = 0;
+  let _upnl = 0, _upnlCross = 0;
   _positions.forEach(p => {
     const markP = _aftdPosMark(p);
     const pnl   = _aftdPosPnl(p, markP);
     _upnl += pnl;
+    if (String(p.mode || 'isolated').toLowerCase() === 'cross') _upnlCross += pnl; // [v4.7] ใช้กฎเดียวกับ futdUpdateAvblLive
 
     const uEl = document.getElementById('aftd-upnl-' + p.id);
     if (!uEl) return; // การ์ดยังไม่ถูกวาด (เช่น อยู่แท็บ Contract) — ข้ามเฉพาะ DOM ของการ์ด
@@ -38613,6 +38641,19 @@ function aftdUpdateUnrealizedPnl() {
   const _uusdEl = document.getElementById('aftd-unrealized-usd');
   if (_upnlEl) { _upnlEl.textContent = _fmtSign(_upnl); _upnlEl.style.color = _upnl >= 0 ? 'var(--g)' : 'var(--r)'; }
   if (_uusdEl) { _uusdEl.textContent = '≈ $' + _fmtSign(_upnl); _uusdEl.style.color = _upnl >= 0 ? 'var(--g)' : 'var(--r)'; }
+
+  // [v4.7 FIX-AFTD-BAL] Margin Balance = futures_balance + unrealized ทั้งหมด, Wallet(Avbl) = avail + unrealized Cross
+  // (เดิมแสดงค่า snapshot จาก GAS → ไม่ขยับตาม PnL เหมือนฝั่ง Contract) — ไม่แก้ AFTD.marginBalance / FUTD.status
+  if (typeof AFTD.baseMarginBal === 'number') {
+    const _mb = AFTD.baseMarginBal + _upnl;
+    const _mbEl = document.getElementById('aftd-margin-bal'); if (_mbEl) _mbEl.textContent = _fmt2(_mb);
+    const _muEl = document.getElementById('aftd-margin-usd'); if (_muEl) _muEl.textContent = '≈ $' + _fmt2(_mb);
+  }
+  if (typeof AFTD.baseAvail === 'number') {
+    const _wb = Math.max(0, AFTD.baseAvail + _upnlCross);
+    const _wbEl = document.getElementById('aftd-wallet-bal'); if (_wbEl) _wbEl.textContent = _fmt2(_wb);
+    const _wuEl = document.getElementById('aftd-wallet-usd'); if (_wuEl) _wuEl.textContent = '≈ $' + _fmt2(_wb);
+  }
 
   // [v2.74-FIX-F2] อัปเดต Today's PNL ทุก price tick (realtime)
   // = today_realized_pnl (จาก GAS, เก็บไว้ใน AFTD.todayRealizedPnl) + unrealized ปัจจุบัน
@@ -38816,6 +38857,7 @@ function _aftdApplyStatus(status) {
   _set('aftd-margin-usd', '≈ $' + _fmt2(_mbal));
   // [v2.74-FIX-F2] เก็บ marginBalance ไว้ใน AFTD เพื่อให้ aftdUpdateUnrealizedPnl คำนวณ % ได้
   AFTD.marginBalance = _mbal;
+  AFTD.baseMarginBal = _mbal; // [v4.7 FIX-AFTD-BAL] ฐานจาก GAS (ไม่รวม unrealized) ไว้บวก PnL สด
 
   // Wallet Balance = avail_margin (futures_balance − margin ที่ใช้ไปแล้ว)
   // [vx10] เดิมใช้ `parseFloat(avail) || _mbal` → avail=0 (ใช้ margin เต็ม) ถูกแสดงเป็นยอดเต็มผิด → ตรวจ NaN แทน
@@ -38823,6 +38865,7 @@ function _aftdApplyStatus(status) {
   const _wbal = isNaN(_av) ? _mbal : _av;
   _set('aftd-wallet-bal', _fmt2(_wbal));
   _set('aftd-wallet-usd', '≈ $' + _fmt2(_wbal));
+  AFTD.baseAvail = _wbal; // [v4.7 FIX-AFTD-BAL]
 
   // [v2.71-AFTD-REALTIME] เก็บ positions ลง global AFTD สำหรับ aftdUpdateUnrealizedPnl()
   const _positions = status.positions || [];
@@ -44393,7 +44436,7 @@ function futdUpdateCandleCountdown() {
       /* today realized — same logic as renderAstFuturesTab */
       const todayRealized = (typeof fdpToday === 'function' && fdpToday('contract') !== null) ? fdpToday('contract') : (typeof HIST !== 'undefined' && HIST.transactionHistory)
         ? HIST.transactionHistory.reduce((s, tx) => {
-            if (tx.type !== 'Realized PNL') return s;
+            if (tx.type !== 'Realized PNL' && tx.type !== 'Contract PNL') return s; // [v4.8]
             if ((tx.ts || 0) < todayMs) return s;
             if ((tx.symbol || '') === 'Earn') return s;
             return s + (parseFloat(String(tx.amount||'0').replace('+',''))||0);
@@ -44404,7 +44447,7 @@ function futdUpdateCandleCountdown() {
 
       /* summary from HIST (all time) */
       const allTx = (typeof HIST !== 'undefined' && HIST.transactionHistory) ? HIST.transactionHistory : [];
-      const allRealized = allTx.filter(tx => tx.type === 'Realized PNL' && (tx.symbol||'') !== 'Earn');
+      const allRealized = allTx.filter(tx => (tx.type === 'Realized PNL' || tx.type === 'Contract PNL') && (tx.symbol||'') !== 'Earn');
       const totalProfit = allRealized.reduce((s,tx)=>{ const v=parseFloat(String(tx.amount||'0').replace('+',''))||0; return s+(v>0?v:0); },0);
       const totalLoss   = allRealized.reduce((s,tx)=>{ const v=parseFloat(String(tx.amount||'0').replace('+',''))||0; return s+(v<0?Math.abs(v):0); },0);
       const netPnl      = totalProfit - totalLoss;
@@ -44426,7 +44469,7 @@ function futdUpdateCandleCountdown() {
 
       /* detail list (last 20 tx) */
       const detail = allTx
-        .filter(tx => tx.type === 'Realized PNL' && (tx.symbol||'') !== 'Earn')
+        .filter(tx => (tx.type === 'Realized PNL' || tx.type === 'Contract PNL') && (tx.symbol||'') !== 'Earn')
         .slice(-20).reverse()
         .map(tx => ({
           sym:  tx.symbol || '—',

@@ -1,5 +1,7 @@
 <!-- [v4.12-CONTRACT-HEDGE] (2026-10-03) ใช้คู่กับ GAS_easy_TCC_v4_12_CONTRACT_HEDGE — ค้นด้วยแท็ก "v4.12-"
-     [v4.12-DD-NET]     Margin Ratio (Contract tab) = unrealized สุทธิทั้งสัญญา (หักกลบ Long/Short) ตรงกับ DD/Liq ฝั่ง GAS
+     [v4.12-DD-POOL]    Margin Ratio (Contract tab) = DD แบบ pool: (Σ margin − realized − Σ unrealized net) / staked ตรงกับ GAS · Liq. Price ยังอ่านจาก GAS เท่านั้น
+     [v4.12-LIQ-STALE]  merge liq_price_map ล้าง id เดิมของสัญญาก่อน (Hedge เท่ากัน GAS ไม่ส่ง Liq → แสดง "—" ไม่ใช่ค่าเก่าค้าง)
+     [v4.12-LIQ-HINT]   ข้อความใต้ Liq. Price ของ Contract tab ใช้ key ใหม่ liq_price_hint_contract (key เดิม liq_price_hint = Direct tab คงไว้)
      [v4.12-MERGE-LEV]  _fillOrderToPosition: merge lev ต่างกัน → ตั้ง lev ให้ margin รวมคงเดิม · ส่ง lev ของ order ใหม่ไป GAS ตอน logOpen
      Liq. Price ยังอ่านจาก window._liqPriceMap (GAS getContractStatus) เท่านั้น — ไม่มี local formula -->
 <!-- [v4.11-AVBL-NOFALLBACK] (2026-10-03) ใช้คู่กับ GAS_easy_TCC_v4_11_CLOSEATOMIC (ไม่บังคับ — แก้เฉพาะ client แสดงผล) — ค้นด้วยแท็ก "v4.11-"
@@ -2303,6 +2305,7 @@ const TCC_I18N = {
   'balances':['ยอดเงิน','Balances','Số dư','សមតុល្យ','လက်ကျန်ငွေ','ຍອດຄົງເຫຼືອ'],
   'budget_remaining':['วงเงินคงเหลือในสัญญา','Contract Budget Remaining','Ngân sách hợp đồng còn lại','ថវិការ​ដែល​នៅ​សល់','စာချုပ်ဘတ်ဂျက်ကျန်','Contract Budget Remaining'],
   'budget_remaining_loss':['(หักขาดทุนสะสม — USDT แล้ว)','(after deducting — USDT realized loss)','(sau khi trừ lỗ — USDT)','(បន្ទាប់ពីដក — USDT)','(— USDT ဆုံးရှုံးမှုနှုတ်ပြီး)','(after deducting — USDT realized loss)'],
+  'liq_price_hint_contract':['Liq. Price = ราคาที่ Avbl ของสัญญาลงถึง 60% ของทุน (DD 40% → Freeze ปิดทุก Position) — คิดรวม margin และ realized','Liq. Price = price where the contract Avbl falls to 60% of capital (DD 40% → Freeze, all positions closed) — includes margin and realized PnL','Liq. Price = giá mà Avbl của hợp đồng giảm xuống 60% vốn (DD 40% → Freeze, đóng mọi vị thế) — đã tính margin và realized','Liq. Price = price where the contract Avbl falls to 60% of capital (DD 40% → Freeze, all positions closed) — includes margin and realized PnL','Liq. Price = price where the contract Avbl falls to 60% of capital (DD 40% → Freeze, all positions closed) — includes margin and realized PnL','Liq. Price = price where the contract Avbl falls to 60% of capital (DD 40% → Freeze, all positions closed) — includes margin and realized PnL'],
   'liq_price_hint':['Liq. Price = ราคาบังคับปิด Position (MMR 0.5%) — แยกจาก Contract DD 40% ที่ Auto-Liquidate สัญญา Earn','Liq. Price = forced close price (MMR 0.5%) — separate from Contract DD 40% that Auto-Liquidates the Earn contract','Liq. Price = giá đóng bắt buộc (MMR 0.5%) — khác với DD 40% Auto-Liquidate','Liq. Price = តម្លៃបិទបង្ខំ (MMR 0.5%) — ដោយឡែកពី DD 40%','Liq. Price = အတင်းပိတ်ဈေး (MMR 0.5%) — Contract DD 40% နှင့်ကွဲပြားသည်','Liq. Price = forced close price (MMR 0.5%) — separate from Contract DD 40% that Auto-Liquidates the Earn contract'],
   'no_position_open':['ยังไม่มี Position ที่เปิดอยู่','No open positions','Chưa có vị thế mở','មិនទាន់មាន Position','Position မဖွင့်ရသေး','No open positions'],
   'no_result_search':['ไม่พบผลลัพธ์','No results found','Không tìm thấy','រកមិនឃើញ','ရလဒ်မတွေ့','No results found'],
@@ -11132,7 +11135,7 @@ function buildPosCard(p) {
       <div style="text-align:right"><div class="di-label">Liq. Price <span style="font-size:9px;color:var(--t3)">(DD≥40%→Freeze)</span></div><div class="di-val hl">${fmtP(p.liq)}</div></div>
     </div>
     <div style="font-size:9px;color:var(--t3);margin:-4px 0 6px;line-height:1.4">
-      ${tccT('liq_price_hint')}
+      ${tccT('liq_price_hint_contract')}
     </div>
     <div class="mpb"><div class="mpbf" style="width:${mr}%;background:${barCol}"></div></div>
     <div class="realized-row col-mode" style="margin-bottom:9px">
@@ -12117,8 +12120,9 @@ function updatePositionsPNL() {
     {
       const _c = earnContracts.find(x => x.contractId === p.earnContractId);
       if (_c && _c.stakedAmount > 0) {
-        // [v4.12-DD-NET] unrealized "สุทธิ" ทุก position ในสัญญาเดียวกัน (Long กำไรหักกลบ Short ขาดทุนได้) — ตรงกับ DD/Liq ฝั่ง GAS
-        //   เดิม: รวมเฉพาะตัวที่ขาดทุน (gross) → Hedge Long+Short โชว์ Margin Ratio สูงเกินจริง
+        // [v4.12-DD-POOL] DD แบบ pool = Σ margin − realized(±) − Σ unrealized(net) — สมการเดียวกับ GAS (_calculateContractDrawdown)
+        //   Avbl = staked + realized + unrealized − margin · DD = staked − Avbl · Freeze เมื่อ DD ≥ 40% ของ staked
+        //   (เดิม: รวมเฉพาะ position ที่ขาดทุน ไม่นับ margin / ไม่เครดิต realized)
         const _contractPositions = S.positions.filter(
           pp => pp.earnContractId === p.earnContractId && (pp.status === 'Active' || pp.status === 'Partially Closed' || !pp.status)
         );
@@ -12127,7 +12131,8 @@ function updatePositionsPNL() {
           const ppPnl = (pp.id === p.id) ? p.pnl : (pp.pnl || 0);
           return sum + ppPnl;
         }, 0);
-        const _totalContractLoss = Math.max(0, -_netContractPnl);
+        const _contractMargin = _contractPositions.reduce((sum, pp) => sum + (pp.margin || 0), 0);
+        const _totalContractLoss = Math.max(0, _contractMargin - (_c.realizedPnl || 0) - _netContractPnl);
         p.marginRatio = Math.min(100, (_totalContractLoss / _c.stakedAmount) * 100);
       } else {
         // fallback: ถ้าไม่มีสัญญาหรือ stakedAmount=0 ใช้ per-position loss / margin
@@ -21107,7 +21112,7 @@ async function checkCanOpenPosition(earnContractId) {
       };
       // [BUGFIX] merge liq_price_map ถ้า backend ส่งมาด้วย — กัน Liq. Price ค้าง "—"
       if (st.liq_price_map) {
-        window._liqPriceMap = Object.assign({}, window._liqPriceMap || {}, st.liq_price_map);
+        _applyContractLiqMap(earnContractId, st.liq_price_map); // [v4.12-LIQ-STALE]
       }
       if (st.isFrozen) {
         showToast(tccTF('toast_contract_frozen_dd',{dd:st.drawdown_pct||'—'}));
@@ -21157,6 +21162,19 @@ function _setBtnLoading(side, isLoading) {
 //   อยู่ใน map นี้เลย จนกว่าจะ reload แอปใหม่ทั้งหมด → "Liq. Price (DD≥40%→Freeze)" โชว์ "—" ค้าง
 // แก้โดยเรียก getContractStatus ของสัญญานั้นทันทีหลัง position ถูกสร้าง/แก้ไข
 // แล้ว merge liq_price_map + _contractDDMap เข้า window ก่อน re-render
+// [v4.12-LIQ-STALE] merge liq_price_map ของ "สัญญานี้" แบบล้าง id เดิมของสัญญานั้นก่อน
+//   เหตุผล: v4.12 GAS ไม่ใส่ราคา Liq ของ symbol ที่ Long size = Short size (ไม่มี Liq จากราคา) — ถ้า merge ทับแบบเดิม
+//   (Object.assign) ค่า Liq เก่าของ position นั้นจะค้างใน map แล้วโชว์เป็นราคาที่ไม่จริง · ตอนนี้ id ที่ GAS ไม่ส่ง → "—"
+function _applyContractLiqMap(earnContractId, newMap) {
+  const cur = Object.assign({}, window._liqPriceMap || {});
+  (S.positions || []).forEach(function (p) {
+    if (p.earnContractId === earnContractId) {
+      delete cur[p.id];
+      delete cur[(p.coin || '') + '_' + (p.side || '')];
+    }
+  });
+  window._liqPriceMap = Object.assign(cur, newMap || {});
+}
 async function _refreshContractLiqMap(earnContractId) {
   if (!earnContractId) return;
   try {
@@ -21186,7 +21204,7 @@ async function _refreshContractLiqMap(earnContractId) {
       apt_yield_accrued:     st.apt_yield_accrued,
     };
     if (st.liq_price_map) {
-      window._liqPriceMap = Object.assign({}, window._liqPriceMap || {}, st.liq_price_map);
+      _applyContractLiqMap(earnContractId, st.liq_price_map); // [v4.12-LIQ-STALE]
     }
     if (typeof updatePositionsPNL === 'function') updatePositionsPNL();
     if (typeof renderPositions === 'function') renderPositions();
@@ -33989,7 +34007,9 @@ async function _loadOfflineStateCore() {
             }
           }
         });
-        if (Object.keys(_mergedLiqMap).length > 0) {
+        // [v4.12-LIQ-STALE] GAS ตอบ liq_price_map มาอย่างน้อย 1 สัญญา (แม้เป็น {} เพราะ Hedge เท่ากัน) → แทนที่ทั้ง map
+        const _liqAnswered = _csResults.some(r => r.status === 'fulfilled' && r.value && r.value.liq_price_map);
+        if (Object.keys(_mergedLiqMap).length > 0 || _liqAnswered) {
           window._liqPriceMap = _mergedLiqMap;
           console.warn('[OfflineEngine] liq_price_map + contractDDMap synced from', _activeCids.length,
             'contract(s):', Object.keys(_mergedLiqMap).length, 'liq entries,',

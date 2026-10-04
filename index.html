@@ -1,3 +1,10 @@
+<!-- [v6-MYT-CTR] (2026-10-04) My Trades → Futures-Contract: ตัวกรองเลขที่สัญญา + แสดงรวม All ครบ 6 แท็บ · ใช้คู่กับ GAS_easy_TCC_v6 (deploy GAS ก่อน HTML แล้วรัน repairSheetColumns()) — ค้นด้วยแท็ก "v6-MYT-CTR"
+     [v6-MYT-CTR] เพิ่มแถบ "Contract ▾" ใน Open Orders / Order History / Position History / Trade History / Transaction History / Funding Fee (เฉพาะ context Futures-Contract) · ตัวเลือก All Contracts + ทุกสัญญา · ค่าเดียวใช้ร่วมกันทุกแท็บ
+     [v6-MYT-CTR] ค่าเริ่มต้น: เปิดจากปุ่ม 📋 ในหน้า Futures = สัญญาที่เลือกอยู่ · เปิดจาก Assets (Overview/Futures-Contract/Earn/Funding) และที่อื่น = All
+     [v6-MYT-CTR] Open Orders: เลิกผูกกับ selectedEarnContractId ที่ซ่อนอยู่ + เอา S.hideOthers ออกเฉพาะใน My Trades → แสดงทุก position/ออเดอร์ของสัญญา · badge "Basic (n)" และเลขบนแท็บนับตามตัวกรองเดียวกัน (_mytOpenOrdersCount)
+     [v6-MYT-CTR] mapper ทุกแท็บเก็บ contractId · HIST.logOpen/logClose/logFunding ติด contractId ให้รายการที่เกิดใน session · logFunding/saveFunding/saveTrade ส่ง contract_id ไป GAS
+     [v6-MYT-CTR] Transaction History: เลือกสัญญา → ใช้โหมด server เดิม (TXQ) ส่ง contract_id ให้ getFilteredTransactions · Order/Trade/Funding: เลือกสัญญา → เรียก getContractHistory (ใหม่ใน GAS v6) เติม HIST เพราะ getDashboard ตัด 50 แถวรวมทุกสัญญา
+     ไม่แตะ: Futures-Direct / Spot / Assets context · hideOthers ของหน้า Positions บนหน้า Futures · mytCancelAll เดิม (ยังล้าง S.positions ทั้งหมดแบบ local ตามเดิม) · สูตร balance/margin/PNL ใดๆ -->
 <!-- [v4.14-CLOSE-LIVE] (2026-10-04) แก้ต่อจาก v4.13b — Contract Avbl / Direct Liq ขยับทันทีหลังปิด · ใช้คู่กับ GAS_easy_TCC_v4_14_AVBL_DD (HTML ส่วนนี้ไม่พึ่ง GAS ใหม่ — deploy ลำดับใดก็ได้) — ค้นด้วยแท็ก "v4.14-"
      [v4.14-AVBL-CLOSE-INSTANT] Contract: saveClosePosition ขยับฐาน Avbl (available_balance จาก GAS) ด้วยส่วนต่าง pnl ที่ปิด + margin ที่คืน (entry×size/lev) → _liqInstant วาด Avbl ใหม่ทันที (เดิมรอ GAS ยืนยัน)
                                 GAS ยังเป็น SSOT: _refreshContractLiqMap (fresh หลัง commit) แทนที่ _contractDDMap ทั้งก้อน · ไม่มีฐานจาก GAS / สัญญา frozen = ไม่ขยับ · ไม่แตะ trade_avail_margin / ฝั่งเปิด position
@@ -5452,7 +5459,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   <div class="tab" id="tabBot" onclick="switchTab('bot')">Bots</div>
   <div class="tab-hdr-r">
     <span class="ico" onclick="showToast('Sort')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg></span>
-    <span class="ico" id="tradeHistBtn" style="position:relative;z-index:500;cursor:pointer" onclick="event.stopPropagation();openMyTradesCtx('futures')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg></span>
+    <span class="ico" id="tradeHistBtn" style="position:relative;z-index:500;cursor:pointer" onclick="event.stopPropagation();openMyTradesCtx('futures',{fromFutures:true})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg></span>
   </div>
 </div>
 
@@ -10096,7 +10103,7 @@ function startFundingTimer() {
         const fundingAmt = notional * fundingRate;
         const charged = p.side === 'long' ? -fundingAmt : fundingAmt; // long pays, short receives
         // บันทึกประวัติ funding ทุก position (log ปกติทุก position)
-        HIST.logFunding(p.symbol || (p.coin + 'USDT'), charged);
+        HIST.logFunding(p.symbol || (p.coin + 'USDT'), charged, p.earnContractId); // [v6-MYT-CTR]
         // [v8 FIX] ข้าม contract ที่ _lastFundedHour ตรงแล้ว (หักไปรอบก่อนแล้ว)
         if (alreadyChargedThisHour.has(p.earnContractId)) return;
         // [v8 FIX] สะสม charged ต่อ contract — ยังไม่หักทันที (ป้องกัน multi-position)
@@ -24107,6 +24114,7 @@ const HIST = {
       id: this.genId(), coin: sym, symbol: sym, badge:'Perp',
       orderType: orderTypeTxt, dir: dirFull, dirClass,
       time: this.fmtTime(ts), ts,
+      contractId: pos.earnContractId || '', // [v6-MYT-CTR]
       amount: this.fmtNum(pos.size) + '/' + this.fmtNum(pos.size),
       price: this.fmtPrice(pos.entry) + '/' + (orderTypeTxt==='Market'?'Market':this.fmtPrice(pos.entry)),
       status: 'Filled',
@@ -24118,6 +24126,7 @@ const HIST = {
       id: this.genId(), coin: sym, badge:'Perp',
       dir: tradeDir, dirClass: tradeDir.toLowerCase(), time: this.fmtTime(ts), ts,
       orderNo: String(ts) + Math.floor(Math.random()*1000),
+      contractId: pos.earnContractId || '', // [v6-MYT-CTR]
       price: this.fmtPrice(pos.entry), filled: this.fmtNum(pos.size),
       fee: fee.toFixed(6), role:'Taker', realizedPnl: 0,
     });
@@ -24126,6 +24135,7 @@ const HIST = {
     this.transactionHistory.unshift({
       id: this.genId(), asset:'USDT', time: this.fmtTime(ts), ts,
       type:'Commission', symbol: sym + ' Perpetual', amount: '-' + fee.toFixed(6),
+      contractId: pos.earnContractId || '', // [v6-MYT-CTR]
     });
 
     // 4. Register open position for position-history tracking
@@ -24133,7 +24143,7 @@ const HIST = {
       coin: sym, symbol: sym, badge:'Perp',
       mode: (pos.mode||'Cross') + ' ' + (pos.lev||150) + 'x',
       side: pos.side, entry: pos.entry, size: pos.size,
-      openedTs: ts, maxSize: pos.size,
+      openedTs: ts, maxSize: pos.size, contractId: pos.earnContractId || '', // [v6-MYT-CTR]
       realizedPnl: 0, closedVol: 0, avgClose: 0, closeCount: 0,
     };
   },
@@ -24154,6 +24164,7 @@ const HIST = {
       id: this.genId(), coin: sym, symbol: sym, badge:'Perp',
       orderType: orderTypeTxt, dir: dirFull, dirClass,
       time: this.fmtTime(ts), ts,
+      contractId: pos.earnContractId || '', // [v6-MYT-CTR]
       amount: this.fmtNum(closeAmt) + '/' + this.fmtNum(closeAmt),
       price: this.fmtPrice(exitPrice) + '/' + (orderTypeTxt==='Market'?'Market':this.fmtPrice(exitPrice)),
       reduceOnly: 'True', status:'Filled',
@@ -24165,6 +24176,7 @@ const HIST = {
       id: this.genId(), coin: sym, badge:'Perp',
       dir: tradeDir, dirClass: tradeDir.toLowerCase(), time: this.fmtTime(ts), ts,
       orderNo: String(ts) + Math.floor(Math.random()*1000),
+      contractId: pos.earnContractId || '', // [v6-MYT-CTR]
       price: this.fmtPrice(exitPrice), filled: this.fmtNum(closeAmt),
       fee: fee.toFixed(6), role:'Taker',
       realizedPnl: +realizedPnl.toFixed(4),
@@ -24174,10 +24186,12 @@ const HIST = {
     this.transactionHistory.unshift({
       id: this.genId(), asset:'USDT', time: this.fmtTime(ts), ts,
       type:'Commission', symbol: sym + ' Perpetual', amount: '-' + fee.toFixed(6),
+      contractId: pos.earnContractId || '', // [v6-MYT-CTR]
     });
     if (Math.abs(realizedPnl) > 0.0001) {
       this.transactionHistory.unshift({
         id: this.genId(), asset:'USDT', time: this.fmtTime(ts), ts,
+        contractId: pos.earnContractId || '', // [v6-MYT-CTR]
         type:'Realized PNL', symbol: sym + ' Perpetual',
         amount: (realizedPnl >= 0 ? '+' : '') + parseFloat(realizedPnl).toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:4}),
       });
@@ -24211,6 +24225,7 @@ const HIST = {
           avgClose: this.fmtPrice(reg.avgClose),
           maxOI: this.fmtNum(reg.maxSize),
           unrealizedPnl: null,
+          contractId: reg.contractId || pos.earnContractId || '', // [v6-MYT-CTR]
           opened: openedStr, openedTs: reg.openedTs,
           closed: closedStr, closedTs: ts, ts: ts, lasting: lastingStr,
         });
@@ -24235,6 +24250,7 @@ const HIST = {
             avgClose: this.fmtPrice(reg.avgClose),
             maxOI: this.fmtNum(reg.maxSize),
             unrealizedPnl: null,
+            contractId: reg.contractId || pos.earnContractId || '', // [v6-MYT-CTR]
             opened: this.fmtTime(reg.openedTs), openedTs: reg.openedTs,
             closed: '—', closedTs: null, lasting: this._fmtDuration(ts - reg.openedTs),
           });
@@ -24244,15 +24260,17 @@ const HIST = {
   },
 
   /* ── Hook: Funding Fee (เรียกทุก 8 ชั่วโมง) ── */
-  logFunding(symbol, amount) {
+  logFunding(symbol, amount, contractId) { // [v6-MYT-CTR] + contractId (สัญญาของ position ที่ถูกหัก funding)
     const ts = Date.now();
     this.fundingFee.unshift({
       id: this.genId(), asset:'USDT', time: this.fmtTime(ts), ts,
       symbol: symbol + ' Perpetual', amount: (amount >= 0 ? '+' : '') + amount.toFixed(8),
+      contractId: contractId || '',
     });
     // also in transaction history
     this.transactionHistory.unshift({
       id: this.genId(), asset:'USDT', time: this.fmtTime(ts), ts,
+      contractId: contractId || '',
       type:'Funding Fee', symbol: symbol + ' Perpetual',
       amount: (amount >= 0 ? '+' : '') + amount.toFixed(8),
     });
@@ -24383,6 +24401,7 @@ const MYT = {
     'futd-liquidation-history':  { datePreset:'1W', dateFrom:'', dateTo:'', orderTypes:[], statuses:[], orderSorting:'creation' },
   },
   ddCurrent: null,
+  contractFilter: 'All', // [v6-MYT-CTR] 'All' | 'EC-xxxxxx' — ตัวกรองเลขที่สัญญา (เฉพาะ context 'futures') ใช้ร่วมกันทุกแท็บ · ตั้งค่าเริ่มต้นตอนเปิดใน _mytCtrApplyOpenDefault
 
   /* ── Live data getters ── filtered from HIST ── */
   getData(tab) {
@@ -24420,24 +24439,15 @@ const MYT = {
 
     if(tab === 'open-orders') {
       // live positions as pending orders
-      // [FIX Bug1] กรอง earnContractId เหมือนกับ renderPositions (ชั้น 1)
-      // [FIX Bug1] กรอง symbol ถ้า hideOthers เปิดอยู่ (ชั้น 2) — สอดคล้องกับหน้า Positions
+      // [v6-MYT-CTR] กรองตามเลขที่สัญญาของ My Trades (MYT.contractFilter) แทน selectedEarnContractId ที่ซ่อนอยู่
+      //   • เปิดจากหน้า Futures → ค่าเริ่มต้น = สัญญาที่เลือกอยู่ · เปิดจากที่อื่น = All (ดู _mytCtrApplyOpenDefault)
+      //   • เอา S.hideOthers ออก: My Trades แสดงทุก position/ออเดอร์ของสัญญา ไม่จำกัดเฉพาะ symbol ที่เปิดดูอยู่ (หน้า Positions ของ Futures ยังใช้ hideOthers ตามเดิม)
       const rawPositions = (typeof S !== 'undefined' ? S.positions : []);
-      const earnFiltered = (typeof selectedEarnContractId !== 'undefined' && selectedEarnContractId)
-        ? rawPositions.filter(p => p.earnContractId === selectedEarnContractId)
-        : rawPositions;
-      const hideFiltered = (typeof S !== 'undefined' && S.hideOthers)
-        ? earnFiltered.filter(p => p.symbol === S.symbol)
-        : earnFiltered;
+      const hideFiltered = rawPositions.filter(p => _mytCtrMatch(p.earnContractId));
 
       // นับ pending limit orders ด้วย (S.openOrders)
       const rawOrders = (typeof S !== 'undefined' && S.openOrders) ? S.openOrders : [];
-      const earnOrdersFiltered = (typeof selectedEarnContractId !== 'undefined' && selectedEarnContractId)
-        ? rawOrders.filter(o => o.earnContractId === selectedEarnContractId)
-        : rawOrders;
-      const hideOrdersFiltered = (typeof S !== 'undefined' && S.hideOthers)
-        ? earnOrdersFiltered.filter(o => o.symbol === S.symbol)
-        : earnOrdersFiltered;
+      const hideOrdersFiltered = rawOrders.filter(o => _mytCtrMatch(o.earnContractId));
 
       const posItems = hideFiltered.map(p => {
         const sym = p.symbol || (p.coin + 'USDT');
@@ -24482,11 +24492,11 @@ const MYT = {
     // [v9.1] sort ล่าสุดอยู่บนเสมอ ทุก tab — ใช้ ts (timestamp ms) descending
     const _sortDesc = arr => [...arr].sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
-    if(tab === 'order-history')      return _sortDesc(HIST.orderHistory.filter(d => matchSym(d.coin) && matchOT(d.orderType) && matchDir(d.dir) && matchSt(d.status)));
-    if(tab === 'position-history')   return _sortDesc(HIST.positionHistory.filter(d => matchSym(d.coin) && matchMode(d.mode) && matchSt(d.status)));
-    if(tab === 'trade-history')      return _sortDesc(HIST.tradeHistory.filter(d => matchSym(d.coin) && matchDir(d.dir)));
-    if(tab === 'transaction-history')return _sortDesc(HIST.transactionHistory.filter(d => matchAsset(d.asset) && matchType(d.type)));
-    if(tab === 'funding-fee')        return _sortDesc(HIST.fundingFee.filter(d => matchAsset(d.asset)));
+    if(tab === 'order-history')      return _sortDesc(HIST.orderHistory.filter(d => _mytCtrMatch(d.contractId) && matchSym(d.coin) && matchOT(d.orderType) && matchDir(d.dir) && matchSt(d.status)));
+    if(tab === 'position-history')   return _sortDesc(HIST.positionHistory.filter(d => _mytCtrMatch(d.contractId) && matchSym(d.coin) && matchMode(d.mode) && matchSt(d.status)));
+    if(tab === 'trade-history')      return _sortDesc(HIST.tradeHistory.filter(d => _mytCtrMatch(d.contractId) && matchSym(d.coin) && matchDir(d.dir)));
+    if(tab === 'transaction-history')return _sortDesc(HIST.transactionHistory.filter(d => _mytCtrMatch(d.contractId) && matchAsset(d.asset) && matchType(d.type)));
+    if(tab === 'funding-fee')        return _sortDesc(HIST.fundingFee.filter(d => _mytCtrMatch(d.contractId) && matchAsset(d.asset)));
     if(tab === 'spot-order-history') return _sortDesc(HIST.spotOrderHistory.filter(d => matchSym(d.coin) && matchDir(d.dir) && matchSt(d.status)));
     if(tab === 'spot-trade-history') return _sortDesc(HIST.spotTradeHistory.filter(d => matchSym(d.coin) && matchDir(d.dir)));
     // [v2.63-HEDGE] Futures-Direct tabs — แหล่งข้อมูลแยกจาก Earn Futures
@@ -24501,6 +24511,154 @@ const MYT = {
     return [];
   },
 };
+
+// ══════════════════════════════════════════════════════════════════════════
+//  [v6-MYT-CTR] My Trades → Futures-Contract: ตัวกรอง "เลขที่สัญญา (Contract)" ใช้ร่วมกันทุกแท็บ
+//  ──────────────────────────────────────────────────────────────────────────
+//  • MYT.contractFilter = 'All' | 'EC-xxxxxx' — ค่าเดียวทั้ง overlay (สลับแท็บแล้วไม่เปลี่ยน)
+//  • ค่าเริ่มต้นตอนเปิด: เปิดจากหน้า Futures (ปุ่ม 📋) = สัญญาที่เลือกอยู่ (selectedEarnContractId) · เปิดจากที่อื่น = All
+//  • มีผลเฉพาะ context 'futures' (Futures-Contract) กับ 6 แท็บใน MYT_CTR_TABS — Direct / Spot / Assets ไม่ถูกกรอง
+//  • แถวที่ระบุสัญญาไม่ได้ (Funding Fee ก่อน v6, Deposit/Withdraw/Transfer ฯลฯ) แสดงเฉพาะตอนเลือก All
+//  • Order / Trade / Funding: เลือกสัญญาแล้วดึง getContractHistory (GAS v6) มาเติม เพราะ getDashboard ตัดที่ 50 แถวรวมทุกสัญญา
+//    Transaction: ใช้ getFilteredTransactions (param contract_id) · Position: ข้อมูลครบอยู่แล้ว
+// ══════════════════════════════════════════════════════════════════════════
+const MYT_CTR_TABS = ['open-orders', 'order-history', 'position-history', 'trade-history', 'transaction-history', 'funding-fee'];
+const _MYT_CTR = { fetched: {}, loading: {} };
+
+function _mytCtrEsc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+/** คืนเลขที่สัญญาที่กำลังกรอง หรือ '' = All / ไม่ใช่ Futures-Contract */
+function _mytCtrActive() {
+  if (MYT.context !== 'futures') return '';
+  const c = MYT.contractFilter;
+  return (c && c !== 'All') ? String(c) : '';
+}
+function _mytCtrMatch(contractId) {
+  const c = _mytCtrActive();
+  return !c || String(contractId == null ? '' : contractId).trim() === c;
+}
+/** ดึง EC-xxxxxx จาก symbol/note (แถว Transactions เก่าที่ contract_id ว่าง) — regex เดียวกับ GAS _txContractIdOf_ */
+function _mytCtrFromText(symbol, note) {
+  const re = /\bEC-[A-Za-z0-9]+\b/;
+  const a = re.exec(String(symbol == null ? '' : symbol));
+  if (a) return a[0];
+  const b = re.exec(String(note == null ? '' : note));
+  return b ? b[0] : '';
+}
+/** จำนวน Open Orders ตามตัวกรองสัญญา (position ที่เปิดอยู่ + pending orders) — ใช้ร่วม badge แท็บ / Basic (n) */
+function _mytOpenOrdersCount() {
+  if (typeof S === 'undefined') return 0;
+  const pos = (S.positions  || []).filter(p => _mytCtrMatch(p.earnContractId));
+  const ord = (S.openOrders || []).filter(o => _mytCtrMatch(o.earnContractId));
+  return pos.length + ord.length;
+}
+function _mytCtrSyncBadge() {
+  const el = document.getElementById('mytOOCount');
+  if (el && typeof S !== 'undefined') el.textContent = _mytOpenOrdersCount();
+}
+/** ตั้งค่าเริ่มต้นทุกครั้งที่เปิด My Trades: opts.fromFutures → สัญญาที่เลือกในหน้า Futures · นอกนั้น All */
+function _mytCtrApplyOpenDefault(opts) {
+  let c = 'All';
+  try {
+    if (opts && opts.fromFutures === true && typeof selectedEarnContractId !== 'undefined' && selectedEarnContractId) {
+      c = String(selectedEarnContractId);
+    }
+  } catch (e) {}
+  MYT.contractFilter = c;
+  _MYT_CTR.fetched = {};
+  _MYT_CTR.loading = {};
+}
+/** รายการสัญญาให้เลือก: earnContracts ทุกสถานะ + เลขที่ที่โผล่ใน history/position/ออเดอร์ (กันตกหล่น) · ใหม่ → เก่า */
+function _mytCtrOptions() {
+  const seen = new Map();
+  const add = (id, sub, ts) => {
+    id = String(id == null ? '' : id).trim();
+    if (!id) return;
+    if (!seen.has(id)) seen.set(id, { id: id, sub: sub || '', ts: ts || 0 });
+  };
+  try {
+    (typeof earnContracts !== 'undefined' ? earnContracts : []).forEach(c => {
+      if (!c || !c.contractId) return;
+      const amt = (typeof fmtM === 'function') ? fmtM(c.stakedAmount) : c.stakedAmount;
+      add(c.contractId, [c.planDays ? (c.planDays + '-Day') : '', c.status || '', amt ? (amt + ' USDT') : ''].filter(Boolean).join(' · '), c.startTime || 0);
+    });
+  } catch (e) {}
+  try {
+    [HIST.orderHistory, HIST.positionHistory, HIST.tradeHistory, HIST.transactionHistory, HIST.fundingFee].forEach(arr => (arr || []).forEach(d => add(d && d.contractId)));
+    if (typeof S !== 'undefined') {
+      (S.positions  || []).forEach(p => add(p && p.earnContractId));
+      (S.openOrders || []).forEach(o => add(o && o.earnContractId));
+    }
+  } catch (e) {}
+  if (MYT.contractFilter && MYT.contractFilter !== 'All') add(MYT.contractFilter);
+  return Array.from(seen.values()).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+}
+function _mytCtrBarHTML() {
+  const cur = _mytCtrActive();
+  const on = !!cur;
+  const busy = on && _MYT_CTR.loading[cur];
+  return '<div class="myt-ctr-bar" style="display:flex;align-items:center;gap:8px;padding:8px 12px 0">' +
+    '<span style="font-size:11px;color:var(--t3)">Contract</span>' +
+    '<button class="myt-filter-btn" style="' + (on ? 'border-color:var(--y);color:var(--y);' : '') + '" onclick="openMytContractSheet()">' +
+      _mytCtrEsc(on ? cur : 'All Contracts') +
+      ' <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+    '</button>' +
+    (busy ? '<span style="font-size:11px;color:var(--t3)">Loading…</span>' : '') +
+  '</div>';
+}
+/** เปิด bottom sheet เลือกสัญญา (ใช้ panel เดียวกับ openMytDD · mytDDSelect แยกสาขาด้วย _isCtr) */
+function openMytContractSheet() {
+  const opts = _mytCtrOptions();
+  MYT.ddCurrent = { tab: '__ctr__', key: 'contract', options: ['All'].concat(opts.map(o => o.id)), _isCtr: true };
+  document.getElementById('mytDDTitle').textContent = 'Contract';
+  const cur = MYT.contractFilter || 'All';
+  const row = (id, label, sub) => {
+    const sel = id === cur;
+    return '<div class="myt-dd-option ' + (sel ? 'selected' : '') + '" data-cid="' + _mytCtrEsc(id) + '" onclick="mytDDSelect(this.dataset.cid)">' +
+      '<div style="min-width:0"><div>' + _mytCtrEsc(label) + '</div>' +
+      (sub ? '<div style="font-size:10px;color:var(--t3);margin-top:2px">' + _mytCtrEsc(sub) + '</div>' : '') + '</div>' +
+      (sel ? '<span class="myt-dd-check">✓</span>' : '') + '</div>';
+  };
+  let html = row('All', 'All Contracts', 'All contracts combined');
+  opts.forEach(o => { html += row(o.id, o.id, o.sub); });
+  document.getElementById('mytDDOptions').innerHTML =
+    '<div style="max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch">' + html + '</div>';
+  document.getElementById('mytDDPanel').style.display = 'block';
+  document.getElementById('mytDDOverlay').classList.add('open');
+}
+function mytSetContractFilter(val) {
+  MYT.contractFilter = val || 'All';
+  closeMytDD();
+  const tab = MYT.currentTab;
+  mytRenderFilter(tab);
+  mytRenderContent(tab);
+  _mytCtrSyncBadge();
+}
+/** เลือกสัญญาเฉพาะ → ดึง Order/Trade/Funding ของสัญญานั้นจาก GAS (getContractHistory) ครั้งเดียวต่อสัญญาต่อการเปิด My Trades
+ *  GAS ยังเป็นรุ่นเก่า/ดึงไม่สำเร็จ → ใช้ข้อมูลที่โหลดอยู่แล้วใน HIST (ไม่ทำให้หน้าว่าง · ไม่ retry วนจนกว่าจะเปิดใหม่) */
+function _mytCtrFetch(cid) {
+  if (!cid || _MYT_CTR.fetched[cid] || _MYT_CTR.loading[cid]) return;
+  const uid = (typeof USER_PROFILE !== 'undefined' && USER_PROFILE && USER_PROFILE.uid) ? String(USER_PROFILE.uid) : '';
+  if (!uid || typeof dbCallRaw !== 'function') return;
+  _MYT_CTR.loading[cid] = true;
+  try { _DB_READ_ACTIONS.add('getContractHistory'); } catch (e) {}   // read-only → dedupe in-flight + retry เมื่อ Timeout
+  dbCallRaw('getContractHistory', { uid: uid, contract_id: cid, limit: 200 }).then(res => {
+    if (!res) throw new Error('empty response');
+    if (Array.isArray(res.orderHistory) && res.orderHistory.length) _mergeIntoHIST('orderHistory', res.orderHistory);
+    if (Array.isArray(res.trades)       && res.trades.length)       _mergeIntoHIST('tradeHistory', res.trades);
+    if (Array.isArray(res.funding)      && res.funding.length)      _mergeIntoHIST('fundingFee',   res.funding);
+    _MYT_CTR.fetched[cid] = 'ok';
+  }).catch(e => {
+    _MYT_CTR.fetched[cid] = 'err';
+    console.warn('[MYT-CTR] getContractHistory failed (ต้อง deploy GAS v6 ก่อน):', e && e.message);
+  }).then(() => {
+    delete _MYT_CTR.loading[cid];
+    if (_mytCtrActive() !== cid) return;                         // ผู้ใช้เปลี่ยนสัญญาไปแล้ว
+    const ov = document.getElementById('myTradesOverlay');
+    if (ov && ov.classList.contains('open')) { mytRenderFilter(MYT.currentTab); mytRenderContent(MYT.currentTab); }
+  });
+}
 
 // ── [v8] loadOpenPositionsWithDD — ดึง positions พร้อม DD Map จาก GAS ──
 async function loadOpenPositionsWithDD() {
@@ -24568,7 +24726,8 @@ async function loadOpenPositionsWithDD() {
   }
 }
 
-function openMyTrades(){
+function openMyTrades(opts){
+  _mytCtrApplyOpenDefault(opts); // [v6-MYT-CTR] opts.fromFutures → สัญญาที่เลือกในหน้า Futures · ไม่ส่ง/อื่นๆ → All
   const ov = document.getElementById('myTradesOverlay');
   const body = document.body;
   const rect = body.getBoundingClientRect();
@@ -24608,7 +24767,8 @@ function openMyTrades(){
 // - context ต่างจากที่ค้างอยู่ → mytSetContext(ctx) (ปิดเมนู, อัปเดต label, สร้างแท็บใหม่, เริ่มที่แท็บแรก)
 // - context เดิม → คงแท็บที่ดูค้างไว้
 // - ไม่แก้ openMyTrades() เดิม → ปุ่มอื่นที่ยังเรียก openMyTrades() ตรงๆ (Overview/Earn/Funding) ทำงานเหมือนเดิม
-function openMyTradesCtx(ctx){
+function openMyTradesCtx(ctx, opts){
+  _mytCtrApplyOpenDefault(opts); // [v6-MYT-CTR] ตั้งก่อน mytSetContext เพื่อให้รอบ render แรกใช้ค่าที่ถูกต้อง
   try {
     if (ctx && typeof MYT !== 'undefined' && MYT.context !== ctx &&
         typeof MYT_CONTEXTS !== 'undefined' && MYT_CONTEXTS[ctx] &&
@@ -24616,7 +24776,7 @@ function openMyTradesCtx(ctx){
       mytSetContext(ctx);
     }
   } catch (e) { console.warn('[openMyTradesCtx]', e); }
-  openMyTrades();
+  openMyTrades(opts);
 }
 function closeMyTrades(){
   document.getElementById('myTradesOverlay').classList.remove('open');
@@ -24628,23 +24788,8 @@ function mytRefreshIfOpen(){
     mytRenderFilter(MYT.currentTab);
     mytRenderContent(MYT.currentTab);
   }
-  // [FIX Bug2] badge count ของ Open Orders tab ใช้ filter เดียวกับ renderPositions
-  // (earnContractId + hideOthers) ให้ตรงกับ Positions badge
-  const countEl = document.getElementById('mytOOCount');
-  if(countEl && typeof S !== 'undefined') {
-    let cnt = S.positions;
-    if (typeof selectedEarnContractId !== 'undefined' && selectedEarnContractId) {
-      cnt = cnt.filter(p => p.earnContractId === selectedEarnContractId);
-    }
-    if (S.hideOthers) cnt = cnt.filter(p => p.symbol === S.symbol);
-    // รวม pending limit orders ด้วย
-    let pendCnt = S.openOrders || [];
-    if (typeof selectedEarnContractId !== 'undefined' && selectedEarnContractId) {
-      pendCnt = pendCnt.filter(o => o.earnContractId === selectedEarnContractId);
-    }
-    if (S.hideOthers) pendCnt = pendCnt.filter(o => o.symbol === S.symbol);
-    countEl.textContent = cnt.length + pendCnt.length;
-  }
+  // [v6-MYT-CTR] badge count ของ Open Orders tab นับตามตัวกรองสัญญาเดียวกับรายการ (เดิมใช้ selectedEarnContractId + hideOthers)
+  _mytCtrSyncBadge();
 }
 
 function mytSwitchTab(tab, el){
@@ -24689,18 +24834,8 @@ function _origMytRenderFilter(tab){
   let html = '';
 
   if(tab === 'open-orders'){
-    // [FIX Bug2] count ใช้ filter เดียวกับ getData('open-orders') คือกรอง earnContractId + hideOthers
-    let _cntPos = (typeof S !== 'undefined' ? S.positions : []);
-    if (typeof selectedEarnContractId !== 'undefined' && selectedEarnContractId) {
-      _cntPos = _cntPos.filter(p => p.earnContractId === selectedEarnContractId);
-    }
-    if (typeof S !== 'undefined' && S.hideOthers) _cntPos = _cntPos.filter(p => p.symbol === S.symbol);
-    let _cntOrd = (typeof S !== 'undefined' && S.openOrders) ? S.openOrders : [];
-    if (typeof selectedEarnContractId !== 'undefined' && selectedEarnContractId) {
-      _cntOrd = _cntOrd.filter(o => o.earnContractId === selectedEarnContractId);
-    }
-    if (typeof S !== 'undefined' && S.hideOthers) _cntOrd = _cntOrd.filter(o => o.symbol === S.symbol);
-    const _totalOO = _cntPos.length + _cntOrd.length;
+    // [v6-MYT-CTR] count ใช้ตัวกรองสัญญาเดียวกับ getData('open-orders') (เดิม earnContractId ที่เลือกในหน้า Futures + hideOthers)
+    const _totalOO = _mytOpenOrdersCount();
     html = `
     <div class="myt-basic-bar">
       <div class="myt-bc-btn ${f.basicCond==='basic'?'active':''}" onclick="mytSetBasicCond('basic')">Basic (${_totalOO})</div>
@@ -25256,6 +25391,7 @@ function closeMytDD(){
 }
 function mytDDSelect(val){
   if(!MYT.ddCurrent) return;
+  if (MYT.ddCurrent._isCtr) { mytSetContractFilter(val); return; } // [v6-MYT-CTR] ตัวเลือกเลขที่สัญญา
   if (MYT.ddCurrent._isTxf) {
     // [FIX Bug1] TXF dropdown: เขียน TXF.from / TXF.to / TXF.coin
     // แล้วอัปเดต label ใน filter sheet — ไม่แตะ MYT.filters
@@ -25303,6 +25439,7 @@ function mytCancelOrder(posId){
     time: HIST.fmtTime(Date.now()), ts: Date.now(),
     amount: HIST.fmtNum(p.size)+'/0.000',
     price: HIST.fmtPrice(p.entry)+'/—',
+    contractId: p.earnContractId || '', // [v6-MYT-CTR]
     status: 'Cancelled',
   });
   renderPositions && renderPositions();
@@ -25323,6 +25460,7 @@ function mytCancelAll(){
       dirClass: p.side==='long'?'open-long':'open-short',
       time: HIST.fmtTime(Date.now()), ts: Date.now(),
       amount: HIST.fmtNum(p.size)+'/0.000', price: HIST.fmtPrice(p.entry)+'/—',
+      contractId: p.earnContractId || '', // [v6-MYT-CTR]
       status: 'Cancelled',
     });
   });
@@ -25461,7 +25599,7 @@ function mytSetContext(ctx) {
   // Rebuild tabs row
   const tabsRow = document.getElementById('mytTabsRow');
   tabsRow.innerHTML = cfg.tabs.map((t, i) =>
-    `<div class="myt-tab${i===0?' active':''}" data-tab="${t.id}" onclick="mytSwitchTab('${t.id}',this)">${t.label}${t.count?`<span class="myt-tab-count" id="${t.count}">${t.count==='futdOOCount'?mytFutdOOCount():(typeof S!=='undefined'?S.positions.length:0)}</span>`:''}</div>`
+    `<div class="myt-tab${i===0?' active':''}" data-tab="${t.id}" onclick="mytSwitchTab('${t.id}',this)">${t.label}${t.count?`<span class="myt-tab-count" id="${t.count}">${t.count==='futdOOCount'?mytFutdOOCount():(typeof S!=='undefined'?_mytOpenOrdersCount():0)}</span>`:''}</div>`
   ).join('');
   mytSwitchTab(cfg.defaultTab, tabsRow.querySelector('.myt-tab'));
 }
@@ -27541,10 +27679,11 @@ function _txqFilters() {
     asset:    (f.asset && f.asset !== 'All') ? f.asset : '',
     dateFrom: adv.dateFrom || '',
     dateTo:   adv.dateTo   || '',
+    contractId: _mytCtrActive(), // [v6-MYT-CTR] '' = All / ไม่ใช่ Futures-Contract → ไม่ส่ง contract_id
   };
 }
 function _txqWantsServer(flt) {
-  return !!(flt.category !== 'all' || flt.q || flt.type || flt.asset || flt.dateFrom || flt.dateTo);
+  return !!(flt.category !== 'all' || flt.q || flt.type || flt.asset || flt.dateFrom || flt.dateTo || flt.contractId);
 }
 function _txqSig(flt) { return _txqUid() + '|' + JSON.stringify(flt); }
 
@@ -27575,6 +27714,7 @@ function txqFetch(reset) {
   if (flt.q)        params.q        = flt.q;
   if (flt.dateFrom) params.dateFrom = flt.dateFrom;
   if (flt.dateTo)   params.dateTo   = flt.dateTo;
+  if (flt.contractId) params.contract_id = flt.contractId;   // [v6-MYT-CTR] GAS getFilteredTransactions กรอง contract_id อยู่แล้ว (v4.9-ACCT-SEP)
 
   try { _DB_READ_ACTIONS.add('getFilteredTransactions'); } catch (e) {}   // read-only → dedupe in-flight + retry เมื่อ Timeout (Set นิยามในสคริปต์ถัดไป จึงเติมตอนเรียกใช้)
   return dbCallRaw('getFilteredTransactions', params).then(res => {
@@ -27687,6 +27827,31 @@ function _txqDecorate() {
   const _orig = mytSwitchTab;
   mytSwitchTab = function (tab, el) {
     if (tab === 'transaction-history' && TXQ.sig) TXQ.sig = '__stale__';
+    return _orig.apply(this, arguments);
+  };
+})();
+
+// ══════════════════════════════════════════════════════════════════════════
+//  [v6-MYT-CTR] hooks ของตัวกรองเลขที่สัญญา — วางหลัง TXQ hooks จึงเป็นชั้นนอกสุด
+// ══════════════════════════════════════════════════════════════════════════
+// hook A: mytRenderFilter — เพิ่มแถบ "Contract ▾" บนสุดของพื้นที่ filter (เฉพาะ Futures-Contract + 6 แท็บ)
+(function () {
+  const _orig = mytRenderFilter;
+  mytRenderFilter = function (tab) {
+    const r = _orig.apply(this, arguments);
+    if (MYT.context === 'futures' && MYT_CTR_TABS.indexOf(tab) > -1) {
+      const area = document.getElementById('mytFilterArea');
+      if (area) area.insertAdjacentHTML('afterbegin', _mytCtrBarHTML());
+    }
+    return r;
+  };
+})();
+// hook B: mytRenderContent — เลือกสัญญาเฉพาะแล้วเข้าแท็บ Order/Trade/Funding → ดึงข้อมูลครบของสัญญานั้น (ครั้งเดียว)
+(function () {
+  const _orig = mytRenderContent;
+  mytRenderContent = function (tab) {
+    const cid = _mytCtrActive();
+    if (cid && (tab === 'order-history' || tab === 'trade-history' || tab === 'funding-fee')) _mytCtrFetch(cid);
     return _orig.apply(this, arguments);
   };
 })();
@@ -32835,6 +33000,7 @@ function _mapGasPositionHistory(r) {
     coin:         coin,
     symbol:       sym,
     badge:        r.badge || 'Perp',
+    contractId:   r.earnContractId || r.earn_contract_id || r.contract_id || '', // [v6-MYT-CTR]
     mode:         modeRaw + ' ' + lev + 'x',
     lev:          lev,
     side:         (r.side || 'long').toLowerCase(),
@@ -32877,6 +33043,7 @@ function _mapGasTradeHistory(r) {
     dirClass:     dirClass,
     time:         _isoToHistTime(r.created_at),
     ts:           r.created_at ? Date.parse(r.created_at) : Date.now(),
+    contractId:   r.earnContractId || r.contract_id || '', // [v6-MYT-CTR] GAS ติดให้ใน getDashboard (contract_id ของแถว → ไม่มีก็ derive จาก position_id)
     orderNo:      String(r.id || ''),
     price:        HIST.fmtPrice(r.price),
     filled:       HIST.fmtNum(r.filled),
@@ -32918,6 +33085,7 @@ function _mapGasFundingFee(r) {
     id:     r.id,
     asset:  r.asset || 'USDT',
     symbol: r.symbol || '',
+    contractId: r.contractId || r.contract_id || '', // [v6-MYT-CTR] แถวก่อน GAS v6 = '' → แสดงเฉพาะตอนเลือก All
     amount: amt,
     time:   _isoToHistTime(r.created_at),
     ts:     r.created_at ? Date.parse(r.created_at) : Date.now(),
@@ -32953,6 +33121,7 @@ function _mapGasOrderHistory(r) {
     amount:     HIST.fmtNum(size) + '/' + HIST.fmtNum(size),
     price:      HIST.fmtPrice(limitPrice) + '/' + (orderTypeTxt === 'Market' ? 'Market' : HIST.fmtPrice(limitPrice)),
     reduceOnly: 'False',
+    contractId: r.contractId || r.contract_id || '', // [v6-MYT-CTR]
     status:     statusTxt,
   };
 }
@@ -32983,6 +33152,7 @@ function _mapGasTransaction(r) {
     note:   r.note   || '',
     txid:   r.txid || _extractTxidFromNote(r.note),
     status: r.status || '',
+    contractId: r.contract_id || r.contractId || _mytCtrFromText(r.symbol, r.note), // [v6-MYT-CTR] แถวเก่า contract_id ว่าง → derive จาก symbol/note (เหมือน GAS)
     time:   _isoToHistTime(r.created_at),
     ts:     r.created_at ? Date.parse(r.created_at) : Date.now(),
   };
@@ -33478,9 +33648,9 @@ function saveTransaction(type, asset, symbol, amount, note) {
 }
 
 // ── Funding Fee ───────────────────────────────────────────────────
-function saveFunding(symbol, amount) {
+function saveFunding(symbol, amount, contractId) { // [v6-MYT-CTR] + contract_id (คอลัมน์ใหม่ท้ายชีต FundingFees — GAS เก่า/ยังไม่ repairSheetColumns = ถูกเมินเฉยๆ)
   const uid = USER_PROFILE.uid;
-  const data = { uid, symbol, amount: String(amount), asset: 'USDT' };
+  const data = { uid, symbol, amount: String(amount), asset: 'USDT', contract_id: contractId || '' };
   dbWrite('logFunding', data);
 }
 
@@ -34477,6 +34647,7 @@ HIST.logClose = function(pos, closeAmt, exitPrice, realizedPnl, isFull) {
   saveClosePosition({ ...pos, exitPrice }, realizedPnl, +_roi.toFixed(2), exitPrice, isFull, closeAmt);
   saveTrade({
     position_id:  pos.id,
+    contract_id:  pos.earnContractId || '', // [v6-MYT-CTR] ติดสัญญาตั้งแต่เขียน (GAS ยัง derive จาก position_id ให้แถวเก่า)
     symbol:       pos.symbol || pos.coin + 'USDT',
     badge:        'Perp',
     dir:          pos.side === 'long' ? 'Sell' : 'Buy',
@@ -34512,9 +34683,9 @@ HIST.logSpotTrade = function(coin, side, orderType, price, qty, fee) {
 
 // ── Funding fee ───────────────────────────────────────────────────
 const _origLogFunding = HIST.logFunding.bind(HIST);
-HIST.logFunding = function(symbol, amount) {
-  _origLogFunding(symbol, amount);
-  saveFunding(symbol, amount);
+HIST.logFunding = function(symbol, amount, contractId) { // [v6-MYT-CTR] ส่ง contractId ต่อไปทั้ง local HIST และ GAS
+  _origLogFunding(symbol, amount, contractId);
+  saveFunding(symbol, amount, contractId);
 };
 
 // ── Internal Transfer ─────────────────────────────────────────────

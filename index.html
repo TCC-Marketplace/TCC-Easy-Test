@@ -4706,7 +4706,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         Holdings <span class="sp-tab-count" id="spHoldingsCount">1</span>
       </div>
       <div class="sp-tab-bn" id="spTab-bots" onclick="switchSpTab('bots',this)">Bots</div>
-      <div class="sp-tab-cal" onclick="showToast('Order History')">
+      <div class="sp-tab-cal" onclick="openMyTradesCtx('spot')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       </div>
     </div>
@@ -5452,7 +5452,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   <div class="tab" id="tabBot" onclick="switchTab('bot')">Bots</div>
   <div class="tab-hdr-r">
     <span class="ico" onclick="showToast('Sort')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg></span>
-    <span class="ico" id="tradeHistBtn" style="position:relative;z-index:500;cursor:pointer" onclick="event.stopPropagation();openMyTrades()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg></span>
+    <span class="ico" id="tradeHistBtn" style="position:relative;z-index:500;cursor:pointer" onclick="event.stopPropagation();openMyTradesCtx('futures')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg></span>
   </div>
 </div>
 
@@ -5805,7 +5805,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   <div class="tab"        id="futdTabBot" onclick="futdSwitchSubTab('bot')">Bots</div>
   <div class="tab-hdr-r">
     <span class="ico" onclick="showToast('Sort')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg></span>
-    <span class="ico" onclick="mytSetContext('futures_direct');openMyTrades()" style="cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg></span>
+    <span class="ico" onclick="openMyTradesCtx('futures_direct')" style="cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg></span>
   </div>
 </div>
 
@@ -6002,7 +6002,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <div class="aft-icons">
           <div class="ast-icon-btn">🎁</div>
           <div class="ast-icon-btn">⇄</div>
-          <div class="ast-icon-btn" onclick="openMyTrades()" title="Trade History">
+          <div class="ast-icon-btn" onclick="openMyTradesCtx('futures')" title="Trade History">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg>
           </div>
           <div class="ast-icon-btn" onclick="_aftOpenPnlShare()" title="Share PNL" style="color:var(--y)">
@@ -6088,7 +6088,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <div class="aft-icons">
           <div class="ast-icon-btn">🎁</div>
           <div class="ast-icon-btn">⇄</div>
-          <div class="ast-icon-btn" onclick="mytSetContext('futures_direct');openMyTrades()" title="Trade History">
+          <div class="ast-icon-btn" onclick="openMyTradesCtx('futures_direct')" title="Trade History">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg>
           </div>
           <div class="ast-icon-btn" onclick="_aftdOpenPnlShare()" title="Share PNL" style="color:var(--y)">
@@ -6960,7 +6960,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         </span></div>
         <div style="display:flex;gap:8px;align-items:center">
           <div class="ast-icon-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></div>
-          <div class="ast-icon-btn" onclick="openMyTrades()" title="Trade History"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg></div>
+          <div class="ast-icon-btn" onclick="openMyTradesCtx('spot')" title="Trade History"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="18" rx="2"/><circle cx="16" cy="16" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2"/><polyline points="16 13 16 16 18 16"/></svg></div>
         </div>
       </div>
       <div class="ast-total-value" style="margin-top:8px"><span class="ast-hideable" id="spotTotalVal">0.00</span><span class="ast-unit">USDT</span><span class="ast-arrow">▼</span></div>
@@ -24067,8 +24067,17 @@ const HIST = {
   _openPosRegistry:  {},  // posId → { coin, symbol, side, lev, mode, entry, size, openedTs, maxSize }
 
   fmtTime(ts) {
+    // [v4.15-FIX-FMTTIME] รับ id แบบ "<ms>_<rand>" (_genUniqueId) / "<ms><rand>" (genId) / เลข ms / ISO string
+    // เดิม new Date("1759562400123_ab3cd") = Invalid Date → formatToParts โยน RangeError → My Trades พัง
+    let _t = ts;
+    if (typeof _t === 'string') {
+      const _s = _t.trim();
+      const _m = /^(\d{13})/.exec(_s);
+      _t = _m ? Number(_m[1]) : (/^\d+$/.test(_s) ? Number(_s) : _s);
+    }
     // [v9.1] แสดงเวลา Bangkok (UTC+7) เสมอ
-    const d = new Date(ts);
+    const d = new Date(_t);
+    if (isNaN(d.getTime())) return '—'; // [v4.15-FIX-FMTTIME] ไม่ throw อีก
     const parts = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Bangkok',
       year: 'numeric', month: '2-digit', day: '2-digit',
@@ -24594,6 +24603,20 @@ function openMyTrades(){
   if (_anyHistEmpty) {
     if (typeof _astFetchAllHistoryIfEmpty === 'function') _astFetchAllHistoryIfEmpty();
   }
+}
+// [v4.15-MYT-CTX] เปิด My Trades ตรงไปยัง context ที่ระบุ ('futures' | 'futures_direct' | 'spot')
+// - context ต่างจากที่ค้างอยู่ → mytSetContext(ctx) (ปิดเมนู, อัปเดต label, สร้างแท็บใหม่, เริ่มที่แท็บแรก)
+// - context เดิม → คงแท็บที่ดูค้างไว้
+// - ไม่แก้ openMyTrades() เดิม → ปุ่มอื่นที่ยังเรียก openMyTrades() ตรงๆ (Overview/Earn/Funding) ทำงานเหมือนเดิม
+function openMyTradesCtx(ctx){
+  try {
+    if (ctx && typeof MYT !== 'undefined' && MYT.context !== ctx &&
+        typeof MYT_CONTEXTS !== 'undefined' && MYT_CONTEXTS[ctx] &&
+        typeof mytSetContext === 'function') {
+      mytSetContext(ctx);
+    }
+  } catch (e) { console.warn('[openMyTradesCtx]', e); }
+  openMyTrades();
 }
 function closeMyTrades(){
   document.getElementById('myTradesOverlay').classList.remove('open');

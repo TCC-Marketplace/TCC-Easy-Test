@@ -1,3 +1,9 @@
+<!-- [v8.3-ORDHIST] (2026-10-06) ใช้คู่กับ GAS_easy_TCC_v6_1.gs (deploy GAS ก่อน HTML) — GAS บันทึก Market close ลงชีต OpenOrders เป็นแถว cordc_ แล้ว → HTML แสดงเป็น Close Long/Short + ไม่สร้างซ้ำจาก Trades + แทนแถวชั่วคราวใน session ไม่ให้ซ้ำ
+     ยังทำงานได้กับ GAS v6 เดิม (ใช้ตัวสร้างกลับจาก Positions/Trades ของ v8.2 เป็น fallback — ครอบคลุมประวัติก่อน deploy ด้วย) · ค้นด้วยแท็ก "v8.3-ORDHIST" / "v8.2-ORDHIST" -->
+<!-- [v8.2-ORDHIST] (2026-10-06) My Trades → Futures-Contract → Order History หายหลัง refresh — ค้นด้วยแท็ก "v8.2-ORDHIST" · แก้เฉพาะ HTML (GAS ใช้ v6 ตัวเดิม ไม่ต้อง deploy ใหม่)
+     สาเหตุ: ชีต Orders เก็บแค่ Limit · Market เปิด/ปิดไม่เคยถูกบันทึกเป็น order → มีแค่แถวใน memory (HIST.logOpen/logClose) แล้วหายตอน refresh
+     แก้: สร้างแถวกลับจาก Positions (เปิด) + Trades ที่มี position_id (ปิด) [_reconContractOrders] · _mapGasOrderHistory แสดง CloseLimit เป็น Close/Reduce-only ถูกต้อง · กันซ้ำกับแถวชั่วคราว (_local) ใน _mergeIntoHIST
+     ไม่แตะ: logOpen/logClose logic อื่น · Trade/Position/Transaction History · Futures-Direct · ฝั่ง GAS -->
 <!-- [v8.1-POSHIST] (2026-10-06) ตรวจ v7 ใน v8: แพตช์ v7-POSHIST-CLOSE ทำงานครบ แต่เก็บตก 2 จุด — แก้เฉพาะ HTML (GAS ใช้ v6 ตัวเดิม) · ค้นด้วยแท็ก "v8.1-POSHIST"
      (1) แถว Partially Closed ชั่วคราวไม่มี ts → _sortDesc ดันไปท้ายลิสต์ (ปิดบางส่วนแล้วดูเหมือนไม่ขึ้น) → ใส่ ts ทั้งตอนสร้างและตอนอัปเดต [v8.1-POSHIST-TS]
      (2) _mergeIntoHIST first-load ล้างแถวชั่วคราวทิ้งก่อนกติกา v7 จะทำงาน → เก็บเฉพาะแถว _local ที่อายุ < 2 นาที [v8.1-POSHIST-KEEP]
@@ -16428,7 +16434,7 @@ async function _astRefreshBalanceIfStale() {
     if (dash.trades)       _mergeIntoHIST('tradeHistory',       dash.trades);
     if (dash.funding)      _mergeIntoHIST('fundingFee',         dash.funding);
     if (dash.positions)    _mergeIntoHIST('positionHistory',    dash.positions.filter(p => p.status !== 'Active'));
-    if (dash.orderHistory) _mergeIntoHIST('orderHistory',       dash.orderHistory); // [v8.9 NEW]
+    _mergeOrderHistoryFromDash(dash); // [v8.9 NEW][v8.2-ORDHIST] + สร้างแถว Market เปิด/ปิดกลับจาก Positions/Trades
     if (dash.spotTrades)   _mergeIntoHIST('spotTradeHistory',   dash.spotTrades);
     // [v2.63-HEDGE] Futures-Direct history populate
     if (dash.futdClosedPos)   _mergeIntoHIST('futdPositionHistory',    dash.futdClosedPos);
@@ -16537,7 +16543,7 @@ async function _astFetchAllHistoryIfEmpty() {
     if (dash.trades)          _mergeIntoHIST('tradeHistory',          dash.trades);
     if (dash.funding)         _mergeIntoHIST('fundingFee',            dash.funding);
     if (dash.positions)       _mergeIntoHIST('positionHistory',       dash.positions.filter(p => p.status !== 'Active'));
-    if (dash.orderHistory)    _mergeIntoHIST('orderHistory',          dash.orderHistory); // [v8.9 NEW]
+    _mergeOrderHistoryFromDash(dash); // [v8.9 NEW][v8.2-ORDHIST]
     if (dash.spotTrades)      _mergeIntoHIST('spotTradeHistory',      dash.spotTrades);
     // [v2.63-HEDGE] Futures-Direct
     if (dash.futdClosedPos)   _mergeIntoHIST('futdPositionHistory',    dash.futdClosedPos);
@@ -16583,7 +16589,7 @@ async function _astForceRefreshBalance() {
     if (dash && dash.trades)          _mergeIntoHIST('tradeHistory',          dash.trades);
     if (dash && dash.funding)         _mergeIntoHIST('fundingFee',            dash.funding);
     if (dash && dash.positions)       _mergeIntoHIST('positionHistory',       dash.positions.filter(p => p.status !== 'Active')); // [v7 FIX]
-    if (dash && dash.orderHistory)    _mergeIntoHIST('orderHistory',          dash.orderHistory); // [v8.9 NEW]
+    _mergeOrderHistoryFromDash(dash); // [v8.9 NEW][v8.2-ORDHIST]
     if (dash && dash.spotTrades)      _mergeIntoHIST('spotTradeHistory',      dash.spotTrades); // [v7 FIX]
     // [v2.63-HEDGE] Futures-Direct
     if (dash && dash.futdClosedPos)   _mergeIntoHIST('futdPositionHistory',    dash.futdClosedPos);
@@ -24132,6 +24138,7 @@ const HIST = {
       amount: this.fmtNum(pos.size) + '/' + this.fmtNum(pos.size),
       price: this.fmtPrice(pos.entry) + '/' + (orderTypeTxt==='Market'?'Market':this.fmtPrice(pos.entry)),
       status: 'Filled',
+      _local: true, _posId: pos.id, _kind: 'open', _sz: parseFloat(pos.size) || 0, // [v8.2-ORDHIST] ให้ _mergeIntoHIST แทนด้วยแถวจริงโดยไม่ซ้ำ
     });
 
     // 2. Trade History
@@ -24204,6 +24211,7 @@ const HIST = {
       amount: this.fmtNum(closeAmt) + '/' + this.fmtNum(closeAmt),
       price: this.fmtPrice(exitPrice) + '/' + (orderTypeTxt==='Market'?'Market':this.fmtPrice(exitPrice)),
       reduceOnly: 'True', status:'Filled',
+      _local: true, _posId: pos.id, _kind: 'close', _sz: parseFloat(closeAmt) || 0, // [v8.2-ORDHIST]
     });
 
     // 2. Trade History
@@ -24688,7 +24696,12 @@ function _mytCtrFetch(cid) {
   try { _DB_READ_ACTIONS.add('getContractHistory'); } catch (e) {}   // read-only → dedupe in-flight + retry เมื่อ Timeout
   dbCallRaw('getContractHistory', { uid: uid, contract_id: cid, limit: 200 }).then(res => {
     if (!res) throw new Error('empty response');
-    if (Array.isArray(res.orderHistory) && res.orderHistory.length) _mergeIntoHIST('orderHistory', res.orderHistory);
+    // [v8.2-ORDHIST] orderHistory จาก GAS + แถวปิดที่สร้างกลับจาก trades ของสัญญานี้ (ไม่มี positions ในคำตอบนี้ → แถวเปิดมาจาก dashboard ตามเดิม)
+    {
+      let _ordRows = Array.isArray(res.orderHistory) ? res.orderHistory.slice() : [];
+      try { _ordRows = _ordRows.concat(_reconContractOrders(null, res.trades, res.orderHistory)); } catch (e) { console.warn('[ORDHIST] recon fail:', e && e.message); }
+      if (_ordRows.length) _mergeIntoHIST('orderHistory', _ordRows);
+    }
     if (Array.isArray(res.trades)       && res.trades.length)       _mergeIntoHIST('tradeHistory', res.trades);
     if (Array.isArray(res.funding)      && res.funding.length)      _mergeIntoHIST('fundingFee',   res.funding);
     _MYT_CTR.fetched[cid] = 'ok';
@@ -32853,7 +32866,7 @@ async function loadDashboard() {
   if (dash && dash.trades)          _mergeIntoHIST('tradeHistory',          dash.trades);
   if (dash && dash.spotTrades)      _mergeIntoHIST('spotTradeHistory',      dash.spotTrades);
   if (dash && dash.positions)       _mergeIntoHIST('positionHistory',       dash.positions.filter(p => p.status !== 'Active'));
-  if (dash && dash.orderHistory)    _mergeIntoHIST('orderHistory',          dash.orderHistory); // [v8.9 NEW]
+  _mergeOrderHistoryFromDash(dash); // [v8.9 NEW][v8.2-ORDHIST]
   if (dash && dash.funding)         _mergeIntoHIST('fundingFee',            dash.funding);
   // [v2.63-HEDGE] Futures-Direct
   if (dash && dash.futdClosedPos)   _mergeIntoHIST('futdPositionHistory',    dash.futdClosedPos);
@@ -33183,10 +33196,13 @@ function _mapGasOrderHistory(r) {
   const coin = sym ? sym.replace(/USDT$/i, '').replace(/-PERP$/i, '') : '—';
   const side = (r.side || 'long').toLowerCase();
   const isLong = side === 'long';
-  // หมายเหตุ: OpenOrders sheet เก็บเฉพาะ limit order สำหรับ "เปิด" position เท่านั้น (TP/SL trigger ปิด position ตรงๆ ไม่ผ่าน sheet นี้)
-  const dirLabel = isLong ? 'Open Long' : 'Open Short';
-  const dirClass = isLong ? 'open-long' : 'open-short';
-  const orderTypeTxt = r.order_type || 'Limit';
+  // [v8.2-ORDHIST] ออเดอร์ปิด (CloseLimit จาก ORDERS · CloseMarket จากการสร้างกลับ _reconContractOrders): side = ทิศของออเดอร์ (long = ซื้อ = ปิด Short)
+  //   เดิมทุกแถวถูก label เป็น "Open" + reduceOnly False → CloseLimit ที่ Filled แสดงผิดเป็น Open Short/Long
+  const _otRaw  = String(r.order_type || '');
+  const isClose = /^close[\s_-]?(limit|market)$/i.test(_otRaw) || /^cordc_/i.test(String(r.order_id || '')); // [v8.3-ORDHIST] cordc_ = Market close ที่ GAS closePosition บันทึกไว้ (order_type 'Market', side ตรงข้าม position, limit_price = ราคาปิดจริง)
+  const dirLabel = isClose ? (isLong ? 'Close Short' : 'Close Long') : (isLong ? 'Open Long' : 'Open Short');
+  const dirClass = isClose ? (isLong ? 'close-short' : 'close-long') : (isLong ? 'open-long' : 'open-short');
+  const orderTypeTxt = isClose ? (/limit/i.test(_otRaw) ? 'Limit' : 'Market') : (r.order_type || 'Limit');
   const dirFull = orderTypeTxt + ' / ' + dirLabel;
   const size = parseFloat(r.size) || 0;
   const limitPrice = parseFloat(r.limit_price) || 0;
@@ -33204,10 +33220,90 @@ function _mapGasOrderHistory(r) {
     ts:         tsSrc ? Date.parse(tsSrc) : Date.now(),
     amount:     HIST.fmtNum(size) + '/' + HIST.fmtNum(size),
     price:      HIST.fmtPrice(limitPrice) + '/' + (orderTypeTxt === 'Market' ? 'Market' : HIST.fmtPrice(limitPrice)),
-    reduceOnly: 'False',
+    reduceOnly: isClose ? 'True' : 'False',
     contractId: r.contractId || r.contract_id || '', // [v6-MYT-CTR]
     status:     statusTxt,
+    _posId:     r.position_id ? String(r.position_id) : '', // [v8.2-ORDHIST] ใช้จับคู่/กันซ้ำกับแถวชั่วคราวจาก HIST.logOpen/logClose
+    _kind:      isClose ? 'close' : 'open',
+    _sz:        size,
   };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// [v8.2-ORDHIST] Order History ฝั่ง Futures-Contract หายหลัง refresh
+//   สาเหตุ: GAS (ชีต Orders) เก็บแค่ Limit order — Market เปิด/ปิดไม่เคยถูกเขียนเป็น order record (ต่างจาก Futures-Direct ที่ closeFuturesPosition เขียน FUT_ORD ไว้)
+//     HIST.logOpen/logClose จึงสร้างแถวแค่ใน memory → refresh แล้ว HIST ถูกล้าง + GAS ไม่มีให้ดึงกลับ
+//   แก้ฝั่ง HTML (ไม่ต้อง deploy GAS ใหม่): สร้างแถว Order History กลับจากข้อมูลที่ GAS เก็บถาวรอยู่แล้ว
+//     • ออเดอร์เปิด  ← ชีต Positions ทุกแถว (symbol/side/entry_price/max_oi/opened_at/earn_contract_id) — ข้าม id 'limit_*' เพราะมีแถว Filled ใน Orders อยู่แล้ว
+//     • ออเดอร์ปิด  ← ชีต Trades ที่มี position_id + dir Buy/Sell (saveTrade ตอนปิด) — ข้ามถ้ามี CloseLimit ที่ Filled ของ position/ขนาด/เวลาเดียวกันใน Orders แล้ว
+//   ผลลัพธ์อยู่ในรูป raw แบบชีต Orders → วิ่งผ่าน _mapGasOrderHistory ตัวเดียวกัน · id คงที่ (rcopen_/rcclose_) → merge ซ้ำกี่รอบก็ไม่ซ้ำ
+//   ข้อจำกัดที่รู้: position ที่ GAS รวม (merge) หลายออเดอร์เปิดเป็นแถวเดียวจะเห็นเป็นออเดอร์เปิดเดียว · ปิดโดย GAS engine (TP/SL ตอนปิดแอป) ไม่มี trade → ไม่มีแถวปิด
+// ══════════════════════════════════════════════════════════════════
+function _reconContractOrders(positions, trades, orderRows) {
+  const out = [];
+  const norm = v => String(v == null ? '' : v).trim();
+  const posList = Array.isArray(positions) ? positions : [];
+  const posMap  = new Map();
+  posList.forEach(p => { if (p && p.id != null) posMap.set(norm(p.id), p); });
+  const _cidOf = p => norm(p && (p.earnContractId || p.earn_contract_id || p.contract_id));
+  // แถวปิดที่ GAS บันทึกไว้แล้วใน Orders (CloseLimit ที่ Filled · cordc_ = Market close จาก GAS v6.1) → ไม่สร้างแถวปิดซ้ำจาก Trades
+  //   จับคู่แบบ 1:1 (แถว Orders 1 แถวกัน trade ได้ 1 รายการ) ด้วย position + ขนาดเท่ากัน + เวลาใกล้สุดไม่เกิน 30 นาที (เวลาฝั่ง server/client ต่างกัน + QUEUE retry)
+  const clRows = (Array.isArray(orderRows) ? orderRows : []).filter(o =>
+    o && norm(o.position_id) && /^filled$/i.test(norm(o.status))
+      && (/^close[\s_-]?limit$/i.test(norm(o.order_type)) || /^cordc_/i.test(norm(o.order_id)))
+  ).map(o => ({ pid: norm(o.position_id), sz: parseFloat(o.size) || 0, ms: Date.parse(o.updated_at || o.created_at) || 0, used: false }));
+
+  posList.forEach(p => {
+    if (!p || p.id == null) return;
+    const pid = norm(p.id);
+    if (!pid || /^limit_/i.test(pid)) return;
+    const sz  = parseFloat(p.max_oi) || parseFloat(p.size) || 0;
+    const tms = p.opened_at ? Date.parse(p.opened_at) : NaN;
+    if (!(sz > 0) || isNaN(tms)) return;
+    out.push({
+      order_id: 'rcopen_' + pid, contract_id: _cidOf(p), symbol: p.symbol || '',
+      order_type: 'Market', side: norm(p.side || 'long').toLowerCase(), size: sz,
+      limit_price: parseFloat(p.entry_price) || 0, status: 'Filled',
+      created_at: p.opened_at, updated_at: p.opened_at, position_id: pid,
+    });
+  });
+
+  (Array.isArray(trades) ? trades : []).forEach(t => {
+    if (!t) return;
+    const pid  = norm(t.position_id);
+    if (!pid) return;
+    const dirL = norm(t.dir).toLowerCase();
+    if (dirL !== 'buy' && dirL !== 'sell') return;       // 'open-long' ฯลฯ = trade ของ Limit fill (มีใน Orders แล้ว)
+    const pos  = posMap.get(pid);
+    const cid  = norm(t.earnContractId || t.contract_id) || _cidOf(pos);
+    if (!cid && !pos) return;                            // ไม่ผูกสัญญา/ไม่ใช่ position ของ Contract (เช่น Futures-Direct) → ไม่เกี่ยว
+    const sz   = parseFloat(t.filled) || 0;
+    const tms  = t.created_at ? Date.parse(t.created_at) : NaN;
+    if (!(sz > 0) || isNaN(tms)) return;
+    let _best = null, _bestDt = 1800000;
+    clRows.forEach(c => {
+      if (c.used || c.pid !== pid || Math.abs(c.sz - sz) > 1e-6 * Math.max(1, sz)) return;
+      const dt = Math.abs(c.ms - tms);
+      if (dt < _bestDt) { _best = c; _bestDt = dt; }
+    });
+    if (_best) { _best.used = true; return; }
+    out.push({
+      order_id: 'rcclose_' + pid + '_' + tms + '_' + sz, contract_id: cid, symbol: t.symbol || (pos && pos.symbol) || '',
+      order_type: 'CloseMarket', side: dirL === 'sell' ? 'short' : 'long', size: sz,
+      limit_price: parseFloat(t.price) || 0, status: 'Filled',
+      created_at: t.created_at, updated_at: t.created_at, position_id: pid,
+    });
+  });
+  return out;
+}
+
+/** รวม orderHistory จาก GAS + แถวที่สร้างกลับ (_reconContractOrders) แล้ว merge ครั้งเดียว — ใช้แทน _mergeIntoHIST('orderHistory', dash.orderHistory) ทุกจุดที่รับ dashboard */
+function _mergeOrderHistoryFromDash(dash) {
+  if (!dash) return;
+  let rows = Array.isArray(dash.orderHistory) ? dash.orderHistory.slice() : [];
+  try { rows = rows.concat(_reconContractOrders(dash.positions, dash.trades, dash.orderHistory)); }
+  catch (e) { console.warn('[ORDHIST] recon fail (ใช้เฉพาะ orderHistory จาก GAS):', e && e.message); }
+  if (rows.length) _mergeIntoHIST('orderHistory', rows);
 }
 
 // [v9.5 FIX] ดึง txid จริงที่ backend ฝังไว้ใน note ด้วย tag [txid:...]
@@ -33458,7 +33554,8 @@ function _mergeIntoHIST(key, rows) {
     //   เดิม: ปิด position แล้วเปิด My Trades ก่อน GAS commit → merge แรกล้างแถวที่เพิ่งปิดทิ้ง (ตัวกันแถวหายด้านล่างใช้ไม่ได้เพราะ HIST ถูกล้างไปแล้ว)
     //   ตอนนี้: แถวที่เหลือจะถูกตัดสินต่อด้วยกติกา _local ด้านล่างตามเดิม (GAS แถวจริงมาแทน / ยังไม่ Closed → เก็บไว้)
     //   แถว cache เก่าและแถวชั่วคราวที่เก่ากว่า 2 นาทียังถูกล้างตามเจตนาเดิมของ first-load
-    HIST[key] = (key === 'positionHistory')
+    // [v8.2-ORDHIST] orderHistory ใช้กติกาเดียวกัน (แถวชั่วคราวจาก HIST.logOpen/logClose ถูกติด _local ไว้)
+    HIST[key] = (key === 'positionHistory' || key === 'orderHistory')
       ? (HIST[key] || []).filter(h => h && h._local && (Date.now() - (h.ts || 0)) < 120000)
       : []; // clear ก่อน merge ครั้งแรก
   }
@@ -33512,6 +33609,20 @@ function _mergeIntoHIST(key, rows) {
     newRows = newRows.map(_mapGasFundingFee);
   } else if (key === 'orderHistory') {
     newRows = newRows.map(_mapGasOrderHistory);
+    // [v8.2-ORDHIST] แถวจริง (จาก GAS/สร้างกลับ) มาแทนแถวชั่วคราวของ position เดียวกัน → ไม่ซ้ำ
+    //   เปิด: จับคู่ด้วย position id · ปิด: position id + ขนาดเท่ากัน + เวลาห่างไม่เกิน 10 นาที (แถว cordc_ ใช้เวลา server) (ปิดบางส่วนหลายครั้งไม่ปนกัน) · แถวจริง 1 แถวแทนได้ 1 แถวชั่วคราว
+    if (newRows.length) {
+      const _used = new Set();
+      HIST[key] = (HIST[key] || []).filter(h => {
+        if (!h || !h._local || !h._posId) return true;
+        const m = newRows.find(r => r._posId && !_used.has(r.id)
+          && String(r._posId) === String(h._posId) && r._kind === h._kind
+          && (h._kind === 'open' || (Math.abs((r.ts || 0) - (h.ts || 0)) < 600000
+              && Math.abs((r._sz || 0) - (h._sz || 0)) <= 1e-6 * Math.max(1, Math.abs(h._sz || 0)))));
+        if (m) { _used.add(m.id); return false; }
+        return true;
+      });
+    }
   } else if (key === 'transactionHistory') {
     // [v9.1] map GAS raw rows → UI shape (เพิ่ม time/ts/type field)
     // [vx5-FIX-TS] _mapGasTransaction: ถ้าไม่มี created_at ให้ fallback ไป r.time ก่อน Date.now()

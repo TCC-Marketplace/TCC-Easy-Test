@@ -1,3 +1,17 @@
+<!-- [v8.1-POSHIST] (2026-10-06) ตรวจ v7 ใน v8: แพตช์ v7-POSHIST-CLOSE ทำงานครบ แต่เก็บตก 2 จุด — แก้เฉพาะ HTML (GAS ใช้ v6 ตัวเดิม) · ค้นด้วยแท็ก "v8.1-POSHIST"
+     (1) แถว Partially Closed ชั่วคราวไม่มี ts → _sortDesc ดันไปท้ายลิสต์ (ปิดบางส่วนแล้วดูเหมือนไม่ขึ้น) → ใส่ ts ทั้งตอนสร้างและตอนอัปเดต [v8.1-POSHIST-TS]
+     (2) _mergeIntoHIST first-load ล้างแถวชั่วคราวทิ้งก่อนกติกา v7 จะทำงาน → เก็บเฉพาะแถว _local ที่อายุ < 2 นาที [v8.1-POSHIST-KEEP]
+     ไม่แตะ: logOpen/logClose อื่นๆ · สูตร PNL/margin · Futures-Direct · Order/Trade/Transaction · ฝั่ง GAS -->
+<!-- [v8-MYT-CANCELALL] (2026-10-06) My Trades → Open Orders → "Cancel All": แก้เฉพาะ HTML (GAS ใช้ v6 ตัวเดิม · ต่อจาก v7) · ค้นด้วยแท็ก "v8-MYT-CANCELALL"
+     เดิม mytCancelAll ล้าง S.positions ทั้งหมดแบบ local (ไม่ดูตัวกรอง ไม่เรียก GAS ไม่แตะ pending order จริง) → position ที่ยังเปิดอยู่หายจากหน้าจอจนกว่าจะ reload
+     ใหม่: ยกเลิกเฉพาะ pending order ที่เห็นในรายการ (ตาม Contract/Pair/Order Type) ด้วยขั้นตอนเดียวกับ cancelOrder → ไม่แตะ position · กดครั้งแรกขอยืนยัน Confirm (n) · sync GAS ครั้งเดียวตอนจบ
+     ไม่แตะ: cancelOrder รายตัว · openCloseConfirm/ปุ่ม Close · mytCancelOrder (ไม่มีจุดเรียก) · Futures-Direct · ฝั่ง GAS -->
+<!-- [v7-POSHIST-CLOSE] (2026-10-06) ปิด position แล้ว Position History (Futures-Contract) ไม่ขึ้น — แก้เฉพาะ HTML (GAS ใช้ v6 ตัวเดิม) · ค้นด้วยแท็ก "v7-POSHIST-CLOSE"
+     สาเหตุ: HIST.logClose สร้างแถว Position History ก็ต่อเมื่อมี _openPosRegistry ซึ่งเติมที่ HIST.logOpen เท่านั้น → position ที่ restore จาก GAS ตอนเปิดแอป (ไม่ผ่าน logOpen) ปิดแล้วไม่มีแถว จนกว่าจะ refresh
+     แก้: (1) logClose สร้าง registry จากข้อมูล position เมื่อไม่มี (_rebuildPosRegistry) → ปิดเต็ม=แถว Closed · ปิดบางส่วน=แถว Partially Closed ทันที (รายการชั่วคราว _local)
+          (2) _mergeIntoHIST('positionHistory'): แถวจริงจาก GAS แทนรายการชั่วคราว/แถวเดิม id เดียวกัน → ไม่ซ้ำ และ 'Partially Closed' ไม่ค้างหลังปิดหมด
+          (3) ปิดเต็มแล้วเก็บกวาดแถว Partially Closed ชั่วคราวของ position เดียวกัน
+     ไม่แตะ: Futures-Direct (_futdLogCloseToHist สร้างแถวเองจาก pos อยู่แล้ว) · Order/Trade/Transaction history · สูตร PNL/margin ทุกตัว · ฝั่ง GAS -->
 <!-- [v6-MYT-CTR] (2026-10-04) My Trades → Futures-Contract: ตัวกรองเลขที่สัญญา + แสดงรวม All ครบ 6 แท็บ · ใช้คู่กับ GAS_easy_TCC_v6 (deploy GAS ก่อน HTML แล้วรัน repairSheetColumns()) — ค้นด้วยแท็ก "v6-MYT-CTR"
      [v6-MYT-CTR] เพิ่มแถบ "Contract ▾" ใน Open Orders / Order History / Position History / Trade History / Transaction History / Funding Fee (เฉพาะ context Futures-Contract) · ตัวเลือก All Contracts + ทุกสัญญา · ค่าเดียวใช้ร่วมกันทุกแท็บ
      [v6-MYT-CTR] ค่าเริ่มต้น: เปิดจากปุ่ม 📋 ในหน้า Futures = สัญญาที่เลือกอยู่ · เปิดจาก Assets (Overview/Futures-Contract/Earn/Funding) และที่อื่น = All
@@ -24148,6 +24162,28 @@ const HIST = {
     };
   },
 
+  /* ── [v7-POSHIST-CLOSE] สร้าง registry ให้ position ที่ไม่ได้เปิดใน session นี้ ── */
+  _rebuildPosRegistry(pos, closeAmt, isFull, ts) {
+    if (!pos || pos.id == null) return null;
+    const ca     = parseFloat(closeAmt) || 0;
+    const remain = parseFloat(pos.size) || 0;
+    // ทุกจุดที่เรียก logClose แบบ partial หัก closeAmt ออกจาก pos.size ไปก่อนแล้ว (size = คงเหลือ) → ขนาดเดิม = คงเหลือ + ที่ปิด
+    // แบบ full: ขนาดที่ปิด = ทั้งหมด (กันกรณี pos.size ถูกหักเหลือ ~0 จาก Close tab)
+    const maxSize = isFull ? Math.max(ca, remain) : (remain + ca);
+    const sym = pos.symbol || (pos.coin + 'USDT');
+    const reg = {
+      coin: sym, symbol: sym, badge: 'Perp',
+      mode: (pos.mode || 'Cross') + ' ' + (pos.lev || 150) + 'x',
+      side: pos.side, entry: pos.entry, size: maxSize,
+      openedTs: pos.openedTs || ts, maxSize: maxSize, contractId: pos.earnContractId || '',
+      // PNL สะสมก่อนหน้า (partial close รอบก่อน) ไม่รู้แน่ชัดฝั่ง client → เริ่ม 0 · ค่าจริง (server-authoritative) มาแทนตอน refresh
+      realizedPnl: 0, closedVol: 0, avgClose: 0, closeCount: 0,
+      _rebuilt: true,
+    };
+    this._openPosRegistry[pos.id] = reg;
+    return reg;
+  },
+
   /* ── Hook: ปิด Position (full หรือ partial) ── */
   logClose(pos, closeAmt, exitPrice, realizedPnl, isFull) {
     const ts = Date.now();
@@ -24198,7 +24234,10 @@ const HIST = {
     }
 
     // 4. Position History — update registry
-    const reg = this._openPosRegistry[pos.id];
+    // [v7-POSHIST-CLOSE] position ที่โหลดจาก GAS ตอนเปิดแอป (restore) ไม่เคยผ่าน logOpen → ไม่มี registry
+    //   เดิม: `if (reg)` ข้ามทั้งก้อน → ปิด position แล้ว Order/Trade/Transaction ขึ้นทันที แต่ Position History ไม่ขึ้นจนกว่าจะ refresh จาก GAS
+    //   ใหม่: สร้าง registry จากข้อมูล position ที่ถืออยู่ (รายการชั่วคราว _local) · แถวจริงจาก GAS แทนที่ตอน refresh (ดู _mergeIntoHIST)
+    const reg = this._openPosRegistry[pos.id] || this._rebuildPosRegistry(pos, closeAmt, isFull, ts);
     if (reg) {
       reg.realizedPnl += realizedPnl;
       reg.closedVol   += closeAmt;
@@ -24215,8 +24254,10 @@ const HIST = {
         const closedStr = this.fmtTime(ts);
         const lastingMs = ts - reg.openedTs;
         const lastingStr = this._fmtDuration(lastingMs);
+        // [v7-POSHIST-CLOSE] ปิดหมดแล้ว → รายการ 'Partially Closed' ชั่วคราวของ position นี้ถูกแทนด้วยรายการ Closed (เดิมค้างซ้อนกัน 2 แถว)
+        this.positionHistory = this.positionHistory.filter(h => !(h._local && h._posId === pos.id && h.status === 'Partially Closed'));
         this.positionHistory.unshift({
-          id: this.genId(), coin: sym, badge:'Perp',
+          id: this.genId(), _posId: pos.id, _local: true, coin: sym, badge:'Perp',
           mode: reg.mode, side: reg.side, status:'Closed',
           realizedPnl: parseFloat(reg.realizedPnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),
           roi: roi.toFixed(2),
@@ -24239,9 +24280,10 @@ const HIST = {
           existing.closedVol = this.fmtNum(reg.closedVol);
           existing.avgClose = this.fmtPrice(reg.avgClose);
           existing.status = 'Partially Closed';
+          if (existing._local) existing.ts = ts; // [v8.1-POSHIST-TS] ปิดบางส่วนซ้ำ → แถวชั่วคราวเลื่อนขึ้นบนสุดตามเวลาล่าสุด
         } else {
           this.positionHistory.unshift({
-            id: this.genId(), _posId: pos.id, coin: sym, badge:'Perp',
+            id: this.genId(), _posId: pos.id, _local: true, coin: sym, badge:'Perp',
             mode: reg.mode, side: reg.side, status:'Partially Closed',
             realizedPnl: parseFloat(reg.realizedPnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),
             roi: roi.toFixed(2),
@@ -24252,7 +24294,7 @@ const HIST = {
             unrealizedPnl: null,
             contractId: reg.contractId || pos.earnContractId || '', // [v6-MYT-CTR]
             opened: this.fmtTime(reg.openedTs), openedTs: reg.openedTs,
-            closed: '—', closedTs: null, lasting: this._fmtDuration(ts - reg.openedTs),
+            closed: '—', closedTs: null, ts: ts, lasting: this._fmtDuration(ts - reg.openedTs), // [v8.1-POSHIST-TS] เดิมไม่มี ts → _sortDesc ดันแถวนี้ไปท้ายลิสต์
           });
         }
       }
@@ -24629,6 +24671,7 @@ function openMytContractSheet() {
 }
 function mytSetContractFilter(val) {
   MYT.contractFilter = val || 'All';
+  _mytCancelAllArm = null; // [v8-MYT-CANCELALL] เปลี่ยนสัญญา → ยกเลิกสถานะรอยืนยัน Cancel All
   closeMytDD();
   const tab = MYT.currentTab;
   mytRenderFilter(tab);
@@ -25448,28 +25491,68 @@ function mytCancelOrder(posId){
   mytRenderContent('open-orders');
   showToast('✅ Order cancelled');
 }
+/* ══════════════════════════════════════════════════════════════════════════
+   [v8-MYT-CANCELALL] Cancel All (My Trades → Open Orders)
+   ──────────────────────────────────────────────────────────────────────────
+   เดิม (v5/v6/v7): ล้าง S.positions ทั้งหมดแบบ local — ไม่ดูตัวกรอง · ไม่เรียก GAS · ไม่แตะ pending order จริง (S.openOrders)
+     → position ที่ยังเปิดอยู่หายจากหน้าจอ (กลับมาเมื่อ reload) · margin/avbl ฝั่ง client เพี้ยน · pending order ไม่ถูกยกเลิกเลย
+   ใหม่: ยกเลิกเฉพาะ "pending order" ที่เห็นอยู่ในรายการตอนนี้ (ผ่านตัวกรอง Contract / Pair / Order Type แล้ว)
+     • ใช้ขั้นตอนเดียวกับปุ่ม Cancel รายตัว (cancelOrder): เอาออกจาก S.openOrders + action 'cancelOrder' ต่อ order + กัน fill ซ้ำใน session
+       แต่ sync รายการที่เหลือไป GAS ครั้งเดียวตอนจบ (ไม่ส่ง list ครึ่งๆ กลางๆ N รอบ) · render/toast ครั้งเดียว
+     • ไม่แตะ position ที่เปิดอยู่ — ปิดด้วยปุ่ม Close ของแต่ละรายการเหมือนเดิม
+     • กดครั้งแรก = ขอยืนยัน (ปุ่มเปลี่ยนเป็น Confirm (n) 4 วินาที) · กดซ้ำ = ยกเลิกจริง
+   ══════════════════════════════════════════════════════════════════════════ */
+let _mytCancelAllArm = null; // { sig, t, n } — ชุด order ที่รอการยืนยัน
+function _mytCancelAllBtn() { return document.querySelector('#mytFilterArea .myt-cancel-all-btn'); }
+// วาดป้าย Confirm (n) ซ้ำหลัง filter bar ถูก re-render (mytRefreshIfOpen เรียกบ่อยจากการอัปเดต position/ราคา) — ไม่งั้นป้ายกลับเป็น Cancel All ทั้งที่ยังรอยืนยันอยู่
+function _mytCancelAllPaint() {
+  const b = _mytCancelAllBtn();
+  if (b && _mytCancelAllArm) { b.textContent = 'Confirm (' + _mytCancelAllArm.n + ')'; b.style.color = 'var(--r)'; b.style.borderColor = 'var(--r)'; }
+}
+function _mytCancelAllDisarm() {
+  _mytCancelAllArm = null;
+  const b = _mytCancelAllBtn();
+  if (b) { b.textContent = 'Cancel All'; b.style.color = ''; b.style.borderColor = ''; }
+}
 function mytCancelAll(){
-  if(typeof S === 'undefined') return;
-  const count = S.positions.length;
-  if(!count){ showToast('No open orders'); return; }
-  S.positions.forEach(p => {
-    HIST._openPosRegistry[p.id] && delete HIST._openPosRegistry[p.id];
-    HIST.orderHistory.unshift({
-      id: HIST.genId(), coin: p.symbol||(p.coin+'USDT'), symbol: p.symbol||(p.coin+'USDT'), badge:'Perp',
-      orderType: p.type||'Limit', dir: (p.type||'Limit')+' / '+(p.side==='long'?'Open Long':'Open Short'),
-      dirClass: p.side==='long'?'open-long':'open-short',
-      time: HIST.fmtTime(Date.now()), ts: Date.now(),
-      amount: HIST.fmtNum(p.size)+'/0.000', price: HIST.fmtPrice(p.entry)+'/—',
-      contractId: p.earnContractId || '', // [v6-MYT-CTR]
-      status: 'Cancelled',
-    });
+  if (typeof S === 'undefined') return;
+  const view    = (MYT.getData('open-orders') || []);
+  const pending = view.filter(d => d._isLimitPending);
+  if (!pending.length) {
+    _mytCancelAllDisarm();
+    showToast(view.length ? 'No pending orders to cancel — use Close on active positions' : 'No open orders');
+    return;
+  }
+  const sig = pending.map(d => String(d._posId)).join('|');
+  const now = Date.now();
+  if (!_mytCancelAllArm || _mytCancelAllArm.sig !== sig || (now - _mytCancelAllArm.t) > 4000) {
+    // รอบแรก (หรือรายการเปลี่ยนไประหว่างรอ) → ขอยืนยัน
+    _mytCancelAllArm = { sig: sig, t: now, n: pending.length };
+    _mytCancelAllPaint();
+    setTimeout(() => { if (_mytCancelAllArm && _mytCancelAllArm.sig === sig) _mytCancelAllDisarm(); }, 4000);
+    return;
+  }
+  _mytCancelAllDisarm();
+
+  // ── ยกเลิกจริง ──
+  const idSet = new Set(pending.map(d => String(d._posId)));
+  const hit = (S.openOrders || []).filter(o => idSet.has(String(o.id)));
+  window._filledOrderIds = window._filledOrderIds || new Set();
+  hit.forEach(o => {
+    const idx = S.openOrders.indexOf(o);
+    if (idx > -1) S.openOrders.splice(idx, 1);
+    window._filledOrderIds.add(o.id);                                   // กัน fill ซ้ำใน session (เหมือน cancelOrder)
+    if (typeof dbCallRaw === 'function') dbCallRaw('cancelOrder', { order_id: o.id }).catch(() => {});
   });
-  S.positions = [];
-  renderPositions && renderPositions();
-  _updatePosBadge();
+  if (hit.length && typeof syncOpenOrdersToGAS === 'function') syncOpenOrdersToGAS(); // ส่งรายการที่เหลือครั้งเดียวตอนจบ
+  if (typeof renderOpenOrders === 'function') renderOpenOrders();
+  if (typeof renderPositions === 'function') renderPositions();
+  if (typeof _updatePosBadge === 'function') _updatePosBadge();
   mytRenderFilter('open-orders');
   mytRenderContent('open-orders');
-  showToast('✅ Cancelled all ' + count + ' orders');
+  _mytCtrSyncBadge();
+  const stillActive = view.length - pending.length;
+  showToast('✅ Cancelled ' + hit.length + ' pending order' + (hit.length > 1 ? 's' : '') + (stillActive > 0 ? ' · active positions unchanged' : ''));
 }
 
 /* ── Copy ── */
@@ -27843,6 +27926,7 @@ function _txqDecorate() {
       const area = document.getElementById('mytFilterArea');
       if (area) area.insertAdjacentHTML('afterbegin', _mytCtrBarHTML());
     }
+    if (tab === 'open-orders' && typeof _mytCancelAllPaint === 'function') _mytCancelAllPaint(); // [v8-MYT-CANCELALL] filter bar ถูกวาดใหม่ → คงป้าย Confirm (n) ระหว่างรอยืนยัน
     return r;
   };
 })();
@@ -33370,7 +33454,13 @@ function _mergeIntoHIST(key, rows) {
   // ป้องกันข้อมูลเก่าจาก cache สะสมทับข้อมูลใหม่จาก GAS
   if (!_histFirstLoaded[key]) {
     _histFirstLoaded[key] = true;
-    HIST[key] = []; // clear ก่อน merge ครั้งแรก
+    // [v8.1-POSHIST-KEEP] positionHistory: เก็บแถวชั่วคราว (_local จาก HIST.logClose) ที่เพิ่งสร้างไม่เกิน 2 นาทีไว้ผ่านการ replace ครั้งแรก
+    //   เดิม: ปิด position แล้วเปิด My Trades ก่อน GAS commit → merge แรกล้างแถวที่เพิ่งปิดทิ้ง (ตัวกันแถวหายด้านล่างใช้ไม่ได้เพราะ HIST ถูกล้างไปแล้ว)
+    //   ตอนนี้: แถวที่เหลือจะถูกตัดสินต่อด้วยกติกา _local ด้านล่างตามเดิม (GAS แถวจริงมาแทน / ยังไม่ Closed → เก็บไว้)
+    //   แถว cache เก่าและแถวชั่วคราวที่เก่ากว่า 2 นาทียังถูกล้างตามเจตนาเดิมของ first-load
+    HIST[key] = (key === 'positionHistory')
+      ? (HIST[key] || []).filter(h => h && h._local && (Date.now() - (h.ts || 0)) < 120000)
+      : []; // clear ก่อน merge ครั้งแรก
   }
   // [v7 FIX] ให้ fallback id สำหรับ rows ที่ GAS คืนมาโดยไม่มี id field
   // [v8.9 FIX] เพิ่ม fallback ไปที่ order_id ก่อนสุ่ม — OpenOrders sheet ไม่มีคอลัมน์ id เลย มีแต่ order_id
@@ -33384,6 +33474,22 @@ function _mergeIntoHIST(key, rows) {
     }
     return r;
   });
+  // [v7-POSHIST-CLOSE] positionHistory: แถวจาก GAS คือข้อมูลจริง (server-authoritative: PNL/ราคาปิด/สถานะ)
+  //   • รายการชั่วคราว (_local จาก HIST.logClose) ถูกแทนด้วยแถว GAS ของ position เดียวกัน → ไม่ซ้ำ
+  //     ยกเว้นรายการ Closed ที่ GAS ยังไม่ถึงสถานะ Closed (latency) → เก็บไว้ก่อน ไม่ให้แถวที่เพิ่งปิดหายชั่วคราว
+  //   • แถว GAS เดิม id เดียวกันถูกแทนด้วยข้อมูลใหม่ (เดิม dedupe ทิ้ง → 'Partially Closed' ค้างแม้ปิดหมดแล้ว)
+  if (key === 'positionHistory') {
+    const _incById = new Map(enriched.map(r => [String(r.id), r]));
+    HIST[key] = (HIST[key] || []).filter(h => {
+      if (h._local) {
+        const r = _incById.get(String(h._posId));
+        if (!r) return true;
+        if (h.status === 'Closed' && !/^closed$/i.test(String(r.status || ''))) return true;
+        return false;
+      }
+      return !_incById.has(String(h.id));
+    });
+  }
   const existing = new Set((HIST[key] || []).map(r => r.id));
   let newRows = enriched.filter(r => !existing.has(r.id));
 

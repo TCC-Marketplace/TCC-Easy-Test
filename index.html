@@ -3014,6 +3014,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .mkt-tag{background:var(--bg3);border:1px solid var(--border);color:var(--t2);font-size:10px;font-weight:500;line-height:1;padding:3px 5px;border-radius:4px;margin-left:5px;white-space:nowrap}
 .mkt-tag.spot{background:rgba(14,203,129,.12);color:var(--g);border-color:rgba(14,203,129,.25)}
 .mkt-tag.metal{background:rgba(240,185,11,.12);color:var(--y);border-color:rgba(240,185,11,.3)}
+.mkt-tag.xyz{background:rgba(88,166,255,.12);color:#58a6ff;border-color:rgba(88,166,255,.3)}
 .mkt-chg{font-size:13px;font-weight:600;font-family:var(--mono);min-width:64px;text-align:right}
 .mkt-chg.up{color:var(--g)}.mkt-chg.dn{color:var(--r)}.mkt-chg.flat{color:var(--t2)}
 /* [MKT-BN] Binance-style market rows */
@@ -10039,6 +10040,29 @@ function _candleMs(interval) {
   return { '1m':60000,'3m':180000,'5m':300000,'15m':900000,'30m':1800000,'1h':3600000,'2h':7200000,'4h':14400000 }[interval] || 300000;
 }
 
+// [MKT-NODATA] overlay "ไม่มีข้อมูล" ของกราฟหน้า Futures (Contract) — ใช้เมื่อ candleSnapshot ว่าง/โหลดไม่ได้
+function showChartNoData(show, msg) {
+  let el = document.getElementById('chartNoData');
+  if (!el) {
+    if (!show) return;
+    el = document.createElement('div');
+    el.id = 'chartNoData';
+    el.style.cssText = 'position:absolute;inset:0;background:#0b0e11;display:flex;align-items:center;justify-content:center;z-index:9;pointer-events:none;font-size:12px;color:#848e9c';
+    const wrap = document.getElementById('chartCanvas')?.parentElement;
+    if (!wrap) return;
+    wrap.appendChild(el);
+  }
+  if (show) el.textContent = msg || 'ไม่มีข้อมูล';
+  el.style.display = show ? 'flex' : 'none';
+}
+// เหรียญนี้ไม่มีแท่งเทียน → ล้าง S.candles ของเหรียญก่อนหน้า (drawChart ไม่วาดเมื่อว่าง จึงค้างภาพเก่า) แล้วแสดงข้อความ
+// ถ้ามีแท่งเทียนของเหรียญเดียวกันอยู่แล้ว (refresh รอบนี้ว่าง/ล้มชั่วคราว) → เก็บของเดิมไว้
+function _chartNoDataFor(coin, msg) {
+  if (S._candleCoin === coin && S.candles.length) return;
+  S.candles = [];
+  showChartNoData(true, msg);
+}
+
 async function fetchCandles(tf) {
   showChartLoading(true);
   const coin = S.coinMap[S.symbol] || S.coin;
@@ -10050,7 +10074,8 @@ async function fetchCandles(tf) {
 
     const d = await hlPost({ type:'candleSnapshot', req:{ coin: _wsCoinName(coin), interval, startTime, endTime: now }, ..._dexParam(coin) });
     const candles = _parseCandles(d);
-    if (!candles.length) { showChartLoading(false); return; }
+    if (!candles.length) { _chartNoDataFor(coin, 'ไม่มีข้อมูล'); showChartLoading(false); return; }
+    showChartNoData(false);
 
     S.candles = candles.slice(-CANDLE_BATCH);
     S._candleTf       = tf;
@@ -10069,6 +10094,8 @@ async function fetchCandles(tf) {
   } catch(e) {
     console.warn('fetchCandles error:', e);
     // ไม่สร้างข้อมูลปลอม (demo candles) — ถ้า API ล้ม ให้กราฟว่าง/loading รอข้อมูลจริงรอบถัดไป
+    // [MKT-NODATA] แต่ห้ามค้างกราฟของเหรียญก่อนหน้าโดยติดป้ายเหรียญใหม่ → ล้างแล้วแจ้งข้อความ
+    _chartNoDataFor(coin, 'โหลดกราฟไม่สำเร็จ');
   }
   showChartLoading(false);
 }
@@ -10133,7 +10160,10 @@ async function fetchFunding() {
   // [FIX funding-all-coins] ดึง rate ของ coin ที่กำลังดูอยู่ก่อน (เพื่อ UI topbar)
   try {
     const coin = S.coinMap[S.symbol] || S.coin;
-    const d = await hlPost({ type: 'fundingHistory', coin, startTime: Date.now() - 28800000 });
+    // [XYZ-ROUTE] สลับเหรียญ → ล้าง rate ของเหรียญก่อนหน้า (ไม่ให้ค้างแสดง/ถูกใช้เป็น fallback ของเหรียญใหม่)
+    if (S._fundingCoin !== coin) { S._fundingCoin = coin; S.funding.rate = 0; updateFunding(); }
+    // [XYZ-ROUTE] เหรียญ xyz ต้องส่ง 'xyz:COIN' + dex:'xyz' (เหมือน candleSnapshot / l2Book / FUTD fundingHistory)
+    const d = await hlPost({ type: 'fundingHistory', coin: _wsCoinName(coin), startTime: Date.now() - 28800000, ..._dexParam(coin) });
     if (d && d.length) {
       const latest = d[d.length - 1];
       S.funding.rate = parseFloat(latest.fundingRate) * 100;
@@ -10150,7 +10180,7 @@ async function fetchFunding() {
   if (!positionCoins.length) return;
   await Promise.allSettled(positionCoins.map(async (coin) => {
     try {
-      const d = await hlPost({ type: 'fundingHistory', coin, startTime: Date.now() - 28800000 });
+      const d = await hlPost({ type: 'fundingHistory', coin: _wsCoinName(coin), startTime: Date.now() - 28800000, ..._dexParam(coin) });
       if (d && d.length) {
         S._fundingRates[coin] = parseFloat(d[d.length - 1].fundingRate);
       }
@@ -12499,12 +12529,38 @@ function _isGoldCoin(coin) {
   return coin === 'GOLD' || coin === '@XAU' || coin === 'XAU' || coin === 'XAUUSDT';
 }
 
-// ── HIP-3 Metal coins (dex: 'xyz') ──
+// ── HIP-3 dex 'xyz' (Metal DEX) ──
+// METAL_COINS = โลหะมีค่า 5 ตัว → ใช้กับ icon / label / badge / จัดกลุ่มใน dropdown เท่านั้น (_isPreciousMetal)
+// XYZ_COINS   = "ทุกเหรียญ" ที่อยู่ใน dex xyz (โลหะ + หุ้น เช่น NBIS, MRVL, TSLA, NVDA ฯลฯ) → ใช้ตัดสิน routing
+//               ว่าต้องเรียก API ด้วย 'xyz:COIN' + dex:'xyz' หรือไม่ (_isMetalCoin / _wsCoinName / _dexParam)
+// [XYZ-ROUTE] เดิม _isMetalCoin รู้จักแค่ 5 โลหะ → เหรียญ xyz อื่นถูกยิงไป dex หลัก → Hyperliquid ตอบ 500
 const METAL_COINS = ['GOLD','SILVER','PLATINUM','PALLADIUM','COPPER'];
 const METAL_DEX   = 'xyz';
+const _XYZ_CACHE_KEY = 'tcc_xyzCoins';
+const XYZ_COINS   = new Set(METAL_COINS);
+// seed จาก cache รอบก่อน เพื่อให้ restore เหรียญล่าสุด (tcc_lastCoin) หลัง reload ยิงถูก dex แม้ list ยังโหลดไม่เสร็จ
+try {
+  const _xc = JSON.parse(localStorage.getItem(_XYZ_CACHE_KEY) || '[]');
+  if (Array.isArray(_xc)) _xc.forEach(n => { if (typeof n === 'string' && n) XYZ_COINS.add(n); });
+} catch(e) {}
 
-function _isMetalCoin(coin) {
+// ลงทะเบียนเหรียญ xyz ที่โหลดมาจริงจาก metaAndAssetCtxs (dex xyz) — เรียกจาก loadPerpList / loadMarketData
+// ชื่อซ้ำกับ main universe (ที่ไม่ใช่โลหะ 5 ตัว) ต้องไม่ถูกส่งเข้า xyz เพราะแถวใน list เป็นของ dex หลัก
+function _registerXyzCoins(names) {
+  XYZ_COINS.clear();
+  METAL_COINS.forEach(n => XYZ_COINS.add(n));
+  (names || []).forEach(n => { if (n) XYZ_COINS.add(n); });
+  try { localStorage.setItem(_XYZ_CACHE_KEY, JSON.stringify([...XYZ_COINS])); } catch(e) {}
+}
+
+// โลหะมีค่า 5 ตัว (ใช้กับการแสดงผลเฉพาะโลหะ: icon, label USDT, badge, กลุ่ม "โลหะมีค่า")
+function _isPreciousMetal(coin) {
   return METAL_COINS.includes(coin);
+}
+
+// เหรียญใน dex xyz ทุกตัว (ชื่อฟังก์ชันคงเดิมเพราะถูกเรียกใช้ ~35 จุด: WS, candle, funding, 24h, AFTD, FUTD)
+function _isMetalCoin(coin) {
+  return XYZ_COINS.has(coin);
 }
 
 // ── ชื่อ coin สำหรับ WS subscription: HIP-3 metal dex ต้องใช้ 'xyz:GOLD' (มี dex prefix) ──
@@ -12964,7 +13020,11 @@ async function loadPerpList() {
         const prevDay = parseFloat(ctx.prevDayPx) || 0;
         const chg   = prevDay > 0 ? ((price - prevDay) / prevDay) * 100 : 0;
         return { coin, sym: coin + 'USDT', price, chg, isMetal: true };
-      }).filter(r => r.price > 0 || _isMetalCoin(r.coin));
+      }).filter(r => r.price > 0 || _isPreciousMetal(r.coin));
+      // [XYZ-ROUTE] ชื่อซ้ำกับ main universe (นอกจากโลหะ 5 ตัว) → ให้ main ชนะ แล้วลงทะเบียนที่เหลือเป็นเหรียญ xyz
+      const _mainNames = new Set(universe.map(m => m.name));
+      metalPerps = metalPerps.filter(r => _isPreciousMetal(r.coin) || !_mainNames.has(r.coin));
+      _registerXyzCoins(metalPerps.map(r => r.coin));
       console.log('[Metal DEX] coins:', metalPerps.map(p => p.coin + '=' + p.price));
     } else {
       console.warn('[Metal DEX] ดึงข้อมูลไม่ได้ — แสดงเฉพาะ crypto');
@@ -12996,7 +13056,7 @@ function renderCoinDD(perps) {
   const makeCoinRow = (p) => {
     const chgColor  = p.chg >= 0 ? 'var(--g)' : 'var(--r)';
     const chgSign   = p.chg >= 0 ? '+' : '';
-    const isMetal   = _isMetalCoin(p.coin);
+    const isMetal   = _isPreciousMetal(p.coin); // [XYZ-ROUTE] แสดง badge/icon เฉพาะโลหะมีค่า 5 ตัว (หุ้น xyz ใช้แถวปกติ)
     const isGold    = _isGoldCoin(p.coin);
     const iconSym   = METAL_ICONS[p.coin] || '';
     const iconColor = METAL_COLORS ? METAL_COLORS[p.coin] : null;
@@ -13034,11 +13094,11 @@ function renderCoinDD(perps) {
   }
 
   // Default view: แบ่ง 2 กลุ่ม — เหรียญหลัก | โลหะมีค่า
-  const metalRows  = perps.filter(p => _isMetalCoin(p.coin) && !_isGoldCoin(p.coin));
+  const metalRows  = perps.filter(p => _isPreciousMetal(p.coin) && !_isGoldCoin(p.coin));
   // เรียงโลหะตาม METAL_COINS order
   metalRows.sort((a, b) => METAL_COINS.indexOf(a.coin) - METAL_COINS.indexOf(b.coin));
 
-  const pinnedRows = perps.filter(p => PINNED_COINS.includes(p.coin) && !_isMetalCoin(p.coin));
+  const pinnedRows = perps.filter(p => PINNED_COINS.includes(p.coin) && !_isPreciousMetal(p.coin));
   pinnedRows.sort((a, b) => PINNED_COINS.indexOf(a.coin) - PINNED_COINS.indexOf(b.coin));
   // เพิ่ม GOLD เข้า pinnedRows ท้ายสุด (ตำแหน่งที่ 6 = แสดงในกลุ่มเหรียญหลัก)
   const goldPinned = perps.filter(p => _isGoldCoin(p.coin));
@@ -13078,7 +13138,7 @@ function filterCoinDD(query) {
 
   const filtered = S.allPerps.filter(p => {
     if (targetCoin && p.coin === targetCoin) return true;
-    if (_isMetalCoin(p.coin) && (METAL_LABELS[p.coin]||'').toUpperCase().includes(q)) return true;
+    if (_isPreciousMetal(p.coin) && (METAL_LABELS[p.coin]||'').toUpperCase().includes(q)) return true;
     return p.coin.toUpperCase().includes(q) || p.sym.toUpperCase().includes(q);
   });
   renderCoinDD(filtered);
@@ -13132,8 +13192,8 @@ async function selectCoin(sym) {
   // บันทึก coin ล่าสุดเพื่อ restore หลัง reload
   try { localStorage.setItem('tcc_lastCoin', sym); } catch(e) {}
   // ── Pretty display name สำหรับโลหะ (แสดง "Au Gold" แทน "GOLDUSDT") ──
-  const _metalSym = _isMetalCoin(S.coin) ? (METAL_ICONS[S.coin] || '') : '';
-  const _metalLabel = _isMetalCoin(S.coin) ? (METAL_LABELS[S.coin] || sym) : null;
+  const _metalSym = _isPreciousMetal(S.coin) ? (METAL_ICONS[S.coin] || '') : '';
+  const _metalLabel = _isPreciousMetal(S.coin) ? (METAL_LABELS[S.coin] || sym) : null;
   const _dispSym = _metalLabel ? (_metalSym + ' ' + _metalLabel) : sym;
   const _topSymEl = document.getElementById('topSym');
   if (_topSymEl) _topSymEl.textContent = _dispSym;
@@ -13189,6 +13249,8 @@ async function selectCoin(sym) {
   const _coinDDEl = document.getElementById('coinDD');
   if (_coinDDEl) _coinDDEl.classList.remove('open');
   S.markPrice = 0; S.asks = []; S.bids = [];
+  // [XYZ-ROUTE] ล้าง Mark/High/Low/Vol ของเหรียญก่อนหน้า — ถ้าโหลดเหรียญใหม่ไม่ได้ต้องไม่โชว์ค่าเหรียญเก่าค้าง
+  ['tk-mark','tk-high','tk-low','tk-vol'].forEach(id => { const _el = document.getElementById(id); if (_el) _el.textContent = '—'; });
   S._switchingCoin = true;
   if (typeof CHART_PANELS !== 'undefined') { CHART_PANELS.fut.viewStart = null; CHART_PANELS.fut.visCount = 80; CHART_PANELS.fut.yOffset = 0; }
   renderOrderBook2();
@@ -13833,19 +13895,24 @@ async function fetch24h() {
       req: { coin: _wsCoinName(coin), interval: '1h', startTime: now - 86400000, endTime: now },
       ..._dexParam(coin)
     });
+    const hEl = document.getElementById('tk-high');
+    const lEl = document.getElementById('tk-low');
+    const vEl = document.getElementById('tk-vol');
+    const mEl = document.getElementById('tk-mark');
     if (d && d.length) {
       const high = Math.max(...d.map(c => parseFloat(c.h)));
       const low  = Math.min(...d.map(c => parseFloat(c.l)));
       const vol  = d.reduce((s, c) => s + parseFloat(c.v), 0);
-      const hEl = document.getElementById('tk-high');
-      const lEl = document.getElementById('tk-low');
-      const vEl = document.getElementById('tk-vol');
-      const mEl = document.getElementById('tk-mark');
       if (hEl) hEl.textContent = fmtP(high);
       if (lEl) lEl.textContent = fmtP(low);
       if (vEl) vEl.textContent = vol > 1000 ? (vol/1000).toFixed(1)+'K' : vol.toFixed(0);
-      if (mEl) mEl.textContent = fmtP(S.markPrice);
+    } else if (Array.isArray(d)) {
+      // [MKT-NODATA] ตอบกลับสำเร็จแต่ไม่มีแท่งเทียน 24 ชม. (ไม่มีการเทรด) → '—' ไม่ใช่ค่าของเหรียญก่อนหน้า
+      if (hEl) hEl.textContent = '—';
+      if (lEl) lEl.textContent = '—';
+      if (vEl) vEl.textContent = '—';
     }
+    if (mEl && S.markPrice > 0) mEl.textContent = fmtP(S.markPrice);
   } catch(e) {}
 }
 
@@ -14601,13 +14668,19 @@ async function loadMarketData() {
         const vol   = parseFloat(ctx.dayNtlVlm) || 0;
         const funding = parseFloat(ctx.funding) || 0;
         const oi    = parseFloat(ctx.openInterest) || 0;
-        if (price > 0) S.coinPrices[coin] = String(price);
         return { coin, price, chg, vol, funding, oi, sym: coin+'USDT', type:'perp', isMetal: true };
-      }).filter(r => r.price > 0 || _isMetalCoin(r.coin));
+      }).filter(r => r.price > 0 || _isPreciousMetal(r.coin));
       const existingCoins = new Set(mktData.map(r => r.coin));
-      const newMetals = metalRows.filter(r => !existingCoins.has(r.coin));
+      // [XYZ-ROUTE] ชื่อซ้ำกับ main universe (นอกจากโลหะ 5 ตัว) → ให้ main ชนะ (ไม่เอาราคา xyz ไปทับ S.coinPrices)
+      const _mainNames = new Set(((futCtx && futCtx[0] && futCtx[0].universe) || []).map(m => m.name));
+      const newMetals = metalRows.filter(r => !existingCoins.has(r.coin) && (_isPreciousMetal(r.coin) || !_mainNames.has(r.coin)));
+      // ลงทะเบียนเหรียญ xyz ทั้งหมด → _isMetalCoin / _wsCoinName / _dexParam ครอบคลุมทุกตัวใน list
+      _registerXyzCoins(newMetals.map(r => r.coin));
       mktData = [...newMetals, ...mktData];
-      newMetals.forEach(r => { S.coinMap[r.sym] = r.coin; });
+      newMetals.forEach(r => {
+        S.coinMap[r.sym] = r.coin;
+        if (r.price > 0) S.coinPrices[r.coin] = String(r.price);
+      });
     }
 
     // ── SPOT ──
@@ -14714,15 +14787,18 @@ function renderMarket() {
     const chgCls = r.chg > 0 ? 'up' : r.chg < 0 ? 'dn' : 'flat';
     const chgStr = (isUp ? '+' : '') + r.chg.toFixed(2) + '%';
     const isSpot = r.type === 'spot';
-    const isMetal = r.isMetal || _isMetalCoin(r.coin);
+    // [XYZ-ROUTE] แยก 2 กลุ่มใน dex xyz: โลหะมีค่า 5 ตัว (Metal, สีทอง) กับเหรียญ xyz อื่น เช่น หุ้น (tag xyz) — เส้นทางเปิดหน้า Futures เหมือนกัน
+    const isXyz = !isSpot && (r.isMetal || _isMetalCoin(r.coin));
+    const isMetal = isXyz && _isPreciousMetal(r.coin);
+    const isXyzOther = isXyz && !isMetal;
     const metalIcon = isMetal ? (METAL_ICONS[r.coin] || r.coin.slice(0,2)) : null;
-    const typeTag = isSpot ? `<span class="mkt-tag spot">Spot</span>` : isMetal ? `<span class="mkt-tag metal">Metal</span>` : `<span class="mkt-tag">Perp</span>`;
+    const typeTag = isSpot ? `<span class="mkt-tag spot">Spot</span>` : isMetal ? `<span class="mkt-tag metal">Metal</span>` : isXyzOther ? `<span class="mkt-tag xyz">xyz</span>` : `<span class="mkt-tag">Perp</span>`;
     const nameHtml = isSpot
       ? `<span class="mkt-name">${r.coin}</span><span style="font-size:11px;color:var(--t2)">/USDC</span>${typeTag}`
       : `<span class="mkt-name">${r.coin}USDT</span>${typeTag}`;
     const color = isMetal ? '#f0b90b' : cColor(r.coin);
     const letters = isMetal ? (metalIcon||r.coin.slice(0,2)) : r.coin.slice(0,3);
-    const logo = isMetal ? '' : `<img src="https://app.hyperliquid.xyz/coins/${encodeURIComponent(r.coin)}.svg" loading="lazy" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`;
+    const logo = (isMetal || isXyzOther) ? '' : `<img src="https://app.hyperliquid.xyz/coins/${encodeURIComponent(r.coin)}.svg" loading="lazy" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`;
     const full = _MKT_NAMES[r.coin] || r.coin;
     return `<div class="mkt-row" onclick="openFromMkt('${r.coin}','${isSpot?'spot':'futures'}')">
       <div class="mkt-row-inner">
@@ -46518,8 +46594,12 @@ svg.i{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.7;stroke
 .dsec .sh,.dsec .subt{color:#b7bdc6}
 button.subt{font-size:15px}
 .chipsel,.subt{cursor:pointer}
-/* [MKT-DETAIL] tabs ที่ยังไม่มีข้อมูลจริง (adapter เป็น demo) */
-#sTabs .t[data-t=data],#sTabs .t[data-t=options],#sTabs .t[data-t=square],#sTabs .t[data-t=tradex]{display:none!important}
+/* [MKT-DETAIL] Square/Trade-X ยังไม่มีข้อมูลจริง → ซ่อน | Data เปิดแล้ว (ดึงจริง) | Options แสดงเฉพาะเหรียญที่มีสัญญาออปชัน (class .hasopt ตั้งใน renderSHead) */
+#sTabs .t[data-t=square],#sTabs .t[data-t=tradex]{display:none!important}
+#sTabs .t[data-t=options]{display:none}
+#sTabs.hasopt .t[data-t=options]{display:flex}
+.coin .logo img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.dsrc{font-size:11px;color:#707a8a;text-align:center;padding:0 0 8px}
 </style>
 </head>
 <body>
@@ -46976,7 +47056,7 @@ const live = {
     const [meta,ctxs]=await hlCtx(); const i=meta.universe.findIndex(u=>u.name===coinOf(sym)); if(i<0) throw new Error('no symbol');
     const c=ctxs[i]; const mark=+c.markPx, last=+(c.midPx||c.markPx), prev=+c.prevDayPx;
     const m=metaOf(sym); if(last>0){ const idg=last>=1?Math.floor(Math.log10(last))+1:1; m.dec=clamp(6-idg,1,6); }
-    const cached=LIVE_HL[sym]||{};
+    const cached=await hl24(sym).catch(()=>LIVE_HL[sym]||{});
     return {symbol:sym, last, mark, chg:(mark/prev-1)*100, hi:cached.hi, lo:cached.lo, vb:+c.dayBaseVlm, vq:+c.dayNtlVlm, funding:+c.funding, oi:+c.openInterest};
   },
   async getKlines(sym, iv, limit=300){
@@ -46985,7 +47065,7 @@ const live = {
     let arr=raw.map(k=>({t:k.t,o:+k.o,h:+k.h,l:+k.l,c:+k.c,v:+k.v,q:+k.v*(+k.c)}));
     if(p.factor>1) arr=aggregate(arr,p.ms);
     arr=arr.slice(-limit);
-    if(iv==='1h'||iv==='15m'){ const last24=arr.slice(-Math.ceil(864e5/p.ms)); LIVE_HL[sym]={hi:Math.max(...last24.map(k=>k.h)), lo:Math.min(...last24.map(k=>k.l))}; }
+    if((iv==='1h'||iv==='15m') && arr.length>=Math.ceil(864e5/p.ms)){ const last24=arr.slice(-Math.ceil(864e5/p.ms)); LIVE_HL[sym]={hi:Math.max(...last24.map(k=>k.h)), lo:Math.min(...last24.map(k=>k.l))}; }
     return arr;
   },
   async getOrderBook(sym){
@@ -47022,6 +47102,200 @@ const live = {
     return r.map(o=>({id:String(o.oid), symbol:o.coin+'USDT', side:o.side==='B'?'buy':'sell', type:o.orderType||'Limit', price:+o.limitPx, qty:+o.origSz, filled:+o.origSz-+o.sz, reduceOnly:!!o.reduceOnly}));
   }
 };
+/* ---------------- LIVE: Info / Data / Options (แหล่งข้อมูลจริง) ----------------
+   Info  : Hyperliquid (meta / marginTables / predictedFundings / fundingHistory) + CoinGecko (Coin Info)
+   Data  : Binance Futures → Bybit v5 → OKX Rubik   (Aggregated = รวมทุกแหล่งที่ตอบ)
+   Options: Deribit → Binance Options              (เฉพาะเหรียญที่มีสัญญา: OPT_BASES)
+   ทุกแหล่งผ่าน fj() = fetch + timeout + cache สั้น ๆ ; ไม่มีข้อมูล → throw (UI แสดง "ไม่มีข้อมูล" ไม่ใช้ค่าสุ่ม) */
+const XC = new Map();
+function fj(url, opt={}){
+  const ttl=opt.ttl==null?30000:opt.ttl, now=Date.now(), c=XC.get(url);
+  if(c && now-c.t<ttl) return c.p;
+  const ctl=new AbortController(), to=setTimeout(()=>ctl.abort(), opt.timeout||9000);
+  const p=fetch(url,{signal:ctl.signal}).then(r=>{ if(!r.ok) throw new Error(url.split('?')[0]+' '+r.status); return r.json(); }).finally(()=>clearTimeout(to));
+  XC.set(url,{t:now,p}); p.catch(()=>{ if(XC.get(url)&&XC.get(url).p===p) XC.delete(url); });
+  return p;
+}
+const isK = raw => /^k[A-Z0-9]{2,}$/.test(raw);               // HL ใช้ k-prefix = 1000x (kPEPE, kBONK, ...)
+const cgBase = sym => { const r=coinOf(sym); return isK(r)?r.slice(1):r; };
+const perpSyms = sym => { const raw=coinOf(sym), b=cgBase(sym); return isK(raw)?[{s:'1000'+b+'USDT',mul:1000},{s:b+'USDT',mul:1}]:[{s:b+'USDT',mul:1}]; };
+
+/* ---- Hyperliquid meta (Trading Parameters / Leverage tiers / Funding) ---- */
+let _metaFull={t:0,p:null};
+function hlMeta(){ const n=Date.now(); if(_metaFull.p&&n-_metaFull.t<60000) return _metaFull.p; const p=hl({type:'meta'}); _metaFull={t:n,p}; p.catch(()=>{ _metaFull={t:0,p:null}; }); return p; }
+async function hlAsset(sym){ const meta=await hlMeta(); const u=(meta.universe||[]).find(x=>x.name===coinOf(sym)); if(!u) throw new Error('no asset '+sym); return {meta,u}; }
+function hlTiers(meta,u){
+  const ent=(meta.marginTables||[]).find(e=>(Array.isArray(e)?e[0]:e.id)===u.marginTableId);
+  const t=ent&&(Array.isArray(ent)?ent[1]:ent);
+  let tiers=t&&t.marginTiers&&t.marginTiers.length ? t.marginTiers.map(x=>({from:+x.lowerBound,lev:+x.maxLeverage})) : [{from:0,lev:+u.maxLeverage}];
+  return tiers.sort((a,b)=>a.from-b.from);
+}
+/* 24h High/Low: คำนวณจากแท่ง 15m ย้อนหลัง 24 ชม. (ไม่ขึ้นกับ timeframe ของกราฟ) cache 60 วินาที */
+const H24={};
+function hl24(sym){
+  const c=H24[sym], n=Date.now(); if(c&&n-c.t<60000) return c.p;
+  const p=hl({type:'candleSnapshot',req:{coin:coinOf(sym),interval:'15m',startTime:n-864e5-9e5,endTime:n}}).then(raw=>{
+    const a=raw.filter(k=>k.T>n-864e5); if(!a.length) throw new Error('no candles');
+    return {hi:Math.max(...a.map(k=>+k.h)), lo:Math.min(...a.map(k=>+k.l))}; });
+  H24[sym]={t:n,p}; p.catch(()=>{ if(H24[sym]&&H24[sym].p===p) delete H24[sym]; }); return p;
+}
+
+/* ---- CoinGecko (Coin Info) ---- */
+const CG='https://api.coingecko.com/api/v3';
+async function cgId(base){
+  const k='cgid_'+base, c=ls.get(k,null); if(c) return c;
+  const j=await fj(CG+'/search?query='+encodeURIComponent(base),{ttl:6e5});
+  const hit=(j.coins||[]).filter(x=>String(x.symbol).toUpperCase()===base.toUpperCase()).sort((a,b)=>(a.market_cap_rank||1e9)-(b.market_cap_rank||1e9))[0];
+  if(!hit) throw new Error('coingecko: no match '+base); ls.set(k,hit.id); return hit.id;
+}
+
+/* ---- Data: Open Interest / Long-Short ---- */
+const BN='https://fapi.binance.com/futures/data/', BY='https://api.bybit.com/v5/market/', OK='https://www.okx.com/api/v5/rubik/stat/';
+async function bnTry(path,sym,period,limit){
+  let le; for(const c of perpSyms(sym)){ try{ const j=await fj(`${BN}${path}?symbol=${c.s}&period=${period}&limit=${limit}`); if(Array.isArray(j)&&j.length) return {rows:j,mul:c.mul}; le=new Error('binance empty '+c.s); }catch(e){ le=e; } }
+  throw le||new Error('binance none');
+}
+const BY_PER={'5m':'5min','15m':'15min','30m':'30min','1h':'1h','4h':'4h','1d':'1d'}, BY_BASE={'2h':'1h','6h':'1h','12h':'4h'};
+const BY_KL={'5m':5,'15m':15,'30m':30,'1h':60,'2h':120,'4h':240,'6h':360,'12h':720,'1d':'D'};
+function byPlan(period){ const base=BY_PER[period]?period:BY_BASE[period]; if(!base) throw new Error('bybit: period '+period); return {key:BY_PER[base], step:ivMs(period), baseMs:ivMs(base)}; }
+async function byFetch(path,sym,q){
+  let le; for(const c of perpSyms(sym)){ try{ const j=await fj(`${BY}${path}?category=linear&symbol=${c.s}&${q}`); if(j.retCode===0&&j.result&&j.result.list&&j.result.list.length) return {list:j.result.list,mul:c.mul,s:c.s}; le=new Error('bybit '+(j.retMsg||'empty')); }catch(e){ le=e; } }
+  throw le||new Error('bybit none');
+}
+function byPick(rows,step,n=30){ const a=rows.slice().sort((x,y)=>x.t-y.t), al=a.filter(r=>r.t%step===0); return (al.length>=5?al:a).slice(-n); }
+async function okFetch(path,q){ const j=await fj(OK+path+'?'+q); if(j.code!=='0'||!j.data||!j.data.length) throw new Error('okx '+(j.msg||'empty')); return j.data; }
+const OK_PER={'5m':'5m','1h':'1H','1d':'1D'};
+function okInst(sym){ if(isK(coinOf(sym))) throw new Error('okx: k-coin'); return cgBase(sym)+'-USDT-SWAP'; }
+
+const OI_SRC=[
+  ['Binance', async (sym,period)=>{ const {rows,mul}=await bnTry('openInterestHist',sym,period,30); return rows.map(r=>({t:+r.timestamp,oi:+r.sumOpenInterest*mul,notional:+r.sumOpenInterestValue})); }],
+  ['Bybit', async (sym,period)=>{
+    const p=byPlan(period), need=Math.min(200,Math.ceil(30*p.step/p.baseMs)+2);
+    const {list,mul,s}=await byFetch('open-interest',sym,`intervalTime=${p.key}&limit=${need}`);
+    const rows=byPick(list.map(r=>({t:+r.timestamp,oi:+r.openInterest*mul})),p.step);
+    let kl=[]; try{ const k=await fj(`${BY}kline?category=linear&symbol=${s}&interval=${BY_KL[period]}&limit=60`); kl=(k.result.list||[]).map(x=>({t:+x[0],c:+x[4]})).sort((a,b)=>a.t-b.t); }catch(e){}
+    const last=kl.length?kl[kl.length-1].c:null;
+    const pxAt=t=>{ let v=null; for(const x of kl){ if(x.t<=t) v=x.c; else break; } return v!=null?v:(kl.length?kl[0].c:last); };
+    return rows.map(r=>{ const px=pxAt(r.t); return {t:r.t,oi:r.oi,notional:isNum(px)?r.oi/mul*px:null}; }).filter(r=>isNum(r.notional));
+  }],
+  ['OKX', async (sym,period)=>{ const per=OK_PER[period]; if(!per) throw new Error('okx: period'); const d=await okFetch('contracts/open-interest-history',`instId=${okInst(sym)}&period=${per}&limit=30`); return d.map(r=>({t:+r[0],oi:+r[2],notional:+r[3]})).sort((a,b)=>a.t-b.t); }]
+];
+function lsRows(rows){ return rows.filter(r=>isNum(r.ratio)&&r.ratio>0); }
+const LS_FALLBACK={
+  Accounts:[
+    ['Bybit · Global Account Ratio', async (sym,period)=>{ const p=byPlan(period), need=Math.min(500,Math.ceil(30*p.step/p.baseMs)+2);
+      const {list}=await byFetch('account-ratio',sym,`period=${p.key}&limit=${need}`);
+      return byPick(list.map(r=>{ const lg=+r.buyRatio*100, sh=+r.sellRatio*100; return {t:+r.timestamp,long:lg,short:sh,ratio:lg/sh}; }),p.step); }],
+    ['OKX · Top Trader Accounts', async (sym,period)=>okLS('long-short-account-ratio-contract-top-trader',sym,period)]
+  ],
+  Positions:[
+    ['OKX · Top Trader Positions', async (sym,period)=>okLS('long-short-position-ratio-contract-top-trader',sym,period)]
+  ]
+};
+async function okLS(path,sym,period){ const per=OK_PER[period]; if(!per) throw new Error('okx: period'); const d=await okFetch(path,`instId=${okInst(sym)}&period=${per}&limit=30`);
+  return d.map(r=>{ const ra=+r[1]; return {t:+r[0],long:ra/(1+ra)*100,short:100/(1+ra),ratio:ra}; }).sort((a,b)=>a.t-b.t); }
+
+/* ---- Options ---- */
+const OPT_BASES=new Set(['BTC','ETH','SOL','XRP','DOGE','BNB','AVAX','TRX']);
+const MON={JAN:0,FEB:1,MAR:2,APR:3,MAY:4,JUN:5,JUL:6,AUG:7,SEP:8,OCT:9,NOV:10,DEC:11};
+async function optDeribit(base){
+  const cur=(base==='BTC'||base==='ETH')?base:'USDC';
+  const j=await fj('https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency='+cur+'&kind=option');
+  const pre=cur==='USDC'?base+'_USDC-':base+'-', rows=[];
+  (j.result||[]).forEach(r=>{ if(!r.instrument_name.startsWith(pre)) return; const p=r.instrument_name.split('-'), dm=/^(\d{1,2})([A-Z]{3})(\d{2})$/.exec(p[1]); if(!dm||p.length<4) return;
+    const mult=cur==='USDC'?1:(+r.underlying_price||0), q=v=>isNum(v)&&v>0&&mult>0?v*mult:null, bid=q(r.bid_price), ask=q(r.ask_price), iv=isNum(r.mark_iv)&&r.mark_iv>0?r.mark_iv:null;
+    rows.push({exp:Date.UTC(2000+ +dm[3],MON[dm[2]],+dm[1],8), strike:+p[2].replace('d','.'), side:p[3]==='C'?'call':'put', bid, ask, bidIv:bid!=null?iv:null, askIv:ask!=null?iv:null}); });
+  if(!rows.length) throw new Error('deribit: none'); return {rows,src:'Deribit'};
+}
+async function optBinance(base){
+  const E='https://eapi.binance.com/eapi/v1/';
+  const [info,mark,tk]=await Promise.all([fj(E+'exchangeInfo',{ttl:3e5}),fj(E+'mark'),fj(E+'ticker').catch(()=>[])]);
+  const mm=new Map((mark||[]).map(x=>[x.symbol,x])), tm=new Map((tk||[]).map(x=>[x.symbol,x])), pos=v=>+v>0?+v:null, iv=v=>+v>0?+v*100:null, rows=[];
+  (info.optionSymbols||[]).forEach(o=>{ if(o.underlying!==base+'USDT'||!mm.has(o.symbol)) return; const m=mm.get(o.symbol), t=tm.get(o.symbol)||{};
+    rows.push({exp:+o.expiryDate, strike:+o.strikePrice, side:o.side==='CALL'?'call':'put', bid:pos(t.bidPrice), ask:pos(t.askPrice), bidIv:iv(m.bidIV), askIv:iv(m.askIV)}); });
+  if(!rows.length) throw new Error('binance options: none'); return {rows,src:'Binance Options'};
+}
+const OPT_CACHE={};
+async function optData(base){
+  const c=OPT_CACHE[base]; if(c&&Date.now()-c.t<30000) return c.d;
+  let d; try{ d=await optDeribit(base); }catch(e){ d=await optBinance(base); }
+  d.rows=d.rows.filter(r=>r.exp>Date.now()); if(!d.rows.length) throw new Error('options: expired only');
+  OPT_CACHE[base]={t:Date.now(),d}; return d;
+}
+
+Object.assign(live,{
+  async getTradingParams(sym){
+    const {u}=await hlAsset(sym), [m2,cx]=await hlCtx(), c=cx[m2.universe.findIndex(x=>x.name===u.name)]||{}, base=coinOf(sym), sz=+u.szDecimals||0, maxDec=6-sz;
+    const mark=+c.markPx, intD=mark>=1?Math.floor(Math.log10(mark))+1:0, dec=mark>=1?clamp(5-intD,0,maxDec):maxDec;
+    const iso=!!u.onlyIsolated||u.marginMode==='strictIsolated'||u.marginMode==='noCross';
+    return [['Contract Type','Perpetual'],['Settlement Asset','USDT'],['Price Tick (USDT)',(Math.pow(10,-dec)).toFixed(dec)+' (≤5 sig. figs)'],['Quantity Step ('+base+')',(Math.pow(10,-sz)).toFixed(sz)],
+      ['Min Order Value (USDT)','10'],['Max Leverage',u.maxLeverage+'x'],['Margin Mode',iso?'Isolated only':'Cross / Isolated'],['Funding Interval','1 hour'],['Funding Rate Cap','4% / hour'],
+      ['Oracle Price (USDT)',isNum(+c.oraclePx)?fmt(+c.oraclePx,Math.max(dec,2)):'--'],['Open Interest ('+base+')',isNum(+c.openInterest)?fmt(+c.openInterest,Math.min(sz,4)):'--'],['Trading Hours','24/7']];
+  },
+  async getLeverageTiers(sym){
+    const {meta,u}=await hlAsset(sym), tr=hlTiers(meta,u); let ded=0, prev=0;
+    return tr.map((x,i)=>{ const mmr=1/(2*x.lev); if(i>0) ded+=x.from*(mmr-prev); prev=mmr; return {tier:i+1,from:x.from,to:i+1<tr.length?tr[i+1].from:null,lev:x.lev,mmr:fmt(mmr*100,2)+'%',amt:ded}; });
+  },
+  async getFunding(sym){
+    const coin=coinOf(sym);
+    const [h,t,pf]=await Promise.all([hl({type:'fundingHistory',coin,startTime:Date.now()-864e5}),live.getTicker(sym),hl({type:'predictedFundings'}).catch(()=>null)]);
+    let nextTs=Math.ceil(Date.now()/36e5)*36e5, interval='1 hour';
+    try{ const row=(pf||[]).find(r=>r[0]===coin), v=row&&row[1].find(x=>x[0]==='HlPerp'), d=v&&v[1];
+      if(d&&+d.nextFundingTime>Date.now()) nextTs=+d.nextFundingTime; if(d&&+d.fundingIntervalHours) interval=d.fundingIntervalHours+(+d.fundingIntervalHours===1?' hour':' hours'); }catch(e){}
+    return {rate:t.funding,nextTs,interval,hist:h.map(x=>({t:x.time,rate:+x.fundingRate})).reverse()};
+  },
+  async getCoinInfo(sym){
+    const base=cgBase(sym), m0=metaOf(sym), fb=COIN[sym]||{}, out={name:(m0.name&&m0.name!==m0.base)?m0.name:base, logo:base[0], color:'#2b3140', src:null};
+    try{
+      const id=await cgId(base);
+      const [d,g]=await Promise.all([fj(CG+'/coins/'+id+'?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false',{ttl:3e5}), fj(CG+'/global',{ttl:6e5}).catch(()=>null)]);
+      const md=d.market_data||{}, U=o=>o&&isNum(o.usd)?o.usd:null, mc=U(md.market_cap), vol=U(md.total_volume), tot=g&&g.data&&g.data.total_market_cap&&g.data.total_market_cap.usd, L=d.links||{}, f1=a=>(a||[]).find(x=>x), sup=v=>isNum(v)&&v>0?bigUsd(v)+' '+base:null;
+      const dt=o=>o&&o.usd?String(o.usd).slice(0,10):undefined;
+      Object.assign(out,{name:d.name||out.name, img:d.image&&(d.image.small||d.image.large), mcap:mc, rank:d.market_cap_rank, fdv:U(md.fully_diluted_valuation), dom:(mc&&tot)?fmt(mc/tot*100,4)+'%':null,
+        vol, volMc:(mc&&vol)?fmt(vol/mc*100,2)+'%':null, circ:sup(md.circulating_supply), max:sup(md.max_supply), total:sup(md.total_supply), issue:d.genesis_date||null,
+        ath:U(md.ath), athDate:dt(md.ath_date), atl:U(md.atl), atlDate:dt(md.atl_date),
+        links:{website:f1(L.homepage), whitepaper:L.whitepaper||null, explorer:f1(L.blockchain_site)}, src:'CoinGecko'});
+    }catch(e){
+      console.warn('[coinInfo]',e.message); Object.assign(out,fb);
+      try{ const t=await live.getTicker(sym); if(!isNum(out.vol)) out.vol=t.vq; }catch(e2){}
+      out.src=fb.name?'cache':null; out.err=e.message;
+    }
+    return out;
+  },
+  async getOpenInterest(sym,period,mode){
+    if(mode==='Aggregated'){
+      const res=await Promise.allSettled(OI_SRC.map(([n,f])=>f(sym,period).then(r=>({n,r})))), ok=res.filter(x=>x.status==='fulfilled'&&x.value.r.length>1).map(x=>x.value);
+      if(ok.length>=2){
+        const common=ok[0].r.map(r=>r.t).filter(t=>ok.every(s=>s.r.some(r=>r.t===t))).slice(-30);
+        if(common.length>=5){ const rows=common.map(t=>{ let oi=0,nt=0; ok.forEach(s=>{ const r=s.r.find(x=>x.t===t); oi+=r.oi; nt+=r.notional; }); return {t,oi,notional:nt}; }); rows.src='Aggregated: '+ok.map(s=>s.n).join(' + '); return rows; }
+      }
+      if(ok.length){ const r=ok[0].r.slice(-30); r.src=ok[0].n+' (Aggregated ไม่พร้อมใช้งาน)'; return r; }
+      throw new Error('OI: no source');
+    }
+    let le; for(const [n,f] of OI_SRC){ try{ const r=(await f(sym,period)).slice(-30); if(r.length>1){ r.src=n; return r; } }catch(e){ le=e; } }
+    throw le||new Error('OI: no source');
+  },
+  async getLongShort(sym,period,by){
+    let le; try{ const {rows}=await bnTry(by==='Positions'?'topLongShortPositionRatio':'topLongShortAccountRatio',sym,period,30);
+      const r=lsRows(rows.map(x=>({t:+x.timestamp,long:+x.longAccount*100,short:+x.shortAccount*100,ratio:+x.longShortRatio}))); if(r.length>1){ r.src='Binance · Top Trader '+by; return r; } }catch(e){ le=e; }
+    for(const [n,f] of (LS_FALLBACK[by]||[])){ try{ const r=lsRows(await f(sym,period)).slice(-30); if(r.length>1){ r.src=n; return r; } }catch(e){ le=e; } }
+    throw le||new Error('LS: no source');
+  },
+  async getOptionExpiries(sym){
+    const base=cgBase(sym); if(!OPT_BASES.has(base)) return [];
+    const d=await optData(base), set=[...new Set(d.rows.map(r=>r.exp))].sort((a,b)=>a-b).slice(0,12);
+    return set.map(ts=>{ const dt=new Date(ts); return {ts,label:pad2(dt.getUTCMonth()+1)+'-'+pad2(dt.getUTCDate())}; });
+  },
+  async getOptionChain(sym,ts){
+    const base=cgBase(sym), d=await optData(base), spot=(await live.getTicker(sym)).last, by=new Map();
+    d.rows.filter(r=>r.exp===ts).forEach(r=>{ let e=by.get(r.strike); if(!e){ e={strike:r.strike,call:{bid:null,bidIv:null,ask:null,askIv:null},put:{bid:null,bidIv:null,ask:null,askIv:null}}; by.set(r.strike,e); }
+      e[r.side]={bid:r.bid,bidIv:r.bidIv,ask:r.ask,askIv:r.askIv}; });
+    const arr=[...by.values()].sort((a,b)=>a.strike-b.strike); if(!arr.length) return [];
+    let ai=0; arr.forEach((r,i)=>{ if(Math.abs(r.strike-spot)<Math.abs(arr[ai].strike-spot)) ai=i; });
+    arr[ai].atm=true; return arr.slice(Math.max(0,ai-12),ai+13);
+  }
+});
+
 const LIVE_HL = {};
 let BASE = Object.assign({}, demo);
 function pickAdapters(){ BASE = Object.assign({}, demo, CFG.live? live : {}); }
@@ -47582,6 +47856,7 @@ function renderSHead(){
   else sub.innerHTML=`<span class="${t.dir>0?'up':t.dir<0?'dn':''}" style="color:${t.dir?'':'var(--text)'}">${fmt(t.last,m.dec)}</span> <span class="${cls(t.chg)}">${fmtS(t.chg,2)}%</span>`;
   $('#sStar').classList.toggle('on',S.favs.has(S.symbol));
   $$('#sTabs .t').forEach(e=>e.classList.toggle('on',e.dataset.t===S.tab));
+  const hasOpt=!CFG.live||OPT_BASES.has(cgBase(S.symbol)); $('#sTabs').classList.toggle('hasopt',hasOpt); if(S.tab==='options'&&!hasOpt) setTimeout(()=>setTab('price'),0);
   $('#sBottom').style.display=(S.tab==='options'||S.tab==='square'||S.tab==='tradex')?'none':'flex';
 }
 $('#sBack').addEventListener('click',()=>{ if(!TCC.emit('back',{})) {} });
@@ -47706,6 +47981,10 @@ async function loadChart(){
   const sym=S.symbol, iv=S.interval, m=metaOf(sym);
   if(!mainChart){ mainChart=new KChart($('#mainCv'),{mainH:332,subH:92,dec:m.dec,sym}); charts.push(mainChart); }
   try{ const d=await A('getKlines',sym,iv,300); if(sym!==S.symbol||iv!==S.interval) return;
+    /* [MKT-NODATA] ไม่มีแท่งเทียน (เหรียญไม่มีการเทรด) → แสดง "ไม่มีข้อมูล" ทับ canvas แทนพื้นที่ว่าง / กราฟเหรียญก่อนหน้า */
+    { const cvw=$('#mainCv').parentElement; let nd=cvw.querySelector('.cv-nodata');
+      if(!d||!d.length){ if(!nd){ nd=document.createElement('div'); nd.className='cv-nodata'; nd.style.cssText='position:absolute;left:0;right:0;top:0;height:'+mainChart.o.mainH+'px;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--muted);font-size:13px;pointer-events:none;z-index:2'; cvw.appendChild(nd); } nd.textContent='ไม่มีข้อมูล'; nd.style.display='flex'; mainChart.setData([],ivMs(iv),metaOf(sym).dec,sym); return; }
+      if(nd) nd.style.display='none'; }
     mainChart.main=S.main; mainChart.subs=S.subs; mainChart.type=iv==='Time'?'area':S.chartType; applyChartSize(); mainChart.setData(d,ivMs(iv),metaOf(sym).dec,sym); renderPriceBlock();
   }catch(e){ console.warn(e); toast('โหลดกราฟไม่สำเร็จ: '+iv); }
 }
@@ -47774,7 +48053,7 @@ async function renderInfo(){
       const cell=(k,v,v2,d)=>`<div class="c"><span class="k dotted">${k}</span><div class="v">${v}</div>${v2?`<div class="v2">${v2}</div>`:''}${d?`<div class="d">${d}</div>`:''}</div>`;
       const ath=isNum(c.ath)?'$'+fmt(c.ath,4):'--', atl=isNum(c.atl)?'$'+String(+c.atl.toFixed(8)):'--';
       body.innerHTML=`<div class="note"><span>*</span><span>Underlying data is provided by third-party sources and is for reference only. This information is presented on an 'as is' basis and does not serve as any form of representation or guarantee. <a href="#" data-link="risk">Risk Warning</a></span></div>
-        <div class="coin"><span class="logo" style="background:${c.color||'#2b3140'}">${c.logo||''}</span>${c.name||m.name}</div>
+        <div class="coin"><span class="logo" style="background:${c.img?'transparent':(c.color||'#2b3140')}">${c.img?`<img src="${c.img}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`:(c.logo||'')}</span>${c.name||m.name}</div>
         <div class="kv2">
           ${cell('Market Cap',usd(c.mcap),thb(c.mcap))}${cell('Market Cap Ranking',c.rank?'No.'+c.rank:'--')}
           ${cell('Fully Diluted Market Cap',usd(c.fdv),thb(c.fdv))}${cell('Market Dominance',c.dom||'--')}
@@ -47784,13 +48063,15 @@ async function renderInfo(){
           ${cell('Issue Date',c.issue||'--')}<div></div>
           ${cell('All Time High',ath,isNum(c.ath)?'≈ ฿'+fmt(c.ath*fx,4):'',c.athDate)}${cell('All Time Low',atl,isNum(c.atl)?'≈ ฿'+fmt(c.atl*fx,4):'',c.atlDate)}
         </div>
-        <div class="sec">Links</div><div class="links"><button data-link="website">Official Website</button><button data-link="whitepaper">Whitepaper</button><button data-link="explorer">Explorer</button></div>`;
+        <div class="sec">Links</div><div class="links"><button data-link="website">Official Website</button><button data-link="whitepaper">Whitepaper</button><button data-link="explorer">Explorer</button></div>
+        <div class="dsrc" style="padding-top:12px">${c.src?'Source: '+c.src+(c.err?' (ข้อมูลสำรอง)':''):'ไม่พบข้อมูลเหรียญนี้ในแหล่งข้อมูลภายนอก'}</div>`;
+      S.coinLinks=c.links||{};
     } else if(S.infoSub==='params'){
       const rows=await A('getTradingParams',sym); if(sym!==S.symbol||S.tab!=='info') return;
       body.innerHTML=`<div class="rows">${rows.map(([k,v])=>`<div class="r"><span>${k}</span><b style="font-weight:500">${v}</b></div>`).join('')}</div>`;
     } else if(S.infoSub==='lev'){
       const t=await A('getLeverageTiers',sym); if(sym!==S.symbol||S.tab!=='info') return;
-      body.innerHTML=`<table class="tbl"><tr><th>Tier</th><th>Position (USDT)</th><th>Max Lev.</th><th>Maint. Margin</th></tr>${t.map(x=>`<tr><td>${x.tier}</td><td>${compact(x.from)} – ${compact(x.to)}</td><td>${x.lev}x</td><td>${x.mmr}</td></tr>`).join('')}</table>`;
+      body.innerHTML=`<table class="tbl"><tr><th>Tier</th><th>Position (USDT)</th><th>Max Lev.</th><th>Maint. Margin</th>${CFG.live?'<th>Maint. Amt</th>':''}</tr>${t.map(x=>`<tr><td>${x.tier}</td><td>${compact(x.from)} ${x.to==null?'+':'– '+compact(x.to)}</td><td>${x.lev}x</td><td>${x.mmr}</td>${CFG.live?`<td>${fmt(x.amt,2)}</td>`:''}</tr>`).join('')}</table><div class="dsrc" style="padding-top:10px">Source: Hyperliquid · MMR = 1 / (2 × Max Lev.)</div>`;
     } else {
       const f=await A('getFunding',sym); if(sym!==S.symbol||S.tab!=='info') return;
       const left=Math.max(0,f.nextTs-Date.now()), hh=Math.floor(left/36e5), mm=Math.floor(left%36e5/6e4), ss=Math.floor(left%6e4/1e3);
@@ -47800,7 +48081,11 @@ async function renderInfo(){
   }catch(e){ console.warn(e); body.innerHTML='<div class="empty">โหลดข้อมูลไม่สำเร็จ</div>'; }
 }
 $('#tabInfo').addEventListener('click',e=>{ const a=e.target.closest('[data-link]'); if(a){ e.preventDefault(); TCC.emit('link',{key:a.dataset.link,symbol:S.symbol}); } });
-defaults.link=({key})=>soon('link → '+key);
+defaults.link=({key})=>{
+  if(key==='risk'){ toast('ข้อมูลจากแหล่งภายนอก ใช้เพื่ออ้างอิงเท่านั้น ไม่ใช่คำแนะนำการลงทุน',3500); return; }
+  const u=S.coinLinks&&S.coinLinks[key];
+  if(u&&/^https?:\/\//i.test(u)) window.open(u,'_blank','noopener,noreferrer'); else toast('ไม่พบลิงก์ '+key+' ของเหรียญนี้');
+};
 
 /* ---------------- Data (Open Interest + Long/Short) ---------------- */
 const PERIODS=['5m','15m','30m','1h','2h','4h','6h','12h','1d'];
@@ -47840,18 +48125,25 @@ async function renderData(){
     else if(b.id==='lsB') showMenu(b,['Accounts','Positions'].map(v=>({v,t:'By '+v})),v=>{ S.lsBy=v; renderData(); },S.lsBy); };
   defaults.share=({chart})=>soon('share → '+chart);
   try{
-    const [oi,lsr]=await Promise.all([A('getOpenInterest',sym,S.oiPeriod,S.oiMode),A('getLongShort',sym,S.lsPeriod,S.lsBy)]); if(sym!==S.symbol||S.tab!=='data') return;
+    const [rOi,rLs]=await Promise.allSettled([A('getOpenInterest',sym,S.oiPeriod,S.oiMode),A('getLongShort',sym,S.lsPeriod,S.lsBy)]); if(sym!==S.symbol||S.tab!=='data') return;
     const rng=(a,pl,ph)=>{ const mn=Math.min(...a), mx=Math.max(...a), d=(mx-mn)||mx*.001||1; return {min:mn-d*pl,max:mx+d*ph}; };
-    const oiR=rng(oi.map(r=>r.oi),.04,.06), ntR=rng(oi.map(r=>r.notional),.04,.06);
-    const oiCfg={rows:oi,ticks:4,l:{...oiR,fmt:v=>compact(v)},r:{...ntR,fmt:v=>fmt(v/1e6,1)+'M'},lineVal:r=>r.notional,
-      bar:(c,r,x,w,Y,bot)=>{ c.fillStyle='#fcd535'; const y=Y(r.oi); c.fillRect(x,y,w,Math.max(1,bot-y)); },
-      tip:r=>`${fmtTime(r.t)}<br>Open Interest: <b>${fmt(r.oi,0)}</b> ${m.base}<br>Notional: <b>${compact(r.notional)}</b> USDT`};
-    const lr=rng(lsr.map(r=>r.ratio),.15,.15);
-    const lsCfg={rows:lsr,ticks:3,l:{min:0,max:100,fmt:v=>Math.round(v)+'%'},r:{...lr,fmt:v=>fmt(v,2)},lineVal:r=>r.ratio,
-      bar:(c,r,x,w,Y,bot,top)=>{ const yl=bot-(r.long/100)*(bot-top); c.fillStyle=GREEN; c.fillRect(x,yl,w,bot-yl); c.fillStyle=RED; c.fillRect(x,top,w,yl-top); },
-      tip:r=>`${fmtTime(r.t)}<br>Long: <b class="up">${fmt(r.long,2)}%</b>  Short: <b class="dn">${fmt(r.short,2)}%</b><br>Ratio: <b>${fmt(r.ratio,3)}</b>`};
-    dual.length=0; dual.push({cv:$('#oiCv'),cfg:oiCfg},{cv:$('#lsCv'),cfg:lsCfg});
-    dual.forEach(d=>drawDual(d.cv,d.cfg)); bindHover($('#oiCv'),$('#oiTip'),()=>oiCfg,i=>drawDual($('#oiCv'),oiCfg,i)); bindHover($('#lsCv'),$('#lsTip'),()=>lsCfg,i=>drawDual($('#lsCv'),lsCfg,i));
+    const noData=(cv,msg)=>{ const d=cv.closest('.dchart'); d.innerHTML=`<div class="empty" style="padding:46px 24px">${msg}</div>`; const lg=d.nextElementSibling; if(lg&&lg.classList.contains('legend')) lg.style.display='none'; };
+    const srcLine=(cv,t)=>{ if(!t) return; const e=document.createElement('div'); e.className='dsrc'; e.textContent='Source: '+t; cv.closest('.dsec').appendChild(e); };
+    dual.length=0;
+    if(rOi.status==='fulfilled'&&rOi.value.length>1){
+      const oi=rOi.value, oiR=rng(oi.map(r=>r.oi),.04,.06), ntR=rng(oi.map(r=>r.notional),.04,.06);
+      const oiCfg={rows:oi,ticks:4,l:{...oiR,fmt:v=>compact(v)},r:{...ntR,fmt:v=>fmt(v/1e6,1)+'M'},lineVal:r=>r.notional,
+        bar:(c,r,x,w,Y,bot)=>{ c.fillStyle='#fcd535'; const y=Y(r.oi); c.fillRect(x,y,w,Math.max(1,bot-y)); },
+        tip:r=>`${fmtTime(r.t)}<br>Open Interest: <b>${fmt(r.oi,0)}</b> ${m.base}<br>Notional: <b>${compact(r.notional)}</b> USDT`};
+      dual.push({cv:$('#oiCv'),cfg:oiCfg}); drawDual($('#oiCv'),oiCfg); bindHover($('#oiCv'),$('#oiTip'),()=>oiCfg,i=>drawDual($('#oiCv'),oiCfg,i)); srcLine($('#oiCv'),oi.src);
+    } else { console.warn('[OI]',rOi.reason); noData($('#oiCv'),'ไม่มีข้อมูล Open Interest ของ '+sym+'<br><small>ไม่พบเหรียญนี้ใน Binance / Bybit / OKX หรือเชื่อมต่อไม่สำเร็จ</small>'); }
+    if(rLs.status==='fulfilled'&&rLs.value.length>1){
+      const lsr=rLs.value, lr=rng(lsr.map(r=>r.ratio),.15,.15);
+      const lsCfg={rows:lsr,ticks:3,l:{min:0,max:100,fmt:v=>Math.round(v)+'%'},r:{...lr,fmt:v=>fmt(v,2)},lineVal:r=>r.ratio,
+        bar:(c,r,x,w,Y,bot,top)=>{ const yl=bot-(r.long/100)*(bot-top); c.fillStyle=GREEN; c.fillRect(x,yl,w,bot-yl); c.fillStyle=RED; c.fillRect(x,top,w,yl-top); },
+        tip:r=>`${fmtTime(r.t)}<br>Long: <b class="up">${fmt(r.long,2)}%</b>  Short: <b class="dn">${fmt(r.short,2)}%</b><br>Ratio: <b>${fmt(r.ratio,3)}</b>`};
+      dual.push({cv:$('#lsCv'),cfg:lsCfg}); drawDual($('#lsCv'),lsCfg); bindHover($('#lsCv'),$('#lsTip'),()=>lsCfg,i=>drawDual($('#lsCv'),lsCfg,i)); srcLine($('#lsCv'),lsr.src);
+    } else { console.warn('[LS]',rLs.reason); noData($('#lsCv'),'ไม่มีข้อมูล Long/Short Ratio ของ '+sym+(S.lsBy==='Positions'?'<br><small>โหมด By Positions มีเฉพาะบน Binance/OKX — ลองเปลี่ยนเป็น By Accounts</small>':'')); }
   }catch(e){ console.warn(e); toast('โหลดข้อมูล Data ไม่สำเร็จ'); }
 }
 
@@ -47863,9 +48155,9 @@ async function renderOptions(){
   try{
     const exps=await A('getOptionExpiries',sym); if(sym!==S.symbol||S.tab!=='options') return; if(!exps.length){ box.innerHTML='<div class="empty">ไม่มีสัญญาออปชันสำหรับ '+sym+'</div>'; return; }
     if(!S.optExp||!exps.some(x=>x.ts===S.optExp)) S.optExp=exps[0].ts;
-    const chain=await A('getOptionChain',sym,S.optExp); if(sym!==S.symbol||S.tab!=='options') return; const m=metaOf(sym);
+    const chain=await A('getOptionChain',sym,S.optExp); if(sym!==S.symbol||S.tab!=='options') return; const m=metaOf(sym); S.optSrc=CFG.live&&typeof OPT_CACHE!=='undefined'&&OPT_CACHE[cgBase(sym)]?OPT_CACHE[cgBase(sym)].d.src:null; if(!chain.length){ box.innerHTML='<div class="empty">ไม่มีข้อมูลสัญญาออปชันของวันหมดอายุนี้</div>'; return; }
     const side=S.optSide, cols=side==='all'?'1fr 1fr 78px 1fr 1fr':side==='call'?'1fr 1fr 78px':'78px 1fr 1fr', pd=m.dec>2?3:1;
-    const q=v=>v==null?'--':fmt(v,pd), iv=v=>v==null?'--%':fmt(v,2)+'%', showIv=S.optIV!==false;
+    const q=v=>v==null?'--':fmt(v,v>=100?1:v>=1?2:4), iv=v=>v==null?'--%':fmt(v,2)+'%', showIv=S.optIV!==false;
     const cA=(o,s)=>`<div class="cell" data-s="${s}"><span class="dn">${q(o.ask)}</span>${showIv?`<small>${iv(o.askIv)}</small>`:''}</div>`, cB=(o,s)=>`<div class="cell" data-s="${s}"><span class="up">${q(o.bid)}</span>${showIv?`<small>${iv(o.bidIv)}</small>`:''}</div>`;
     const head=side==='all'?'<span>Ask / IV</span><span>Bid / IV</span><span>Strike</span><span>Bid / IV</span><span>Ask / IV</span>':side==='call'?'<span>Ask / IV</span><span>Bid / IV</span><span>Strike</span>':'<span>Strike</span><span>Bid / IV</span><span>Ask / IV</span>';
     const rows=chain.map(r=>{ const sk=`<div class="sk" data-s="strike">${fmt(r.strike,r.strike%1?(r.strike*10%1?2:1):0)}</div>`;
@@ -47874,7 +48166,7 @@ async function renderOptions(){
     box.style.cssText='display:flex;flex-direction:column;min-height:100%';
     box.innerHTML=`<div class="exps" id="exps">${exps.map(x=>`<button data-t="${x.ts}" class="${x.ts===S.optExp?'on':''}">${x.label}<small>${expLabel(x.ts)}</small></button>`).join('')}</div>
       <div class="cp" id="cp">${[['all','All'],['call','Call'],['put','Put']].map(([k,t])=>`<span class="t ${S.optSide===k?'on':''}" data-k="${k}">${t}</span>`).join('')}<button class="st" id="optSet">${svg('chartsel')}</button></div>
-      <div class="ohead" style="--cols:${cols}">${head}</div>${rows}<div style="height:24px"></div>`;
+      <div class="ohead" style="--cols:${cols}">${head}</div>${rows}<div class="dsrc" style="padding-top:12px">${S.optSrc?'Source: '+S.optSrc+(S.optSrc==='Deribit'?' · IV = Mark IV':''):''}</div><div style="height:24px"></div>`;
     $('#exps',box).onclick=e=>{ const b=e.target.closest('button'); if(b){ S.optExp=+b.dataset.t; renderOptions(); } };
     $('#cp',box).onclick=e=>{ const t=e.target.closest('.t'); if(t){ S.optSide=t.dataset.k; renderOptions(); } if(e.target.closest('#optSet')){ S.optIV=S.optIV===false; renderOptions(); } };
     $$('.orow',box).forEach(r=>r.onclick=e=>{ const c=e.target.closest('[data-s]'); const s=c?c.dataset.s:'strike'; TCC.emit('optionTap',{symbol:sym,expiry:S.optExp,strike:+r.dataset.k,side:s==='strike'?null:s}); });

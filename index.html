@@ -3003,6 +3003,12 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .chg-pill.up{background:var(--g);color:#000}
 .chg-pill.dn{background:var(--r);color:#fff}
 .chg-pill.flat{background:var(--bg4);color:var(--t2)}
+/* [vx17-MKT-ROW] Market list row — โครงสร้างตาม tcc_futures.html (Symbol Picker .slist .it): symbol หนา + tag Perp + ชื่อ/ข้อมูลจาง ; ราคา + %เปลี่ยนแปลงเป็นตัวอักษรสี */
+.mkt-tag{background:var(--bg3);border:1px solid var(--border);color:var(--t2);font-size:10px;font-weight:500;line-height:1;padding:3px 5px;border-radius:4px;margin-left:5px;white-space:nowrap}
+.mkt-tag.spot{background:rgba(14,203,129,.12);color:var(--g);border-color:rgba(14,203,129,.25)}
+.mkt-tag.metal{background:rgba(240,185,11,.12);color:var(--y);border-color:rgba(240,185,11,.3)}
+.mkt-chg{font-size:13px;font-weight:600;font-family:var(--mono);min-width:64px;text-align:right}
+.mkt-chg.up{color:var(--g)}.mkt-chg.dn{color:var(--r)}.mkt-chg.flat{color:var(--t2)}
 .mkt-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;gap:8px;color:var(--t3)}
 .spin-sm{width:18px;height:18px;border:2px solid var(--bl);border-top-color:var(--y);border-radius:50%;animation:spin2 .7s linear infinite}
 /* Spot */
@@ -3550,11 +3556,16 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .ni:hover{opacity:.8}
 .ni svg{width:19px;height:19px}
 .ni-label{font-size:10px;color:var(--t2);font-weight:500}
-.ni.active .ni-label{color:var(--y)}
-.ni.active svg{stroke:var(--y)}
-.ni-dot{width:4px;height:4px;border-radius:50%;background:var(--y);margin-top:1px}
+.ni.active .ni-label{color:var(--t1)}
+.ni.active svg{stroke:var(--t1)}
+.ni-dot{display:none}
+/* [vx18-NAV-TCC] ไอคอน/ตัวอักษรแถบเมนูล่าง ตาม tcc_futures.html (.tabbar) */
+.ni{padding:6px 0 4px;gap:3px}
+.ni svg{width:23px;height:23px;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
+.ni-label{font-size:11.5px;font-weight:400}
+.ni.active .ni-label{color:var(--t1)}
 .ni svg{stroke:var(--t2);transition:stroke .15s}
-.ni.active svg{stroke:var(--y)}
+.ni.active svg{stroke:var(--t1)}
 
 
 /* ── TOAST / NOTIFICATION ── */
@@ -8319,6 +8330,29 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .futd-mr-label{display:flex;justify-content:space-between;font-size:10px;color:var(--t2);margin-bottom:2px}
 .futd-mr-bar-bg{height:3px;border-radius:2px;background:var(--bg4)}
 .futd-mr-bar-fill{height:3px;border-radius:2px;background:var(--g);transition:width .4s}
+/* [vx18-POS-CARD2] */
+.futd-pc-swap{font-size:14px;margin-left:2px;color:var(--t2);padding:0 2px;vertical-align:-3px;background:none;border:0;cursor:pointer}
+.futd-pc-rpnl{margin-top:12px;border:1px solid var(--border);border-radius:9px;padding:9px 12px;display:flex;align-items:center;font-size:12px;color:var(--t2);cursor:pointer}
+.futd-pc-rpnl>span:first-child{flex:1}
+.futd-pc-rpnl>span:nth-child(2){font-family:var(--mono);font-weight:600}
+/* [vx17-POS-CARD] Futures-Direct Position card — layout ตาม tcc_futures.html (.pcard) ; ใช้ prefix futd-pc- เพื่อไม่ชน .futd-pos-row ที่ Orders/Assets ใช้ร่วม */
+.futd-pc{padding:14px 12px 14px;margin-bottom:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px}
+.futd-pc-h{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:700;color:var(--t1);flex-wrap:wrap}
+.futd-pc-badge{width:18px;height:18px;border-radius:4px;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;flex:none}
+.futd-pc-badge.L{background:var(--g)}.futd-pc-badge.S{background:var(--r)}
+.futd-pc-tag{font-size:10.5px;font-weight:500;line-height:1;background:var(--bg3);border:1px solid var(--border);color:var(--t2);border-radius:4px;padding:3px 6px;white-space:nowrap}
+.futd-pc-risk{display:flex;gap:1.5px;margin-left:2px;align-items:center;height:12px}
+.futd-pc-risk i{width:2px;height:12px;border-radius:1px;background:var(--bg4);display:block}
+.futd-pc-prow{display:flex;justify-content:space-between;align-items:flex-start;margin-top:12px;font-size:11.5px;color:var(--t2)}
+.futd-pc-dot{border-bottom:1px dotted var(--t3);line-height:1.35}
+.futd-pc-big{font-size:20px;font-weight:700;margin-top:3px;font-family:var(--mono)}
+.futd-pc-g3{display:grid;grid-template-columns:1fr 1fr 1fr;margin-top:12px;row-gap:11px;column-gap:6px}
+.futd-pc-g3>div{font-size:11px;color:var(--t2);min-width:0}
+.futd-pc-g3>div:nth-child(3n){text-align:right}
+.futd-pc-g3>div:nth-child(3n) .futd-pc-dot{display:inline-block}
+.futd-pc-g3 b{display:block;font-size:13.5px;font-weight:500;color:var(--t1);margin-top:3px;font-family:var(--mono);overflow:hidden;text-overflow:ellipsis}
+.futd-pc-tpsl{display:flex;align-items:center;gap:4px;margin-top:12px;flex-wrap:wrap}
+
 /* ── Chart panel (page-futures-direct) ── */
 #futdChartPanel{
   position:fixed;bottom:52px;left:0;right:0;
@@ -9273,24 +9307,24 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 
 <div class="bnav">
   <div class="ni" id="ni-home" onclick="navTo('home')">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11L12 4l8.5 7M6 9.5V20h12V9.5M10 20v-5h4v5"/></svg>
     <span class="ni-label">Home</span>
   </div>
   <div class="ni" id="ni-markets" onclick="navTo('markets')">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18M4 16l5-6 4 3 7-8M15 5h5v5"/></svg>
     <span class="ni-label">Markets</span>
   </div>
   <div class="ni active" id="ni-trade" onclick="navTo('trade')">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 4v5h-5M20 12a8 8 0 0 1-14 5l-2-2M4 20v-5h5"/></svg>
     <span class="ni-label">Trade</span>
     <div class="ni-dot"></div>
   </div>
   <div class="ni" id="ni-futures" onclick="navTo('futures')">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h3"/><path d="M15.2 17l2-2 2 2-2 2z" fill="#fcd535" stroke="none"/></svg>
     <span class="ni-label">Futures</span>
   </div>
   <div class="ni" id="ni-assets" onclick="navTo('assets')">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM4 8l2.5-3.5H16"/><circle cx="15.5" cy="14" r="1.2" fill="currentColor" stroke="none"/></svg>
     <span class="ni-label">Assets</span>
   </div>
 </div>
@@ -9682,8 +9716,8 @@ textarea.tc-inp{resize:vertical;min-height:72px;}
 @media(max-width:375px){
   /* Bottom nav: tighter padding for very narrow screens */
   .ni{padding:5px 0 4px;gap:2px}
-  .ni svg{width:17px;height:17px}
-  .ni-label{font-size:9px}
+  .ni svg{width:21px;height:21px}
+  .ni-label{font-size:10.5px}
   /* Position card: tighten grid on small screens */
   .dg{grid-template-columns:repeat(2,1fr);gap:5px 4px}
   .act-btns{grid-template-columns:repeat(3,1fr);gap:4px}
@@ -14601,10 +14635,10 @@ function renderMarket() {
     const isMetal = r.isMetal || _isMetalCoin(r.coin);
     const metalIcon = isMetal ? (METAL_ICONS[r.coin] || r.coin.slice(0,2)) : null;
     const typeTag = isSpot
-      ? `<span style="background:rgba(14,203,129,.12);color:var(--g);font-size:9px;padding:1px 5px;border-radius:3px;border:1px solid rgba(14,203,129,.25);font-weight:600;margin-left:3px">Spot</span>`
+      ? `<span class="mkt-tag spot">Spot</span>`
       : isMetal
-        ? `<span style="background:rgba(240,185,11,.12);color:var(--y);font-size:9px;padding:1px 5px;border-radius:3px;border:1px solid rgba(240,185,11,.3);font-weight:600;margin-left:3px">&#127885; Metal</span>`
-        : `<span style="background:var(--bg4);color:var(--t2);font-size:9px;padding:1px 4px;border-radius:3px;border:1px solid var(--bl);font-weight:500;margin-left:3px">Perp</span>`;
+        ? `<span class="mkt-tag metal">&#127885; Metal</span>`
+        : `<span class="mkt-tag">Perp</span>`;
     const nameHtml = isSpot
       ? `<span class="mkt-name">${r.coin}</span><span style="font-size:11px;color:var(--t2)">/USDC</span>${typeTag}`
       : isMetal
@@ -14625,10 +14659,10 @@ function renderMarket() {
         </div>
       </div>
       <div class="mkt-price-col">
-        <div class="mkt-price" style="color:${isUp?'var(--g)':'var(--r)'}">${fmtP(r.price)}</div>
+        <div class="mkt-price" style="font-size:13.5px">${fmtP(r.price)}</div>
         <div class="mkt-price-usd">$${fmtP(r.price)}</div>
       </div>
-      <div class="chg-pill ${chgCls}">${chgStr}</div>
+      <div class="mkt-chg ${chgCls}">${chgStr}</div>
     </div>`;
   }).join('');
 
@@ -41551,6 +41585,39 @@ function _futdClientCrossLiq(targetId, allPositions, equity, mmr) {
   return (isFinite(liqRaw) && liqRaw > 0) ? liqRaw : 0;
 }
 
+/* [vx18-POS-CARD2] helper: สลับหน่วย Size (coin ↔ USDT) + Realized PNL ราย Position (Direct) */
+const _FUTD_SVG_SWAP = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/></svg>';
+const _FUTD_SVG_CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="margin-left:8px"><path d="M9 5l7 7-7 7"/></svg>';
+function futdFmtUsdt(n) { return (parseFloat(n) || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function futdTogglePosUnit(id) {
+  FUTD.sizeUnit = FUTD.sizeUnit || {};
+  FUTD.sizeUnit[id] = FUTD.sizeUnit[id] === 'usdt' ? 'base' : 'usdt';
+  futdRenderPositions((FUTD.status && FUTD.status.positions) || []);
+}
+/** Realized PNL ของ position: ใช้ p.realized_pnl จาก GAS ถ้ามี ; ไม่มี → รวมจาก Trade History (ปิดบางส่วน) ของเหรียญ/ฝั่งเดียวกันตั้งแต่เปิด position */
+function futdPosRealizedPnl(p, coin) {
+  // [vx18-POS-RPNL] GAS ส่ง pos_realized_pnl (รวมจากชีต Trades ตาม position_id) — แถว realized_pnl ของ position ที่ยังเปิดจะเป็น 0 เสมอจึงไม่ใช้
+  const direct = parseFloat(p.pos_realized_pnl);
+  if (isFinite(direct)) return direct;
+  const openedTs = p.opened_at ? Date.parse(p.opened_at) : 0;
+  const want = p.side === 'long' ? 'close-long' : 'close-short';
+  const ps = String(p.position_side || 'BOTH').toUpperCase();
+  let sum = 0;
+  ((typeof HIST !== 'undefined' && HIST.futdTradeHistory) || []).forEach(d => {
+    if (!d || d.coin !== coin || d.dirClass !== want) return;
+    if (ps !== 'BOTH' && String(d.positionSide || 'BOTH').toUpperCase() !== ps) return;
+    if (openedTs && d.ts && d.ts < openedTs) return;
+    const v = parseFloat(String(d.realizedPnl).replace(/,/g, ''));
+    if (isFinite(v)) sum += v;
+  });
+  return sum;
+}
+function futdShowRealized(id) {
+  const p = ((FUTD.status && FUTD.status.positions) || []).find(x => String(x.id) === String(id)); if (!p) return;
+  const v = futdPosRealizedPnl(p, (p.symbol || '').replace('USDT', ''));
+  if (typeof showToast === 'function') showToast('Realized PNL: ' + (v > 0 ? '+' : '') + v.toFixed(2) + ' USDT');
+}
+
 function futdRenderPositions(positions) {
   const el = document.getElementById('futd-positions-list');
   if (!el) return;
@@ -41687,37 +41754,32 @@ function futdRenderPositions(positions) {
       ? `<span style="font-size:9px;background:rgba(114,137,218,.15);color:#7289da;border:1px solid rgba(114,137,218,.4);border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:700">HEDGE</span>`
       : '';
 
-    return `<div class="futd-pos-row" id="futd-pos-${p.id}">
-      <div class="futd-pos-top">
-        <div>
-          <span class="futd-pos-sym">${p.symbol}</span>
-          <span class="futd-pos-side ${p.side}">${p.side === 'long' ? 'LONG' : 'SHORT'} x${p.lev}</span>${modeBadge}${hedgeBadge}
-        </div>
-        <div style="text-align:right">
-          <div class="futd-pos-pnl" style="color:${upnlColor}" id="futd-upnl-${p.id}">
-            ${upnl >= 0 ? '+' : ''}${upnl.toFixed(2)} USDT
-          </div>
-          <div class="futd-pos-roi" style="color:${upnlColor}" id="futd-roi-${p.id}">
-            ${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(2)}%
-          </div>
-        </div>
+    // [vx17-POS-CARD] layout ใหม่ตาม tcc_futures.html — คง id/onclick เดิมทั้งหมด (futdUpdatePnlCards ใช้ futd-upnl/roi/mark)
+    const _L        = p.side === 'long';
+    const _litN     = Math.max(1, Math.min(4, Math.ceil(mrPct / 25)));
+    const _riskBars = `<span class="futd-pc-risk">${[0,1,2,3].map(i => `<i style="${i < _litN ? 'background:' + mrColor : ''}"></i>`).join('')}</span>`;
+    const _modeTxt  = posMode === 'isolated' ? 'Isolated' : 'Cross';
+    const _mgnTxt   = (Math.floor(margin * 100 + 1e-6) / 100).toFixed(2);
+    const _isUsdt   = !!(FUTD.sizeUnit && FUTD.sizeUnit[p.id] === 'usdt');
+    const _szUnit   = _isUsdt ? 'USDT' : coin;
+    const _szTxt    = _isUsdt ? futdFmtUsdt(size * (markP || entryP)) : String(parseFloat(size.toFixed(4)));
+    const _rz       = futdPosRealizedPnl(p, coin);
+    const _rzColor  = _rz > 0 ? 'var(--g)' : _rz < 0 ? 'var(--r)' : 'var(--t2)';
+    return `<div class="futd-pos-row futd-pc" id="futd-pos-${p.id}">
+      <div class="futd-pc-h"><span class="futd-pc-badge ${_L ? 'L' : 'S'}">${_L ? 'L' : 'S'}</span>${p.symbol}<span class="futd-pc-tag">Perp</span><span class="futd-pc-tag" style="cursor:pointer" onclick="futdAdjLeverage('${p.id}')">${_modeTxt} ${p.lev}x</span>${hedgeBadge}${_riskBars}</div>
+      <div class="futd-pc-prow"><span class="futd-pc-dot">PNL (USDT)</span><span class="futd-pc-dot">ROI</span></div>
+      <div class="futd-pc-prow" style="margin-top:2px"><span class="futd-pc-big" style="color:${upnlColor}" id="futd-upnl-${p.id}">${upnl >= 0 ? '+' : ''}${upnl.toFixed(2)}</span><span class="futd-pc-big" style="color:${upnlColor}" id="futd-roi-${p.id}">${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(2)}%</span></div>
+      <div class="futd-pc-g3">
+        <div><span class="futd-pc-dot">Size (${_szUnit}) </span><button class="futd-pc-swap" onclick="futdTogglePosUnit('${p.id}')" aria-label="swap unit">${_FUTD_SVG_SWAP}</button><b id="futd-sz-${p.id}">${_szTxt}</b></div>
+        <div><span>Margin (USDT)</span><b>${_mgnTxt}</b></div>
+        <div><span class="futd-pc-dot">Margin Ratio</span><b style="color:${mrColor}">${mrPct.toFixed(2)}%</b></div>
+        <div><span class="futd-pc-dot">Entry Price (USDT)</span><b>${fmtPosPx(entryP)}</b></div>
+        <div><span class="futd-pc-dot">Mark Price (USDT)</span><b id="futd-mark-${p.id}">${markStr}</b></div>
+        <div><span class="futd-pc-dot">Liq. Price (USDT)</span><b style="color:var(--r)">${liqStr}</b></div>
       </div>
-      <div class="futd-pos-detail">
-        <div>Size (${coin})<b>${parseFloat(size.toFixed(4))}</b></div>
-        <div>Margin (USDT)<b>${margin.toFixed(2)} <span style="font-size:9px;color:var(--t3)">(≈$${(size * (markP || entryP)).toFixed(2)})</span></b></div>
-        <div>Margin Ratio<b style="color:${mrColor}">${mrPct.toFixed(1)}%</b></div>
-      </div>
-      <div class="futd-pos-detail2">
-        <div>Avg Entry<b>${fmtPosPx(entryP)}</b></div>
-        <div>Mark Price<b id="futd-mark-${p.id}">${markStr}</b></div>
-        <div>Liq. Price<b style="color:var(--r)">${liqStr}</b></div>
-      </div>
-      <div class="futd-mr-bar-wrap">
-        <div class="futd-mr-label"><span>Margin Ratio</span><span style="color:${mrColor}">${mrPct.toFixed(1)}%</span></div>
-        <div class="futd-mr-bar-bg"><div class="futd-mr-bar-fill" style="width:${mrPct.toFixed(1)}%;background:${mrColor}"></div></div>
-      </div>
-      <div class="futd-pos-tpsl-row">${tpChip}${slChip}${trailChip}</div>
-      <div class="futd-pos-actions">
+      <div class="futd-pc-tpsl">${tpChip}${slChip}${trailChip}</div>
+      <div class="futd-pc-rpnl" onclick="futdShowRealized('${p.id}')"><span>Realized PNL (USDT)</span><span id="futd-rz-${p.id}" style="color:${_rzColor}">${_rz > 0 ? '+' : ''}${_rz.toFixed(2)}</span>${_FUTD_SVG_CHEV}</div>
+      <div class="futd-pos-actions" style="margin-top:12px">
         <div class="futd-btn-sm" onclick="futdAdjLeverage('${p.id}')">Leverage</div>
         <div class="futd-btn-sm warn" onclick="futdOpenTpslSheet('${p.id}')">TP/SL</div>
         ${posMode === 'isolated' ? `<div class="futd-btn-sm" style="color:var(--y);border-color:rgba(240,185,11,.4)" onclick="futdOpenMarginSheet('${p.id}')">+Margin</div>` : ''}
@@ -41747,9 +41809,11 @@ function futdUpdatePnlCards() {
     const upnlEl = document.getElementById('futd-upnl-' + p.id);
     const roiEl  = document.getElementById('futd-roi-'  + p.id);
     const markEl = document.getElementById('futd-mark-' + p.id);
-    if (upnlEl) { upnlEl.textContent = (upnl >= 0 ? '+' : '') + upnl.toFixed(2) + ' USDT'; upnlEl.style.color = upnlColor; }
+    if (upnlEl) { upnlEl.textContent = (upnl >= 0 ? '+' : '') + upnl.toFixed(2); upnlEl.style.color = upnlColor; }
     if (roiEl)  { roiEl.textContent  = (roiPct >= 0 ? '+' : '') + roiPct.toFixed(2) + '%'; roiEl.style.color  = upnlColor; }
     if (markEl) { markEl.textContent = fmtPosPx(markP); } // [vx13-POS-PX]
+    const szEl = document.getElementById('futd-sz-' + p.id);   // [vx18-POS-CARD2] Size หน่วย USDT ขยับตาม mark
+    if (szEl && FUTD.sizeUnit && FUTD.sizeUnit[p.id] === 'usdt') szEl.textContent = futdFmtUsdt(size * markP);
   });
   // [vx12-AVBL-LIVE] Avbl ขยับตาม PnL ทุก tick เดียวกับการ์ด Position
   futdUpdateAvblLive();
@@ -42339,6 +42403,10 @@ async function _futdClosePartial(pos, closeSize) {
     try { futdUpdateBalanceBar(FUTD.status); } catch (e) {}
   }
 
+  if (act === 'reduced' && isFinite(_rpnl) && FUTD.status) {   // [vx18-POS-RPNL] optimistic: บวก Realized PNL ของครั้งนี้ทันที (refresh ถัดไป GAS ส่งค่าจริงทับ)
+    const _base = futdPosRealizedPnl(cur, coin);
+    FUTD.status.positions = (FUTD.status.positions || []).map(p => p.id === posId ? Object.assign({}, p, { pos_realized_pnl: +(_base + _rpnl).toFixed(8) }) : p);
+  }
   if (act === 'closed') {
     // server ปิดเต็ม (GAS เก่าไม่รู้จัก close_size / size เปลี่ยน) → ตัด position ออกเหมือนปิดเต็ม
     delete FUTD._reducing[posId];

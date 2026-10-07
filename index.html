@@ -1,3 +1,10 @@
+<!-- [v8.4-RZPNL] (2026-10-07) Futures → Direct → Positions → Realized PNL ใช้งานได้จริง · ใช้คู่กับ GAS_easy_TCC_v6_2_RZPNL.gs (deploy GAS ก่อน HTML แล้วรัน repairFuturesRealizedPnl 1 ครั้ง) — ค้นด้วยแท็ก "v8.4-RZPNL"
+     สาเหตุ: GAS ไม่เคยสะสม realized_pnl ลงแถว position ตอนปิดบางส่วน (ค่า 0 ตลอด) + futdPosRealizedPnl ถือ 0 เป็นค่าจริงจึงไม่ไปอ่านจาก Trade History · แถวชั่วคราวใช้ coin 'BTCUSDT' แต่ตัวจับเทียบกับ 'BTC' → ไม่เคย match · กดแถว Realized PNL ได้แค่ Toast
+     แก้: (1) futdPosRealizedPnl: ใช้ p.realized_pnl จาก GAS ถ้าไม่ใช่ 0 → ยอดรวมจาก TRADES ที่ดึงตอนเปิดรายละเอียด → Trade History (จับด้วย positionId ตรงตัว, กันนับซ้ำ, normalize ชื่อเหรียญ)
+          (2) ปิดบางส่วนสำเร็จ: ปรับ realized_pnl บนการ์ดทันที (ค่าเดิม + PNL ที่ปิด) และกัน poll ที่ตอบค่าเก่า (ผ่าน FUTD._reducing เดิม)
+          (3) กดแถว Realized PNL → หน้าต่างรายการปิดของ Position นั้น (getFuturesPositionRealized) · ดึงไม่ได้ (GAS เก่า/ออฟไลน์) → ใช้ Trade History ในเครื่องแทน
+          (4) Trade History (Direct) เก็บ positionId เพิ่ม (_mapGasFutdTradeHistory / _futdLogCloseToHist)
+     ไม่แตะ: Futures → Contract (ยังเป็นตามเดิม) · สูตร PNL/Margin/Liq/Avbl · Today's PNL/FDP · Assets → Direct · ลำดับ refresh เดิม · ทำงานกับ GAS เดิมได้ (การ์ดแสดงจาก Trade History / รายละเอียดใช้ข้อมูลในเครื่อง) -->
 <!-- [v8.3-ORDHIST] (2026-10-06) ใช้คู่กับ GAS_easy_TCC_v6_1.gs (deploy GAS ก่อน HTML) — GAS บันทึก Market close ลงชีต OpenOrders เป็นแถว cordc_ แล้ว → HTML แสดงเป็น Close Long/Short + ไม่สร้างซ้ำจาก Trades + แทนแถวชั่วคราวใน session ไม่ให้ซ้ำ
      ยังทำงานได้กับ GAS v6 เดิม (ใช้ตัวสร้างกลับจาก Positions/Trades ของ v8.2 เป็น fallback — ครอบคลุมประวัติก่อน deploy ด้วย) · ค้นด้วยแท็ก "v8.3-ORDHIST" / "v8.2-ORDHIST" -->
 <!-- [v8.2-ORDHIST] (2026-10-06) My Trades → Futures-Contract → Order History หายหลัง refresh — ค้นด้วยแท็ก "v8.2-ORDHIST" · แก้เฉพาะ HTML (GAS ใช้ v6 ตัวเดิม ไม่ต้อง deploy ใหม่)
@@ -8777,6 +8784,45 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   </div>
 </div><!-- /futdEditOrderSheet -->
 
+<!-- ════ [v8.4-RZPNL] FUTURES-DIRECT: Realized PNL detail sheet ════ -->
+<style>
+#futdRzSheet{position:fixed;inset:0;z-index:1050;pointer-events:none}
+#futdRzSheet.open{pointer-events:all}
+#futdRzBg{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;transition:opacity .3s}
+#futdRzSheet.open #futdRzBg{opacity:1}
+#futdRzPanel{position:absolute;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);width:100%;max-width:480px;background:var(--bg2);border-radius:16px 16px 0 0;transition:transform .35s cubic-bezier(.32,1,.23,1);max-height:80vh;display:flex;flex-direction:column}
+#futdRzSheet.open #futdRzPanel{transform:translateX(-50%) translateY(0)}
+.futd-rz-sum{display:flex;align-items:flex-end;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.futd-rz-lbl{font-size:10px;color:var(--t3);margin-bottom:2px}
+#futdRzTotal{font-family:var(--mono);font-size:20px;font-weight:700}
+#futdRzCount{font-size:11px;color:var(--t2)}
+#futdRzList{overflow-y:auto;padding:4px 16px}
+.futd-rz-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.futd-rz-row:last-child{border-bottom:none}
+.futd-rz-t1{font-size:12px;font-weight:600;color:var(--t1)}
+.futd-rz-t2{font-size:10px;color:var(--t3);margin-top:2px;font-family:var(--mono)}
+.futd-rz-tag{font-size:9px;font-weight:600;color:var(--t2);background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:0 4px;margin-left:4px}
+.futd-rz-pnl{font-family:var(--mono);font-size:13px;font-weight:700}
+.futd-rz-empty{padding:26px 0;text-align:center;font-size:12px;color:var(--t3)}
+#futdRzNote{padding:8px 16px 0;font-size:10px;color:var(--t3);line-height:1.4}
+</style>
+<div id="futdRzSheet">
+  <div id="futdRzBg" onclick="futdCloseRealizedSheet()"></div>
+  <div id="futdRzPanel">
+    <div style="width:36px;height:4px;background:var(--bl);border-radius:2px;margin:10px auto 6px;flex-shrink:0"></div>
+    <div style="font-size:16px;font-weight:700;padding:4px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <span>Realized PNL</span>
+      <span style="font-size:11px;font-weight:600;color:var(--t2)" id="futdRzSym">—</span>
+    </div>
+    <div class="futd-rz-sum" style="flex-shrink:0">
+      <div><div class="futd-rz-lbl">รวม Realized PNL ของ Position นี้</div><div id="futdRzTotal">—</div></div>
+      <div id="futdRzCount"></div>
+    </div>
+    <div id="futdRzList"></div>
+    <div id="futdRzNote"></div>
+    <div onclick="futdCloseRealizedSheet()" style="text-align:center;padding:12px 0 18px;font-size:13px;color:var(--t2);cursor:pointer;flex-shrink:0">ปิด</div>
+  </div>
+</div>
 <!-- ════ [v2.53] FUTURES-DIRECT: Adjust Margin Sheet (Isolated only) ════ -->
 <style>
 /* Adjust Margin Sheet */
@@ -32261,7 +32307,8 @@ window.fpnlDownloadExcel = async function () {
 const _DB_READ_ACTIONS = new Set(['getDashboard','getFuturesAccountSummary','getFuturesLiqMap','getFuturesDailyPnl',
   'getFuturesPnlStats','getOpenOrders','getMyMessages','getMyTrades','getEarnContracts',
   // [PERF-BATCH] read-only ทั้งหมด → dedupe request ที่บินอยู่ + retry 1 ครั้งเมื่อ Timeout (cold start)
-  'getOpenPositions','getOpenPositionsWithDD','getContractStatus','getContractStatusBatch']);
+  'getOpenPositions','getOpenPositionsWithDD','getContractStatus','getContractStatusBatch',
+  'getFuturesPositionRealized']); // [v8.4-RZPNL] read-only
 const _DB_INFLIGHT = new Map();
 
 // ══════════════════════════════════════════════════════════════════
@@ -33498,6 +33545,7 @@ function _mapGasFutdTradeHistory(r) {
     role:         r.role ? (r.role.charAt(0).toUpperCase()+r.role.slice(1)) : 'Taker',
     realizedPnl:  parseFloat(parseFloat(r.realized_pnl)||0).toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:4}),
     positionSide: posSide,
+    positionId:   r.position_id ? String(r.position_id) : '',   // [v8.4-RZPNL] ผูกรายการปิดกับ position ตรงตัว (futdPosRealizedPnl)
   };
 }
 
@@ -41380,6 +41428,7 @@ async function futdRefreshAccountStatus() {
         if (_spSize > r.size + 0.0001) {
           const _dM = Math.max(0, (parseFloat(sp.margin) || 0) - r.margin);
           sp.size = r.size; sp.margin = r.margin;
+          if (r.realized !== undefined) sp.realized_pnl = r.realized;   // [v8.4-RZPNL] server ยังตอบ size เก่า → realized_pnl ก็ยังเก่าด้วย
           status.margin_used  = Math.max(0, (parseFloat(status.margin_used)  || 0) - _dM);
           status.avail_margin = (parseFloat(status.avail_margin) || 0) + _dM;
         } else if (!r.busy) {
@@ -41594,28 +41643,150 @@ function futdTogglePosUnit(id) {
   FUTD.sizeUnit[id] = FUTD.sizeUnit[id] === 'usdt' ? 'base' : 'usdt';
   futdRenderPositions((FUTD.status && FUTD.status.positions) || []);
 }
-/** Realized PNL ของ position: ใช้ p.realized_pnl จาก GAS ถ้ามี ; ไม่มี → รวมจาก Trade History (ปิดบางส่วน) ของเหรียญ/ฝั่งเดียวกันตั้งแต่เปิด position */
+/** [v8.4-RZPNL] Realized PNL ของ position (Direct) — ลำดับความน่าเชื่อถือ:
+ *  (1) p.realized_pnl จาก GAS ถ้าไม่ใช่ 0 (GAS v6.2 สะสมลงแถว position ทุกครั้งที่ปิดบางส่วน / Limit close fill / Net-Reduce)
+ *  (2) ยอดรวมจากชีต Trades ที่ดึงตอนเปิดหน้าต่างรายละเอียด (FUTD._rzTotals) — ครอบคลุม position เก่าที่ปิดบางส่วนก่อน GAS v6.2
+ *  (3) รวมจาก Trade History ใน memory (_futdRzLocalItems) — เดิม (1) ถือ 0 เป็นค่าจริงเสมอ จึงไม่เคยมาถึงข้อนี้
+ *  0 จริง (ยังไม่เคยปิดบางส่วน) → ไม่มีรายการ → คืน 0 */
 function futdPosRealizedPnl(p, coin) {
-  // [vx18-POS-RPNL] GAS ส่ง pos_realized_pnl (รวมจากชีต Trades ตาม position_id) — แถว realized_pnl ของ position ที่ยังเปิดจะเป็น 0 เสมอจึงไม่ใช้
-  const direct = parseFloat(p.pos_realized_pnl);
-  if (isFinite(direct)) return direct;
-  const openedTs = p.opened_at ? Date.parse(p.opened_at) : 0;
-  const want = p.side === 'long' ? 'close-long' : 'close-short';
-  const ps = String(p.position_side || 'BOTH').toUpperCase();
-  let sum = 0;
-  ((typeof HIST !== 'undefined' && HIST.futdTradeHistory) || []).forEach(d => {
-    if (!d || d.coin !== coin || d.dirClass !== want) return;
-    if (ps !== 'BOTH' && String(d.positionSide || 'BOTH').toUpperCase() !== ps) return;
-    if (openedTs && d.ts && d.ts < openedTs) return;
-    const v = parseFloat(String(d.realizedPnl).replace(/,/g, ''));
-    if (isFinite(v)) sum += v;
-  });
-  return sum;
+  const direct = parseFloat(p.realized_pnl);
+  if (isFinite(direct) && direct !== 0) return direct;
+  const c = FUTD._rzTotals && FUTD._rzTotals[p.id];
+  if (c && isFinite(c.total)) return c.total;
+  const items = _futdRzLocalItems(p, coin);
+  if (items.length) return items.reduce((sum, it) => sum + it.pnl, 0);
+  return isFinite(direct) ? direct : 0;
 }
-function futdShowRealized(id) {
-  const p = ((FUTD.status && FUTD.status.positions) || []).find(x => String(x.id) === String(id)); if (!p) return;
+
+/** [v8.4-RZPNL] รายการปิดของ position จาก HIST.futdTradeHistory (ใหม่สุดก่อน)
+ *  แถวที่มี positionId → จับตรงตัวเท่านั้น · แถวเก่าไม่มี positionId → เหรียญ (ตัด USDT) + ฝั่ง + เวลาเปิดแบบเดิม
+ *  กันนับซ้ำ: แถวชั่วคราว (_futdLogCloseToHist) กับแถวจริงจาก GAS ของการปิดครั้งเดียวกัน (ราคา+ขนาด+PNL เท่ากัน) นับครั้งเดียว */
+function _futdRzLocalItems(p, coin) {
+  const openedTs = p.opened_at ? Date.parse(p.opened_at) : 0;
+  const want = String(p.side || '').toLowerCase() === 'long' ? 'close-long' : 'close-short';
+  const ps = String(p.position_side || 'BOTH').toUpperCase();
+  const seen = new Set();
+  const out = [];
+  ((typeof HIST !== 'undefined' && HIST.futdTradeHistory) || []).forEach(d => {
+    if (!d || d.dirClass !== want) return;
+    if (d.positionId) {
+      if (String(d.positionId) !== String(p.id)) return;
+    } else {
+      if (String(d.coin || '').replace(/USDT$/i, '').replace(/-PERP$/i, '') !== coin) return;
+      if (ps !== 'BOTH' && String(d.positionSide || 'BOTH').toUpperCase() !== ps) return;
+      if (openedTs && d.ts && d.ts < openedTs) return;
+    }
+    const v = parseFloat(String(d.realizedPnl).replace(/,/g, ''));
+    if (!isFinite(v)) return;
+    const key = d.price + '|' + d.size + '|' + v.toFixed(4);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ ts: d.ts || 0, time: d.time || '', price: d.price, size: d.size, pnl: v, dir: d.dir || '', type: /limit/i.test(d.dir || '') ? 'Limit' : 'Market' });
+  });
+  return out.sort((a, b) => b.ts - a.ts);
+}
+
+/** อัปเดตตัวเลข Realized PNL บนการ์ดโดยไม่ re-render ทั้งลิสต์ (ใช้หลังดึงยอดรวมจาก TRADES) */
+function futdUpdateRealizedCell(id) {
+  const p = ((FUTD.status && FUTD.status.positions) || []).find(x => String(x.id) === String(id));
+  const el = document.getElementById('futd-rz-' + id);
+  if (!p || !el) return;
   const v = futdPosRealizedPnl(p, (p.symbol || '').replace('USDT', ''));
-  if (typeof showToast === 'function') showToast('Realized PNL: ' + (v > 0 ? '+' : '') + v.toFixed(2) + ' USDT');
+  el.textContent = (v > 0 ? '+' : '') + v.toFixed(2);
+  el.style.color = v > 0 ? 'var(--g)' : v < 0 ? 'var(--r)' : 'var(--t2)';
+}
+
+/** [v8.4-RZPNL] กดแถว Realized PNL บนการ์ด → หน้าต่างรายการปิดของ position นั้น (เดิมแค่ showToast) */
+function futdShowRealized(id) {
+  const p = ((FUTD.status && FUTD.status.positions) || []).find(x => String(x.id) === String(id));
+  if (!p) return;
+  futdOpenRealizedSheet(p);
+}
+
+let _futdRzSeq = 0;   // กัน response ที่มาช้าของ position เดิม/sheet ที่ปิดไปแล้วมาทับ
+function _futdRzEsc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function futdOpenRealizedSheet(p) {
+  const sheet = document.getElementById('futdRzSheet');
+  if (!sheet) { if (typeof showToast === 'function') showToast('Realized PNL: ' + futdPosRealizedPnl(p, (p.symbol || '').replace('USDT', '')).toFixed(2) + ' USDT'); return; }
+  const coin = (p.symbol || '').replace('USDT', '');
+  const seq = ++_futdRzSeq;
+  FUTD._rzPosId = String(p.id);
+  const isLong = String(p.side || '').toLowerCase() === 'long';
+  const symEl = document.getElementById('futdRzSym');
+  if (symEl) symEl.innerHTML = _futdRzEsc(p.symbol) +
+    ' <span style="background:' + (isLong ? 'rgba(14,203,129,.15)' : 'rgba(246,70,93,.15)') + ';color:' + (isLong ? 'var(--g)' : 'var(--r)') +
+    ';font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">' + (isLong ? 'LONG' : 'SHORT') + ' ' + _futdRzEsc(p.lev) + 'x</span>';
+  futdRzRender(p, null, 'loading');
+  sheet.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  const local = _futdRzLocalItems(p, coin);
+  const uid = _futdCurrentUid();
+  if (!uid || typeof dbCallRaw !== 'function') { futdRzRender(p, local, 'local'); return; }
+  dbCallRaw('getFuturesPositionRealized', { uid, position_id: p.id }).then(res => {
+    if (seq !== _futdRzSeq) return;
+    const total = parseFloat(res && res.total);
+    const items = ((res && res.items) || []).map(it => {
+      const ts = Date.parse(it.created_at) || 0;
+      const d = String(it.dir || '').toLowerCase();
+      return {
+        ts, time: ts ? HIST.fmtTime(ts) : '—', price: parseFloat(it.price) || 0, size: parseFloat(it.filled) || 0,
+        pnl: parseFloat(it.realized_pnl) || 0, dir: d, type: /limit/i.test(it.order_type || '') ? 'Limit' : 'Market',
+      };
+    });
+    if (isFinite(total)) { FUTD._rzTotals = FUTD._rzTotals || {}; FUTD._rzTotals[p.id] = { total, at: Date.now() }; }
+    futdRzRender(p, items, 'server', total);
+    futdUpdateRealizedCell(p.id);
+  }).catch(e => {
+    if (seq !== _futdRzSeq) return;
+    console.warn('[futdRealized] getFuturesPositionRealized failed:', e && e.message);
+    futdRzRender(p, local, 'local');
+  });
+}
+function futdCloseRealizedSheet() {
+  const sheet = document.getElementById('futdRzSheet');
+  if (sheet) sheet.classList.remove('open');
+  document.body.style.overflow = '';
+  FUTD._rzPosId = null;
+  _futdRzSeq++;
+}
+function futdRzRender(p, items, mode, totalOverride) {
+  const sumEl = document.getElementById('futdRzTotal'), cntEl = document.getElementById('futdRzCount');
+  const listEl = document.getElementById('futdRzList'), noteEl = document.getElementById('futdRzNote');
+  if (!sumEl || !cntEl || !listEl) return;
+  const col = v => v > 0 ? 'var(--g)' : v < 0 ? 'var(--r)' : 'var(--t2)';
+  const sgn = (v, d) => (v > 0 ? '+' : '') + v.toFixed(d);
+  if (mode === 'loading') {
+    sumEl.textContent = '…'; sumEl.style.color = 'var(--t2)'; cntEl.textContent = '';
+    listEl.innerHTML = '<div class="futd-rz-empty">กำลังโหลด...</div>';
+    if (noteEl) noteEl.textContent = '';
+    return;
+  }
+  items = items || [];
+  const coin = (p.symbol || '').replace('USDT', '');
+  const total = isFinite(totalOverride) ? totalOverride
+              : (items.length ? items.reduce((sum, it) => sum + it.pnl, 0) : futdPosRealizedPnl(p, coin));
+  sumEl.textContent = sgn(total, 2) + ' USDT';
+  sumEl.style.color = col(total);
+  cntEl.textContent = items.length ? ('ปิดแล้ว ' + items.length + ' ครั้ง') : '';
+  if (!items.length) {
+    listEl.innerHTML = '<div class="futd-rz-empty">ยังไม่มีการปิด Position (บางส่วน) — Realized PNL = ' + sgn(total, 2) + '</div>';
+  } else {
+    listEl.innerHTML = items.map(it => {
+      const lbl = it.dir.indexOf('long') > -1 ? 'Close Long' : (it.dir.indexOf('short') > -1 ? 'Close Short' : 'Close');
+      const px = typeof it.price === 'number' ? fmtPosPx(it.price) : _futdRzEsc(it.price);
+      const sz = typeof it.size === 'number' ? String(parseFloat(it.size.toFixed(6))) : _futdRzEsc(it.size);
+      return '<div class="futd-rz-row">' +
+        '<div><div class="futd-rz-t1">' + lbl + ' <span class="futd-rz-tag">' + it.type + '</span></div><div class="futd-rz-t2">' + _futdRzEsc(it.time) + '</div></div>' +
+        '<div style="text-align:right"><div class="futd-rz-pnl" style="color:' + col(it.pnl) + '">' + sgn(it.pnl, 4) + '</div><div class="futd-rz-t2">' + sz + ' ' + _futdRzEsc(coin) + ' @ ' + px + '</div></div>' +
+        '</div>';
+    }).join('');
+  }
+  if (noteEl) noteEl.textContent = mode === 'local'
+    ? 'ข้อมูลจากประวัติในเครื่อง (เชื่อมต่อเซิร์ฟเวอร์ไม่ได้) — รายการอาจไม่ครบ'
+    : 'Realized PNL = กำไร/ขาดทุนของส่วนที่ปิดแล้วของ Position นี้ (ไม่รวม Funding Fee)';
 }
 
 function futdRenderPositions(positions) {
@@ -42403,10 +42574,6 @@ async function _futdClosePartial(pos, closeSize) {
     try { futdUpdateBalanceBar(FUTD.status); } catch (e) {}
   }
 
-  if (act === 'reduced' && isFinite(_rpnl) && FUTD.status) {   // [vx18-POS-RPNL] optimistic: บวก Realized PNL ของครั้งนี้ทันที (refresh ถัดไป GAS ส่งค่าจริงทับ)
-    const _base = futdPosRealizedPnl(cur, coin);
-    FUTD.status.positions = (FUTD.status.positions || []).map(p => p.id === posId ? Object.assign({}, p, { pos_realized_pnl: +(_base + _rpnl).toFixed(8) }) : p);
-  }
   if (act === 'closed') {
     // server ปิดเต็ม (GAS เก่าไม่รู้จัก close_size / size เปลี่ยน) → ตัด position ออกเหมือนปิดเต็ม
     delete FUTD._reducing[posId];
@@ -42424,11 +42591,14 @@ async function _futdClosePartial(pos, closeSize) {
   } else if (act === 'reduced') {
     const rs = parseFloat(result.remaining_size), rm = parseFloat(result.remaining_margin);
     if (isFinite(rs) && isFinite(rm) && FUTD.status) {
-      FUTD._reducing[posId] = { busy: false, size: rs, margin: rm, until: Date.now() + 20000 };
+      // [v8.4-RZPNL] Realized PNL ของ position = ค่าเดิม + PNL ของส่วนที่เพิ่งปิด (ตรงกับที่ GAS สะสมลงแถว) — เก็บใน _reducing ไว้ทับตอน poll ตอบค่าเก่า
+      const _newRz = isFinite(_rpnl) ? +((parseFloat(cur.realized_pnl) || 0) + _rpnl).toFixed(8) : undefined;
+      if (FUTD._rzTotals) delete FUTD._rzTotals[posId];   // ยอดรวมที่ cache ไว้เก่าแล้ว
+      FUTD._reducing[posId] = { busy: false, size: rs, margin: rm, until: Date.now() + 20000, realized: _newRz };
       const arr = FUTD.status.positions || [];
       const i3 = arr.findIndex(p => p.id === posId);
       if (i3 >= 0) {
-        arr[i3] = Object.assign({}, arr[i3], { size: rs, margin: rm });
+        arr[i3] = Object.assign({}, arr[i3], _newRz !== undefined ? { size: rs, margin: rm, realized_pnl: _newRz } : { size: rs, margin: rm });
         const diff = remMgn - rm;   // ค่า optimistic เทียบค่าจริงจาก server (ปกติ = 0)
         FUTD.status.margin_used  = Math.max(0, (parseFloat(FUTD.status.margin_used) || 0) - diff);
         FUTD.status.avail_margin = Math.max(0, (parseFloat(FUTD.status.avail_margin) || 0) + diff);
@@ -42594,6 +42764,7 @@ function _futdLogCloseToHist(pos, exitPrice, result) {
       fee: (exitPrice * size * 0.0005).toFixed(6), role: 'Taker',
       realizedPnl: fmtRpnl,
       positionSide: posSide,
+      positionId: String(pos.id || ''),   // [v8.4-RZPNL]
     });
 
     // 3. futdTransactionHistory (Futures Direct PNL หรือ Liquidation)

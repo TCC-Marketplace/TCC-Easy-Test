@@ -25,11 +25,6 @@
           (2) _mergeIntoHIST('positionHistory'): แถวจริงจาก GAS แทนรายการชั่วคราว/แถวเดิม id เดียวกัน → ไม่ซ้ำ และ 'Partially Closed' ไม่ค้างหลังปิดหมด
           (3) ปิดเต็มแล้วเก็บกวาดแถว Partially Closed ชั่วคราวของ position เดียวกัน
      ไม่แตะ: Futures-Direct (_futdLogCloseToHist สร้างแถวเองจาก pos อยู่แล้ว) · Order/Trade/Transaction history · สูตร PNL/margin ทุกตัว · ฝั่ง GAS -->
-<!-- [v8.6-COMMFIX] (2026-10-08) ใช้คู่กับ GAS_easy_TCC_v6_3_COMMFIX (deploy GAS ก่อน HTML) — ค้นด้วยแท็ก "FIX-UI-SPLIT"
-     [FIX-UI-SPLIT] หน้า Claim: Commission/Reserve อ่านสัดส่วนจริงจาก GAS (getReferralLevelInfo.split) แทนฮาร์ดโค้ด 10%/10% — Reserve = 10% − ส่วนที่ Level A/B/ผู้แนะนำได้เกิน (5.5%–10%)
-     [FIX-UI-SPLIT] Claim All: APT ที่ค้างจ่าย user 100% แบ่ง 40/40/10/10 เฉพาะกำไรเทรด (เดิมแบ่งจากยอดรวม → แสดง user น้อยกว่าที่ได้จริง) — แก้ใน openClaimModal / openClaimConfirm / submitClaimProfit
-     [FIX-UI-SPLIT] ป้าย % ระบุเป็น % ของกำไร: Your Team 10% · Level A 1.5% · Level B 1% · ผู้แนะนำ 1%/2% · โน้ตผู้แนะนำยังไม่มีสิทธิ์ = ส่วนนี้คงอยู่ใน Reserve Fund
-     ไม่แตะ: เงื่อนไขถอนคอม 50 USDT/Approved ≥5 · เอกสารข้อตกลง (ส่วนที่ 7 / ตารางสัดส่วน) · การบล็อก Claim เมื่อ unrealized ขาดทุน (ยังเป็นกติกาฝั่ง UI เท่านั้น) -->
 <!-- [v6-MYT-CTR] (2026-10-04) My Trades → Futures-Contract: ตัวกรองเลขที่สัญญา + แสดงรวม All ครบ 6 แท็บ · ใช้คู่กับ GAS_easy_TCC_v6 (deploy GAS ก่อน HTML แล้วรัน repairSheetColumns()) — ค้นด้วยแท็ก "v6-MYT-CTR"
      [v6-MYT-CTR] เพิ่มแถบ "Contract ▾" ใน Open Orders / Order History / Position History / Trade History / Transaction History / Funding Fee (เฉพาะ context Futures-Contract) · ตัวเลือก All Contracts + ทุกสัญญา · ค่าเดียวใช้ร่วมกันทุกแท็บ
      [v6-MYT-CTR] ค่าเริ่มต้น: เปิดจากปุ่ม 📋 ในหน้า Futures = สัญญาที่เลือกอยู่ · เปิดจาก Assets (Overview/Futures-Contract/Earn/Funding) และที่อื่น = All
@@ -2193,8 +2188,8 @@ const TCC_I18N = {
   'check_before_confirm':['โปรดตรวจสอบยอดก่อนยืนยัน','Check amount before confirming','Kiểm tra số tiền trước khi xác nhận','ពិនិត្យចំនួនមុនបញ្ជាក់','အတည်ပြုမတိုင်မီပမာဏစစ်ဆေးပါ','Check amount before confirming'],
   'you_receive_40':['คุณได้รับ (40%)','You receive (40%)','Bạn nhận (40%)','អ្នកទទួល (40%)','သင်ရ (40%)','You receive (40%)'],
   'system_40':['สัดส่วนระบบ (40%)','System (40%)','Phần hệ thống (40%)','ចំណែកប្រព័ន្ធ (40%)','စနစ် (40%)','System (40%)'],
-  'reserve_10':['กองทุนสำรอง','Reserve Fund','Quỹ dự phòng','មូលនិធិបំរុង','သိုလှောင်ငွေ','Reserve Fund'], // [FIX-UI-SPLIT] เลิกระบุ 10% คงที่ — Reserve จริงคือ 10% ลบส่วนที่ทีม A/B/ผู้แนะนำได้เกิน (5.5%–10%)
-  'ref_not_eligible_note':['ผู้แนะนำยังไม่ถึงเงื่อนไข (ต้องมีสมาชิก Approved ≥10 คน) — ส่วนนี้คงอยู่ใน Reserve Fund','Referrer not eligible yet (needs ≥10 approved) — this share stays in the Reserve Fund','Người giới thiệu chưa đủ điều kiện (cần ≥10 thành viên đã duyệt) — phần này giữ lại trong Quỹ dự phòng','អ្នកណែនាំមិនទាន់គ្រប់លក្ខខណ្ឌ (ត្រូវការ ≥10 Approved) — ចំណែកនេះនៅក្នុង Reserve Fund','မိတ်ဆက်သူ အရည်အချင်းမပြည့်သေးပါ (Approved ≥10 လိုအပ်) — ဤအပိုင်းသည် Reserve Fund တွင်ကျန်ရှိမည်','Referrer not eligible yet (needs ≥10 approved) — this share stays in the Reserve Fund'],
+  'reserve_10':['กองทุนสำรอง','Reserve','Quỹ dự phòng','មូលនិធិបំរុង','သိုလှောင်ငွေ','Reserve'],
+  'ref_not_eligible_note':['ยังไม่ถึงเกณฑ์ผู้แนะนำ (ต้องมี Approved ≥10 คน) — ไม่มีส่วนแบ่งรอบนี้','Referrer not eligible yet (needs ≥10 approved) — no referral share this claim','Người giới thiệu chưa đủ điều kiện (cần ≥10 thành viên Approved) — không có phần chia lần này','Referrer not eligible yet (needs ≥10 approved) — no referral share this claim','Referrer not eligible yet (needs ≥10 approved) — no referral share this claim','Referrer not eligible yet (needs ≥10 approved) — no referral share this claim'],
   'claim_irreversible':['การเคลมจะถูกส่งไปยัง Main Wallet ทันที และไม่สามารถยกเลิกได้','Claim sent to Main Wallet immediately — irreversible','Yêu cầu gửi đến Ví chính ngay — không thể hủy','ផ្ញើទៅ Main Wallet ភ្លាមៗ មិនអាចបោះបង់','Main Wallet သို့ချက်ချင်းပေးပို့မည် — ပြောင်းလဲ၍မရ','Claim sent to Main Wallet immediately — irreversible'],
   'warn_cannot_reverse':['คำเตือน: ไม่สามารถย้อนกลับได้','Warning: Cannot be reversed','Cảnh báo: Không thể hoàn tác','ព្រមាន: មិនអាចត្រឡប់','သတိ: ပြောင်းလဲ၍မရ','Warning: Cannot be reversed'],
   'redeem_btn':['ยืนยันรับเงินต้นคืน → Main Wallet','Confirm Redeem → Main Wallet','Xác nhận thu hồi → Main Wallet','បញ្ជាក់ → Main Wallet','အတည်ပြု → Main Wallet','Confirm Redeem → Main Wallet'],
@@ -2203,7 +2198,7 @@ const TCC_I18N = {
   'daily_profit_est':['กำไรสุทธิรายวัน (est.)','Daily Net Profit (est.)','Lợi nhuận hàng ngày (est.)','ប្រាក់ចំណេញប្រចាំថ្ងៃ (est.)','နေ့စဉ်အမြတ် (est.)','Daily Net Profit (est.)'],
   'total_profit_est':['กำไรรวมครบกำหนด (est.)','Total Profit at Maturity (est.)','Tổng lợi nhuận khi đáo hạn (est.)','ប្រាក់ចំណេញសរុប (est.)','ကာလပြည့်တင်ဆင့်အမြတ် (est.)','Total Profit at Maturity (est.)'],
   'margin_usdt':['Margin ที่ใช้ Futures ได้ (10%)','Margin for Futures (10%)','Ký quỹ Futures (10%)','Margin Futures (10%)','Futures Margin (10%)','Margin for Futures (10%)'],
-  'team_comm':['รายละเอียดค่าคอมมิชชั่นทีม (% ของกำไรเทรด)','Team commission details (% of trading profit)','Chi tiết hoa hồng nhóm (% lợi nhuận giao dịch)','ព័ត៌មានកំរ៉ៃក្រុម (% នៃប្រាក់ចំណេញ)','အဖွဲ့ကော်မရှင် (အမြတ်၏ %)','Team commission details (% of trading profit)'],
+  'team_comm':['รายละเอียดค่าคอมมิชชั่นทีม (จาก Commission 10%)','Team commission details (10%)','Chi tiết hoa hồng nhóm (10%)','ព័ត៌មានកំរ៉ៃក្រុម (10%)','အဖွဲ့ကော်မရှင် (10%)','Team commission details (10%)'],
   'referrer':['ผู้แนะนำ','Referrer','Người giới thiệu','អ្នកណែនាំ','မိတ်ဆက်သူ','Referrer'],
   'comm_referrer':['ค่าคอมมิชชั่นผู้แนะนำ','Referrer Commission','Hoa hồng giới thiệu','កំរ៉ៃអ្នកណែនាំ','မိတ်ဆက်ကော်မရှင်','Referrer Commission'],
   'contract_frozen':['สัญญา FROZEN — ไม่สามารถเปิด Position ใหม่ได้','Contract FROZEN — Cannot open new positions','Hợp đồng FROZEN — Không mở vị thế mới','កិច្ចសន្យា FROZEN','စာချုပ် FROZEN — အနေအထားသစ်မဖွင့်ရ','Contract FROZEN — Cannot open new positions'],
@@ -2432,8 +2427,8 @@ const TCC_I18N = {
   'create_earn_hint':['กด "สร้างสัญญา Earn ใหม่" เพื่อเริ่มสร้างสัญญาแรก','Tap "Create New Earn Contract" to get started','Nhấn "Tạo hợp đồng Earn mới" để bắt đầu','ចុច "បង្កើតកិច្ចសន្យា Earn ថ្មី" ដើម្បីចាប់ផ្តើម','"Earn စာချုပ်သစ်ဖန်တီး" ကိုနှိပ်ပါ','Tap "Create New Earn Contract" to get started'],
   'type_meta_realized_pnl':['กำไรของฉัน (40%)','My Profit (40%)','Lợi nhuận của tôi (40%)','ប្រាក់ចំណេញរបស់ខ្ញុំ (40%)','ကျွန်ုပ်အမြတ် (40%)','My Profit (40%)'],
   'type_meta_team':['ทีมของฉัน (10%)','My Team (10%)','Nhóm của tôi (10%)','ក្រុមរបស់ខ្ញុំ (10%)','ကျွန်ုပ်အဖွဲ့ (10%)','My Team (10%)'],
-  'type_meta_level_a':['Level A (1.5% ของกำไร)','Level A (1.5% of profit)','Level A (1.5% of profit)','Level A (1.5% of profit)','Level A (1.5% of profit)','Level A (1.5% of profit)'], // [FIX-UI-SPLIT] 15% ของก้อนทีม 10% = 1.5% ของกำไร
-  'type_meta_level_b':['Level B (1% ของกำไร)','Level B (1% of profit)','Level B (1% of profit)','Level B (1% of profit)','Level B (1% of profit)','Level B (1% of profit)'], // [FIX-UI-SPLIT] 10% ของก้อนทีม 10% = 1% ของกำไร
+  'type_meta_level_a':['Level A (1.5% ของกำไร)','Level A (1.5% of profit)','Level A (1.5% lợi nhuận)','Level A (1.5% of profit)','Level A (1.5% of profit)','Level A (1.5% of profit)'],
+  'type_meta_level_b':['Level B (1% ของกำไร)','Level B (1% of profit)','Level B (1% lợi nhuận)','Level B (1% of profit)','Level B (1% of profit)','Level B (1% of profit)'],
   'type_meta_referral':['ค่าแนะนำ Flat','Referral Flat','Hoa hồng Flat','ការណែនាំ Flat','Referral Flat','Referral Flat'],
   'earn_completed':['✅ ครบแล้ว','✅ Completed','✅ Đã hoàn thành','✅ បានបញ្ចប់','✅ ပြီးဆုံးပြီ','✅ Completed'],
   'gate_min_approved_transfer':['ต้องมีสมาชิก Approved ≥ {min} คน จึงจะโอนได้ (ปัจจุบัน {cur} คน)','Need ≥ {min} approved members to transfer (currently {cur})','Cần ≥ {min} thành viên đã duyệt để chuyển (hiện tại {cur})','ត្រូវការសមាជិកដែលបានអនុម័ត ≥ {min} នាក់ ដើម្បីផ្ទេរ (បច្ចុប្បន្ន {cur} នាក់)','လွှဲရန် အတည်ပြုအဖွဲ့ဝင် {min} ဦး လိုအပ်သည် (လက်ရှိ {cur} ဦး)','ຈຳນວນຂັ້ນຕ່ຳ {min} USDT'],
@@ -6750,7 +6745,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
   <div class="earn-modal-overlay" id="earnClaimModal">
     <div class="earn-modal">
       <div class="earn-modal-handle"></div>
-      <div class="earn-modal-title"><span data-i18n="profit_split_title">แบ่งกำไร</span> <span id="claimModeLabel" style="font-size:10px;font-weight:400;opacity:.7;margin-left:6px">เทรด 40/40/10/10 + APT 100%</span></div>
+      <div class="earn-modal-title"><span data-i18n="profit_split_title">แบ่งกำไร</span> <span id="claimModeLabel" style="font-size:10px;font-weight:400;opacity:.7;margin-left:6px">เทรด + APT (40/40/10/10)</span></div>
       <div class="earn-claim-row"><span class="earn-claim-label" data-i18n="contract_label">สัญญา</span><span class="earn-claim-val" id="claimContractId">—</span></div>
       <div class="earn-claim-row"><span class="earn-claim-label" data-i18n="realized_pnl_label">Realized PnL</span><span class="earn-claim-val" style="color:var(--g)" id="claimRealizedPnl">+0.00</span></div>
       <div class="earn-claim-row"><span class="earn-claim-label" data-i18n="unrealized_pnl_owe">Unrealized PnL (ค้างอยู่)</span><span class="earn-claim-val" style="color:var(--r)" id="claimUnrealizedPnl">-0.00</span></div>
@@ -6759,8 +6754,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <div class="earn-claim-split-title"><span data-i18n="profit_split">การแบ่งจ่ายกำไร</span></div>
         <div class="earn-claim-split-row"><span class="earn-claim-split-label"><span data-i18n="you_receive_40">คุณได้รับ (40%)</span></span><span class="earn-claim-split-val" style="color:var(--g)" id="splitUser">0.00 USDT</span></div>
         <div class="earn-claim-split-row" id="splitSystemRow"><span class="earn-claim-split-label">System Center (40%)</span><span class="earn-claim-split-val" id="splitSystem">0.00 USDT</span></div>
-        <div class="earn-claim-split-row" id="splitCommRow"><span class="earn-claim-split-label">Commission (ทีม + ผู้แนะนำ)</span><span class="earn-claim-split-val" id="splitComm">0.00 USDT</span></div>
-        <div class="earn-claim-split-row" id="splitReserveRow"><span class="earn-claim-split-label">Reserve Fund (เหลือจากทีม)</span><span class="earn-claim-split-val" id="splitReserve">0.00 USDT</span></div>
+        <div class="earn-claim-split-row" id="splitCommRow"><span class="earn-claim-split-label">Commission (10%)</span><span class="earn-claim-split-val" id="splitComm">0.00 USDT</span></div>
+        <div class="earn-claim-split-row" id="splitReserveRow"><span class="earn-claim-split-label">Reserve Fund (10%)</span><span class="earn-claim-split-val" id="splitReserve">0.00 USDT</span></div>
       </div>
       <!-- [v3 FIX-2] claimRefBlock: แสดงทันทีพร้อม skeleton loading, ไม่ซ่อน -->
       <div class="earn-claim-ref" id="claimRefBlock">
@@ -6774,17 +6769,17 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <div id="claimRefContent" style="display:none">
           <!-- Your Team / Level A / Level B — แถวนอนเหมือน section แบ่งจ่ายกำไร -->
           <div class="earn-claim-team-row" id="claimCardOwn">
-            <span class="earn-claim-team-badge own">⭐ Your Team (10%)</span>
+            <span class="earn-claim-team-badge own">⭐ Your Team</span>
             <span class="earn-claim-team-name" id="claimOwnTeam">—</span>
             <span class="earn-claim-team-val" id="claimOwnVal">0.0000 USDT</span>
           </div>
           <div class="earn-claim-team-row" id="claimCardA">
-            <span class="earn-claim-team-badge lva">🅰 Level A (1.5%)</span>
+            <span class="earn-claim-team-badge lva">🅰 Level A</span>
             <span class="earn-claim-team-name" id="claimLevelATeam">—</span>
             <span class="earn-claim-team-val" id="claimLevelAVal">0.0000 USDT</span>
           </div>
           <div class="earn-claim-team-row" id="claimCardB">
-            <span class="earn-claim-team-badge lvb">🅱 Level B (1%)</span>
+            <span class="earn-claim-team-badge lvb">🅱 Level B</span>
             <span class="earn-claim-team-name" id="claimLevelBTeam">—</span>
             <span class="earn-claim-team-val" id="claimLevelBVal">0.0000 USDT</span>
           </div>
@@ -6864,11 +6859,11 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
             <span class="claim-confirm-split-val" id="ccSystem">0.0000 USDT</span>
           </div>
           <div class="claim-confirm-split-row">
-            <span class="claim-confirm-split-lbl">Commission (ทีม + ผู้แนะนำ)</span>
+            <span class="claim-confirm-split-lbl" id="ccCommLbl">Commission (10%)</span>
             <span class="claim-confirm-split-val" id="ccComm">0.0000 USDT</span>
           </div>
           <div class="claim-confirm-split-row">
-            <span class="claim-confirm-split-lbl"><span data-i18n="reserve_10">กองทุนสำรอง (10%)</span></span>
+            <span class="claim-confirm-split-lbl"><span data-i18n="reserve_10" id="ccReserveLbl">กองทุนสำรอง</span></span>
             <span class="claim-confirm-split-val" id="ccReserve">0.0000 USDT</span>
           </div>
         </div>
@@ -18958,7 +18953,7 @@ async function astExecuteWithdraw() {
 
   // Log ใน HIST (local history)
   if (typeof HIST !== 'undefined' && HIST.logWithdraw) {
-    HIST.logWithdraw(amt, coin, isOffchain ? 'Internal Transfer' : netName, addr, fee);
+    HIST.logWithdraw(amt, coin, isOffchain ? 'Internal Transfer' : netName, addr, (result.fee != null ? result.fee : fee)); // [v8.6-COMM] fee จาก server
   }
 
   // [v8] refresh transaction list ถ้า My Trades เปิดอยู่
@@ -19210,30 +19205,6 @@ let selectedEarnContractId = null;
 let earnCreatePlan = { days: 15, yield: 0.3333 };
 let claimTargetId = null;
 let claimMode = 'all'; // 'all' | 'trade' | 'apt'
-
-// [FIX-UI-SPLIT] สัดส่วนแบ่งกำไรที่ใช้แสดง/optimistic ต้องตรงกับ GAS (logEarnClaim → distributeProfit):
-//   • APT yield ที่ค้างอยู่ = จ่าย user 100% (ไม่ผ่านการแบ่ง) — เดิม 'Claim All' เอายอดรวมไปแบ่ง 40/40/10/10 ทำให้แสดง user น้อยกว่าที่ได้จริง
-//   • เฉพาะ "กำไรเทรด" ที่แบ่ง user40 / system40 / commission(ทีม) / reserve
-//   • commission/reserve จริงขึ้นกับสายทีม + tier ผู้แนะนำ → อ่านจาก GAS (getReferralLevelInfo.split) เก็บใน CLAIM_SPLIT_REAL
-//     ยังไม่โหลด = fallback 10/10 ชั่วคราว (แล้วอัปเดตทันทีที่ GAS ตอบ)
-let CLAIM_SPLIT_REAL = null; // { teamPct, reservePct } — สัดส่วนของกำไรเทรด
-let _claimInfoSeq = 0;       // กัน response เก่าเขียนทับ modal ของสัญญา/โหมดใหม่
-function _claimSplitFor(claimNet, aptYield) {
-  const net   = Math.max(0, claimNet || 0);
-  const apt   = Math.min(Math.max(0, aptYield || 0), net);
-  const trade = Math.max(0, net - apt);
-  const teamPct    = (CLAIM_SPLIT_REAL && isFinite(CLAIM_SPLIT_REAL.teamPct))    ? CLAIM_SPLIT_REAL.teamPct    : 0.10;
-  const reservePct = (CLAIM_SPLIT_REAL && isFinite(CLAIM_SPLIT_REAL.reservePct)) ? CLAIM_SPLIT_REAL.reservePct : 0.10;
-  return { apt, tradeNet: trade, user: apt + trade * 0.40, system: trade * 0.40, comm: trade * teamPct, reserve: trade * reservePct, teamPct, reservePct };
-}
-function _fmtPct(p) { return (Math.round(p * 1000) / 10).toString().replace(/\.0$/, '') + '%'; }
-// แสดง Commission / Reserve พร้อม % ของกำไรเทรด (ใช้ทั้งตอนเปิด modal และหลัง GAS ตอบ)
-function _renderSplitCommReserve(tradeNet) {
-  const sp = _claimSplitFor(tradeNet, 0);
-  const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
-  set('splitComm',    fmtM(sp.comm, 4)    + ' USDT (' + _fmtPct(sp.teamPct)    + ')');
-  set('splitReserve', fmtM(sp.reserve, 4) + ' USDT (' + _fmtPct(sp.reservePct) + ')');
-}
 // [NEW] กัน fetch getReferralDashboard ซ้ำระหว่างรอผล (ใช้โดย openClaimModal ตอน claimMode==='fixed')
 let _fixedGateFetching = false;
 let mainWalletBalance = 0.00; // [v13.3] เริ่มที่ 0 — GAS จะ set ค่าจริงหลัง loadDashboard
@@ -20192,10 +20163,10 @@ function openClaimModal(id, mode) {
     netProfitDisplay = tradePnl + liveUnrealized;
     modeLabel        = 'กำไรเทรด (40/40/10/10)';
   } else {
-    // 'all' — realized = tradePnl + aptYield → [FIX-UI-SPLIT] APT 100% + เฉพาะกำไรเทรดแบ่ง 40/40/10/10 (ตรง GAS)
+    // 'all' — realized = tradePnl + aptYield → แบ่ง 40/40/10/10 จากยอดรวม
     netProfitClaim   = Math.max(0, realized + Math.min(0, liveUnrealized));
     netProfitDisplay = realized + liveUnrealized;
-    modeLabel        = 'เทรด 40/40/10/10 + APT 100%';
+    modeLabel        = 'เทรด + APT (40/40/10/10)';
   }
 
   // ── row แสดงผล ──
@@ -20212,9 +20183,9 @@ function openClaimModal(id, mode) {
   if (modeEl) modeEl.textContent = modeLabel;
 
   // ── breakdown ──
-  let user, system, comm, reserve;
-  let tradeNetForSplit = 0; // [FIX-UI-SPLIT] ส่วนที่ผ่านการแบ่ง 40/40/10/10 จริง (ไม่รวม APT ที่จ่าย 100%)
+  let user, system, comm, reserve, _teamBase = 0;
   if (claimMode === 'apt' || claimMode === 'fixed') {
+    window._claimSplitInputs = null;
     // APT / Fixed = 100% user, ส่วนอื่น 0 (ไม่ผ่าน split)
     user = netProfitClaim; system = 0; comm = 0; reserve = 0;
     // ซ่อน row commission/reserve สำหรับ APT/Fixed mode
@@ -20222,12 +20193,11 @@ function openClaimModal(id, mode) {
       const el = document.getElementById(id); if (el) el.style.display = 'none';
     });
   } else {
-    const _sp = _claimSplitFor(netProfitClaim, claimMode === 'all' ? aptYield : 0);
-    user    = _sp.user;
-    system  = _sp.system;
-    comm    = _sp.comm;
-    reserve = _sp.reserve;
-    tradeNetForSplit = _sp.tradeNet;
+    // [v8.6-COMM] สัดส่วนจริง (default 40/40/10/10 จนกว่า GAS ตอบ) + แยก APT 100% ออกใน mode 'all'
+    window._claimSplitInputs = { mode: claimMode, net: netProfitClaim, aptYield: aptYield };
+    const _sp = _claimSplitCalc(claimMode, netProfitClaim, aptYield);
+    user = _sp.user; system = _sp.system; comm = _sp.comm; reserve = _sp.reserve;
+    _teamBase = _sp.tradePart * 0.10; // ฐานงบทีม 10% ของกำไรเทรด (ใช้ preview Your Team/A/B/ผู้แนะนำ)
     // แสดง row commission/reserve สำหรับ all/trade mode
     ['splitSystemRow','splitCommRow','splitReserveRow','claimRefBlock'].forEach(id => {
       const el = document.getElementById(id); if (el) el.style.display = '';
@@ -20235,12 +20205,9 @@ function openClaimModal(id, mode) {
   }
   document.getElementById('splitUser').textContent    = (user >= 0 ? '+' : '') + fmtM(user, 4) + ' USDT';
   document.getElementById('splitSystem').textContent  = fmtM(system, 4) + ' USDT';
-  if (claimMode === 'apt' || claimMode === 'fixed') {
-    document.getElementById('splitComm').textContent    = fmtM(comm, 4) + ' USDT';
-    document.getElementById('splitReserve').textContent = fmtM(reserve, 4) + ' USDT';
-  } else {
-    _renderSplitCommReserve(tradeNetForSplit); // แสดง Commission/Reserve พร้อม % ของกำไรเทรด
-  }
+  document.getElementById('splitComm').textContent    = fmtM(comm, 4) + ' USDT';
+  document.getElementById('splitReserve').textContent = fmtM(reserve, 4) + ' USDT';
+  _applyClaimSplitLabels();
 
   // ── ปุ่ม Claim All ──
   const btn = document.getElementById('claimSubmitBtn');
@@ -20314,8 +20281,7 @@ function openClaimModal(id, mode) {
 
   // [COMMISSION ENGINE] โหลดชื่อทีม Level A/B + ผู้แนะนำ หลัง modal เปิด
   // ไม่บล็อก UI หลัก — skeleton แสดงระหว่างรอ
-  // [FIX-UI-SPLIT] ส่ง "ก้อนทีม 10% ของกำไรเทรด" (ceiling) ให้ GAS — เดิมส่ง comm ซึ่งคือ 10% ของยอดรวมที่รวม APT ด้วย
-  _loadClaimReferralInfo(tradeNetForSplit * 0.10);
+  _loadClaimReferralInfo(_teamBase);
 }
 
 // [COMMISSION ENGINE] โหลดชื่อทีม Level A/Level B + ค่าคอมมิชชั่นผู้แนะนำ จาก
@@ -20329,7 +20295,6 @@ function openClaimModal(id, mode) {
 //   - row ผู้แนะนำ: แสดงทุกกรณี — "—" ถ้าไม่มี referrer
 //   - ถ้า API error → ซ่อน skeleton, แสดง content พร้อม "—" (ไม่ซ่อน block ทิ้ง)
 async function _loadClaimReferralInfo(teamShare) {
-  const _seq = ++_claimInfoSeq; // [FIX-UI-SPLIT] response เก่า (สัญญา/โหมดก่อนหน้า) ห้ามเขียนทับ modal ปัจจุบัน
   const loadingEl = document.getElementById('claimRefLoading');
   const contentEl = document.getElementById('claimRefContent');
   if (!loadingEl || !contentEl) return;
@@ -20362,12 +20327,10 @@ async function _loadClaimReferralInfo(teamShare) {
 
   try {
     const info = await dbRead('getReferralLevelInfo', { uid, teamShare }, null); // ไม่ cache — ข้อมูลทีมเปลี่ยนได้
-    if (_seq !== _claimInfoSeq) return; // มีการเปิด modal ใหม่ระหว่างรอ → ทิ้งผลนี้
-
-    // [FIX-UI-SPLIT] สัดส่วน Commission/Reserve จริงจาก GAS (Reserve = 10% − ส่วนที่ A/B/ผู้แนะนำได้เกิน)
-    if (info && info.split && isFinite(info.split.teamPct) && isFinite(info.split.reservePct)) {
-      CLAIM_SPLIT_REAL = { teamPct: info.split.teamPct, reservePct: info.split.reservePct };
-      if (teamShare > 0) _renderSplitCommReserve(teamShare / 0.10);
+    // [v8.6-COMM] ใช้สัดส่วนจริงจาก GAS แทนการฮาร์ดโค้ด 10%/10% (Reserve ถูกหักตามส่วนที่ทีมได้เกิน 10%)
+    if (info && info.distribution && typeof info.distribution === 'object') {
+      _claimDist = info.distribution;
+      _refreshClaimSplitDisplay();
     }
 
     const levelAPct = (info && info.levelA && typeof info.levelA.pct === 'number') ? info.levelA.pct : 0.15;
@@ -20417,14 +20380,12 @@ async function _loadClaimReferralInfo(teamShare) {
     const refAmtEl  = document.getElementById('claimReferrerAmount');
     const refNoteEl = document.getElementById('claimReferrerNote');
     if (refNameEl) refNameEl.textContent = ref.name || '—';
-    if (refAmtEl)  refAmtEl.textContent  = ref.name
-      ? fmtM(ref.tierBonusPreview || 0, 4) + ' USDT' + (ref.eligible && ref.tierPct ? ' (' + _fmtPct(ref.tierPct * 0.10) + ' ของกำไร)' : '')
-      : '—';
+    if (refAmtEl)  refAmtEl.textContent  = ref.name ? fmtM(ref.tierBonusPreview || 0, 4) + ' USDT' : '—';
     if (refNoteEl) {
       if (!ref.uid || ref.eligible) {
         refNoteEl.textContent = '';
       } else {
-        refNoteEl.textContent = tccT('ref_not_eligible_note');
+        refNoteEl.textContent = tccT('ref_not_eligible_note'); // [v8.6-COMM] ไม่จ่ายอะไร (ไม่ได้เข้า Reserve)
       }
     }
 
@@ -20434,6 +20395,50 @@ async function _loadClaimReferralInfo(teamShare) {
     // [v3 FIX-2] error → แสดง content พร้อมค่า "—" แทนที่จะซ่อน block ทิ้ง
     _showContent();
   }
+}
+// ══════════════════════════════════════════════════════════════
+//  [v8.6-COMM] สัดส่วนแบ่งกำไร "จริง" จาก GAS (getReferralLevelInfo.distribution)
+//  เดิมฮาร์ดโค้ด 40/40/10/10 ทุกที่ → ไม่ตรงกับ GAS ที่ Reserve = 10% − ส่วนที่ทีมได้เกิน 10%
+//  และ APT ใน Claim All จ่าย user 100% (แบ่งเฉพาะกำไรเทรด) — UI เดิมหาร 40% ทั้งก้อนจึงแสดงน้อยกว่าที่ได้จริง
+//  ค่าเริ่มต้น (ก่อนโหลดจาก GAS) = 40/40/10/10 เหมือนเดิม
+// ══════════════════════════════════════════════════════════════
+let _claimDist = null;
+function _claimSplitCalc(mode, net, aptYield) {
+  const d = _claimDist || {};
+  const g = (k, f) => (typeof d[k] === 'number' && isFinite(d[k])) ? d[k] : f;
+  const n = Math.max(0, net || 0);
+  // 'all' = APT (100% user) + กำไรเทรด (แบ่งสัดส่วน) — ตรงกับ GAS logEarnClaim (FIX-CLAIM-ALL-APT)
+  const aptPart   = (mode === 'all') ? Math.min(Math.max(0, aptYield || 0), n) : 0;
+  const tradePart = Math.max(0, n - aptPart);
+  return {
+    aptPart, tradePart,
+    user:    aptPart + tradePart * g('userPct', 0.40),
+    system:  tradePart * g('systemPct', 0.40),
+    comm:    tradePart * g('teamPoolPct', 0.10),
+    reserve: tradePart * g('reservePct', 0.10),
+  };
+}
+function _fmtSplitPct(v) { return (Math.round(v * 10000) / 100) + '%'; }
+function _applyClaimSplitLabels() {
+  const d = _claimDist || {};
+  const team = (typeof d.teamPoolPct === 'number') ? d.teamPoolPct : 0.10;
+  const res  = (typeof d.reservePct  === 'number') ? d.reservePct  : 0.10;
+  const q = (sel, t) => { const e = document.querySelector(sel); if (e) e.textContent = t; };
+  q('#splitCommRow .earn-claim-split-label',    'Commission (' + _fmtSplitPct(team) + ')');
+  q('#splitReserveRow .earn-claim-split-label', 'Reserve Fund (' + _fmtSplitPct(res) + ')');
+  q('#ccCommLbl',    'Commission (' + _fmtSplitPct(team) + ')');
+  q('#ccReserveLbl', tccT('reserve_10') + ' (' + _fmtSplitPct(res) + ')');
+}
+function _refreshClaimSplitDisplay() {
+  const inp = window._claimSplitInputs;
+  if (!inp) return;
+  const sp  = _claimSplitCalc(inp.mode, inp.net, inp.aptYield);
+  const set = (id, t) => { const e = document.getElementById(id); if (e) e.textContent = t; };
+  set('splitUser',    (sp.user >= 0 ? '+' : '') + fmtM(sp.user, 4) + ' USDT');
+  set('splitSystem',  fmtM(sp.system, 4) + ' USDT');
+  set('splitComm',    fmtM(sp.comm, 4) + ' USDT');
+  set('splitReserve', fmtM(sp.reserve, 4) + ' USDT');
+  _applyClaimSplitLabels();
 }
 function closeClaimModal() {
   document.getElementById('earnClaimModal').classList.remove('open');
@@ -20482,7 +20487,9 @@ function openClaimConfirm(mode) {
     warnText   = 'APT Yield จะถูกโอนเข้า Main Wallet ทันที และ reset รอบ 15 วันใหม่';
   } else if (mode === 'trade') {
     const net  = Math.max(0, tradePnl + Math.min(0, liveUnrealized));
-    { const _sp = _claimSplitFor(net, 0); userAmt = _sp.user; systemAmt = _sp.system; commAmt = _sp.comm; reserveAmt = _sp.reserve; }
+    const _sp  = _claimSplitCalc('trade', net, 0); // [v8.6-COMM] สัดส่วนจริงจาก GAS
+    userAmt    = _sp.user;
+    systemAmt  = _sp.system; commAmt = _sp.comm; reserveAmt = _sp.reserve;
     titleText  = 'ยืนยัน Claim Profits';
     subText    = 'กำไรเทรด · สัดส่วน 40/40/10/10';
     iconClass  = 'trade'; iconEmoji = '💰'; showSplit = true;
@@ -20490,10 +20497,12 @@ function openClaimConfirm(mode) {
   } else {
     // all
     const net  = Math.max(0, realized + Math.min(0, liveUnrealized));
-    // [FIX-UI-SPLIT] APT 100% + กำไรเทรด 40/40/10/10 (ตรง GAS logEarnClaim)
-    { const _sp = _claimSplitFor(net, aptYield); userAmt = _sp.user; systemAmt = _sp.system; commAmt = _sp.comm; reserveAmt = _sp.reserve; }
+    // [v8.6-COMM] APT ใน Claim All จ่าย user 100% — แบ่งสัดส่วนเฉพาะกำไรเทรด (ตรงกับ GAS)
+    const _sp  = _claimSplitCalc('all', net, aptYield);
+    userAmt    = _sp.user;
+    systemAmt  = _sp.system; commAmt = _sp.comm; reserveAmt = _sp.reserve;
     titleText  = 'ยืนยัน Claim All';
-    subText    = 'กำไรเทรด 40/40/10/10 · APT 100%';
+    subText    = 'APT 100% + กำไรเทรด 40/40/10/10';
     iconClass  = 'all'; iconEmoji = '🏆'; showSplit = true;
     warnText   = 'กำไรทั้งหมดจะถูกแบ่งและโอนเข้า Main Wallet ทันที';
   }
@@ -20520,6 +20529,7 @@ function openClaimConfirm(mode) {
   el('ccSystem', fmt4s(systemAmt) + ' USDT');
   el('ccComm',   fmt4s(commAmt)   + ' USDT');
   el('ccReserve',fmt4s(reserveAmt)+ ' USDT');
+  _applyClaimSplitLabels();
   el('ccWarnText', warnText);
 
   const amtEl = document.getElementById('ccAmt');
@@ -20870,7 +20880,8 @@ function submitClaimProfit(mode) {
   } else if (activeMode === 'trade') {
     // ── Trade: 40/40/10/10 ───────────────────────────────────────────────
     netProfit  = Math.max(0, tradePnl + Math.min(0, liveUnrealized));
-    { const _sp = _claimSplitFor(netProfit, 0); userAmt = _sp.user; systemAmt = _sp.system; commAmt = _sp.comm; reserveAmt = _sp.reserve; }
+    { const _sp = _claimSplitCalc('trade', netProfit, 0); // [v8.6-COMM]
+      userAmt = _sp.user; systemAmt = _sp.system; commAmt = _sp.comm; reserveAmt = _sp.reserve; }
     gasAction  = 'logEarnClaimTrade';
     if (netProfit <= 0) { window[_claimKey] = false; showToast(tccT('toast_no_trade_profit')); return; }
     // อัปเดต local: ลด realized_pnl เฉพาะส่วน trade
@@ -20887,8 +20898,8 @@ function submitClaimProfit(mode) {
   } else {
     // ── All (เดิม): 40/40/10/10 ─────────────────────────────────────────
     netProfit  = realized + Math.min(0, liveUnrealized);
-    // [FIX-UI-SPLIT] APT 100% + กำไรเทรด 40/40/10/10 (ตรง GAS logEarnClaim)
-    { const _sp = _claimSplitFor(netProfit, aptYield); userAmt = _sp.user; systemAmt = _sp.system; commAmt = _sp.comm; reserveAmt = _sp.reserve; }
+    { const _sp = _claimSplitCalc('all', netProfit, aptYield); // [v8.6-COMM] APT 100% + เทรดแบ่งสัดส่วน
+      userAmt = _sp.user; systemAmt = _sp.system; commAmt = _sp.comm; reserveAmt = _sp.reserve; }
     gasAction  = 'logEarnClaim';
     if (netProfit <= 0) { window[_claimKey] = false; showToast(tccT('toast_no_net_profit')); return; }
     c.realizedPnl = 0;
@@ -34188,7 +34199,9 @@ async function saveWithdraw(data) {
     });
 
     // อัปเดต local balance
-    const total = parseFloat(data.amount) + parseFloat(data.fee || 0);
+    // [v8.6-COMM] fee จริงมาจาก server (off-chain = 0, on-chain ตามตารางเครือข่าย) — ไม่ใช้ค่าที่คำนวณฝั่งหน้าเว็บ
+    const _srvFee = (result && result.fee != null) ? parseFloat(result.fee) : parseFloat(data.fee || 0);
+    const total = parseFloat(data.amount) + (isFinite(_srvFee) ? _srvFee : 0);
     if (data.coin === 'USDT') {
       mainWalletBalance = Math.max(0, mainWalletBalance - total);
       updateSysWalletDisplay();

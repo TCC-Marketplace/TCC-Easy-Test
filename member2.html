@@ -325,18 +325,11 @@ input[type=number].tc-inp::-webkit-inner-spin-button{-webkit-appearance:none;mar
         <div class="lvl"><div class="lvl-no">2</div><div class="lvl-txt">มีทีม/ร้านกาแฟต้นสังกัด</div></div>
         <div class="lvl"><div class="lvl-no">3</div><div class="lvl-txt">เงินทุนใน USDT สำหรับการเทรด</div></div>
       </div>
-      <div class="info-card"><h3>💵 สัดส่วนรายได้ (กำไรเทรดตอน Claim)</h3>
-        <div class="lvl"><div class="lvl-no">1</div><div class="lvl-txt">รายได้ผู้เทรด <b>40%</b></div></div>
-        <div class="lvl"><div class="lvl-no">2</div><div class="lvl-txt">System Center (บริหารระบบ) <b>40%</b></div></div>
-        <div class="lvl"><div class="lvl-no">3</div><div class="lvl-txt">คอมมิชชั่นหัวหน้าทีมตรง (Your Team) <b>10%</b></div></div>
-        <div class="lvl"><div class="lvl-no">4</div><div class="lvl-txt">Reserve Fund (ประกันรายได้) <b>10%</b> — ลดลงตามส่วนที่จ่ายให้ Level A/B และผู้แนะนำ (เหลือ 5.5%–10%)</div></div>
-      </div>
-      <div class="info-card"><h3>➕ ค่าคอมมิชชั่นเพิ่มเติม (จ่ายเพิ่มจากกำไรเดียวกัน หักจาก Reserve Fund)</h3>
-        <div class="lvl"><div class="lvl-no">A</div><div class="lvl-txt">Level A (หัวหน้าทีมแม่) <b>1.5%</b> ของกำไร <span style="opacity:.7">(= 15% ของคอมมิชชั่นทีม 10%)</span></div></div>
-        <div class="lvl"><div class="lvl-no">B</div><div class="lvl-txt">Level B (หัวหน้าทีมแม่ของทีมแม่) <b>1%</b> ของกำไร <span style="opacity:.7">(= 10% ของคอมมิชชั่นทีม 10%)</span></div></div>
-        <div class="lvl"><div class="lvl-no">R</div><div class="lvl-txt">ผู้แนะนำ <b>1%</b> ของกำไร เมื่อมีสมาชิก Approved ≥10 คน, <b>2%</b> เมื่อ ≥20 คน <span style="opacity:.7">(= 10% / 20% ของคอมมิชชั่นทีม 10%)</span></div></div>
-        <div class="lvl"><div class="lvl-no">$</div><div class="lvl-txt">ค่าแนะนำแบบ Flat <b>$10</b> เมื่อสมาชิกที่แนะนำเปิดสัญญา Earn แรก (ขั้นต่ำ 100 USDT)</div></div>
-        <div class="lvl"><div class="lvl-no">!</div><div class="lvl-txt">กำไรจาก APT / Fixed จ่ายให้ผู้เทรด <b>100%</b> ไม่ผ่านการแบ่งข้างต้น</div></div>
+      <div class="info-card"><h3>💵 สัดส่วนรายได้</h3>
+        <div class="lvl"><div class="lvl-no">1</div><div class="lvl-txt">คอมมิชชั่นทีม <b>10%</b></div></div>
+        <div class="lvl"><div class="lvl-no">2</div><div class="lvl-txt">ประกันรายได้ <b>10%</b></div></div>
+        <div class="lvl"><div class="lvl-no">3</div><div class="lvl-txt">รายได้ผู้เทรด <b>40%</b></div></div>
+        <div class="lvl"><div class="lvl-no">4</div><div class="lvl-txt">บริหารระบบ <b>40%</b></div></div>
       </div>
       <div class="info-card"><h3>📌 ข้อห้าม</h3>
         <div class="lvl"><div class="lvl-no">1</div><div class="lvl-txt">ห้ามปิด/เปิดออเดอร์เองโดยไม่ได้รับอนุมัติจากเลขา</div></div>
@@ -614,8 +607,7 @@ function tcS5(){
 // ── แท็บ 1: ส่วนตัว [v2-NEW] ─────────────────────────────────────
 // ⚠️ เขียนใหม่ทั้งหมดให้ตรงกับโครงสร้าง GAS ใหม่:
 //    user 40% (Realized PNL) / team 10% (ProfitShareTeam) /
-//    Level A 15%-of-10% = 1.5% ของกำไร / Level B 10%-of-10% = 1% ของกำไร / Referral (Flat $10 + Tier 1%/2% ของกำไร)
-//    [FIX-UI-SPLIT] ป้าย % ทั้งหมดระบุเป็น % ของ "กำไร" ให้ตรง GAS distributeProfit (ไม่ใช่ % ของก้อน 10%)
+//    Level A 15%-of-10% / Level B 10%-of-10% / Referral (Flat+Tier)
 //    ไม่ใช้ field เก่า (ส่วนแบ่งสมาชิก 50% / ประกันกำไร 10% / parse เหรียญจาก note)
 let _tcCoinSearch = ''; // คงไว้เผื่ออ้างถึงที่อื่น (ไม่ใช้ในแท็บนี้แล้ว)
 let _tcCoinFilter = ''; // '' = ทั้งหมด, หรือ ledger type ที่เลือกดู (ProfitShareTeam/...)
@@ -639,7 +631,7 @@ const LEDGER_TYPE_META = {
   'ProfitShareLevelA':  { label: '🅰️ Level A (1.5% ของกำไร)', color: '#22c55e' },
   'ProfitShareLevelB':  { label: '🅱️ Level B (1% ของกำไร)',   color: '#60a5fa' },
   'ReferralFlat':       { label: '🔗 ค่าแนะนำ Flat',          color: '#a855f7' },
-  'ReferralTier':       { label: '🔗 ค่าแนะนำ Tier (1%/2% ของกำไร)', color: '#c084fc' },
+  'ReferralTier':       { label: '🔗 ค่าแนะนำ Tier',          color: '#c084fc' },
 };
 
 function tcS5Personal(myId){
@@ -876,12 +868,12 @@ function tcS5Team(teamName){
       <div style="font-size:.68rem;color:var(--text-dim);margin-top:3px;">${breakdown.yourTeam.count} รายการ</div>
     </div>
     <div style="background:rgba(3,192,117,.07);border:1px solid rgba(3,192,117,.25);border-radius:10px;padding:12px;">
-      <div style="font-size:.65rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🅰️ LEVEL A (1.5% ของกำไร)</div>
+      <div style="font-size:.65rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🅰️ LEVEL A (15%)</div>
       <div style="font-family:'Orbitron',monospace;font-size:.88rem;font-weight:900;color:var(--green);margin-top:5px;">${fmtD(breakdown.levelA.amount)}</div>
       <div style="font-size:.68rem;color:var(--text-dim);margin-top:3px;">${breakdown.levelA.count} รายการ</div>
     </div>
     <div style="background:rgba(24,144,255,.07);border:1px solid rgba(24,144,255,.25);border-radius:10px;padding:12px;">
-      <div style="font-size:.65rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🅱️ LEVEL B (1% ของกำไร)</div>
+      <div style="font-size:.65rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🅱️ LEVEL B (10%)</div>
       <div style="font-family:'Orbitron',monospace;font-size:.88rem;font-weight:900;color:rgba(96,165,250,.9);margin-top:5px;">${fmtD(breakdown.levelB.amount)}</div>
       <div style="font-size:.68rem;color:var(--text-dim);margin-top:3px;">${breakdown.levelB.count} รายการ</div>
     </div>
@@ -946,12 +938,12 @@ function tcS5Members(teamName){
           <div style="font-size:.67rem;color:var(--text-dim);margin-top:2px;">${cb.yourTeam.count} รายการ</div>
         </div>
         <div style="background:rgba(3,192,117,.07);border:1px solid rgba(3,192,117,.25);border-radius:10px;padding:11px;">
-          <div style="font-size:.63rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🅰️ LEVEL A (1.5% ของกำไร)</div>
+          <div style="font-size:.63rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🅰️ LEVEL A (15%)</div>
           <div style="font-family:'Orbitron',monospace;font-size:.85rem;font-weight:900;color:var(--green);margin-top:4px;">${fmtD(cb.levelA.amount)}</div>
           <div style="font-size:.67rem;color:var(--text-dim);margin-top:2px;">${cb.levelA.count} รายการ</div>
         </div>
         <div style="background:rgba(24,144,255,.07);border:1px solid rgba(24,144,255,.25);border-radius:10px;padding:11px;">
-          <div style="font-size:.63rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🅱️ LEVEL B (1% ของกำไร)</div>
+          <div style="font-size:.63rem;color:var(--muted);font-weight:600;letter-spacing:.5px;">🅱️ LEVEL B (10%)</div>
           <div style="font-family:'Orbitron',monospace;font-size:.85rem;font-weight:900;color:rgba(96,165,250,.9);margin-top:4px;">${fmtD(cb.levelB.amount)}</div>
           <div style="font-size:.67rem;color:var(--text-dim);margin-top:2px;">${cb.levelB.count} รายการ</div>
         </div>

@@ -696,7 +696,7 @@ $("#input").addEventListener("input", () => {
 $("#stBtn").onclick = () => { $("#stickers").classList.toggle("on"); setTimeout(() => { const m = $("#msgs"); m.scrollTop = m.scrollHeight; }, 50); };
 $("#input").addEventListener("focus", () => $("#stickers").classList.remove("on"));
 
-// ---- รูป / วิดีโอ → อัปโหลดขึ้น Worker (R2) แล้วส่งเป็นลิงก์ ----
+// ---- รูป / วิดีโอ → อัปโหลดขึ้น Cloudinary (Worker แค่ลงลายเซ็น) แล้วส่งเป็นลิงก์ ----
 function shrinkImage(file) {
   return new Promise(resolve => {
     const url = URL.createObjectURL(file);
@@ -719,20 +719,25 @@ function shrinkImage(file) {
     img.src = url;
   });
 }
-function uploadBlob(blob, onProg) {
-  return new Promise((resolve, reject) => {
+async function uploadBlob(blob, onProg) {
+  const kind = blob.type.startsWith("video/") ? "video" : "image";
+  // 1) ขอลายเซ็นจาก Worker  2) อัปโหลดตรงไป Cloudinary  3) ให้ Worker ยืนยันผล
+  const sg = await api("/api/upload-sign?peer=" + encodeURIComponent(peer.id) + "&kind=" + kind, { method: "POST" });
+  const fd = new FormData();
+  Object.keys(sg.fields).forEach(k => fd.append(k, sg.fields[k]));
+  fd.append("file", blob);
+  const cl = await new Promise((resolve, reject) => {
     const x = new XMLHttpRequest();
-    x.open("POST", API + "/api/upload?peer=" + encodeURIComponent(peer.id));
-    x.setRequestHeader("Authorization", "Bearer " + chatToken);
-    x.setRequestHeader("Content-Type", blob.type);
+    x.open("POST", sg.upload_url);
     x.upload.onprogress = e => { if (e.lengthComputable) onProg(Math.round(e.loaded / e.total * 100)); };
     x.onload = () => {
       let d = {}; try { d = JSON.parse(x.responseText); } catch (_) { }
-      (x.status >= 200 && x.status < 300) ? resolve(d) : reject(new Error(d.error || "HTTP " + x.status));
+      (x.status >= 200 && x.status < 300) ? resolve(d) : reject(new Error((d.error && d.error.message) || "HTTP " + x.status));
     };
     x.onerror = () => reject(new Error("network"));
-    x.send(blob);
+    x.send(fd);
   });
+  return await api("/api/upload-done", { method: "POST", body: { file_id: sg.file_id, version: cl.version, format: cl.format } });
 }
 async function sendMedia(file) {
   if (!peer) return;
@@ -767,11 +772,6 @@ $("#file").addEventListener("change", e => {
   const f = e.target.files[0]; e.target.value = "";
   if (f) sendMedia(f);
 });
-// ลิงก์ไฟล์จาก Worker หมดอายุ ~1–2 ชม. → โหลดรายการใหม่ทุก 40 นาที (ไม่กระทบข้อความที่กำลังพิมพ์)
-setInterval(() => {
-  if (peer && !document.hidden && !PAUSED) { msgs = new Map(); lastId = 0; lastUpd = 0; reportedRead = 0; pollChat(true); }
-}, 40 * 60 * 1000);
-
 // ================= Public API (ให้ TCC เรียกใช้) =================
 // LineChat.open({id:"u456", name:"แอดมิน"})  → เปิดห้องแชทกับผู้ใช้นั้น
 // LineChat.list()                            → กลับหน้ารายการ

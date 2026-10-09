@@ -4203,6 +4203,10 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <div id="hm-msg-badge" style="display:none;position:absolute;top:-5px;right:-8px;background:var(--r);border-radius:8px;font-size:7px;color:#fff;font-weight:800;padding:1px 4px;min-width:16px;text-align:center;line-height:1.4;">0</div>
       </div>
+      <div style="position:relative;cursor:pointer;" onclick="schOpen()" role="button" aria-label="Support chat">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+        <div id="sch-badge" style="display:none;position:absolute;top:-5px;right:-8px;background:var(--r);border-radius:8px;font-size:7px;color:#fff;font-weight:800;padding:1px 4px;min-width:16px;text-align:center;line-height:1.4;">0</div>
+      </div>
     </div>
   </div>
 
@@ -6600,11 +6604,11 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
           <div style="font-size:13px;font-weight:700;font-family:var(--mono);color:var(--t1)" id="sysWalCenter">0.00</div>
         </div>
         <div style="background:var(--bg2);border-radius:7px;padding:8px 10px">
-          <div style="font-size:9px;color:var(--t3);margin-bottom:2px">Commission (10%)</div>
+          <div style="font-size:9px;color:var(--t3);margin-bottom:2px">Commission (Team + Referrer)</div>
           <div style="font-size:13px;font-weight:700;font-family:var(--mono);color:var(--t1)" id="sysWalComm">0.00</div>
         </div>
         <div style="background:var(--bg2);border-radius:7px;padding:8px 10px">
-          <div style="font-size:9px;color:var(--t3);margin-bottom:2px">Reserve Fund (10%)</div>
+          <div style="font-size:9px;color:var(--t3);margin-bottom:2px">Reserve Fund (10% − team excess)</div>
           <div style="font-size:13px;font-weight:700;font-family:var(--mono);color:var(--r)" id="sysWalReserve">0.00</div>
         </div>
         <div style="background:var(--bg2);border-radius:7px;padding:8px 10px;border:1px solid rgba(14,203,129,.2)">
@@ -20902,7 +20906,9 @@ function submitClaimProfit(mode) {
       userAmt = _sp.user; systemAmt = _sp.system; commAmt = _sp.comm; reserveAmt = _sp.reserve; }
     gasAction  = 'logEarnClaim';
     if (netProfit <= 0) { window[_claimKey] = false; showToast(tccT('toast_no_net_profit')); return; }
-    c.realizedPnl = 0;
+    // [v8.7-COMM2] GAS (v6.4) คง realized_pnl ส่วนที่ถูกกันไว้เพราะ Unrealized ขาดทุน (ไม่ reset เป็น 0) — local ต้องตรงกัน
+    //   ไม่มี Unrealized ขาดทุน → netProfit = realized → ได้ 0 เหมือนเดิม
+    c.realizedPnl = Math.max(0, realized - netProfit);
   }
 
   c.totalClaimed = (c.totalClaimed || 0) + userAmt;
@@ -35847,10 +35853,10 @@ function tcGetAgreementText(pos){
     <th style="padding:5px 8px;text-align:center;">สัดส่วน</th><th style="padding:5px 8px;text-align:left;">คำอธิบาย</th>
   </tr></thead>
   <tbody>
-    <tr><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">1</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);"><span data-i18n="team_comm_title">${tccT('team_comm_title')}</span></td><td style="padding:4px 8px;text-align:center;border-bottom:1px solid rgba(255,255,255,.06);">10%</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">ค่าตอบแทนทีมงานและเครือข่าย</td></tr>
-    <tr><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">2</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">ประกันรายได้</td><td style="padding:4px 8px;text-align:center;border-bottom:1px solid rgba(255,255,255,.06);">10%</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">กองทุนสำรองประกันรายได้ขั้นต่ำ</td></tr>
+    <tr><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">1</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);"><span data-i18n="team_comm_title">${tccT('team_comm_title')}</span></td><td style="padding:4px 8px;text-align:center;border-bottom:1px solid rgba(255,255,255,.06);">10%</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">ค่าตอบแทนทีมงานและเครือข่าย — Your Team 10% + Level A 1.5% + Level B 1% + ผู้แนะนำ 1–2% ของกำไร (ส่วนที่เกิน 10% หักจาก Reserve Fund)</td></tr>
+    <tr><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">2</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">Reserve Fund (ประกันรายได้)</td><td style="padding:4px 8px;text-align:center;border-bottom:1px solid rgba(255,255,255,.06);">10%</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">กองทุนสำรองประกันรายได้ขั้นต่ำ — 10% ลบส่วนที่ทีม/ผู้แนะนำได้เกิน 10%</td></tr>
     <tr><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);"><b style="color:var(--y);">3</b></td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);font-weight:600;color:var(--y);"><span data-i18n="income_trader">${tccT('income_trader')}</span></td><td style="padding:4px 8px;text-align:center;border-bottom:1px solid rgba(255,255,255,.06);font-weight:600;color:var(--y);">40%</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">กำไรสุทธิที่สมาชิกได้รับโดยตรง</td></tr>
-    <tr><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">4</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">บริหารระบบ</td><td style="padding:4px 8px;text-align:center;border-bottom:1px solid rgba(255,255,255,.06);">40%</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">ค่าบริหารและพัฒนาระบบ</td></tr>
+    <tr><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">4</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">System Center (บริหารระบบ)</td><td style="padding:4px 8px;text-align:center;border-bottom:1px solid rgba(255,255,255,.06);">40%</td><td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);">ค่าบริหารและพัฒนาระบบ</td></tr>
     <tr style="background:rgba(240,185,11,.08);"><td colspan="2" style="padding:5px 8px;font-weight:700;"><span data-i18n="total_all">${tccT('total_all')}</span></td><td style="padding:5px 8px;text-align:center;font-weight:700;">100%</td><td style="padding:5px 8px;">จากกำไรสุทธิ (Net Profit)</td></tr>
   </tbody>
 </table>
@@ -35966,10 +35972,10 @@ td,th{border:1px solid #dde3ef;padding:6px 11px;font-size:.83rem;}
     </table>
     <h2>ส่วนที่ 5 — สัดส่วนรายได้จากกำไรสุทธิ</h2>
     <table><thead class="hdr"><tr><th>#</th><th><span data-i18n="income_type">${tccT('income_type')}</span></th><th>สัดส่วน</th><th>คำอธิบาย</th></tr></thead>
-      <tr><td>1</td><td><span data-i18n="team_comm_title">${tccT('team_comm_title')}</span></td><td class="pct">10%</td><td>ค่าตอบแทนทีมงานและเครือข่าย</td></tr>
-      <tr><td>2</td><td>ประกันรายได้</td><td class="pct">10%</td><td>กองทุนสำรองประกันรายได้ขั้นต่ำ</td></tr>
+      <tr><td>1</td><td><span data-i18n="team_comm_title">${tccT('team_comm_title')}</span></td><td class="pct">10%</td><td>ค่าตอบแทนทีมงานและเครือข่าย — Your Team 10% + Level A 1.5% + Level B 1% + ผู้แนะนำ 1–2% ของกำไร (ส่วนที่เกิน 10% หักจาก Reserve Fund)</td></tr>
+      <tr><td>2</td><td>Reserve Fund (ประกันรายได้)</td><td class="pct">10%</td><td>กองทุนสำรองประกันรายได้ขั้นต่ำ — 10% ลบส่วนที่ทีม/ผู้แนะนำได้เกิน 10%</td></tr>
       <tr><td>3</td><td class="gold"><b><span data-i18n="income_trader">${tccT('income_trader')}</span></b></td><td class="pct gold"><b>40%</b></td><td>กำไรสุทธิที่สมาชิกได้รับโดยตรง</td></tr>
-      <tr><td>4</td><td>บริหารระบบ</td><td class="pct">40%</td><td>ค่าบริหารและพัฒนาระบบ</td></tr>
+      <tr><td>4</td><td>System Center (บริหารระบบ)</td><td class="pct">40%</td><td>ค่าบริหารและพัฒนาระบบ</td></tr>
       <tr class="tot"><td colspan="2"><b><span data-i18n="total_all">${tccT('total_all')}</span></b></td><td class="pct"><b>100%</b></td><td>จากกำไรสุทธิ (Net Profit)</td></tr>
     </table>
     <h2>ส่วนที่ 7 — การรับประกันรายได้ขั้นต่ำ</h2>
@@ -48277,5 +48283,152 @@ function fit(){
 </body></html>
 
 </script>
+<!-- ═══════════════════════════════════════════════════════════════════
+  [SCH v1] SUPPORT CHAT — แชทสมาชิก ↔ ทีมซัพพอร์ต (เพิ่มใหม่ · ไม่แตะ msg* / Share Card / ระบบ nav เดิม)
+  • prefix ใหม่: .sch-* / #sch-* / SCH_*  (เดิม .sc-* / SC_* เป็นของ Share Card)
+  • iframe = line-chat.html (โหมดสมาชิก) คุยกับ Worker line-chat-worker โดยตรง (GAS ถูกเรียกแค่ตรวจ token ตอนขอ chat token)
+  • แอปนี้ถือ chat token แล้วส่งให้ iframe ทาง postMessage (targetOrigin เจาะจง)
+  • overlay ปิด = ส่ง sc-visible:false ให้ iframe หยุด poll/ส่ง "อ่านแล้ว" · badge poll หยุดเมื่อแท็บถูกซ่อน
+  ═══════════════════════════════════════════════════════════════════ -->
+<style>
+.sch-ov{display:none;position:fixed;inset:0;z-index:9000;max-width:480px;margin:0 auto;background:var(--bg);flex-direction:column}
+.sch-ov.on{display:flex}
+.sch-ov iframe{flex:1;width:100%;height:100%;border:0;background:var(--bg)}
+</style>
+<div class="sch-ov" id="sch-ov"><iframe id="sch-frame" title="Support chat" src="about:blank" allow="clipboard-write"></iframe></div>
+<script>
+(function () {
+  'use strict';
+
+  /* ── ตั้งค่า (ตรวจ 2 ค่านี้ให้ตรงของจริงก่อน deploy) ── */
+  // URL ที่โฮสต์ line-chat.html (เขียนแบบ relative ได้ถ้าอยู่โดเมน/โฟลเดอร์เดียวกับแอปนี้)
+  var SCH_CHAT_URL = 'line-chat.html';
+  // URL ของ Worker line-chat-worker (ต้องตรงกับ DEFAULT_API ใน line-chat.html)
+  var SCH_API_URL  = 'https://line-chat-worker.tcc-team-developer.workers.dev';
+  var SCH_POLL_MS  = 30000;   // poll จำนวนยังไม่อ่านทุก 30 วิ (เฉพาะตอนแท็บมองเห็นและ overlay ปิด)
+
+  var TGT = '*', ORIGIN_OK = false;
+  try {
+    var o = new URL(SCH_CHAT_URL, location.href).origin;
+    if (o && o !== 'null') { TGT = o; ORIGIN_OK = true; }
+  } catch (e) {}
+
+  var chat = null, chatP = null, blockUntil = 0, timer = null;
+
+  function $id(i) { return document.getElementById(i); }
+  function isOpen() { var el = $id('sch-ov'); return !!(el && el.classList.contains('on')); }
+  function hasSession() { try { var s = _tccSessRead(); return !!(s && s.uid); } catch (e) { return false; } }
+
+  // GAS session token ของสมาชิก (ขอใหม่ผ่าน _tccEnsureSession ถ้าใกล้หมดอายุ)
+  async function gasToken() {
+    var t = '';
+    try { t = _tccGetToken(); } catch (e) {}
+    if (t) return t;
+    try { await _tccEnsureSession(false); t = _tccGetToken() || ''; } catch (e) { t = ''; }
+    return t;
+  }
+
+  // chat token ของ Worker (แลกจาก GAS token — Worker ให้ GAS ตรวจครั้งเดียว) · แคชไว้จนใกล้หมดอายุ
+  async function ensureChat(user) {
+    if (chat && chat.exp_ms - 60000 > Date.now()) return chat;
+    if (chatP) return chatP;
+    if (!user && Date.now() < blockUntil) throw new Error('blocked');   // พังติดกัน → พัก 5 นาที กันยิง GAS ซ้ำ
+    chatP = (async function () {
+      try {
+        var t = await gasToken();
+        if (!t) throw new Error('no-token');
+        var r = await fetch(SCH_API_URL + '/api/session', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: t })
+        });
+        var d = await r.json().catch(function () { return {}; });
+        if (!r.ok || !d.token) throw new Error(d.error || ('HTTP ' + r.status));
+        chat = d; blockUntil = 0;
+        return d;
+      } catch (e) {
+        chat = null; blockUntil = Date.now() + 5 * 60 * 1000;
+        throw e;
+      } finally { chatP = null; }
+    })();
+    return chatP;
+  }
+
+  /* ── badge ── */
+  function setBadge(n) {
+    var el = $id('sch-badge'); if (!el) return;
+    if (n > 0) { el.textContent = n > 99 ? '99+' : String(n); el.style.display = 'block'; }
+    else el.style.display = 'none';
+  }
+  async function pollBadge() {
+    if (!SCH_API_URL || document.hidden || isOpen()) return;
+    if (!hasSession()) { chat = null; setBadge(0); return; }
+    try {
+      var c = await ensureChat(false);
+      var r = await fetch(SCH_API_URL + '/api/unread', { headers: { Authorization: 'Bearer ' + c.token } });
+      if (r.status === 401) { chat = null; return; }
+      var d = await r.json();
+      setBadge(d && d.unread ? d.unread : 0);
+    } catch (e) { /* เงียบ — ลองใหม่รอบหน้า */ }
+  }
+  function startPoll() { if (timer) return; pollBadge(); timer = setInterval(pollBadge, SCH_POLL_MS); }
+  function stopPoll() { if (timer) { clearInterval(timer); timer = null; } }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) stopPoll(); else startPoll(); });
+  setTimeout(function () { if (!document.hidden) startPoll(); }, 4000);   // รอให้แอปบูตเสร็จก่อน
+
+  /* ── สื่อสารกับ iframe ── */
+  function postVisible(on) {
+    var f = $id('sch-frame');
+    if (!f || !f.getAttribute('data-sch') || !f.contentWindow) return;
+    try { f.contentWindow.postMessage({ type: 'sc-visible', on: !!on }, TGT); } catch (e) {}
+  }
+  async function sendInit() {
+    var f = $id('sch-frame');
+    if (!f || !f.contentWindow) return;
+    var t = await gasToken();
+    var c = null;
+    try { c = await ensureChat(true); } catch (e) {}
+    var msg = { type: 'sc-init', token: t, api: SCH_API_URL, lang: (window.tccGetLang ? window.tccGetLang() : 'th') };
+    if (c) msg.chat = c;
+    try { f.contentWindow.postMessage(msg, TGT); } catch (e) {}
+    postVisible(isOpen());
+  }
+  window.addEventListener('message', function (ev) {
+    var f = $id('sch-frame');
+    if (!f || ev.source !== f.contentWindow) return;
+    if (ORIGIN_OK && ev.origin !== TGT) return;
+    var d = ev.data;
+    if (!d || typeof d.type !== 'string') return;
+    if (d.type === 'sc-need-init') sendInit();
+    else if (d.type === 'sc-close') window.schClose();
+  });
+  (function () {
+    var f = $id('sch-frame');
+    if (f) f.addEventListener('load', function () { if (f.getAttribute('data-sch')) postVisible(isOpen()); });
+  })();
+  // เปลี่ยนภาษาในแอป → แจ้ง iframe (ใช้เหตุการณ์ที่แอปมีอยู่แล้ว)
+  window.addEventListener('tcc_lang_changed', function () {
+    var f = $id('sch-frame');
+    if (f && f.getAttribute('data-sch')) sendInit();
+  });
+
+  /* ── เปิด/ปิดหน้าแชท ── */
+  window.schOpen = function () {
+    if (!hasSession()) return;
+    var ov = $id('sch-ov'), f = $id('sch-frame');
+    if (!ov || !f) return;
+    ov.classList.add('on');
+    setBadge(0);
+    if (!f.getAttribute('data-sch')) { f.setAttribute('data-sch', '1'); f.src = SCH_CHAT_URL; }   // โหลดครั้งแรกตอนกดเปิด
+    else postVisible(true);
+    ensureChat(true).catch(function () {});   // เตรียม chat token ไว้ให้ iframe
+  };
+  window.schClose = function () {
+    var ov = $id('sch-ov'); if (!ov) return;
+    ov.classList.remove('on');
+    postVisible(false);
+    setTimeout(pollBadge, 2500);   // รอ iframe ส่ง "อ่านแล้ว" ก่อนค่อยนับใหม่
+  };
+})();
+</script>
+
 </body>
 </html>

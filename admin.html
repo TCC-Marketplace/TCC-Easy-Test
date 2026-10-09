@@ -5111,10 +5111,34 @@ function exportCSV(type) {
     f.src = buildUrl(String(uid || ''), String(name || ''));
   };
 
+  // ส่งแผนที่รูปโปรไฟล์สมาชิก {uid: avatar_url} (จาก D.members ที่แอดมินโหลดไว้แล้ว) ให้ iframe แสดงรูปในแชท
+  function avatarMap() {
+    var m = {};
+    try {
+      (D.members || []).forEach(function (r) {
+        var u = String(r.BNB_ID || '').trim(), v = String(r.Binance_IMG || '').trim();
+        if (u && /^https:\/\//i.test(v)) m[u] = v;
+      });
+    } catch (e) {}
+    return m;
+  }
+  function postAvatars() {
+    var f = frameEl();
+    if (!f || !f.getAttribute('data-sch') || !f.contentWindow) return;
+    try { f.contentWindow.postMessage({ type: 'sc-avatars', map: avatarMap() }, TGT); } catch (e) {}
+  }
+  window.addEventListener('message', function (ev) {
+    var f = frameEl();
+    if (!f || ev.source !== f.contentWindow) return;
+    if (TGT !== '*' && ev.origin !== TGT) return;
+    if (ev.data && ev.data.type === 'sc-need-avatars') postAvatars();
+  });
+  setInterval(function () { if (panelOn() && !document.hidden) postAvatars(); }, 30000);   // สมาชิกโหลดเสร็จทีหลัง/เปลี่ยนรูป → อัปเดตเอง
+
   var p = document.getElementById('p-supportchat');
-  if (p && window.MutationObserver) new MutationObserver(postVisible).observe(p, { attributes: true, attributeFilter: ['class'] });
+  if (p && window.MutationObserver) new MutationObserver(function () { postVisible(); if (panelOn()) postAvatars(); }).observe(p, { attributes: true, attributeFilter: ['class'] });
   var f0 = frameEl();
-  if (f0) f0.addEventListener('load', postVisible);
+  if (f0) f0.addEventListener('load', function () { postVisible(); postAvatars(); });
 })();
 </script>
 </body>

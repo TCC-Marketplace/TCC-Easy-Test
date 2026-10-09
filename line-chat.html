@@ -79,6 +79,8 @@ svg{display:block}
 .bubble{padding:8px 13px;border-radius:18px;font-size:15px;line-height:1.45;word-break:break-word;white-space:pre-wrap;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;position:relative}
 .row.other .bubble{background:var(--surface2);color:#fff;border-top-left-radius:4px}
 .row.me .bubble{background:var(--green);color:#06130a;border-top-right-radius:4px}
+.bubble a.lnk{color:#8ec5ff;text-decoration:underline;text-underline-offset:2px;word-break:break-all;cursor:pointer;-webkit-user-select:text;user-select:text}
+.row.me .bubble a.lnk{color:#06130a;font-weight:600}
 .bubble.del{background:#26262a!important;color:var(--tx2)!important;font-style:italic;font-size:13px}
 .bubble.sticker{background:none!important;font-size:64px;line-height:1.1;padding:0}
 .bubble.img{padding:0;background:none!important;overflow:hidden;border-radius:14px}
@@ -261,6 +263,7 @@ const I18N = {
   reply:    ["ตอบกลับ", "Reply", "Trả lời", "ឆ្លើយតប", "ပြန်ရန်", "ຕອບກັບ"],
   copy:     ["คัดลอก", "Copy", "Sao chép", "ចម្លង", "ကူးယူ", "ສຳເນົາ"],
   copied:   ["คัดลอกแล้ว", "Copied", "Đã sao chép", "បានចម្លង", "ကူးယူပြီး", "ສຳເນົາແລ້ວ"],
+  openLink: ["เปิดลิงก์ภายนอก?", "Open this external link?", "Mở liên kết bên ngoài?", "បើកតំណខាងក្រៅ?", "ပြင်ပလင့်ခ်ကို ဖွင့်မလား?", "ເປີດລິ້ງພາຍນອກບໍ?"],
   unsend:   ["ยกเลิกการส่ง", "Unsend", "Thu hồi", "ដកសារវិញ", "ပြန်ရုပ်သိမ်း", "ຍົກເລີກການສົ່ງ"],
   youUns:   ["คุณยกเลิกการส่งข้อความ", "You unsent a message", "Bạn đã thu hồi tin nhắn", "អ្នកបានដកសារវិញ", "သင် မက်ဆေ့ချ်ကို ပြန်ရုပ်သိမ်းခဲ့သည်", "ເຈົ້າໄດ້ຍົກເລີກຂໍ້ຄວາມ"],
   theyUns:  ["{n} ยกเลิกการส่งข้อความ", "{n} unsent a message", "{n} đã thu hồi tin nhắn", "{n} បានដកសារវិញ", "{n} မက်ဆေ့ချ်ကို ပြန်ရုပ်သိမ်းခဲ့သည်", "{n} ໄດ້ຍົກເລີກຂໍ້ຄວາມ"],
@@ -532,6 +535,33 @@ function previewText(m) {
   return m.content;
 }
 
+// ---- ทำให้ลิงก์ในข้อความกดได้ (สร้างด้วย DOM เท่านั้น ไม่ใช้ innerHTML · รับเฉพาะ http/https) ----
+const URL_RE = /(?:https?:\/\/|www\.)[A-Za-z0-9\-._~:\/?#\[\]@!$&'()*+,;=%]+/gi;
+function linkifyInto(parent, text) {
+  const re = new RegExp(URL_RE.source, "gi");
+  let last = 0, m;
+  while ((m = re.exec(text))) {
+    let raw = m[0];
+    // ตัดเครื่องหมายท้ายประโยคที่ไม่ใช่ส่วนของลิงก์
+    while (raw && (/[.,;:!?'\]]$/.test(raw) || (raw.endsWith(")") && (raw.match(/\(/g) || []).length < (raw.match(/\)/g) || []).length))) raw = raw.slice(0, -1);
+    const href = /^www\./i.test(raw) ? "https://" + raw : raw;
+    let ok = false;
+    try { const u = new URL(href); ok = (u.protocol === "https:" || u.protocol === "http:") && u.hostname.includes("."); } catch (_) { }
+    re.lastIndex = m.index + Math.max(raw.length, 1);
+    if (!ok) continue;
+    if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const a = document.createElement("a");
+    a.className = "lnk"; a.href = href; a.textContent = raw;
+    a.target = "_blank"; a.rel = "noopener noreferrer nofollow";
+    a.addEventListener("click", e => {
+      if (e.detail > 1) { e.preventDefault(); return; }                    // ดับเบิลคลิก = เมนูข้อความ ไม่เปิดลิงก์ซ้ำ
+      if (IS_ADMIN && !confirm(T("openLink") + "\n\n" + href)) e.preventDefault();   // แอดมิน: ยืนยันก่อนเปิดลิงก์จากสมาชิก (กันฟิชชิง)
+    });
+    parent.appendChild(a);
+    last = m.index + raw.length;
+  }
+  if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+}
 function renderMsgs(forceBottom) {
   const box = $("#msgs");
   const near = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
@@ -593,7 +623,7 @@ function renderMsgs(forceBottom) {
       } else if (m.type === "sticker") {
         bubble.classList.add("sticker"); bubble.textContent = m.content;
       } else {
-        bubble.appendChild(document.createTextNode(m.content));
+        linkifyInto(bubble, m.content);
       }
     }
     if (pending && m.progress !== undefined) {

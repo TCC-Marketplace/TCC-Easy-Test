@@ -4,27 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TCC Admin Panel</title>
-<!-- Favicon -->
-<link rel="icon" href="https://i.ibb.co/7xc9KFL5/TCC-Small-1-Logo.png" type="image/png">
-<link rel="apple-touch-icon" href="https://i.ibb.co/7xc9KFL5/TCC-Small-1-Logo.png">
-
-<!-- Open Graph (สำคัญสำหรับ Line, Facebook, Telegram) -->
-<meta property="og:title" content="Trader Cafe Club - TCC Trader Agency">
-<meta property="og:description" content="เราเป็นแพลตฟอร์ม Digital Trader Agency ด้านการเทรดคริปโตและการลงทุนที่ทันสมัย | Trade • Earn • Wallet • Loans">
-<meta property="og:image" content="https://i.ibb.co/MDMqT92z/f5e6a70f5a69.jpg">
-<meta property="og:url" content="https://tradercafeclub.com">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Trader Cafe Club">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-
-<!-- Twitter / X Card (สำคัญสำหรับ Twitter/X) -->
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Trader Cafe Club - TCC Trader Agency">
-<meta name="twitter:description" content="เราเป็นแพลตฟอร์ม Digital Trader Agency ด้านการเทรดคริปโตและการลงทุนที่ทันสมัย | Trade • Earn • Wallet • Loans">
-<meta name="twitter:image" content="https://i.ibb.co/MDMqT92z/f5e6a70f5a69.jpg">
-
-   
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
@@ -105,6 +84,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 /* ── PANELS ── */
 .panel{display:none}
 .panel.on{display:block}
+/* [SCH v1] แชทซัพพอร์ต — iframe เต็มแผง + ให้ปุ่มใน modal ขึ้นบรรทัดใหม่ได้เมื่อไม่พอ (ไม่มีผลถ้าปุ่มพอดีอยู่แล้ว) */
+#p-supportchat iframe{display:block;width:100%;height:calc(100vh - var(--hdr-h) - 34px);height:calc(100dvh - var(--hdr-h) - 34px);border:0;border-radius:var(--rmd);background:#000}
+@media(max-width:680px){#p-supportchat iframe{height:calc(100vh - 46px - 18px);height:calc(100dvh - 46px - 18px)}}
+.m-acts{flex-wrap:wrap}
 
 /* ── STAT CARDS ── */
 .sg{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-bottom:16px}
@@ -520,6 +503,10 @@ tr:hover td{background:var(--bgh)}
         <span class="lbl">Funding Fee Log</span>
       </div>
       <div class="sb-sec">ระบบ</div>
+      <div class="si" onclick="go('supportchat');schAdminInit()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="lbl">แชทซัพพอร์ต</span>
+      </div>
       <div class="si" onclick="go('team')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span class="lbl">Team Management</span>
@@ -1140,6 +1127,11 @@ tr:hover td{background:var(--bgh)}
         </div>
       </div>
 
+      <!-- ════ SUPPORT CHAT [SCH v1] — iframe line-chat.html?mode=admin (โหลดครั้งแรกตอนกดเข้าเมนู) ════ -->
+      <div class="panel" id="p-supportchat">
+        <iframe id="sch-admin-frame" title="Support chat (admin)" src="about:blank"></iframe>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -1415,6 +1407,7 @@ const pgTitles = {
   fundingfee:'Funding Fee Log (GAS)', settings:'ตั้งค่า / API Config',
   team:'Team Management', system:'System Center & Reserve Fund',
   futures:'Futures Direct / Loans / Spot Coins (GAS)',
+  supportchat:'แชทซัพพอร์ต (สมาชิก ↔ ทีมซัพพอร์ต)',
 };
 
 function go(id) {
@@ -2411,6 +2404,7 @@ async function vMem(bid) {
     </div>
   `,[
     {l:'📨 ส่งข้อความ',c:'ok',fn:`openSendMessage('${bid}','${(m.Name||'').replace(/'/g,"\\'")}')`},
+    {l:'💬 แชท',c:'ok',fn:`schAdminOpenChat('${bid}','${(m.Name||'').replace(/'/g,"\\'")}')`},
     {l:'💸 Distribute Profit',c:'pri',fn:`openDistributeProfit('${bid}')`},
     {l:'✏️ แก้ไขข้อมูล',c:'ok',fn:`cm();eMem('${bid}')`},
     {l:'ปิด',c:'can',fn:'cm()'}
@@ -5073,6 +5067,55 @@ function exportCSV(type) {
   URL.revokeObjectURL(url);
   toast(`✅ Export ${type} CSV สำเร็จ (${data.length} รายการ)`,'ok');
 }
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   [SCH v1] SUPPORT CHAT (admin) — เพิ่มใหม่ ไม่แก้ go() / adminSendMessage / Broadcast เดิม
+   • แผง #p-supportchat = iframe ของ line-chat.html?mode=admin  (พิมพ์ ADMIN_KEY ในหน้าแชทเอง เก็บใน sessionStorage ของแท็บ)
+   • ADMIN_KEY ของแชทแยกจาก _adminKey/ADMIN_SECRET เดิม — ไม่ฝังใน HTML นี้
+   • สลับไปแผงอื่น = ส่ง sc-visible:false ให้ iframe หยุด poll/ส่ง "อ่านแล้ว" (ไม่แก้ go() ใช้ MutationObserver ดู class ของแผง)
+   ═══════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  // URL ที่โฮสต์ line-chat.html (relative ได้ถ้าอยู่โดเมน/โฟลเดอร์เดียวกับหน้าแอดมิน)
+  var SCH_CHAT_URL = 'line-chat.html';
+
+  var TGT = '*';
+  try { var o = new URL(SCH_CHAT_URL, location.href).origin; if (o && o !== 'null') TGT = o; } catch (e) {}
+
+  function frameEl() { return document.getElementById('sch-admin-frame'); }
+  function panelOn() { var p = document.getElementById('p-supportchat'); return !!(p && p.classList.contains('on')); }
+  function buildUrl(uid, name) {
+    var u = new URL(SCH_CHAT_URL, location.href);
+    u.searchParams.set('mode', 'admin');
+    if (uid) { u.searchParams.set('uid', uid); u.searchParams.set('name', name || uid); }
+    return u.toString();
+  }
+  function postVisible() {
+    var f = frameEl();
+    if (!f || !f.getAttribute('data-sch') || !f.contentWindow) return;
+    try { f.contentWindow.postMessage({ type: 'sc-visible', on: panelOn() }, TGT); } catch (e) {}
+  }
+
+  // กดเมนู "แชทซัพพอร์ต" — โหลด iframe ครั้งแรกครั้งเดียว (กดซ้ำไม่รีโหลด)
+  window.schAdminInit = function () {
+    var f = frameEl(); if (!f) return;
+    if (!f.getAttribute('data-sch')) { f.setAttribute('data-sch', '1'); f.src = buildUrl(); }
+  };
+  // ปุ่ม "💬 แชท" ในโมดัลสมาชิก — ปิดโมดัล เข้าแผงแชท เปิดห้องของสมาชิกคนนั้นตรงๆ
+  window.schAdminOpenChat = function (uid, name) {
+    try { cm(); } catch (e) {}
+    go('supportchat');
+    var f = frameEl(); if (!f) return;
+    f.setAttribute('data-sch', '1');
+    f.src = buildUrl(String(uid || ''), String(name || ''));
+  };
+
+  var p = document.getElementById('p-supportchat');
+  if (p && window.MutationObserver) new MutationObserver(postVisible).observe(p, { attributes: true, attributeFilter: ['class'] });
+  var f0 = frameEl();
+  if (f0) f0.addEventListener('load', postVisible);
+})();
 </script>
 </body>
 </html>

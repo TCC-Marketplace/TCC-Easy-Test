@@ -48386,7 +48386,8 @@ function fit(){
     var t = await gasToken();
     var c = null;
     try { c = await ensureChat(true); } catch (e) {}
-    var msg = { type: 'sc-init', token: t, api: SCH_API_URL, lang: (window.tccGetLang ? window.tccGetLang() : 'th') };
+    var av = ''; try { av = (USER_PROFILE && USER_PROFILE.avatar) || ''; } catch (e) {}
+    var msg = { type: 'sc-init', token: t, api: SCH_API_URL, lang: (window.tccGetLang ? window.tccGetLang() : 'th'), avatar: /^https:\/\//i.test(av) ? av : '' };
     if (c) msg.chat = c;
     try { f.contentWindow.postMessage(msg, TGT); } catch (e) {}
     postVisible(isOpen());

@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<title>LINE Chat</title>
+<style>
+:root{
+  --bg:#111111; --surface:#1c1c1e; --surface2:#2c2c2e; --line:#262628;
+  --tx:#ffffff; --tx2:#8e8e93; --green:#06c755; --red:#ff334b; --blue:#3b82f6;
+  --wall:#1b1d22;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:-apple-system,"Sarabun","Noto Sans Thai","Hiragino Sans",sans-serif;background:#000;color:var(--tx);display:flex;justify-content:center}
+.app{position:relative;width:100%;max-width:440px;height:100dvh;background:var(--bg);overflow:hidden}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;background:var(--bg)}
+.screen.on{display:flex}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+svg{display:block}
+.avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;flex-shrink:0;text-transform:uppercase;width:66px;height:66px;font-size:26px}
+
+/* ===== List header ===== */
+.lhead{padding:calc(16px + env(safe-area-inset-top)) 20px 12px;display:flex;align-items:center;justify-content:space-between}
+.lhead h1{font-size:25px;font-weight:800;color:var(--tx);letter-spacing:.2px}
+.lhead .acts{display:flex;align-items:center;gap:6px}
+.lhead .acts button{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--tx);border-radius:50%}
+.lhead .acts button:active{background:var(--surface)}
+.lhead .acts button.act{color:var(--green)}
+.sbox{margin:6px 18px 10px;height:46px;border-radius:23px;background:var(--surface);display:flex;align-items:center;gap:10px;padding:0 16px;color:var(--tx2)}
+.sbox input{flex:1;background:none;border:none;outline:none;color:var(--tx);font-size:16px;font-family:inherit;min-width:0}
+.sbox input::placeholder{color:#6d6d72}
+
+/* ===== List items ===== */
+.chatlist{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.item{display:flex;align-items:center;gap:14px;padding:11px 18px;cursor:pointer}
+.item:active{background:var(--surface)}
+.avwrap{position:relative;width:66px;height:66px;flex-shrink:0}
+.pinb{position:absolute;right:-4px;bottom:-2px;width:26px;height:26px;border-radius:50%;background:var(--blue);border:2.5px solid var(--bg);display:flex;align-items:center;justify-content:center}
+.item .mid{flex:1;min-width:0;align-self:stretch;display:flex;flex-direction:column;justify-content:center}
+.item .nm{font-size:17px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .pv{font-size:15px;color:var(--tx2);margin-top:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.item .rt{display:flex;flex-direction:column;align-items:flex-end;gap:8px;align-self:stretch;padding-top:6px;min-width:52px}
+.item .tm{font-size:13px;color:var(--tx2);white-space:nowrap}
+.badge{background:var(--green);color:#fff;font-size:15px;font-weight:700;min-width:30px;height:30px;border-radius:15px;padding:0 8px;display:flex;align-items:center;justify-content:center}
+.empty{padding:50px 24px;text-align:center;color:var(--tx2);font-size:15px;line-height:1.7;white-space:pre-line}
+
+/* ===== Bottom nav ===== */
+.nav{flex-shrink:0;display:flex;background:var(--bg);border-top:1px solid var(--line);padding:6px 0 calc(8px + env(safe-area-inset-bottom))}
+.nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;color:var(--tx2);padding:4px 0;position:relative}
+.nav button.on{color:var(--tx)}
+.nav .ic{position:relative}
+.nav .nb{position:absolute;top:-8px;left:20px;background:var(--red);color:#fff;font-size:12px;font-weight:700;min-width:22px;height:22px;border-radius:11px;padding:0 6px;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg)}
+.nav .dot{position:absolute;top:-3px;right:-5px;width:11px;height:11px;border-radius:50%;background:var(--red);border:2px solid var(--bg)}
+
+/* ===== Chat ===== */
+#chat{background:var(--wall)}
+.chead{background:var(--bg);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;display:flex;align-items:center;gap:10px;flex-shrink:0;border-bottom:1px solid var(--line)}
+.chead .back{width:34px;height:38px;display:flex;align-items:center;justify-content:center}
+.chead .back.hide{display:none}
+.chead .avatar{width:38px;height:38px;font-size:16px}
+.chead .nm{font-size:16px;font-weight:600}
+.chead .st{font-size:11px;color:var(--tx2);margin-top:1px;min-height:14px}
+.msgs{flex:1;overflow-y:auto;padding:10px 10px 14px;-webkit-overflow-scrolling:touch}
+.divider{text-align:center;margin:12px 0 8px}
+.divider span{display:inline-block;background:rgba(255,255,255,.12);color:#c7c7cc;font-size:11px;padding:3px 12px;border-radius:12px}
+.row{display:flex;align-items:flex-end;gap:7px;margin-top:3px}
+.row.first{margin-top:10px}
+.row.me{justify-content:flex-end}
+.row .avatar{width:34px;height:34px;font-size:14px}
+.row .ph{width:34px;flex-shrink:0}
+.col{display:flex;flex-direction:column;max-width:70%}
+.row.me .col{align-items:flex-end}
+.bwrap{display:flex;align-items:flex-end;gap:5px}
+.meta{font-size:10px;color:var(--tx2);line-height:1.25;white-space:nowrap;text-align:right}
+.row.other .meta{text-align:left}
+.pname{font-size:11px;color:var(--tx2);margin:0 0 3px 2px}
+.bubble{padding:8px 13px;border-radius:18px;font-size:15px;line-height:1.45;word-break:break-word;white-space:pre-wrap;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;position:relative}
+.row.other .bubble{background:var(--surface2);color:#fff;border-top-left-radius:4px}
+.row.me .bubble{background:var(--green);color:#06130a;border-top-right-radius:4px}
+.bubble.del{background:#26262a!important;color:var(--tx2)!important;font-style:italic;font-size:13px}
+.bubble.sticker{background:none!important;font-size:64px;line-height:1.1;padding:0}
+.bubble.img{padding:0;background:none!important;overflow:hidden;border-radius:14px}
+.bubble.img img{display:block;max-width:100%;max-height:300px;border-radius:14px;cursor:zoom-in}
+.quote{border-left:3px solid rgba(255,255,255,.35);padding:2px 0 2px 8px;margin-bottom:5px;font-size:12px;color:#c7c7cc;max-height:34px;overflow:hidden}
+.quote b{display:block;font-size:11px;color:#fff}
+.row.me .quote{border-left-color:rgba(0,0,0,.35);color:rgba(0,0,0,.65)}
+.row.me .quote b{color:rgba(0,0,0,.85)}
+.pending{opacity:.55}
+
+.replybar{display:none;background:var(--surface);padding:7px 12px;align-items:center;gap:10px;border-top:1px solid var(--line);flex-shrink:0}
+.replybar.on{display:flex}
+.replybar .rb{flex:1;min-width:0;border-left:3px solid var(--green);padding-left:8px;font-size:12px;color:#c7c7cc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.replybar .rb b{display:block;color:#fff}
+.replybar .x{font-size:20px;color:var(--tx2);padding:0 4px}
+
+.ibar{background:var(--bg);border-top:1px solid var(--line);padding:8px 8px calc(8px + env(safe-area-inset-bottom));display:flex;align-items:flex-end;gap:6px;flex-shrink:0}
+.ibar .ib{width:38px;height:40px;color:#a1a1a6;display:flex;align-items:center;justify-content:center}
+.ibar textarea{flex:1;border:1px solid var(--surface2);background:var(--surface);color:#fff;border-radius:20px;padding:9px 14px;font-size:15px;font-family:inherit;outline:none;resize:none;max-height:110px;line-height:1.4}
+.ibar textarea::placeholder{color:#6d6d72}
+.ibar textarea:focus{border-color:var(--green)}
+.sendb{width:38px;height:38px;border-radius:50%;background:var(--green);color:#06130a;display:none;align-items:center;justify-content:center}
+.sendb.on{display:flex}
+.sendb:active{transform:scale(.92)}
+
+.stickers{display:none;background:var(--surface);border-top:1px solid var(--line);height:230px;overflow-y:auto;padding:10px;grid-template-columns:repeat(4,1fr);gap:6px;flex-shrink:0}
+.stickers.on{display:grid}
+.stickers button{font-size:44px;padding:6px;border-radius:12px}
+.stickers button:active{background:var(--surface2)}
+
+/* ===== Menu / viewer / toast ===== */
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20}
+.overlay.on{display:flex}
+.menu{background:var(--surface2);border-radius:14px;width:240px;overflow:hidden}
+.menu button{display:block;width:100%;padding:15px 18px;text-align:left;font-size:15px;color:#fff;border-bottom:1px solid #3a3a3c}
+.menu button:last-child{border-bottom:none}
+.menu button.red{color:#ff5a64}
+.menu button:active{background:#3a3a3c}
+#viewer{background:rgba(0,0,0,.94)}
+#viewer img{max-width:100%;max-height:100%;object-fit:contain}
+.toast{position:absolute;left:50%;bottom:100px;transform:translateX(-50%);background:rgba(60,60,64,.96);color:#fff;font-size:13px;padding:9px 18px;border-radius:18px;z-index:30;display:none;max-width:85%;text-align:center}
+.bubble.img video{display:block;max-width:100%;max-height:300px;border-radius:14px;background:#000}
+.bubble .prog{font-size:11px;color:var(--tx2);padding:4px 8px}
+.lg{margin:auto;width:min(320px,88%);display:flex;flex-direction:column;gap:12px;text-align:center}
+.lg h2{font-size:18px;font-weight:600}
+.lg p{font-size:13px;color:var(--tx2)}
+.lg input{background:var(--surface);border:1px solid var(--line);border-radius:10px;color:var(--tx);font-size:16px;padding:12px;outline:none;font-family:inherit}
+.lg button{background:var(--green);color:#fff;font-size:16px;font-weight:600;border-radius:10px;padding:12px}
+.lg .err{color:var(--red);font-size:13px;min-height:18px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Admin login (โหมดแอดมินเท่านั้น) -->
+  <div class="screen" id="login">
+    <div class="lg">
+      <h2>แชทซัพพอร์ต (แอดมิน)</h2>
+      <p>ใส่ ADMIN_KEY เพื่อเข้าใช้งาน (เก็บไว้เฉพาะแท็บนี้)</p>
+      <input id="lgKey" type="password" placeholder="ADMIN_KEY" autocomplete="off">
+      <div class="err" id="lgErr"></div>
+      <button id="lgBtn">เข้าสู่ระบบ</button>
+    </div>
+  </div>
+
+  <!-- Chat list -->
+  <div class="screen on" id="list">
+    <div class="lhead">
+      <h1>แชท</h1>
+      <div class="acts">
+        <button id="bUnread" aria-label="เฉพาะที่ยังไม่อ่าน">
+          <svg width="30" height="30" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="M3 8a2 2 0 0 1 2-2h5l2 2h10a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 19l4-5 3 3.5 2-2.5 3 4z"/></svg>
+        </button>
+        <button id="bNew" aria-label="แชทใหม่">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5C8.9 5 4 9 4 14c0 2.5 1.2 4.7 3.2 6.3L6.2 26l5.6-2.6c1 .3 2 .4 3.2.4 6.1 0 11-4 11-9"/><circle cx="10.5" cy="14.5" r="1.2" fill="currentColor"/><circle cx="15" cy="14.5" r="1.2" fill="currentColor"/><circle cx="19.5" cy="14.5" r="1.2" fill="currentColor"/><path d="M25 3v8M21 7h8"/></svg>
+        </button>
+        <button id="bMore" aria-label="เมนู">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="currentColor"><circle cx="14" cy="6" r="2.3"/><circle cx="14" cy="14" r="2.3"/><circle cx="14" cy="22" r="2.3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="sbox">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
+      <input id="search" placeholder="ค้นหา" autocomplete="off">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9V5a2 2 0 0 1 2-2h4M17 3h4a2 2 0 0 1 2 2v4M23 17v4a2 2 0 0 1-2 2h-4M9 23H5a2 2 0 0 1-2-2v-4M2 13h22"/></svg>
+    </div>
+    <div class="chatlist" id="chatlist"></div>
+    <div class="nav">
+      <button data-tab="home">
+        <span class="ic"><svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"><path d="M4 14L15 4l11 10v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M11 26v-7a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v7"/></svg></span>หน้าหลัก
+      </button>
+      <button class="on" data-tab="chat">
+        <span class="ic"><svg width="30" height="30" viewBox="0 0 30 30" fill="currentColor"><path d="M15 3C8.4 3 3 7.4 3 13c0 2.7 1.3 5.1 3.4 6.9L5.3 26l6-2.9c1.1.3 2.3.4 3.7.4 6.6 0 12-4.4 12-10.2S21.600 3 15 3z"/><circle cx="9.500" cy="13.500" r="1.600" fill="#111"/><circle cx="15" cy="13.500" r="1.600" fill="#111"/><circle cx="20.500" cy="13.500" r="1.600" fill="#111"/></svg><span class="nb" id="navBadge" style="display:none"></span></span>แชท
+      </button>
+      <button data-tab="open">
+        <span class="ic"><svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><rect x="3" y="3" width="24" height="24" rx="8"/><circle cx="15" cy="15" r="4.500"/><path d="M19.500 11v5.500a2.500 2.500 0 0 0 5 0V15"/></svg></span>โอเพนแชท
+      </button>
+      <button data-tab="today">
+        <span class="ic"><svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a5 5 0 0 1 5-5h9a7 7 0 0 1 7 7v1a7 7 0 0 1-7 7h-1v5l-5-4H11a5 5 0 0 1-5-5z"/><circle cx="17.500" cy="11" r="3"/></svg><span class="dot"></span></span>TODAY
+      </button>
+    </div>
+  </div>
+
+  <!-- Chat -->
+  <div class="screen" id="chat">
+    <div class="chead">
+      <button class="back" id="back" aria-label="กลับ">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4L7 13l9 9"/></svg>
+      </button>
+      <div class="avatar" id="pav"></div>
+      <div style="flex:1;min-width:0">
+        <div class="nm" id="pname"></div>
+        <div class="st" id="pst"></div>
+      </div>
+    </div>
+    <div class="msgs" id="msgs"></div>
+    <div class="replybar" id="replybar">
+      <div class="rb" id="rbtxt"></div>
+      <button class="x" id="rbx">✕</button>
+    </div>
+    <div class="stickers" id="stickers"></div>
+    <div class="ibar">
+      <button class="ib" id="imgBtn" aria-label="รูปภาพ">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="4" width="20" height="18" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M4 20l6-6 4 4 3-3 6 5"/></svg>
+      </button>
+      <textarea id="input" rows="1" placeholder="พิมพ์ข้อความ"></textarea>
+      <button class="ib" id="stBtn" aria-label="สติกเกอร์">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="13" cy="13" r="10"/><path d="M8.500 15c1 2.200 2.600 3.200 4.500 3.200s3.500-1 4.500-3.200"/><circle cx="9.500" cy="10.500" r="1" fill="currentColor"/><circle cx="16.500" cy="10.500" r="1" fill="currentColor"/></svg>
+      </button>
+      <button class="sendb" id="send" aria-label="ส่ง">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 20.500V3.500L22 12z"/></svg>
+      </button>
+    </div>
+    <input type="file" id="file" accept="image/*,video/mp4,video/webm,video/quicktime" style="display:none">
+  </div>
+
+  <div class="overlay" id="menuOv"><div class="menu" id="menu"></div></div>
+  <div class="overlay" id="viewer"><img id="vimg" alt=""></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* =====================================================================
+   TCC Support Chat — แชทส่วนตัว สมาชิก ↔ ทีมซัพพอร์ต
+
+   สมาชิก : เปิดใน iframe จากแอป — แอปส่ง {type:"sc-init", token, lang, api?} ทาง postMessage
+            (token = session token ของ GAS ที่ _tccGetToken() ให้) แล้ว Worker ออก chat token ให้
+   แอดมิน : เปิด line-chat.html?mode=admin  (พิมพ์ ADMIN_KEY ครั้งแรก เก็บใน sessionStorage ของแท็บ)
+            เปิดห้องตรงได้ด้วย  ?mode=admin&uid=<member id>&name=<ชื่อ>
+   ===================================================================== */
+const DEFAULT_API = "https://line-chat-worker.tcc-team-developer.workers.dev";
+const SUPPORT_ID = "__support__";
+const SHOW_PIN_BADGE = true; // ป้ายหมุดสีน้ำเงินที่มุมอวาตาร์ (ตามภาพตัวอย่าง)
+const VIDEO_OK = ["video/mp4", "video/webm", "video/quicktime"];
+
+const STICKERS = ["😀","😂","🥰","😎","😭","😡","🥳","😴","👍","👏","🙏","💪","❤️","🔥","🎉","💰","📈","📉","🚀","🤝","☕","🍜","🐱","🐶"];
+const COLORS = ["#5b8c5a","#e17055","#0984e3","#6c5ce7","#d63031","#00b894","#e84393","#d9a400","#636e72","#00a5a8"];
+
+// ================= Config =================
+const $ = s => document.querySelector(s);
+const P = new URLSearchParams(location.search);
+const IS_ADMIN = P.get("mode") === "admin";
+const IN_FRAME = window.parent !== window;
+let API = DEFAULT_API;
+let chatToken = "", tokenExp = 0, adminKey = "";
+let me = { id: "", name: "" };
+const fixedPeer = IS_ADMIN ? null : { id: SUPPORT_ID, name: "", color: "#d9a400" };
+const onBack = IS_ADMIN ? null : () => { try { parent.postMessage({ type: "sc-close" }, "*"); } catch (_) { } };
+
+// ================= i18n (ลำดับ: th, en, vi, kh, mm, la — ตรงกับ TCC_I18N ของแอปหลัก) =================
+const LANG_IDX = { th: 0, en: 1, vi: 2, kh: 3, mm: 4, la: 5 };
+const LOCALES = { th: "th-TH", en: "en-GB", vi: "vi-VN", kh: "km-KH", mm: "my-MM", la: "lo-LA" };
+let LANG = "th";
+const I18N = {
+  ph:       ["พิมพ์ข้อความ", "Type a message", "Nhập tin nhắn", "វាយសារ", "မက်ဆေ့ချ်ရိုက်ပါ", "ພິມຂໍ້ຄວາມ"],
+  typing:   ["กำลังพิมพ์...", "Typing...", "Đang nhập...", "កំពុងវាយ...", "ရိုက်နေသည်...", "ກຳລັງພິມ..."],
+  read:     ["อ่านแล้ว", "Read", "Đã xem", "បានអាន", "ဖတ်ပြီး", "ອ່ານແລ້ວ"],
+  today:    ["วันนี้", "Today", "Hôm nay", "ថ្ងៃនេះ", "ဒီနေ့", "ມື້ນີ້"],
+  yday:     ["เมื่อวาน", "Yesterday", "Hôm qua", "ម្សិលមិញ", "မနေ့က", "ມື້ວານ"],
+  reply:    ["ตอบกลับ", "Reply", "Trả lời", "ឆ្លើយតប", "ပြန်ရန်", "ຕອບກັບ"],
+  copy:     ["คัดลอก", "Copy", "Sao chép", "ចម្លង", "ကူးယူ", "ສຳເນົາ"],
+  copied:   ["คัดลอกแล้ว", "Copied", "Đã sao chép", "បានចម្លង", "ကူးယူပြီး", "ສຳເນົາແລ້ວ"],
+  unsend:   ["ยกเลิกการส่ง", "Unsend", "Thu hồi", "ដកសារវិញ", "ပြန်ရုပ်သိမ်း", "ຍົກເລີກການສົ່ງ"],
+  youUns:   ["คุณยกเลิกการส่งข้อความ", "You unsent a message", "Bạn đã thu hồi tin nhắn", "អ្នកបានដកសារវិញ", "သင် မက်ဆေ့ချ်ကို ပြန်ရုပ်သိမ်းခဲ့သည်", "ເຈົ້າໄດ້ຍົກເລີກຂໍ້ຄວາມ"],
+  theyUns:  ["{n} ยกเลิกการส่งข้อความ", "{n} unsent a message", "{n} đã thu hồi tin nhắn", "{n} បានដកសារវិញ", "{n} မက်ဆေ့ချ်ကို ပြန်ရုပ်သိမ်းခဲ့သည်", "{n} ໄດ້ຍົກເລີກຂໍ້ຄວາມ"],
+  replyTo:  ["ตอบกลับ", "Replying to", "Trả lời", "ឆ្លើយតបទៅ", "ပြန်ကြားနေသည့်သူ", "ຕອບກັບ"],
+  you:      ["คุณ", "You", "Bạn", "អ្នក", "သင်", "ເຈົ້າ"],
+  self:     ["ตัวเอง", "yourself", "chính mình", "ខ្លួនឯង", "ကိုယ်တိုင်", "ຕົນເອງ"],
+  msg:      ["ข้อความ", "Message", "Tin nhắn", "សារ", "မက်ဆေ့ချ်", "ຂໍ້ຄວາມ"],
+  img:      ["🖼️ รูปภาพ", "🖼️ Photo", "🖼️ Ảnh", "🖼️ រូបភាព", "🖼️ ဓာတ်ပုံ", "🖼️ ຮູບພາບ"],
+  vid:      ["🎬 วิดีโอ", "🎬 Video", "🎬 Video", "🎬 វីដេអូ", "🎬 ဗီဒီယို", "🎬 ວິດີໂອ"],
+  sendFail: ["ส่งไม่สำเร็จ", "Failed to send", "Gửi không thành công", "ផ្ញើមិនបានសម្រេច", "ပို့မရပါ", "ສົ່ງບໍ່ສຳເລັດ"],
+  bigImg:   ["รูปใหญ่เกินไป", "Photo is too large", "Ảnh quá lớn", "រូបភាពធំពេក", "ဓာတ်ပုံ ကြီးလွန်းသည်", "ຮູບໃຫຍ່ເກີນໄປ"],
+  bigVid:   ["วิดีโอใหญ่เกิน 25MB", "Video exceeds 25MB", "Video vượt quá 25MB", "វីដេអូធំជាង 25MB", "ဗီဒီယို 25MB ကျော်နေသည်", "ວິດີໂອໃຫຍ່ເກີນ 25MB"],
+  badType:  ["ไม่รองรับไฟล์ชนิดนี้", "Unsupported file type", "Không hỗ trợ loại tệp này", "មិនគាំទ្រប្រភេទឯកសារនេះ", "ဤဖိုင်အမျိုးအစားကို မထောက်ပံ့ပါ", "ບໍ່ຮອງຮັບໄຟລ໌ປະເພດນີ້"],
+  badImg:   ["เปิดรูปไม่ได้", "Can't open this photo", "Không mở được ảnh", "មិនអាចបើករូបភាពបាន", "ဓာတ်ပုံကို ဖွင့်မရပါ", "ເປີດຮູບບໍ່ໄດ້"],
+  support:  ["ทีมซัพพอร์ต", "Support team", "Đội hỗ trợ", "ក្រុមគាំទ្រ", "ပံ့ပိုးရေးအဖွဲ့", "ທີມຊ່ວຍເຫຼືອ"],
+  upl:      ["กำลังอัปโหลด", "Uploading", "Đang tải lên", "កំពុងផ្ទុកឡើង", "တင်နေသည်", "ກຳລັງອັບໂຫຼດ"],
+  authFail: ["ยืนยันตัวตนไม่ผ่าน กรุณาเข้าสู่ระบบแอปใหม่", "Sign-in check failed. Please log in to the app again", "Xác thực thất bại. Vui lòng đăng nhập lại ứng dụng", "ការផ្ទៀងផ្ទាត់បរាជ័យ សូមចូលកម្មវិធីម្តងទៀត", "အတည်ပြုမှု မအောင်မြင်ပါ။ အက်ပ်သို့ ပြန်လည်ဝင်ပါ", "ການຢືນຢັນບໍ່ຜ່ານ ກະລຸນາເຂົ້າສູ່ລະບົບແອັບອີກຄັ້ງ"],
+  fromApp:  ["เปิดแชทจากในแอปเท่านั้น", "Open this chat from inside the app", "Hãy mở trò chuyện từ trong ứng dụng", "សូមបើកការជជែកពីក្នុងកម្មវិធី", "အက်ပ်အတွင်းမှသာ ချတ်ကို ဖွင့်ပါ", "ກະລຸນາເປີດແຊັດຈາກໃນແອັບ"],
+  empty:    ["ยังไม่มีข้อความ ส่งข้อความถึงทีมซัพพอร์ตได้เลย", "No messages yet. Send a message to the support team", "Chưa có tin nhắn. Hãy nhắn cho đội hỗ trợ", "មិនទាន់មានសារ។ ផ្ញើសារទៅក្រុមគាំទ្រ", "မက်ဆေ့ချ် မရှိသေးပါ။ ပံ့ပိုးရေးအဖွဲ့ထံ ပို့ပါ", "ຍັງບໍ່ມີຂໍ້ຄວາມ ສົ່ງຫາທີມຊ່ວຍເຫຼືອໄດ້ເລີຍ"],
+};
+const T = k => (I18N[k] || [k])[LANG_IDX[LANG]] || (I18N[k] || [k])[0];
+function setLang(l) {
+  if (IS_ADMIN || !Object.prototype.hasOwnProperty.call(LANG_IDX, l) || l === LANG) return;
+  LANG = l; applyI18n();
+}
+function applyI18n() {
+  $("#input").placeholder = T("ph");
+  if (peer && !IS_ADMIN) { peer.name = T("support"); $("#pname").textContent = peer.name; renderMsgs(false); }
+}
+
+// ---- ยืนยันตัวตน ----
+let initResolve = null, loginP = null;
+window.addEventListener("message", ev => {
+  const d = ev.data;
+  if (IS_ADMIN || !d || d.type !== "sc-init" || ev.source !== window.parent) return;
+  if (d.lang) setLang(d.lang);
+  if (initResolve) { const r = initResolve; initResolve = null; r(d); }
+});
+function getInit() {
+  return new Promise((res, rej) => {
+    initResolve = res;
+    try { parent.postMessage({ type: "sc-need-init" }, "*"); } catch (_) { }
+    setTimeout(() => { if (initResolve === res) { initResolve = null; rej(new Error(T("authFail"))); } }, 8000);
+  });
+}
+// ---- host สั่งหยุด/เดินต่อ (สมาชิก: overlay ปิด/เปิด · แอดมิน: สลับแผง) ----
+window.addEventListener("message", ev => {
+  const d = ev.data;
+  if (!d || d.type !== "sc-visible" || ev.source !== window.parent) return;
+  PAUSED = !d.on;
+  if (PAUSED) return;
+  if (peer) { pollChat(false); setTimeout(() => { const m = $("#msgs"); m.scrollTop = m.scrollHeight; }, 60); }
+  else if (IS_ADMIN && $("#list").classList.contains("on")) loadList();
+});
+async function rawPost(path, body) {
+  const r = await fetch(API + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(r.status === 401 ? T("authFail") : (d.error || "HTTP " + r.status));
+  return d;
+}
+function login() {
+  if (loginP) return loginP;
+  loginP = (async () => {
+    let d;
+    if (IS_ADMIN) {
+      const key = adminKey || sessionStorage.getItem("sc_ak") || "";
+      if (!key) throw new Error("no-key");
+      d = await rawPost("/api/admin/session", { key });
+    } else {
+      const init = await getInit();
+      if (init.api) API = String(init.api).replace(/\/+$/, "");
+      const hc = init.chat;   // chat token ที่แอปแลกไว้แล้ว (เหมือนผลของ /api/session) → ไม่ต้องให้ Worker เรียก GAS ซ้ำ
+      if (hc && hc.token && hc.me && hc.exp_ms > Date.now() + 60000) d = hc;
+      else {
+        if (!init.token) throw new Error(T("authFail"));
+        d = await rawPost("/api/session", { token: init.token });
+      }
+    }
+    chatToken = d.token; tokenExp = d.exp_ms; me = d.me;
+  })().finally(() => { loginP = null; });
+  return loginP;
+}
+
+// ================= State =================
+let peer = null;
+let msgs = new Map();
+let lastId = 0, lastUpd = 0, peerRead = 0, peerTyping = false;
+let replyTo = null, tmpN = 0, reportedRead = 0;
+let pollChatTimer = null, pollListTimer = null, busyChat = false, lastTypingSent = 0;
+let usersCache = [];
+let onlyUnread = false;
+let PAUSED = false;   // host (แอป/แอดมิน) สั่งหยุดชั่วคราวตอนมุมมองนี้ถูกซ่อน: ไม่ poll ไม่ส่ง "อ่านแล้ว"
+
+// ================= Utils =================
+const pad = n => String(n).padStart(2, "0");
+const hm = ts => { const d = new Date(ts); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+const dayKey = ts => { const d = new Date(ts); return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate(); };
+function colorOf(id) { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; }
+function dayLabel(ts) {
+  const now = Date.now();
+  if (dayKey(ts) === dayKey(now)) return T("today");
+  if (dayKey(ts) === dayKey(now - 864e5)) return T("yday");
+  return new Date(ts).toLocaleDateString(LOCALES[LANG] || "th-TH", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+}
+function listTime(ts) {
+  if (!ts) return "";
+  if (dayKey(ts) === dayKey(Date.now())) return hm(ts) + " น.";
+  if (dayKey(ts) === dayKey(Date.now() - 864e5)) return T("yday");
+  const d = new Date(ts); return d.getDate() + "/" + (d.getMonth() + 1);
+}
+function toast(t) {
+  const el = $("#toast"); el.textContent = t; el.style.display = "block";
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.style.display = "none", 2200);
+}
+function mkAvatar(el, name, color, id) {
+  el.classList.add("avatar"); el.style.background = color || colorOf(id || name);
+  el.textContent = (name || "?").trim().charAt(0);
+}
+function show(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("on"));
+  $("#" + id).classList.add("on");
+}
+function fatal(msg) {
+  show("list");
+  $("#chatlist").innerHTML = ""; const e = document.createElement("div"); e.className = "empty"; e.textContent = msg;
+  $("#chatlist").appendChild(e);
+}
+
+async function api(path, opt = {}, retry = true) {
+  if (!chatToken || Date.now() > tokenExp - 60000) await login();
+  const r = await fetch(API + path, {
+    method: opt.method || "GET",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + chatToken },
+    body: opt.body ? JSON.stringify(opt.body) : undefined,
+  });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401 && retry) { chatToken = ""; return api(path, opt, false); }
+  if (!r.ok) throw new Error(r.status === 401 ? T("authFail") : (d.error || "HTTP " + r.status));
+  return d;
+}
+
+// ================= Menu helper =================
+function showMenu(items) {
+  const menu = $("#menu"); menu.innerHTML = "";
+  items.forEach(([label, fn, red]) => {
+    const b = document.createElement("button"); b.textContent = label; if (red) b.className = "red";
+    b.onclick = () => { closeMenu(); fn(); }; menu.appendChild(b);
+  });
+  $("#menuOv").classList.add("on");
+}
+function closeMenu() { $("#menuOv").classList.remove("on"); }
+$("#menuOv").addEventListener("click", e => { if (e.target.id === "menuOv") closeMenu(); });
+$("#viewer").addEventListener("click", () => $("#viewer").classList.remove("on"));
+
+// ================= List =================
+function enterList() {
+  peer = null; clearInterval(pollChatTimer);
+  show("list");
+  loadList();
+  clearInterval(pollListTimer);
+  pollListTimer = setInterval(() => { if (!document.hidden && !PAUSED && $("#list").classList.contains("on")) loadList(); }, 4000);
+}
+async function loadList() {
+  try { usersCache = (await api("/api/users")).users; renderList(); }
+  catch (e) { if (!usersCache.length) fatal(e.message); }
+}
+function previewOf(u) {
+  if (u.last_at == null) return "เริ่มแชทเลย";
+  if (u.last_deleted) return "ยกเลิกการส่งข้อความ";
+  if (u.last_type === "image") return "ส่งรูป";
+  if (u.last_type === "video") return "ส่งวิดีโอ";
+  if (u.last_type === "sticker") return "ส่งสติกเกอร์";
+  return u.last_content || "";
+}
+const PIN_SVG = '<svg width="13" height="13" viewBox="0 0 16 16" fill="#fff"><path d="M9.5 1.500l5 5-1.600.8-2.300 2.300.3 3.200-1 1-3-3-4 4-.8-.8 4-4-3-3 1-1 3.200.3 2.300-2.300z"/></svg>';
+function renderList() {
+  const q = $("#search").value.trim().toLowerCase();
+  const box = $("#chatlist"); box.innerHTML = "";
+  const total = usersCache.reduce((s, u) => s + (u.unread || 0), 0);
+  const nb = $("#navBadge");
+  nb.style.display = total > 0 ? "flex" : "none"; nb.textContent = total > 99 ? "99+" : total;
+
+  const arr = usersCache.filter(u => (!q || u.name.toLowerCase().includes(q) || String(u.id).toLowerCase().includes(q)) && (!onlyUnread || u.unread > 0));
+  if (!arr.length) {
+    const e = document.createElement("div"); e.className = "empty";
+    e.textContent = onlyUnread ? "ไม่มีแชทที่ยังไม่อ่าน" : (usersCache.length ? "ไม่พบรายชื่อ" : "ยังไม่มีแชท");
+    box.appendChild(e); return;
+  }
+  arr.forEach(u => {
+    const it = document.createElement("div"); it.className = "item";
+    const wrap = document.createElement("div"); wrap.className = "avwrap";
+    const av = document.createElement("div"); mkAvatar(av, u.name, u.color, u.id); wrap.appendChild(av);
+    if (SHOW_PIN_BADGE) { const pb = document.createElement("div"); pb.className = "pinb"; pb.innerHTML = PIN_SVG; wrap.appendChild(pb); }
+    const mid = document.createElement("div"); mid.className = "mid";
+    const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = u.name;
+    const pv = document.createElement("div"); pv.className = "pv"; pv.textContent = previewOf(u);
+    mid.append(nm, pv);
+    const rt = document.createElement("div"); rt.className = "rt";
+    const tm = document.createElement("div"); tm.className = "tm"; tm.textContent = listTime(u.last_at);
+    rt.appendChild(tm);
+    if (u.unread > 0) { const b = document.createElement("div"); b.className = "badge"; b.textContent = u.unread > 99 ? "99+" : u.unread; rt.appendChild(b); }
+    it.append(wrap, mid, rt);
+    it.onclick = () => openChat(u);
+    box.appendChild(it);
+  });
+}
+$("#search").addEventListener("input", renderList);
+$("#bUnread").onclick = () => { onlyUnread = !onlyUnread; $("#bUnread").classList.toggle("act", onlyUnread); renderList(); toast(onlyUnread ? "แสดงเฉพาะที่ยังไม่อ่าน" : "แสดงทั้งหมด"); };
+$("#bNew").onclick = () => { $("#search").focus(); };
+$("#bMore").onclick = () => showMenu([["รีเฟรช", () => { loadList(); toast("รีเฟรชแล้ว"); }], [onlyUnread ? "แสดงทั้งหมด" : "แสดงเฉพาะที่ยังไม่อ่าน", () => $("#bUnread").click()]]);
+document.querySelectorAll(".nav button").forEach(b => b.onclick = () => { if (b.dataset.tab !== "chat") toast("ยังไม่เปิดใช้งานในหน้านี้"); });
+
+// ================= Chat =================
+function openChat(u) {
+  peer = { id: String(u.id), name: u.name || String(u.id), color: u.color || "" };
+  msgs = new Map(); lastId = 0; lastUpd = 0; peerRead = 0; peerTyping = false; reportedRead = 0;
+  setReply(null); $("#stickers").classList.remove("on");
+  const pav = $("#pav"); pav.className = ""; pav.style.background = "";
+  mkAvatar(pav, peer.name, peer.color, peer.id);
+  $("#pname").textContent = peer.name; $("#pst").textContent = "";
+  $("#msgs").innerHTML = ""; $("#input").value = ""; autoGrow();
+  $("#back").classList.toggle("hide", !!fixedPeer && !onBack);
+  clearInterval(pollListTimer);
+  show("chat");
+  pollChat(true);
+  clearInterval(pollChatTimer);
+  pollChatTimer = setInterval(() => { if (!document.hidden && !PAUSED) pollChat(false); }, 2000);
+}
+$("#back").onclick = () => { if (fixedPeer) { if (onBack) onBack(); } else enterList(); };
+
+async function pollChat(first) {
+  if (!peer || busyChat) return;
+  busyChat = true;
+  const pid = peer.id;
+  try {
+    const d = await api(`/api/messages?peer=${encodeURIComponent(pid)}&after=${lastId}&upd=${lastUpd}`);
+    if (!peer || peer.id !== pid) return;
+    let changed = first;
+    d.messages.forEach(m => {
+      const o = msgs.get(m.id);
+      if (!o || o.updated_at !== m.updated_at || o.deleted !== m.deleted) { msgs.set(m.id, m); changed = true; }
+      if (m.id > lastId) lastId = m.id;
+    });
+    lastUpd = Math.max(0, d.now - 2500);
+    if (d.peer_read !== peerRead) { peerRead = d.peer_read; changed = true; }
+    if (d.typing !== peerTyping) { peerTyping = d.typing; $("#pst").textContent = d.typing ? T("typing") : ""; }
+    if (changed) renderMsgs(first);
+    reportRead();
+  } catch (e) { if (first) toast(e.message); }
+  finally { busyChat = false; }
+}
+
+function reportRead() {
+  if (!peer || document.hidden || PAUSED) return;
+  let mx = 0;
+  msgs.forEach(m => { if (!m.mine && m.id < 1e15 && m.id > mx) mx = m.id; });
+  if (mx > reportedRead) {
+    reportedRead = mx;
+    api("/api/read", { method: "POST", body: { peer: peer.id, last_id: mx } }).catch(() => { reportedRead = 0; });
+  }
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && !PAUSED) { reportRead(); if (peer) pollChat(false); } });
+
+function previewText(m) {
+  if (!m) return T("msg");
+  if (m.deleted) return T("unsend");
+  if (m.type === "image") return T("img");
+  if (m.type === "video") return T("vid");
+  return m.content;
+}
+
+function renderMsgs(forceBottom) {
+  const box = $("#msgs");
+  const near = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
+  box.innerHTML = "";
+  const arr = [...msgs.values()].sort((a, b) => a.id - b.id);
+  let prevDay = null, prevMine = null;
+
+  arr.forEach(m => {
+    const isMe = !!m.mine;
+    const dk = dayKey(m.created_at);
+    if (dk !== prevDay) {
+      const dv = document.createElement("div"); dv.className = "divider";
+      const sp = document.createElement("span"); sp.textContent = dayLabel(m.created_at);
+      dv.appendChild(sp); box.appendChild(dv); prevDay = dk; prevMine = null;
+    }
+    const first = prevMine !== isMe; prevMine = isMe;
+
+    const row = document.createElement("div");
+    row.className = "row " + (isMe ? "me" : "other") + (first ? " first" : "");
+
+    if (!isMe) {
+      if (first) { const av = document.createElement("div"); mkAvatar(av, peer.name, peer.color, peer.id); row.appendChild(av); }
+      else { const ph = document.createElement("div"); ph.className = "ph"; row.appendChild(ph); }
+    }
+
+    const col = document.createElement("div"); col.className = "col";
+    if (!isMe && first) {
+      const n = document.createElement("div"); n.className = "pname"; n.textContent = peer.name; col.appendChild(n);
+    }
+
+    const bw = document.createElement("div"); bw.className = "bwrap";
+    const bubble = document.createElement("div"); bubble.className = "bubble";
+    const pending = m.id >= 1e15;
+    if (pending) bubble.classList.add("pending");
+
+    if (m.deleted) {
+      bubble.classList.add("del");
+      bubble.textContent = isMe ? T("youUns") : T("theyUns").replace("{n}", peer.name);
+    } else {
+      if (m.reply_to) {
+        const o = msgs.get(m.reply_to);
+        const q = document.createElement("div"); q.className = "quote";
+        const qn = document.createElement("b"); qn.textContent = o ? (o.mine ? T("you") : peer.name) : T("msg");
+        q.appendChild(qn); q.appendChild(document.createTextNode(previewText(o)));
+        bubble.appendChild(q);
+      }
+      if (m.type === "image") {
+        bubble.classList.add("img");
+        const url = m.src || m.content;   // src = ลิงก์ไฟล์จาก Worker · content แบบ data: = ข้อความรูปเก่า
+        const im = document.createElement("img"); im.src = url; im.alt = "";
+        im.onclick = () => { $("#vimg").src = url; $("#viewer").classList.add("on"); };
+        im.onload = () => { if (near || forceBottom) box.scrollTop = box.scrollHeight; };
+        bubble.appendChild(im);
+      } else if (m.type === "video") {
+        bubble.classList.add("img");
+        const v = document.createElement("video"); v.src = m.src || ""; v.controls = true; v.playsInline = true; v.preload = "metadata";
+        v.onloadedmetadata = () => { if (near || forceBottom) box.scrollTop = box.scrollHeight; };
+        bubble.appendChild(v);
+      } else if (m.type === "sticker") {
+        bubble.classList.add("sticker"); bubble.textContent = m.content;
+      } else {
+        bubble.appendChild(document.createTextNode(m.content));
+      }
+    }
+    if (pending && m.progress !== undefined) {
+      const pg = document.createElement("div"); pg.className = "prog"; pg.textContent = T("upl") + " " + m.progress + "%"; bubble.appendChild(pg);
+    }
+    if (!pending && !m.deleted) bindPress(bubble, m);
+
+    const meta = document.createElement("div"); meta.className = "meta";
+    if (isMe && !pending && m.id <= peerRead) { meta.appendChild(document.createTextNode(T("read"))); meta.appendChild(document.createElement("br")); }
+    meta.appendChild(document.createTextNode(hm(m.created_at)));
+
+    if (isMe) bw.append(meta, bubble); else bw.append(bubble, meta);
+    col.appendChild(bw); row.appendChild(col); box.appendChild(row);
+  });
+
+  if (!arr.length && !IS_ADMIN) { const e = document.createElement("div"); e.className = "empty"; e.textContent = T("empty"); box.appendChild(e); }
+  if (forceBottom || near) box.scrollTop = box.scrollHeight;
+}
+
+// ---- long press / right click menu ----
+function bindPress(el, m) {
+  let t;
+  const start = () => { t = setTimeout(() => openMenu(m), 450); };
+  const end = () => clearTimeout(t);
+  el.addEventListener("touchstart", start, { passive: true });
+  ["touchend", "touchmove", "touchcancel"].forEach(ev => el.addEventListener(ev, end, { passive: true }));
+  el.addEventListener("contextmenu", e => { e.preventDefault(); openMenu(m); });
+  el.addEventListener("dblclick", () => openMenu(m));
+}
+function openMenu(m) {
+  const items = [[T("reply"), () => setReply(m)]];
+  if (m.type === "text") items.push([T("copy"), async () => {
+    try { await navigator.clipboard.writeText(m.content); toast(T("copied")); }
+    catch (_) { const ta = document.createElement("textarea"); ta.value = m.content; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast(T("copied")); }
+  }]);
+  if (m.mine) items.push([T("unsend"), async () => {
+    try { await api(`/api/messages/${m.id}/unsend`, { method: "POST" }); const o = msgs.get(m.id); if (o) { o.deleted = 1; o.content = ""; renderMsgs(false); } }
+    catch (e) { toast(e.message); }
+  }, true]);
+  showMenu(items);
+}
+
+// ---- reply ----
+function setReply(m) {
+  replyTo = m;
+  const bar = $("#replybar");
+  if (!m) { bar.classList.remove("on"); return; }
+  const rb = $("#rbtxt"); rb.innerHTML = "";
+  const b = document.createElement("b"); b.textContent = T("replyTo") + " " + (m.mine ? T("self") : peer.name);
+  rb.appendChild(b); rb.appendChild(document.createTextNode(previewText(m)));
+  bar.classList.add("on"); $("#input").focus();
+}
+$("#rbx").onclick = () => setReply(null);
+
+// ---- send ----
+async function sendMessage(type, content) {
+  if (!peer) return;
+  const tid = 1e15 + (++tmpN);
+  const temp = { id: tid, mine: true, type, content, reply_to: replyTo ? replyTo.id : null, deleted: 0, created_at: Date.now(), updated_at: 0 };
+  msgs.set(tid, temp); renderMsgs(true);
+  const rid = temp.reply_to;
+  setReply(null);
+  try {
+    const d = await api("/api/messages", { method: "POST", body: { to: peer.id, peer_name: peer.name, type, content, reply_to: rid } });
+    msgs.delete(tid);
+    msgs.set(d.id, { ...temp, id: d.id, created_at: d.created_at, updated_at: d.created_at });
+    if (d.id > lastId) lastId = d.id;
+    renderMsgs(true);
+  } catch (e) { msgs.delete(tid); renderMsgs(true); toast(T("sendFail") + ": " + e.message); }
+}
+function sendText() {
+  const t = $("#input").value.trim(); if (!t) return;
+  $("#input").value = ""; autoGrow(); sendMessage("text", t);
+}
+$("#send").onclick = sendText;
+$("#input").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey && !/Mobi|Android/i.test(navigator.userAgent)) { e.preventDefault(); sendText(); }
+});
+function autoGrow() {
+  const el = $("#input"); el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 110) + "px";
+  $("#send").classList.toggle("on", !!el.value.trim());
+}
+$("#input").addEventListener("input", () => {
+  autoGrow();
+  if (peer && Date.now() - lastTypingSent > 2500 && $("#input").value.trim()) {
+    lastTypingSent = Date.now();
+    api("/api/typing", { method: "POST", body: { peer: peer.id } }).catch(() => { });
+  }
+});
+
+// ---- stickers ----
+(function () {
+  const box = $("#stickers");
+  STICKERS.forEach(s => {
+    const b = document.createElement("button"); b.textContent = s;
+    b.onclick = () => { sendMessage("sticker", s); box.classList.remove("on"); };
+    box.appendChild(b);
+  });
+})();
+$("#stBtn").onclick = () => { $("#stickers").classList.toggle("on"); setTimeout(() => { const m = $("#msgs"); m.scrollTop = m.scrollHeight; }, 50); };
+$("#input").addEventListener("focus", () => $("#stickers").classList.remove("on"));
+
+// ---- รูป / วิดีโอ → อัปโหลดขึ้น Worker (R2) แล้วส่งเป็นลิงก์ ----
+function shrinkImage(file) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height; const max = 1280;
+      if (Math.max(w, h) > max) { const r = max / Math.max(w, h); w = Math.round(w * r); h = Math.round(h * r); }
+      const c = document.createElement("canvas"); c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      let q = 0.82;
+      const tryEnc = () => c.toBlob(b => {
+        if (b && b.size <= 1400000) return resolve(b);
+        if (q > 0.35) { q -= 0.1; return tryEnc(); }
+        resolve(null);
+      }, "image/jpeg", q);
+      tryEnc();
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); toast(T("badImg")); resolve(undefined); };
+    img.src = url;
+  });
+}
+function uploadBlob(blob, onProg) {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", API + "/api/upload?peer=" + encodeURIComponent(peer.id));
+    x.setRequestHeader("Authorization", "Bearer " + chatToken);
+    x.setRequestHeader("Content-Type", blob.type);
+    x.upload.onprogress = e => { if (e.lengthComputable) onProg(Math.round(e.loaded / e.total * 100)); };
+    x.onload = () => {
+      let d = {}; try { d = JSON.parse(x.responseText); } catch (_) { }
+      (x.status >= 200 && x.status < 300) ? resolve(d) : reject(new Error(d.error || "HTTP " + x.status));
+    };
+    x.onerror = () => reject(new Error("network"));
+    x.send(blob);
+  });
+}
+async function sendMedia(file) {
+  if (!peer) return;
+  let type, blob;
+  if (file.type.startsWith("image/")) {
+    type = "image"; blob = await shrinkImage(file);
+    if (blob === undefined) return;
+    if (!blob) { toast(T("bigImg")); return; }
+  } else if (VIDEO_OK.includes(file.type)) {
+    type = "video"; if (file.size > 25e6) { toast(T("bigVid")); return; } blob = file;
+  } else { toast(T("badType")); return; }
+
+  const tid = 1e15 + (++tmpN);
+  const temp = { id: tid, mine: true, type, content: "", src: URL.createObjectURL(blob), reply_to: replyTo ? replyTo.id : null, deleted: 0, created_at: Date.now(), updated_at: 0, progress: 0 };
+  msgs.set(tid, temp); renderMsgs(true);
+  const rid = temp.reply_to; setReply(null);
+  try {
+    if (!chatToken || Date.now() > tokenExp - 60000) await login();
+    let lastDraw = 0;
+    const up = await uploadBlob(blob, p => { temp.progress = p; const n = Date.now(); if (n - lastDraw > 250) { lastDraw = n; renderMsgs(false); } });
+    const d = await api("/api/messages", { method: "POST", body: { to: peer.id, peer_name: peer.name, type, content: up.content, reply_to: rid } });
+    msgs.delete(tid);
+    const done = { ...temp, id: d.id, content: up.content, created_at: d.created_at, updated_at: d.created_at };
+    delete done.progress;
+    msgs.set(d.id, done);
+    if (d.id > lastId) lastId = d.id;
+    renderMsgs(true);
+  } catch (e) { msgs.delete(tid); renderMsgs(true); toast(T("sendFail") + ": " + e.message); }
+}
+$("#imgBtn").onclick = () => $("#file").click();
+$("#file").addEventListener("change", e => {
+  const f = e.target.files[0]; e.target.value = "";
+  if (f) sendMedia(f);
+});
+// ลิงก์ไฟล์จาก Worker หมดอายุ ~1–2 ชม. → โหลดรายการใหม่ทุก 40 นาที (ไม่กระทบข้อความที่กำลังพิมพ์)
+setInterval(() => {
+  if (peer && !document.hidden && !PAUSED) { msgs = new Map(); lastId = 0; lastUpd = 0; reportedRead = 0; pollChat(true); }
+}, 40 * 60 * 1000);
+
+// ================= Public API (ให้ TCC เรียกใช้) =================
+// LineChat.open({id:"u456", name:"แอดมิน"})  → เปิดห้องแชทกับผู้ใช้นั้น
+// LineChat.list()                            → กลับหน้ารายการ
+window.LineChat = { open: u => openChat(u), list: () => enterList() };
+
+// ================= Init =================
+function startAdmin() {
+  enterList();
+  const u = P.get("uid");
+  if (u) openChat({ id: u, name: P.get("name") || u });
+}
+$("#lgBtn").onclick = async () => {
+  const k = $("#lgKey").value.trim(); if (!k) return;
+  adminKey = k; $("#lgErr").textContent = "";
+  try { chatToken = ""; await login(); sessionStorage.setItem("sc_ak", k); $("#lgKey").value = ""; startAdmin(); }
+  catch (e) { adminKey = ""; $("#lgErr").textContent = "ADMIN_KEY ไม่ถูกต้อง หรือเชื่อมต่อไม่ได้"; }
+};
+$("#lgKey").addEventListener("keydown", e => { if (e.key === "Enter") $("#lgBtn").click(); });
+
+(async function init() {
+  if (IS_ADMIN) {
+    if (sessionStorage.getItem("sc_ak")) {
+      try { await login(); startAdmin(); return; } catch (_) { sessionStorage.removeItem("sc_ak"); }
+    }
+    show("login");
+  } else if (!IN_FRAME) {
+    fatal(T("fromApp"));
+  } else {
+    openChat({ id: SUPPORT_ID, name: T("support"), color: "#d9a400" });
+  }
+})();
+</script>
+</body>
+</html>

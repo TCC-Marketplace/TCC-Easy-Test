@@ -126,6 +126,22 @@ svg{display:block}
 .stickers button{font-size:44px;padding:6px;border-radius:12px}
 .stickers button:active{background:var(--surface2)}
 
+/* ===== Guideline menu (สมาชิกเท่านั้น) ===== */
+.guide{display:none;background:var(--bg);border-top:1px solid var(--line);flex-shrink:0}
+.guide.on{display:block}
+.gtog{display:flex;align-items:center;gap:7px;width:100%;padding:8px 14px;font-size:13px;font-weight:600;color:var(--green);text-align:left}
+.gtog .car{margin-left:auto;transition:transform .2s;color:var(--tx2)}
+.guide.open .gtog .car{transform:rotate(180deg)}
+.gbody{display:none;padding:0 10px 8px}
+.guide.open .gbody{display:block}
+.gcats{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.gcats::-webkit-scrollbar{display:none}
+.gcat{flex-shrink:0;border:1px solid var(--surface2);background:var(--surface);color:#fff;border-radius:16px;padding:6px 12px;font-size:13px;white-space:nowrap}
+.gcat.on{border-color:var(--green);color:var(--green);background:rgba(6,199,85,.12)}
+.gqs{display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.gq{text-align:left;background:var(--surface);border:1px solid var(--surface2);color:#fff;border-radius:12px;padding:9px 12px;font-size:13.5px;line-height:1.35}
+.gq:active{background:var(--surface2)}
+
 /* ===== Menu / viewer / toast ===== */
 .overlay{position:absolute;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20}
 .overlay.on{display:flex}
@@ -220,6 +236,14 @@ svg{display:block}
     </div>
     <div class="stickers" id="stickers"></div>
     <div class="staffbar" id="staffbar"><button id="staffBtn" type="button"></button></div>
+    <div class="guide" id="guide">
+      <button class="gtog" id="gtog" type="button" aria-expanded="false">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        <span id="gtogTx"></span>
+        <svg class="car" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+      </button>
+      <div class="gbody"><div class="gcats" id="gcats"></div><div class="gqs" id="gqs"></div></div>
+    </div>
     <div class="ibar">
       <button class="ib" id="imgBtn" aria-label="รูปภาพ">
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="4" width="20" height="18" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M4 20l6-6 4 4 3-3 6 5"/></svg>
@@ -257,6 +281,11 @@ const VIDEO_OK = ["video/mp4", "video/webm", "video/quicktime"];
 
 const STICKERS = ["😀","😂","🥰","😎","😭","😡","🥳","😴","👍","👏","🙏","💪","❤️","🔥","🎉","💰","📈","📉","🚀","🤝","☕","🍜","🐱","🐶"];
 const COLORS = ["#5b8c5a","#e17055","#0984e3","#6c5ce7","#d63031","#00b894","#e84393","#d9a400","#636e72","#00a5a8"];
+
+// ---- เมนูไกด์ไลน์: ข้อมูลสร้างจาก kb.js menuData() (ชื่อหมวด + คำถามตัวอย่าง 6 ภาษา + รหัสคำถาม) ----
+// แก้ FAQ ใน kb.js แล้วต้องสร้างใหม่และวางทับบรรทัดล่าง:  node -e "import('./src/kb.js').then(m=>console.log(JSON.stringify(m.menuData())))"
+// ข้อความที่ส่งต้องตรงกับ q ของรหัสนั้นเป๊ะ (Worker ตรวจ) ไม่งั้นถูกปฏิบัติเป็นข้อความพิมพ์เอง
+const GUIDE = [{"id":"login","icon":"🔑","name":{"th":"เข้าสู่ระบบ","en":"Login","vi":"Đăng nhập","kh":"ចូលប្រព័ន្ធ","mm":"အကောင့်ဝင်ရန်","la":"ເຂົ້າລະບົບ"},"items":[{"id":"login_how","q":{"th":"วิธีเข้าสู่ระบบ / ตั้งรหัสผ่านครั้งแรก","en":"How do I log in / set my first password?","vi":"Đăng nhập / đặt mật khẩu lần đầu như thế nào?","kh":"តើចូលប្រព័ន្ធ / កំណត់ពាក្យសម្ងាត់លើកដំបូងយ៉ាងដូចម្តេច?","mm":"အကောင့်ဝင်ရန် / ပထမဆုံး စကားဝှက်သတ်မှတ်ရန် ဘယ်လိုလုပ်ရမလဲ။","la":"ເຂົ້າລະບົບ / ຕັ້ງລະຫັດຜ່ານຄັ້ງທຳອິດແນວໃດ?"}},{"id":"login_nophone","q":{"th":"ไม่พบเบอร์โทรในระบบ ทำอย่างไร","en":"My phone number is not found. What should I do?","vi":"Không tìm thấy số điện thoại trong hệ thống, phải làm sao?","kh":"រកមិនឃើញលេខទូរស័ព្ទក្នុងប្រព័ន្ធ តើត្រូវធ្វើយ៉ាងណា?","mm":"စနစ်ထဲတွင် ဖုန်းနံပါတ် မတွေ့ပါက ဘာလုပ်ရမလဲ။","la":"ບໍ່ພົບເບີໂທໃນລະບົບ ເຮັດແນວໃດ?"}},{"id":"login_locked","q":{"th":"ใส่รหัสผ่านผิด 5 ครั้งต้องทำอย่างไร","en":"What happens if I enter the wrong password 5 times?","vi":"Nhập sai mật khẩu 5 lần thì sao?","kh":"បើបញ្ចូលពាក្យសម្ងាត់ខុស 5 ដងត្រូវធ្វើយ៉ាងណា?","mm":"စကားဝှက် 5 ကြိမ် မှားထည့်ပါက ဘာဖြစ်မလဲ။","la":"ຖ້າໃສ່ລະຫັດຜ່ານຜິດ 5 ເທື່ອຈະເປັນແນວໃດ?"}},{"id":"login_remember","q":{"th":"ติ๊ก 'จำการเข้าสู่ระบบ' อยู่ได้นานแค่ไหน","en":"How long does 'Remember login' last?","vi":"'Ghi nhớ đăng nhập' duy trì được bao lâu?","kh":"'ចងចាំការចូលប្រព័ន្ធ' នៅបានរយៈពេលប៉ុន្មាន?","mm":"'အကောင့်ဝင်ထားမှုကို မှတ်ထားပါ' က ဘယ်လောက်ကြာအောင် ရှိနေမလဲ။","la":"ຕິກ 'ຈື່ການເຂົ້າລະບົບ' ຢູ່ໄດ້ດົນປານໃດ?"}}]},{"id":"wallet","icon":"💸","name":{"th":"ฝาก/ถอน","en":"Deposit / Withdraw","vi":"Nạp / Rút","kh":"ដាក់ / ដកប្រាក់","mm":"ငွေသွင်း / ငွေထုတ်","la":"ຝາກ / ຖອນ"},"items":[{"id":"deposit_how","q":{"th":"วิธีฝากเงิน / เติมเงิน และขั้นต่ำ","en":"How do I deposit, and what is the minimum?","vi":"Cách nạp tiền và mức tối thiểu?","kh":"របៀបដាក់ប្រាក់ និងចំនួនអប្បបរមា?","mm":"ငွေသွင်းနည်းနှင့် အနည်းဆုံးပမာဏ ဘယ်လောက်လဲ။","la":"ວິທີຝາກເງິນ ແລະຂັ້ນຕ່ຳເທົ່າໃດ?"}},{"id":"withdraw_how","q":{"th":"วิธีถอนเงิน และใช้เวลานานเท่าไร","en":"How do I withdraw, and how long does it take?","vi":"Cách rút tiền và mất bao lâu?","kh":"របៀបដកប្រាក់ និងប្រើពេលប៉ុន្មាន?","mm":"ငွေထုတ်နည်းနှင့် ဘယ်လောက်ကြာမလဲ။","la":"ວິທີຖອນເງິນ ແລະໃຊ້ເວລາດົນປານໃດ?"}},{"id":"fee_withdraw","q":{"th":"ค่าธรรมเนียมและขั้นต่ำการถอน On-chain","en":"On-chain withdrawal fees and minimums","vi":"Phí và mức tối thiểu khi rút On-chain","kh":"ថ្លៃសេវា និងចំនួនអប្បបរមានៃការដកប្រាក់ On-chain","mm":"On-chain ငွေထုတ်ခြင်း၏ ကြေးနှင့် အနည်းဆုံးပမာဏ","la":"ຄ່າທຳນຽມ ແລະຂັ້ນຕ່ຳການຖອນ On-chain"}},{"id":"coins_networks","q":{"th":"เหรียญและเครือข่ายที่รองรับ","en":"Supported coins and networks","vi":"Các đồng coin và mạng lưới được hỗ trợ","kh":"រូបិយប័ណ្ណ និងបណ្តាញដែលគាំទ្រ","mm":"ပံ့ပိုးထားသော ဒင်္ဂါးများနှင့် ကွန်ရက်များ","la":"ເຫຼຽນ ແລະເຄືອຂ່າຍທີ່ຮອງຮັບ"}}]},{"id":"earn","icon":"📈","name":{"th":"Earn","en":"Earn","vi":"Earn","kh":"Earn","mm":"Earn","la":"Earn"},"items":[{"id":"earn_create","q":{"th":"สร้างสัญญา Earn อย่างไร","en":"How do I create an Earn contract?","vi":"Tạo hợp đồng Earn như thế nào?","kh":"តើបង្កើតកិច្ចសន្យា Earn យ៉ាងដូចម្តេច?","mm":"Earn စာချုပ် ဘယ်လို ဖန်တီးရမလဲ။","la":"ສ້າງສັນຍາ Earn ແນວໃດ?"}},{"id":"earn_plans","q":{"th":"แผน Earn มีอะไรบ้าง ผลตอบแทนเท่าไร","en":"What Earn plans are available and what are the returns?","vi":"Có những gói Earn nào và lợi nhuận bao nhiêu?","kh":"តើមានគម្រោង Earn អ្វីខ្លះ ហើយផលចំណេញប៉ុន្មាន?","mm":"Earn အစီအစဉ်များ ဘာတွေရှိပြီး အမြတ်ဘယ်လောက်လဲ။","la":"ແຜນ Earn ມີຫຍັງແດ່ ຜົນຕອບແທນເທົ່າໃດ?"}},{"id":"earn_claim","q":{"th":"รับเงินต้นคืนและเคลมกำไร Earn","en":"How do I get my principal back and claim Earn profit?","vi":"Nhận lại vốn gốc và nhận (claim) lợi nhuận Earn","kh":"ទទួលប្រាក់ដើមវិញ និងទាមទារប្រាក់ចំណេញ Earn","mm":"Earn ရင်းငွေပြန်ယူခြင်းနှင့် အမြတ် claim လုပ်ခြင်း","la":"ຮັບເງິນຕົ້ນຄືນ ແລະເຄລມກຳໄລ Earn"}},{"id":"earn_split","q":{"th":"การแบ่งกำไรเป็นอย่างไร","en":"How is the profit split?","vi":"Lợi nhuận được chia như thế nào?","kh":"តើការបែងចែកប្រាក់ចំណេញយ៉ាងដូចម្តេច?","mm":"အမြတ်ခွဲဝေမှု ဘယ်လိုလဲ။","la":"ການແບ່ງກຳໄລເປັນແນວໃດ?"}}]},{"id":"futures","icon":"📊","name":{"th":"Futures","en":"Futures","vi":"Futures","kh":"Futures","mm":"Futures","la":"Futures"},"items":[{"id":"fut_open","q":{"th":"เปิดออเดอร์ Futures อย่างไร","en":"How do I open a Futures order?","vi":"Mở lệnh Futures như thế nào?","kh":"តើបើកការបញ្ជា Futures យ៉ាងដូចម្តេច?","mm":"Futures အော်ဒါ ဘယ်လိုဖွင့်ရမလဲ။","la":"ເປີດອໍເດີ Futures ແນວໃດ?"}},{"id":"fut_close","q":{"th":"ปิดออเดอร์ ตั้ง TP/SL ยกเลิกออเดอร์","en":"Closing orders, setting TP/SL and cancelling orders","vi":"Đóng lệnh, đặt TP/SL và hủy lệnh","kh":"បិទការបញ្ជា កំណត់ TP/SL និងលុបចោលការបញ្ជា","mm":"အော်ဒါပိတ်ခြင်း၊ TP/SL သတ်မှတ်ခြင်းနှင့် အော်ဒါပယ်ဖျက်ခြင်း","la":"ປິດອໍເດີ ຕັ້ງ TP/SL ແລະຍົກເລີກອໍເດີ"}},{"id":"fut_freeze","q":{"th":"สัญญาถูก Freeze / Auto-Liquidate คืออะไร","en":"What does a Frozen contract / Auto-Liquidate mean?","vi":"Hợp đồng bị Freeze / Auto-Liquidate nghĩa là gì?","kh":"កិច្ចសន្យាត្រូវបាន Freeze / Auto-Liquidate មានន័យដូចម្តេច?","mm":"စာချုပ် Freeze / Auto-Liquidate ဖြစ်ခြင်းဆိုတာ ဘာလဲ။","la":"ສັນຍາຖືກ Freeze / Auto-Liquidate ແມ່ນຫຍັງ?"}}]},{"id":"loan","icon":"🏦","name":{"th":"สินเชื่อ","en":"Loan","vi":"Vay (Loan)","kh":"ប្រាក់កម្ចី","mm":"ချေးငွေ","la":"ສິນເຊື່ອ"},"items":[{"id":"loan_how","q":{"th":"สินเชื่อ (Loan) ทำงานอย่างไร ดอกเบี้ยเท่าไร","en":"How does the Loan work and what is the interest rate?","vi":"Khoản vay (Loan) hoạt động thế nào và lãi suất bao nhiêu?","kh":"តើប្រាក់កម្ចី (Loan) ដំណើរការយ៉ាងដូចម្តេច ហើយការប្រាក់ប៉ុន្មាន?","mm":"ချေးငွေ (Loan) ဘယ်လိုအလုပ်လုပ်ပြီး အတိုးနှုန်း ဘယ်လောက်လဲ။","la":"ສິນເຊື່ອ (Loan) ເຮັດວຽກແນວໃດ ດອກເບ້ຍເທົ່າໃດ?"}},{"id":"loan_ltv","q":{"th":"LTV, Margin Call และการบังคับขายของสินเชื่อ","en":"Loan LTV, Margin Call and forced liquidation","vi":"LTV, Margin Call và bán cưỡng chế của khoản vay","kh":"LTV, Margin Call និងការបង្ខំលក់នៃប្រាក់កម្ចី","mm":"ချေးငွေ၏ LTV, Margin Call နှင့် အတင်းအကျပ်ရောင်းချမှု","la":"LTV, Margin Call ແລະການບັງຄັບຂາຍຂອງສິນເຊື່ອ"}},{"id":"loan_repay","q":{"th":"ชำระคืนสินเชื่อได้เมื่อไร มีค่าธรรมเนียมไหม","en":"When can I repay the Loan, and is there a fee?","vi":"Khi nào có thể trả nợ khoản vay và có mất phí không?","kh":"តើអាចសងប្រាក់កម្ចីពេលណា ហើយមានថ្លៃសេវាទេ?","mm":"ချေးငွေကို ဘယ်အချိန် ပြန်ဆပ်နိုင်ပြီး ကြေးရှိပါသလား။","la":"ຊຳລະສິນເຊື່ອຄືນໄດ້ເມື່ອໃດ ມີຄ່າທຳນຽມບໍ?"}}]},{"id":"commission","icon":"🤝","name":{"th":"คอมมิชชั่น","en":"Commission","vi":"Hoa hồng","kh":"កម្រៃជើងសារ","mm":"ကော်မရှင်","la":"ຄອມມິດຊັນ"},"items":[{"id":"comm_source","q":{"th":"ค่าคอมมิชชั่นมาจากไหน ได้เท่าไร","en":"Where does commission come from and how much is it?","vi":"Hoa hồng đến từ đâu và được bao nhiêu?","kh":"តើកម្រៃជើងសារមកពីណា ហើយបានប៉ុន្មាន?","mm":"ကော်မရှင်က ဘယ်ကရပြီး ဘယ်လောက်ရမလဲ။","la":"ຄ່າຄອມມິດຊັນມາຈາກໃສ ໄດ້ເທົ່າໃດ?"}},{"id":"comm_referral","q":{"th":"ค่าแนะนำสมาชิกใหม่ได้เท่าไร","en":"How much is the referral fee for new members?","vi":"Phí giới thiệu thành viên mới là bao nhiêu?","kh":"តើថ្លៃណែនាំសមាជិកថ្មីបានប៉ុន្មាន?","mm":"အဖွဲ့ဝင်အသစ် မိတ်ဆက်ကြေး ဘယ်လောက်ရမလဲ။","la":"ຄ່າແນະນຳສະມາຊິກໃໝ່ໄດ້ເທົ່າໃດ?"}},{"id":"comm_claim","q":{"th":"โอน/เคลมค่าคอมมิชชั่นได้เมื่อไร","en":"When can I transfer / claim commission?","vi":"Khi nào có thể chuyển / nhận (claim) hoa hồng?","kh":"តើអាចផ្ទេរ / ទាមទារកម្រៃជើងសារបានពេលណា?","mm":"ကော်မရှင်ကို ဘယ်အချိန် လွှဲ / claim လုပ်နိုင်မလဲ။","la":"ໂອນ/ເຄລມຄ່າຄອມມິດຊັນໄດ້ເມື່ອໃດ?"}}]},{"id":"market","icon":"🛒","name":{"th":"Marketplace","en":"Marketplace","vi":"Marketplace","kh":"Marketplace","mm":"Marketplace","la":"Marketplace"},"items":[{"id":"mp_intro","q":{"th":"Marketplace คืออะไร เข้าใช้งานอย่างไร","en":"What is the Marketplace and how do I use it?","vi":"Marketplace là gì và truy cập như thế nào?","kh":"តើ Marketplace ជាអ្វី ហើយចូលប្រើយ៉ាងដូចម្តេច?","mm":"Marketplace ဆိုတာ ဘာလဲ၊ ဘယ်လို ဝင်သုံးရမလဲ။","la":"Marketplace ແມ່ນຫຍັງ ເຂົ້າໃຊ້ງານແນວໃດ?"}},{"id":"mp_wallet","q":{"th":"ฝาก/ถอนเงินใน Marketplace มีค่าธรรมเนียมไหม","en":"Are there fees for deposits / withdrawals in the Marketplace?","vi":"Nạp / rút tiền trong Marketplace có mất phí không?","kh":"តើការដាក់ / ដកប្រាក់ក្នុង Marketplace មានថ្លៃសេវាទេ?","mm":"Marketplace ထဲတွင် ငွေသွင်း / ငွေထုတ်ရန် ကြေးရှိပါသလား။","la":"ຝາກ/ຖອນເງິນໃນ Marketplace ມີຄ່າທຳນຽມບໍ?"}},{"id":"mp_ff","q":{"th":"Funding Free (FF) คืออะไร","en":"What is Funding Free (FF)?","vi":"Funding Free (FF) là gì?","kh":"តើ Funding Free (FF) ជាអ្វី?","mm":"Funding Free (FF) ဆိုတာ ဘာလဲ။","la":"Funding Free (FF) ແມ່ນຫຍັງ?"}},{"id":"mp_seller","q":{"th":"สมัครเป็นผู้ขาย (Seller) ใน Marketplace","en":"How do I become a Seller in the Marketplace?","vi":"Đăng ký làm người bán (Seller) trong Marketplace","kh":"ចុះឈ្មោះជាអ្នកលក់ (Seller) ក្នុង Marketplace","mm":"Marketplace တွင် ရောင်းသူ (Seller) အဖြစ် လျှောက်ထားခြင်း","la":"ສະໝັກເປັນຜູ້ຂາຍ (Seller) ໃນ Marketplace"}}]},{"id":"kyc","icon":"🪪","name":{"th":"KYC","en":"KYC","vi":"KYC","kh":"KYC","mm":"KYC","la":"KYC"},"items":[{"id":"kyc_how","q":{"th":"ต้อง KYC หรือไม่ และ KYC อย่างไร","en":"Is KYC required and how do I do it?","vi":"Có cần KYC không và KYC như thế nào?","kh":"តើត្រូវ KYC ឬទេ ហើយ KYC យ៉ាងដូចម្តេច?","mm":"KYC လုပ်ရန် လိုပါသလား၊ ဘယ်လိုလုပ်ရမလဲ။","la":"ຕ້ອງ KYC ບໍ ແລະ KYC ແນວໃດ?"}},{"id":"kyc_limits","q":{"th":"ลิมิตการฝากถอนขึ้นกับอะไร","en":"What do deposit and withdrawal limits depend on?","vi":"Hạn mức nạp rút phụ thuộc vào điều gì?","kh":"តើកម្រិតកំណត់នៃការដាក់ដកប្រាក់អាស្រ័យលើអ្វី?","mm":"ငွေသွင်း/ငွေထုတ် ကန့်သတ်ချက်သည် ဘာပေါ်မူတည်သလဲ။","la":"ລິມິດການຝາກຖອນຂຶ້ນກັບຫຍັງ?"}},{"id":"kyc_help","q":{"th":"ติดปัญหาในการยืนยันตัวตน ทำอย่างไร","en":"I have a problem with verification. What should I do?","vi":"Gặp vấn đề khi xác minh danh tính, phải làm sao?","kh":"ជួបបញ្ហាក្នុងការផ្ទៀងផ្ទាត់អត្តសញ្ញាណ តើត្រូវធ្វើយ៉ាងណា?","mm":"အတည်ပြုရာတွင် ပြဿနာရှိပါက ဘာလုပ်ရမလဲ။","la":"ຕິດບັນຫາໃນການຢືນຢັນຕົວຕົນ ເຮັດແນວໃດ?"}}]},{"id":"general","icon":"💬","name":{"th":"ทั่วไป / ความปลอดภัย","en":"General / Security","vi":"Chung / Bảo mật","kh":"ទូទៅ / សុវត្ថិភាព","mm":"အထွေထွေ / လုံခြုံရေး","la":"ທົ່ວໄປ / ຄວາມປອດໄພ"},"items":[{"id":"chat_media","q":{"th":"ส่งรูปหรือวิดีโอในแชทได้ไหม","en":"Can I send photos or videos in chat?","vi":"Có thể gửi ảnh hoặc video trong chat không?","kh":"តើអាចផ្ញើរូបភាព ឬវីដេអូក្នុងការជជែកបានទេ?","mm":"ချက်တင်တွင် ဓာတ်ပုံ သို့မဟုတ် ဗီဒီယို ပို့လို့ရပါသလား။","la":"ສົ່ງຮູບ ຫຼື ວິດີໂອໃນແຊັດໄດ້ບໍ?"}},{"id":"security_secrets","q":{"th":"ต้องให้รหัสผ่าน / OTP / seed phrase / private key กับทีมงานไหม","en":"Do I need to give my password / OTP / seed phrase / private key to the team?","vi":"Có cần đưa mật khẩu / OTP / seed phrase / private key cho đội ngũ không?","kh":"តើត្រូវផ្តល់ពាក្យសម្ងាត់ / OTP / seed phrase / private key ដល់ក្រុមការងារទេ?","mm":"စကားဝှက် / OTP / seed phrase / private key ကို အဖွဲ့အား ပေးရန် လိုပါသလား။","la":"ຕ້ອງໃຫ້ລະຫັດຜ່ານ / OTP / seed phrase / private key ກັບທີມງານບໍ?"}},{"id":"whale","q":{"th":"วาฬแจ้งเตือน (Whale Alert / Whale Tracker) คืออะไร","en":"What is Whale Alert / Whale Tracker?","vi":"Whale Alert / Whale Tracker (cá voi) là gì?","kh":"តើ Whale Alert / Whale Tracker ជាអ្វី?","mm":"Whale Alert / Whale Tracker ဆိုတာ ဘာလဲ။","la":"Whale Alert / Whale Tracker (ປາວານ) ແມ່ນຫຍັງ?"}}]}];
 
 // ================= Config =================
 const $ = s => document.querySelector(s);
@@ -303,6 +332,7 @@ const I18N = {
   fromApp:  ["เปิดแชทจากในแอปเท่านั้น", "Open this chat from inside the app", "Hãy mở trò chuyện từ trong ứng dụng", "សូមបើកការជជែកពីក្នុងកម្មវិធី", "အက်ပ်အတွင်းမှသာ ချတ်ကို ဖွင့်ပါ", "ກະລຸນາເປີດແຊັດຈາກໃນແອັບ"],
   aiLabel:  ["ผู้ช่วย AI", "AI assistant", "Trợ lý AI", "ជំនួយការ AI", "AI လက်ထောက်", "ຜູ້ຊ່ວຍ AI"],
   talkStaff:["คุยกับเจ้าหน้าที่", "Talk to a human", "Nói chuyện với nhân viên", "និយាយជាមួយបុគ្គលិក", "ဝန်ထမ်းနှင့်ပြောရန်", "ລົມກັບເຈົ້າໜ້າທີ່"],
+  guide:    ["เมนูไกด์ไลน์", "Guideline menu", "Menu hướng dẫn", "ម៉ឺនុយណែនាំ", "လမ်းညွှန်မီနူး", "ເມນູໄກດ໌ໄລນ໌"],
   handoffOk:["ส่งเรื่องให้เจ้าหน้าที่แล้ว", "Passed to our team", "Đã chuyển cho nhân viên", "បានបញ្ជូនទៅបុគ្គលិក", "ဝန်ထမ်းထံ လွှဲပြောင်းပြီး", "ສົ່ງຕໍ່ເຈົ້າໜ້າທີ່ແລ້ວ"],
   empty:    ["ยังไม่มีข้อความ ส่งข้อความถึงทีมซัพพอร์ตได้เลย", "No messages yet. Send a message to the support team", "Chưa có tin nhắn. Hãy nhắn cho đội hỗ trợ", "មិនទាន់មានសារ។ ផ្ញើសារទៅក្រុមគាំទ្រ", "မက်ဆေ့ချ် မရှိသေးပါ။ ပံ့ပိုးရေးအဖွဲ့ထံ ပို့ပါ", "ຍັງບໍ່ມີຂໍ້ຄວາມ ສົ່ງຫາທີມຊ່ວຍເຫຼືອໄດ້ເລີຍ"],
 };
@@ -315,6 +345,7 @@ function applyI18n() {
   $("#input").placeholder = T("ph");
   $("#staffBtn").textContent = T("talkStaff");
   if (peer && !IS_ADMIN) { peer.name = T("support"); $("#pname").textContent = peer.name; renderMsgs(false); }
+  paintGuide();
 }
 
 // ---- ยืนยันตัวตน ----
@@ -591,6 +622,7 @@ function openChat(u) {
   msgs = new Map(); lastId = 0; lastUpd = 0; peerRead = 0; peerTyping = false; reportedRead = 0;
   setReply(null); $("#stickers").classList.remove("on");
   aiSt = { avail: false, disabled: 0, paused: false }; paintAi();
+  guideReady = false; paintGuide();
   paintHeadAv();
   $("#pname").textContent = peer.name; $("#pst").textContent = "";
   $("#msgs").innerHTML = ""; $("#input").value = ""; autoGrow();
@@ -630,6 +662,7 @@ async function pollChat(first) {
     if (d.ai && (d.ai.avail !== aiSt.avail || d.ai.disabled !== aiSt.disabled || d.ai.paused !== aiSt.paused)) { aiSt = d.ai; paintAi(); }
     if (d.typing !== peerTyping) { peerTyping = d.typing; $("#pst").textContent = d.typing ? T("typing") : ""; }
     if (changed) renderMsgs(first);
+    if (first && !guideReady) guideStart();
     reportRead();
   } catch (e) { if (first) toast(e.message); }
   finally { busyChat = false; }
@@ -764,6 +797,54 @@ function renderMsgs(forceBottom) {
   if (forceBottom || near) box.scrollTop = box.scrollHeight;
 }
 
+// ---- เมนูไกด์ไลน์ (สมาชิกเท่านั้น): หมวด → คำถามตัวอย่าง · กดแล้วส่งเป็นข้อความพร้อม qid/cat ให้ Worker ตอบตรงจาก FAQ ----
+let guideReady = false, guideCat = "";
+const GUIDE_KEY = "sc_guide";
+const guideOn = () => !IS_ADMIN && !!peer && peer.id === SUPPORT_ID && GUIDE.length > 0;
+function paintGuide() {
+  const g = $("#guide"), on = guideOn();
+  g.classList.toggle("on", on);
+  if (!on) return;
+  $("#gtogTx").textContent = T("guide");
+  if (!GUIDE.some(c => c.id === guideCat)) guideCat = GUIDE[0].id;
+  const cats = $("#gcats"), keep = cats.scrollLeft;
+  cats.innerHTML = "";
+  GUIDE.forEach(c => {
+    const b = document.createElement("button"); b.type = "button";
+    b.className = "gcat" + (c.id === guideCat ? " on" : "");
+    b.textContent = c.icon + " " + (c.name[LANG] || c.name.th);
+    b.onclick = () => { guideCat = c.id; paintGuide(); };
+    cats.appendChild(b);
+  });
+  cats.scrollLeft = keep;
+  const qs = $("#gqs"); qs.innerHTML = "";
+  const cur = GUIDE.find(c => c.id === guideCat);
+  cur.items.forEach(it => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "gq";
+    b.textContent = it.q[LANG] || it.q.th;
+    b.onclick = () => sendGuide(cur, it);
+    qs.appendChild(b);
+  });
+}
+function setGuideOpen(open, save) {
+  $("#guide").classList.toggle("open", !!open);
+  $("#gtog").setAttribute("aria-expanded", open ? "true" : "false");
+  if (save) { try { localStorage.setItem(GUIDE_KEY, open ? "1" : "0"); } catch (_) { } }
+  setTimeout(() => { const m = $("#msgs"); m.scrollTop = m.scrollHeight; }, 50);
+}
+// ตั้งสถานะเริ่มต้นครั้งเดียวต่อการเปิดห้อง: ถ้าสมาชิกเคยเปิด/ปิดไว้ใช้ตามนั้น · ไม่เคย → ห้องที่ยังไม่มีข้อความเปิดไว้ ห้องที่คุยแล้วพับไว้
+function guideStart() {
+  guideReady = true;
+  if (!guideOn()) return;
+  let st = ""; try { st = localStorage.getItem(GUIDE_KEY) || ""; } catch (_) { }
+  setGuideOpen(st === "1" ? true : st === "0" ? false : msgs.size === 0, false);
+}
+function sendGuide(c, it) {
+  setGuideOpen(false, false);   // พับเมนูเพื่อให้เห็นคำตอบ (ไม่บันทึกเป็นความชอบของสมาชิก)
+  sendMessage("text", it.q[LANG] || it.q.th, { qid: it.id, cat: c.id });
+}
+$("#gtog").onclick = () => setGuideOpen(!$("#guide").classList.contains("open"), true);
+
 // ---- AI: ปุ่มคุยกับเจ้าหน้าที่ (สมาชิก) / สวิตช์รายห้อง (แอดมิน) ----
 function paintAi() {
   const on = !!aiSt.avail && !aiSt.disabled;
@@ -830,7 +911,7 @@ function setReply(m) {
 $("#rbx").onclick = () => setReply(null);
 
 // ---- send ----
-async function sendMessage(type, content) {
+async function sendMessage(type, content, extra) {
   if (!peer) return;
   const tid = 1e15 + (++tmpN);
   const temp = { id: tid, mine: true, type, content, reply_to: replyTo ? replyTo.id : null, deleted: 0, created_at: Date.now(), updated_at: 0 };
@@ -838,7 +919,7 @@ async function sendMessage(type, content) {
   const rid = temp.reply_to;
   setReply(null);
   try {
-    const d = await api("/api/messages", { method: "POST", body: { to: peer.id, peer_name: peer.name, type, content, reply_to: rid, lang: IS_ADMIN ? undefined : LANG } });
+    const d = await api("/api/messages", { method: "POST", body: { to: peer.id, peer_name: peer.name, type, content, reply_to: rid, lang: IS_ADMIN ? undefined : LANG, qid: extra && extra.qid, cat: extra && extra.cat } });
     msgs.delete(tid);
     msgs.set(d.id, { ...temp, id: d.id, created_at: d.created_at, updated_at: d.created_at });
     if (d.id > lastId) lastId = d.id;

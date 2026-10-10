@@ -381,7 +381,7 @@ tr:hover td{background:var(--bgh)}
     <p style="font-size:11px;color:var(--t2);text-align:center">
       ยังไม่มีบัญชี? <a href="javascript:void(0)" onclick="showLockState('signup')" style="color:var(--goldb)">สมัครสมาชิก</a>
     </p>
-    <p style="font-size:10px;color:var(--t3)">TCC Admin v3.1 · Email+Password+OTP · NocoDB + GAS Backend</p>
+    <p style="font-size:10px;color:var(--t3)">TCC Admin v4.0 · sync Main v6.4-COMM2 · Email+Password+OTP · GAS Backend</p>
   </div>
 
   <!-- STATE: SIGNUP -->
@@ -1088,6 +1088,7 @@ tr:hover td{background:var(--bgh)}
             <div class="ctitle">📋 ข้อมูลระบบ</div>
             <div class="dr"><div class="dk">Admin Version</div><div class="dv">v2.4 (NocoDB+GAS)</div></div>
             <div class="dr"><div class="dk">เข้าระบบเมื่อ</div><div class="dv" id="loginAt">—</div></div>
+            <div class="dr" id="adminMgrRow" style="display:none"><div class="dk">จัดการแอดมิน / สิทธิ์</div><div class="dv"><button class="ab vi" onclick="openAdminMgr()">เปิด (owner)</button></div></div>
             <div class="dr"><div class="dk">Auto Refresh</div><div class="dv">ทุก 30 วินาที</div></div>
             <div class="dr"><div class="dk">NocoDB Status</div><div class="dv"><span id="ndbStatus" class="pill p-pend">ยังไม่ได้ทดสอบ</span></div></div>
             <div class="dr"><div class="dk">GAS Status</div><div class="dv"><span id="gasStatus" class="pill p-pend">ยังไม่ได้ทดสอบ</span></div></div>
@@ -1182,8 +1183,6 @@ tr:hover td{background:var(--bgh)}
 // ── Config ──
 // ⚠️ ใส่ URL ของ Web App ที่ deploy จาก GAS_TCC_TH_Admin.js (ไฟล์แอดมินที่แก้แล้ว)
 const ADMIN_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsIzb3VrtwgJM22j1BV_S5jqOwJrWHZulMsrZkhDgivJ3wxhegtQ3NB8uKGggdaEkmyQ/exec';
-const ADMIN_KEY  = 'tcc_admin_h';
-const DEF_PASS   = 'tcc@admin2024';
 const PG         = 15; // rows per page
 
 // ── App State ──
@@ -1214,6 +1213,51 @@ let _ecTimer = null; // Earn Contract modal countdown timer
 // ══════════════════════════════════════════
 let _pendingEmail = ''; // อีเมลที่กำลังรอ OTP (login flow)
 
+// ── [v4.0] ROLE / SESSION TOKEN — คีย์กลางถูกถอดออกจากหน้านี้แล้ว · สิทธิ์ตัวจริงบังคับที่ GAS (ที่นี่แค่ซ่อนเมนู/แจ้งผู้ใช้) ──
+let _adminToken = sessionStorage.getItem('tcc_admin_token') || '';
+let _role  = sessionStorage.getItem('tcc_admin_role') || '';
+let _perms = [];
+const _ROLE_LABEL = { owner:'L4 Owner', finance:'L3 Finance', ops:'L2 Ops/Trading', support:'L1 Support' };
+const _ROLE_MENUS = {
+  owner:   null, // ทุกเมนู
+  finance: ['dashboard','search','deposits','withdrawals','txlog','members','revenue','team','settings'],
+  ops:     ['dashboard','search','txlog','members','positions','earncontracts','futures','fundingfee','supportchat','settings'],
+  support: ['search','members','supportchat','settings'],
+};
+const _AUTH_NOTOKEN = ['adminSignup','adminLogin','adminVerifyOtp','adminRequestUnlock','adminUnlock','adminChangePassword','ping'];
+let _expiredShown = false;
+function _esc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function can(action){ return _perms.indexOf('*')>-1 || _perms.indexOf(action)>-1 || action==='adminWhoAmI'; }
+function _clearSession(){
+  _adminToken=''; _role=''; _perms=[];
+  ['tcc_admin_token','tcc_admin_role','tcc_admin_email'].forEach(k=>sessionStorage.removeItem(k));
+}
+function _sessionExpired(msg){
+  if (_expiredShown) return; _expiredShown = true;
+  toast('🔒 '+(msg||'session หมดอายุ — กรุณาเข้าสู่ระบบใหม่'),'er');
+  logout();
+  setTimeout(()=>{ _expiredShown = false; }, 3000);
+}
+function applyRoleUI(){
+  const allow = _ROLE_MENUS[_role];            // null = ทุกเมนู
+  document.querySelectorAll('.sb-nav .si').forEach(si=>{
+    const m = /go\('([a-z]+)'\)/.exec(si.getAttribute('onclick')||'');
+    const id = m ? m[1] : '';
+    si.style.display = (!allow || allow.indexOf(id)>-1) ? '' : 'none';
+  });
+  // ซ่อนหัวข้อหมวดที่ไม่เหลือเมนู
+  document.querySelectorAll('.sb-nav .sb-sec').forEach(sec=>{
+    let n = sec.nextElementSibling, any = false;
+    while (n && !n.classList.contains('sb-sec')) { if (n.classList.contains('si') && n.style.display!=='none') any = true; n = n.nextElementSibling; }
+    sec.style.display = any ? '' : 'none';
+  });
+  const mgr = document.getElementById('adminMgrRow');
+  if (mgr) mgr.style.display = (_role==='owner') ? '' : 'none';
+  const first = allow ? allow[0] : 'dashboard';
+  const cur = document.querySelector('.panel.on');
+  if (allow && cur && allow.indexOf(cur.id.replace(/^p-/,''))===-1) go(first);
+}
+
 function showLockState(state) {
   ['login','signup','otp','locked'].forEach(s=>{
     document.getElementById('lk-'+s).style.display = (s===state) ? 'flex' : 'none';
@@ -1223,10 +1267,17 @@ function showLockState(state) {
   });
 }
 
-function _afterLoginSuccess(email) {
+function _afterLoginSuccess(email, sess) {
+  // sess = { token?, role, perms, bootstrap } จาก adminLogin / adminVerifyOtp / adminWhoAmI
+  if (sess && sess.token) { _adminToken = sess.token; sessionStorage.setItem('tcc_admin_token', sess.token); }
+  _role  = (sess && sess.role)  || _role  || 'support';
+  _perms = (sess && sess.perms) || _perms || [];
+  sessionStorage.setItem('tcc_admin_role', _role);
   document.getElementById('lock').style.display = 'none';
   document.getElementById('app').classList.add('on');
-  document.getElementById('loginAt').textContent = new Date().toLocaleString('th-TH');
+  document.getElementById('loginAt').textContent = new Date().toLocaleString('th-TH') + ' · ' + (_ROLE_LABEL[_role]||_role);
+  applyRoleUI();
+  if (sess && sess.bootstrap) toast('⚠️ ยังไม่มี owner ในชีต AdminUsers — ทุกบัญชีที่อนุมัติแล้วเป็น owner ชั่วคราว · รัน setAdminRole(\'อีเมล\',\'owner\') ใน GAS Editor เพื่อกำหนดสิทธิ์','er');
   document.getElementById('cfg-gas').textContent = ADMIN_SCRIPT_URL.slice(0,60)+'...';
   sessionStorage.setItem('tcc_admin_email', email);
   startClock(); loadAll(); startAuto();
@@ -1254,7 +1305,8 @@ async function doLogin() {
 
   if (res.status === 'ok') {
     document.getElementById('lkPass').value = '';
-    _afterLoginSuccess(email);
+    if (!res.token) { _showErr('lkErr','GAS ยังเป็นเวอร์ชันเก่า (ไม่คืน session token) — deploy GAS Admin v4.0 ก่อน'); return; }
+    _afterLoginSuccess(email, res);
   } else if (res.status === 'otp_required') {
     _pendingEmail = email;
     document.getElementById('otpEmailShow').textContent = email;
@@ -1314,7 +1366,8 @@ async function doVerifyOtp() {
   if (!res) { _showErr('otpErr','เชื่อมต่อ GAS ไม่ได้'); return; }
   if (res.status === 'ok') {
     document.getElementById('otpCode').value = '';
-    _afterLoginSuccess(_pendingEmail);
+    if (!res.token) { _showErr('otpErr','GAS ยังเป็นเวอร์ชันเก่า (ไม่คืน session token) — deploy GAS Admin v4.0 ก่อน'); return; }
+    _afterLoginSuccess(_pendingEmail, res);
   } else {
     _showErr('otpErr', res.message || 'รหัส OTP ไม่ถูกต้อง');
   }
@@ -1369,7 +1422,7 @@ function logout() {
   showLockState('login');
   document.getElementById('lkEmail').value = '';
   document.getElementById('lkPass').value = '';
-  sessionStorage.removeItem('tcc_admin_email');
+  _clearSession();
   clearInterval(_autoTimer);
 }
 
@@ -1462,11 +1515,13 @@ async function gasAdminCall(action, params={}) {
   try {
     const u = new URL(ADMIN_SCRIPT_URL);
     u.searchParams.set('action', action);
-    u.searchParams.set('_adminKey', 'tcc_admin_v2');
+    if (_adminToken) u.searchParams.set('_adminToken', _adminToken);
     Object.entries(params).forEach(([k,v])=>{ if(v!==undefined&&v!==null) u.searchParams.set(k,v); });
     const r = await fetch(u.toString(), { redirect:'follow' });
     if (!r.ok) throw new Error('HTTP '+r.status);
-    return await r.json();
+    const j = await r.json();
+    if (j && j.code==='UNAUTHORIZED' && _AUTH_NOTOKEN.indexOf(action)===-1) _sessionExpired(j.message);
+    return j;
   } catch(e) {
     console.warn('[Admin GAS]', action, e.message);
     return null;
@@ -1476,13 +1531,21 @@ async function gasAdminCall(action, params={}) {
 // GAS write (admin actions → ADMIN_SCRIPT_URL, POST)
 async function gasWrite(action, data={}) {
   try {
+    // [v4.0] เช็กสิทธิ์เบื้องต้นฝั่งหน้าเว็บ (ตัวจริงบังคับที่ GAS) — ไม่ต้องยิงถ้ารู้อยู่แล้วว่าไม่ได้รับอนุญาต
+    if (_AUTH_NOTOKEN.indexOf(action)===-1 && _perms.length && !can(action)) {
+      toast('⛔ สิทธิ์ของคุณ ('+(_ROLE_LABEL[_role]||_role)+') ใช้งาน '+action+' ไม่ได้','er');
+      return { status:'error', code:'FORBIDDEN', message:'สิทธิ์ไม่พอ' };
+    }
     const r = await fetch(ADMIN_SCRIPT_URL, {
       method:'POST', redirect:'follow',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action, ...data, _adminKey: 'tcc_admin_v2' }),
+      body: JSON.stringify({ action, ...data, _adminToken }),
     });
     if (!r.ok) throw new Error('HTTP '+r.status);
-    return await r.json();
+    const j = await r.json();
+    if (j && j.code==='UNAUTHORIZED' && _AUTH_NOTOKEN.indexOf(action)===-1) _sessionExpired(j.message);
+    else if (j && j.code==='FORBIDDEN') toast('⛔ '+(j.message||'สิทธิ์ไม่พอ'),'er');
+    return j;
   } catch(e) {
     console.warn('[Admin GAS write]', action, e.message);
     toast('❌ GAS Error ['+action+']: '+e.message,'er');
@@ -1492,26 +1555,28 @@ async function gasWrite(action, data={}) {
 
 async function loadAll() {
   toast('🔄 กำลังโหลดข้อมูล...','');
+  // [v4.0] โหลดเฉพาะ action ที่ role นี้มีสิทธิ์ (ข้อมูลที่ไม่มีสิทธิ์ = ว่าง ไม่ยิงให้ GAS ปฏิเสธ/บันทึก adminDenied รัวๆ)
+  const C = (a,p)=> can(a) ? gasAdminCall(a,p) : Promise.resolve(null);
   try {
     // โหลดทุก API พร้อมกัน — members + ข้อมูลอื่นๆ ทั้งหมดในคราวเดียว (ไม่มี race condition)
     const [memRes, deps, wds, txs, pos, posH, ords, ec, fund, refs, team, sysStats, fPos, fOrd, lns, sCoins] =
       await Promise.allSettled([
-        gasAdminCall('adminGetMembers', { limit: 5000 }),
-        gasAdminCall('adminGetDeposits', { status: 'all' }),
-        gasAdminCall('adminGetWithdrawals', { status: 'all' }),
-        gasAdminCall('adminGetTransactions', { limit: 1000 }),
-        gasAdminCall('adminGetOpenPositions'),
-        gasAdminCall('adminGetPositionHistory'),
-        gasAdminCall('adminGetOpenOrders'),
-        gasAdminCall('adminGetEarnContracts'),
-        gasAdminCall('adminGetFunding'),
-        gasAdminCall('adminGetReferrals'),
-        gasAdminCall('adminGetTeamList'),
-        gasAdminCall('adminGetSystemStats'),
-        gasAdminCall('adminGetFuturesPositions'),
-        gasAdminCall('adminGetFuturesOrders'),
-        gasAdminCall('adminGetLoans'),
-        gasAdminCall('adminGetSpotCoins'),
+        C('adminGetMembers', { limit: 5000 }),
+        C('adminGetDeposits', { status: 'all' }),
+        C('adminGetWithdrawals', { status: 'all' }),
+        (_role==='support' ? Promise.resolve(null) : C('adminGetTransactions', { limit: 1000 })), // L1 ดูได้เฉพาะรายสมาชิก (ต้องมี uid)
+        C('adminGetOpenPositions'),
+        C('adminGetPositionHistory'),
+        C('adminGetOpenOrders'),
+        C('adminGetEarnContracts'),
+        C('adminGetFunding'),
+        C('adminGetReferrals'),
+        C('adminGetTeamList'),
+        C('adminGetSystemStats'),
+        C('adminGetFuturesPositions'),
+        C('adminGetFuturesOrders'),
+        C('adminGetLoans'),
+        C('adminGetSpotCoins'),
       ]);
 
     // map members (PascalCase legacy fields)
@@ -4436,7 +4501,7 @@ async function testGAS() {
     const ok=r?.status==='ok';
     document.getElementById('gasStatus').className='pill '+(ok?'p-ok':'p-no');
     document.getElementById('gasStatus').textContent=ok?'✅ ตอบสนอง':'❌ ไม่ตอบสนอง';
-    toast(ok?'✅ GAS ตอบสนอง':'❌ GAS ไม่ตอบสนอง — ตรวจสอบ _adminKey/Deploy URL','');
+    toast(ok?'✅ GAS ตอบสนอง':'❌ GAS ไม่ตอบสนอง — ตรวจสอบ Deploy URL','');
   } catch(e) {
     document.getElementById('gasStatus').className='pill p-no';
     document.getElementById('gasStatus').textContent='❌ '+e.message;
@@ -4588,8 +4653,13 @@ initMobile();
 //  (sessionStorage จะถูกล้างอัตโนมัติเมื่อปิดแท็บ ตรงตามพฤติกรรม "session" ที่ตั้งใจไว้)
 // ══════════════════════════════════════════
 (function restoreSession(){
+  // [v4.0] ไม่เชื่อ email ใน sessionStorage อีกต่อไป — ต้องมี token และให้ GAS ยืนยัน (adminWhoAmI) ก่อนเข้าระบบ
   const savedEmail = sessionStorage.getItem('tcc_admin_email');
-  if (savedEmail) _afterLoginSuccess(savedEmail);
+  if (!savedEmail || !_adminToken) { _clearSession(); return; }
+  gasAdminCall('adminWhoAmI').then(r=>{
+    if (r && r.status==='ok') _afterLoginSuccess(savedEmail, { role:r.role, perms:r.perms, bootstrap:r.bootstrap });
+    else _clearSession();
+  });
 })();
 window.addEventListener('resize', initMobile);
 
@@ -4601,6 +4671,35 @@ document.getElementById('suPass2').addEventListener('keydown',e=>{ if(e.key==='E
 document.getElementById('otpCode').addEventListener('keydown',e=>{ if(e.key==='Enter') doVerifyOtp(); });
 document.getElementById('unlockEmail').addEventListener('keydown',e=>{ if(e.key==='Enter') doRequestUnlock(); });
 document.getElementById('unlockOtpCode').addEventListener('keydown',e=>{ if(e.key==='Enter') doUnlock(); });
+
+
+// ══════════════════════════════════════════
+//  🔐 ADMIN MANAGER (owner เท่านั้น — GAS บังคับสิทธิ์อีกชั้น)
+// ══════════════════════════════════════════
+async function openAdminMgr() {
+  const res = await gasAdminCall('adminListAdmins');
+  if (!res || res.status!=='ok') { toast('⚠️ โหลดรายชื่อแอดมินไม่ได้: '+(res?.message||''),'er'); return; }
+  const roles = ['owner','finance','ops','support'];
+  const rows = (res.data||[]).map((a,i)=>`
+    <tr>
+      <td style="font-size:11px">${_esc(a.email)}${a.locked?' 🔒':''}</td>
+      <td><select id="am-role-${i}">${roles.map(r=>`<option value="${r}" ${a.role===r?'selected':''}>${_ROLE_LABEL[r]}</option>`).join('')}</select></td>
+      <td><input type="checkbox" id="am-ap-${i}" ${a.approved?'checked':''}></td>
+      <td><button class="ab ok" onclick='saveAdminRole(${JSON.stringify(a.email).replace(/'/g,"&#39;")},${i})'>บันทึก</button></td>
+    </tr>`).join('');
+  modal('🔐 จัดการแอดมิน / สิทธิ์', `
+    ${res.bootstrap?'<div style="color:var(--gold);font-size:11px;margin-bottom:8px">⚠️ ยังไม่มี owner ที่กำหนดชัดเจน — กำหนด owner ให้ตัวเองก่อน</div>':''}
+    <div style="overflow:auto;max-height:55vh"><table class="tbl"><thead><tr><th>อีเมล</th><th>Role</th><th>อนุมัติ</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="4">ไม่มีข้อมูล</td></tr>'}</tbody></table></div>
+    <div style="font-size:10px;color:var(--t3);margin-top:8px">เปลี่ยนสิทธิ์ตัวเองไม่ได้ · ต้องเหลือ owner อย่างน้อย 1 คน · มีผลทันทีทุก request</div>
+  `, [{l:'ปิด',c:'can',fn:'cm()'}]);
+}
+async function saveAdminRole(email, i) {
+  const role = document.getElementById('am-role-'+i)?.value;
+  const approved = !!document.getElementById('am-ap-'+i)?.checked;
+  const res = await gasWrite('adminSetAdminRole', { email, role, approved });
+  if (res?.status==='ok') toast('✅ บันทึกสิทธิ์ '+email+' → '+(_ROLE_LABEL[res.role]||res.role),'ok');
+  else toast('⚠️ '+(res?.message||'บันทึกไม่สำเร็จ'),'er');
+}
 
 // ══════════════════════════════════════════
 //  👥 TEAM MANAGEMENT  (Team sheet จริง — key: team_name)
@@ -4626,7 +4725,7 @@ function rteam() {
       <td><span class="pill ${t.status==='active'?'p-act':'p-frz'}">${t.status||'—'}</span></td>
       <td>
         <button class="ab vi" onclick='openUpsertTeam(${JSON.stringify(t).replace(/'/g,"&#39;")})'>แก้ไข</button>
-        <button class="ab ok" onclick="openWdTeamComm('${t.team_name||''}')">ถอน Commission</button>
+        <button class="ab ok" onclick="openWdTeamComm('${t.team_name||''}')">วิธีถอน Commission</button>
       </td>
     </tr>`).join('')
   : '<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--t3)">ไม่มีข้อมูล — กด รีเฟรช เพื่อดึงข้อมูลจาก adminGetTeamList</td></tr>';
@@ -4665,20 +4764,18 @@ async function doUpsertTeam() {
 function openWdTeamComm(teamName) {
   modal('💸 ถอน Commission ของทีม', `
     <div class="dr"><div class="dk">Team</div><div class="dv">${teamName||'—'}</div></div>
-    <div class="mf"><label>จำนวน (USDT)</label><input id="twc-amt" type="number" step="0.01" min="0" placeholder="0.00"></div>
-    <div class="mf"><label>หมายเหตุ</label><input id="twc-note" placeholder="ถอน commission..."></div>
-  `, [{l:'ยืนยันถอน',c:'pri',fn:`doWdTeamComm('${teamName}')`},{l:'ยกเลิก',c:'can',fn:'cm()'}]);
+    <div style="font-size:12px;color:var(--t2);line-height:1.6;margin-top:8px">
+      ตั้งแต่ Main v6.3-COMM ค่าคอมของหัวหน้าทีมอยู่ใน <b>CommissionLedger</b> และ <code>withdrawTeamCommission</code> ถูกปิดถาวร<br>
+      หัวหน้าทีมโอนเข้า Main Balance เองจากหน้าสมาชิก (<code>logCommissionTransfer</code> · toMain)<br>
+      หากต้องปรับยอดให้ใช้เมนู <b>ปรับ Balance สมาชิก</b> ของหัวหน้าทีม (field = commission_balance) พร้อมหมายเหตุ
+    </div>
+  `, [{l:'ปิด',c:'can',fn:'cm()'}]);
 }
 
 async function doWdTeamComm(teamName) {
-  const amt  = parseFloat(document.getElementById('twc-amt')?.value||0);
-  const note = document.getElementById('twc-note')?.value?.trim()||'';
-  if(!amt||amt<=0){ toast('กรุณาระบุจำนวนที่ถูกต้อง','er'); return; }
+  // [v4.0 SYNC-COMM2] ปิดแล้ว — Main v6.3-COMM+ ไม่มี withdrawTeamCommission (throw) · ดู openWdTeamComm
   cm();
-  // ⚠️ ใช้ adminAdjustSystemBalance ไม่ได้ตรง — withdrawTeamCommission อยู่ฝั่ง v2 (user-facing)
-  // ฝั่ง Admin ปรับผ่าน adminUpsertTeam ไม่ได้ปรับ commission_balance ตรง จึงใช้วิธีหักผ่าน
-  // adminAdjustSystemBalance เทียบเท่าไม่ได้ — แจ้งเตือนให้ใช้ withdrawTeamCommission จาก v2 โดยตรง
-  toast('⚠️ การถอน Commission ทีมต้องดำเนินการผ่านฟังก์ชัน withdrawTeamCommission ของ GAS_TCC_TH_v2 โดยตรง (ยังไม่รองรับจาก Admin Panel นี้)','er');
+  toast('ℹ️ หัวหน้าทีมถอนค่าคอมเองผ่าน logCommissionTransfer (toMain) — Admin ไม่มีปุ่มถอนแทน','er');
 }
 
 // ══════════════════════════════════════════
@@ -4733,6 +4830,11 @@ async function doAdjSystemBalance() {
 //  💸 DISTRIBUTE PROFIT
 // ══════════════════════════════════════════
 function openDistributeProfit(bid) {
+  // [v4.0 SYNC-DIST] GAS Admin ปิด adminDistributeProfit (ALLOW_LEGACY_DISTRIBUTE=false) — Main แจกกำไรให้อัตโนมัติ
+  if (!window.ALLOW_LEGACY_DISTRIBUTE) {
+    toast('⚠️ ปิดใช้งาน: Main v6.4-COMM2 แจกกำไร + Commission ให้อัตโนมัติ — การแจกมือจะจ่ายซ้ำ','er');
+    return;
+  }
   modal('💸 แจกกำไร (Distribute Profit)', `
     <div class="dr"><div class="dk">BNB ID</div><div class="dv mono" style="color:var(--gold)">${bid}</div></div>
     <div class="mf"><label>กำไรขั้นต้น (Net Profit, USDT) — จะถูกแบ่ง 40/40/10/10</label><input id="dist-amt" type="number" step="0.01" placeholder="0.00"></div>

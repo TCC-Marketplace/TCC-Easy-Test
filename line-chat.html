@@ -94,6 +94,17 @@ svg{display:block}
 .row.me .quote{border-left-color:rgba(0,0,0,.35);color:rgba(0,0,0,.65)}
 .row.me .quote b{color:rgba(0,0,0,.85)}
 .pending{opacity:.55}
+.aitag{font-size:10px;color:var(--green);margin:0 2px 3px;display:flex;align-items:center;gap:3px;font-weight:600}
+.aitag::before{content:"AI";background:var(--green);color:#06130a;border-radius:4px;padding:0 4px;font-size:9px;font-weight:800}
+.row.me .aitag{justify-content:flex-end}
+.staffbar{display:none;background:var(--bg);border-top:1px solid var(--line);padding:7px 10px;flex-shrink:0;justify-content:center}
+.staffbar.on{display:flex}
+.staffbar button{border:1px solid var(--green);color:var(--green);border-radius:16px;padding:6px 16px;font-size:13px;font-weight:600}
+.staffbar button:active{background:rgba(6,199,85,.15)}
+.staffbar button:disabled{opacity:.5}
+.aipill{display:none;border:1px solid var(--tx2);color:var(--tx2);border-radius:14px;padding:4px 11px;font-size:12px;font-weight:700;flex-shrink:0}
+.aipill.on{border-color:var(--green);color:var(--green)}
+.aipill.pause{border-color:#d9a400;color:#d9a400}
 
 .replybar{display:none;background:var(--surface);padding:7px 12px;align-items:center;gap:10px;border-top:1px solid var(--line);flex-shrink:0}
 .replybar.on{display:flex}
@@ -200,6 +211,7 @@ svg{display:block}
         <div class="nm" id="pname"></div>
         <div class="st" id="pst"></div>
       </div>
+      <button class="aipill" id="aiPill" aria-label="AI"></button>
     </div>
     <div class="msgs" id="msgs"></div>
     <div class="replybar" id="replybar">
@@ -207,6 +219,7 @@ svg{display:block}
       <button class="x" id="rbx">✕</button>
     </div>
     <div class="stickers" id="stickers"></div>
+    <div class="staffbar" id="staffbar"><button id="staffBtn" type="button"></button></div>
     <div class="ibar">
       <button class="ib" id="imgBtn" aria-label="รูปภาพ">
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="4" width="20" height="18" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M4 20l6-6 4 4 3-3 6 5"/></svg>
@@ -288,6 +301,9 @@ const I18N = {
   upl:      ["กำลังอัปโหลด", "Uploading", "Đang tải lên", "កំពុងផ្ទុកឡើង", "တင်နေသည်", "ກຳລັງອັບໂຫຼດ"],
   authFail: ["ยืนยันตัวตนไม่ผ่าน กรุณาเข้าสู่ระบบแอปใหม่", "Sign-in check failed. Please log in to the app again", "Xác thực thất bại. Vui lòng đăng nhập lại ứng dụng", "ការផ្ទៀងផ្ទាត់បរាជ័យ សូមចូលកម្មវិធីម្តងទៀត", "အတည်ပြုမှု မအောင်မြင်ပါ။ အက်ပ်သို့ ပြန်လည်ဝင်ပါ", "ການຢືນຢັນບໍ່ຜ່ານ ກະລຸນາເຂົ້າສູ່ລະບົບແອັບອີກຄັ້ງ"],
   fromApp:  ["เปิดแชทจากในแอปเท่านั้น", "Open this chat from inside the app", "Hãy mở trò chuyện từ trong ứng dụng", "សូមបើកការជជែកពីក្នុងកម្មវិធី", "အက်ပ်အတွင်းမှသာ ချတ်ကို ဖွင့်ပါ", "ກະລຸນາເປີດແຊັດຈາກໃນແອັບ"],
+  aiLabel:  ["ผู้ช่วย AI", "AI assistant", "Trợ lý AI", "ជំនួយការ AI", "AI လက်ထောက်", "ຜູ້ຊ່ວຍ AI"],
+  talkStaff:["คุยกับเจ้าหน้าที่", "Talk to a human", "Nói chuyện với nhân viên", "និយាយជាមួយបុគ្គលិក", "ဝန်ထမ်းနှင့်ပြောရန်", "ລົມກັບເຈົ້າໜ້າທີ່"],
+  handoffOk:["ส่งเรื่องให้เจ้าหน้าที่แล้ว", "Passed to our team", "Đã chuyển cho nhân viên", "បានបញ្ជូនទៅបុគ្គលិក", "ဝန်ထမ်းထံ လွှဲပြောင်းပြီး", "ສົ່ງຕໍ່ເຈົ້າໜ້າທີ່ແລ້ວ"],
   empty:    ["ยังไม่มีข้อความ ส่งข้อความถึงทีมซัพพอร์ตได้เลย", "No messages yet. Send a message to the support team", "Chưa có tin nhắn. Hãy nhắn cho đội hỗ trợ", "មិនទាន់មានសារ។ ផ្ញើសារទៅក្រុមគាំទ្រ", "မက်ဆေ့ချ် မရှိသေးပါ။ ပံ့ပိုးရေးအဖွဲ့ထံ ပို့ပါ", "ຍັງບໍ່ມີຂໍ້ຄວາມ ສົ່ງຫາທີມຊ່ວຍເຫຼືອໄດ້ເລີຍ"],
 };
 const T = k => (I18N[k] || [k])[LANG_IDX[LANG]] || (I18N[k] || [k])[0];
@@ -297,6 +313,7 @@ function setLang(l) {
 }
 function applyI18n() {
   $("#input").placeholder = T("ph");
+  $("#staffBtn").textContent = T("talkStaff");
   if (peer && !IS_ADMIN) { peer.name = T("support"); $("#pname").textContent = peer.name; renderMsgs(false); }
 }
 
@@ -382,6 +399,7 @@ let replyTo = null, tmpN = 0, reportedRead = 0;
 let pollChatTimer = null, pollListTimer = null, busyChat = false, lastTypingSent = 0;
 let usersCache = [];
 let onlyUnread = false;
+let aiSt = { avail: false, disabled: 0, paused: false };   // สถานะ AI ของห้องที่เปิดอยู่ (จาก GET /api/messages)
 let PAUSED = false;   // host (แอป/แอดมิน) สั่งหยุดชั่วคราวตอนมุมมองนี้ถูกซ่อน: ไม่ poll ไม่ส่ง "อ่านแล้ว"
 
 // ================= Utils =================
@@ -572,6 +590,7 @@ function openChat(u) {
   peer = { id: String(u.id), name: u.name || String(u.id), color: u.color || "", avatar: avatarOf(u) };
   msgs = new Map(); lastId = 0; lastUpd = 0; peerRead = 0; peerTyping = false; reportedRead = 0;
   setReply(null); $("#stickers").classList.remove("on");
+  aiSt = { avail: false, disabled: 0, paused: false }; paintAi();
   paintHeadAv();
   $("#pname").textContent = peer.name; $("#pst").textContent = "";
   $("#msgs").innerHTML = ""; $("#input").value = ""; autoGrow();
@@ -608,6 +627,7 @@ async function pollChat(first) {
       const na = (IS_ADMIN && AV_MAP[peer.id]) || d.peer_avatar;
       if (na !== (peer.avatar || "")) { peer.avatar = na; paintHeadAv(); changed = true; }
     }
+    if (d.ai && (d.ai.avail !== aiSt.avail || d.ai.disabled !== aiSt.disabled || d.ai.paused !== aiSt.paused)) { aiSt = d.ai; paintAi(); }
     if (d.typing !== peerTyping) { peerTyping = d.typing; $("#pst").textContent = d.typing ? T("typing") : ""; }
     if (changed) renderMsgs(first);
     reportRead();
@@ -666,7 +686,7 @@ function renderMsgs(forceBottom) {
   const near = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
   box.innerHTML = "";
   const arr = [...msgs.values()].sort((a, b) => a.id - b.id);
-  let prevDay = null, prevMine = null;
+  let prevDay = null, prevKey = null;
 
   arr.forEach(m => {
     const isMe = !!m.mine;
@@ -674,9 +694,10 @@ function renderMsgs(forceBottom) {
     if (dk !== prevDay) {
       const dv = document.createElement("div"); dv.className = "divider";
       const sp = document.createElement("span"); sp.textContent = dayLabel(m.created_at);
-      dv.appendChild(sp); box.appendChild(dv); prevDay = dk; prevMine = null;
+      dv.appendChild(sp); box.appendChild(dv); prevDay = dk; prevKey = null;
     }
-    const first = prevMine !== isMe; prevMine = isMe;
+    const gk = (isMe ? "me" : "other") + (m.ai ? ":ai" : "");   // ข้อความ AI แยกกลุ่มจากข้อความเจ้าหน้าที่ เพื่อให้ป้ายถูกต้อง
+    const first = prevKey !== gk; prevKey = gk;
 
     const row = document.createElement("div");
     row.className = "row " + (isMe ? "me" : "other") + (first ? " first" : "");
@@ -691,6 +712,7 @@ function renderMsgs(forceBottom) {
       const n = document.createElement("div"); n.className = "pname"; n.textContent = peer.name; col.appendChild(n);
     }
 
+    if (m.ai && first && !m.deleted) { const tg = document.createElement("div"); tg.className = "aitag"; tg.textContent = T("aiLabel"); col.appendChild(tg); }
     const bw = document.createElement("div"); bw.className = "bwrap";
     const bubble = document.createElement("div"); bubble.className = "bubble";
     const pending = m.id >= 1e15;
@@ -742,6 +764,36 @@ function renderMsgs(forceBottom) {
   if (forceBottom || near) box.scrollTop = box.scrollHeight;
 }
 
+// ---- AI: ปุ่มคุยกับเจ้าหน้าที่ (สมาชิก) / สวิตช์รายห้อง (แอดมิน) ----
+function paintAi() {
+  const on = !!aiSt.avail && !aiSt.disabled;
+  $("#staffBtn").textContent = T("talkStaff");
+  $("#staffbar").classList.toggle("on", !IS_ADMIN && on && !aiSt.paused);
+  const pill = $("#aiPill");
+  if (!IS_ADMIN || !aiSt.avail) { pill.style.display = "none"; return; }
+  pill.style.display = "block";
+  pill.className = "aipill " + (aiSt.disabled ? "" : aiSt.paused ? "pause" : "on");
+  pill.textContent = aiSt.disabled ? "AI ปิด" : aiSt.paused ? "AI พัก" : "AI เปิด";
+}
+async function setAiOn(on) {
+  if (!peer) return;
+  try { const d = await api("/api/ai/toggle", { method: "POST", body: { peer: peer.id, on } }); aiSt = d.ai; paintAi(); toast(on ? "เปิด AI ห้องนี้แล้ว" : "ปิด AI ห้องนี้แล้ว"); }
+  catch (e) { toast(e.message); }
+}
+$("#aiPill").onclick = () => {
+  if (!IS_ADMIN || !peer) return;
+  if (aiSt.disabled) showMenu([["เปิด AI ห้องนี้", () => setAiOn(true)]]);
+  else showMenu([...(aiSt.paused ? [["ให้ AI กลับมาตอบเลย", () => setAiOn(true)]] : []), ["ปิด AI ห้องนี้", () => setAiOn(false), true]]);
+};
+let handoffBusy = false;
+$("#staffBtn").onclick = async () => {
+  if (IS_ADMIN || !peer || handoffBusy) return;
+  handoffBusy = true; $("#staffBtn").disabled = true;
+  try { await api("/api/handoff", { method: "POST", body: { lang: LANG } }); toast(T("handoffOk")); pollChat(false); }
+  catch (e) { toast(T("sendFail") + ": " + e.message); }
+  finally { handoffBusy = false; $("#staffBtn").disabled = false; }
+};
+
 // ---- long press / right click menu ----
 function bindPress(el, m) {
   let t;
@@ -786,7 +838,7 @@ async function sendMessage(type, content) {
   const rid = temp.reply_to;
   setReply(null);
   try {
-    const d = await api("/api/messages", { method: "POST", body: { to: peer.id, peer_name: peer.name, type, content, reply_to: rid } });
+    const d = await api("/api/messages", { method: "POST", body: { to: peer.id, peer_name: peer.name, type, content, reply_to: rid, lang: IS_ADMIN ? undefined : LANG } });
     msgs.delete(tid);
     msgs.set(d.id, { ...temp, id: d.id, created_at: d.created_at, updated_at: d.created_at });
     if (d.id > lastId) lastId = d.id;
@@ -925,6 +977,7 @@ $("#lgBtn").onclick = async () => {
 };
 $("#lgKey").addEventListener("keydown", e => { if (e.key === "Enter") $("#lgBtn").click(); });
 
+$("#staffBtn").textContent = T("talkStaff");
 (async function init() {
   if (IS_ADMIN) {
     if (sessionStorage.getItem("sc_ak")) {

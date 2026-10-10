@@ -381,7 +381,7 @@ tr:hover td{background:var(--bgh)}
     <p style="font-size:11px;color:var(--t2);text-align:center">
       ยังไม่มีบัญชี? <a href="javascript:void(0)" onclick="showLockState('signup')" style="color:var(--goldb)">สมัครสมาชิก</a>
     </p>
-    <p style="font-size:10px;color:var(--t3)">TCC Admin v4.0 · sync Main v6.4-COMM2 · Email+Password+OTP · GAS Backend</p>
+    <p style="font-size:10px;color:var(--t3)">TCC Admin v4.1 · sync Main v6.4-COMM2 · Email+Password+OTP · GAS Backend</p>
   </div>
 
   <!-- STATE: SIGNUP -->
@@ -514,6 +514,11 @@ tr:hover td{background:var(--bgh)}
       <div class="si" onclick="go('system')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         <span class="lbl">System Center</span>
+      </div>
+      <div class="si" onclick="go('admins')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+        <span class="lbl">จัดการแอดมิน</span>
+        <span class="si-bdg g" id="bdgAdm" style="display:none">0</span>
       </div>
       <div class="si" onclick="go('settings')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -1046,6 +1051,42 @@ tr:hover td{background:var(--bgh)}
         </div>
       </div>
 
+      <!-- ════ ADMIN MANAGER (owner เท่านั้น) ════ -->
+      <div class="panel" id="p-admins">
+        <div id="admBoot" style="display:none;background:var(--goldbg);border:1px solid var(--goldbr);border-radius:var(--rmd);padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--t1);line-height:1.6"></div>
+        <div class="sg sg-4" style="margin-bottom:12px">
+          <div class="sc gold"><div class="sc-lbl">รออนุมัติ</div><div class="sc-val" id="adm-pend">—</div><div class="sc-sub">ผู้สมัครใหม่</div></div>
+          <div class="sc green"><div class="sc-lbl">ใช้งานอยู่</div><div class="sc-val" id="adm-act">—</div><div class="sc-sub">บัญชี Active</div></div>
+          <div class="sc blue"><div class="sc-lbl">Owner (L4)</div><div class="sc-val" id="adm-own">—</div><div class="sc-sub">ต้องมีอย่างน้อย 1 คน</div></div>
+          <div class="sc"><div class="sc-lbl">ทั้งหมด</div><div class="sc-val" id="adm-tot">—</div><div class="sc-sub" id="adm-sub">—</div></div>
+        </div>
+        <div class="fb-act">
+          <button class="fb-btn" onclick="radmins()">🔄 รีเฟรช</button>
+        </div>
+        <div class="fb">
+          <input class="fi" id="admQ" placeholder="🔍 ค้นหาอีเมลแอดมิน..." oninput="admRender()">
+          <select class="fs" id="admSt" onchange="admRender()">
+            <option value="all">ทุกสถานะ</option>
+            <option value="pending">รออนุมัติ</option>
+            <option value="active">ใช้งานอยู่</option>
+            <option value="suspended">ถูกระงับ</option>
+            <option value="locked">ถูกล็อก</option>
+          </select>
+        </div>
+        <div class="tw">
+          <table><thead><tr><th>อีเมล</th><th>สถานะ</th><th>สิทธิ์ (Role)</th><th>เข้าสู่ระบบล่าสุด</th><th>สมัครเมื่อ</th><th>จัดการ</th></tr></thead>
+          <tbody id="admTb"><tr class="loading-row"><td colspan="6">กำลังโหลด...</td></tr></tbody></table>
+        </div>
+        <div class="card">
+          <div class="ctitle">🔑 ระดับสิทธิ์ (บังคับที่เซิร์ฟเวอร์ GAS ทุก request)</div>
+          <div class="dr"><div class="dk">L4 Owner</div><div class="dv" style="text-align:left;font-size:11px">ทุกอย่าง รวมจัดการแอดมิน · System/Reserve · AdminLog · Force Liquidate · repair/audit</div></div>
+          <div class="dr"><div class="dk">L3 Finance</div><div class="dv" style="text-align:left;font-size:11px">อนุมัติ/ปฏิเสธฝาก-ถอน · ปรับยอด (เพดานต่อครั้ง ถ้าเกินต้อง owner) · ดู Commission</div></div>
+          <div class="dr"><div class="dk">L2 Ops/Trading</div><div class="dv" style="text-align:left;font-size:11px">ดูระบบเทรดครบ · ยกเลิกคำสั่ง · เปลี่ยน contract mode · อนุมัติ renewal · เปลี่ยนสถานะสมาชิก</div></div>
+          <div class="dr"><div class="dk">L1 Support</div><div class="dv" style="text-align:left;font-size:11px">ดูข้อมูลสมาชิกแบบ mask · ส่งข้อความ · โน้ตเคส · ไม่มีสิทธิ์แตะเงิน/สถานะ/Export</div></div>
+          <div style="font-size:10px;color:var(--t3);margin-top:8px">เปลี่ยนสิทธิ์ตัวเองไม่ได้ · ต้องเหลือ owner อย่างน้อย 1 คน · การระงับ/เปลี่ยนสิทธิ์มีผลทันทีทุก request (token เดิมใช้ต่อไม่ได้)</div>
+        </div>
+      </div>
+
       <!-- ════ SYSTEM CENTER & RESERVE FUND ════ -->
       <div class="panel" id="p-system">
         <div class="sg sg-3">
@@ -1086,9 +1127,9 @@ tr:hover td{background:var(--bgh)}
           </div>
           <div class="card">
             <div class="ctitle">📋 ข้อมูลระบบ</div>
-            <div class="dr"><div class="dk">Admin Version</div><div class="dv">v2.4 (NocoDB+GAS)</div></div>
+            <div class="dr"><div class="dk">Admin Version</div><div class="dv">v4.1 Admin Manager · sync Main v6.4-COMM2</div></div>
             <div class="dr"><div class="dk">เข้าระบบเมื่อ</div><div class="dv" id="loginAt">—</div></div>
-            <div class="dr" id="adminMgrRow" style="display:none"><div class="dk">จัดการแอดมิน / สิทธิ์</div><div class="dv"><button class="ab vi" onclick="openAdminMgr()">เปิด (owner)</button></div></div>
+            <div class="dr" id="adminMgrRow" style="display:none"><div class="dk">จัดการแอดมิน / สิทธิ์</div><div class="dv"><button class="ab vi" onclick="go('admins')">เปิดหน้าจัดการแอดมิน (owner)</button></div></div>
             <div class="dr"><div class="dk">Auto Refresh</div><div class="dv">ทุก 30 วินาที</div></div>
             <div class="dr"><div class="dk">NocoDB Status</div><div class="dv"><span id="ndbStatus" class="pill p-pend">ยังไม่ได้ทดสอบ</span></div></div>
             <div class="dr"><div class="dk">GAS Status</div><div class="dv"><span id="gasStatus" class="pill p-pend">ยังไม่ได้ทดสอบ</span></div></div>
@@ -1216,6 +1257,8 @@ let _pendingEmail = ''; // อีเมลที่กำลังรอ OTP (lo
 // ── [v4.0] ROLE / SESSION TOKEN — คีย์กลางถูกถอดออกจากหน้านี้แล้ว · สิทธิ์ตัวจริงบังคับที่ GAS (ที่นี่แค่ซ่อนเมนู/แจ้งผู้ใช้) ──
 let _adminToken = sessionStorage.getItem('tcc_admin_token') || '';
 let _role  = sessionStorage.getItem('tcc_admin_role') || '';
+// [v4.1] state ของหน้าจัดการแอดมิน (ประกาศไว้ด้านบนกัน TDZ ตอน restoreSession)
+let _admList = [], _admMe = { email:'', role:'' }, _admBoot = false, _admBadgeTimer = null, _admPendPrev = null;
 let _perms = [];
 const _ROLE_LABEL = { owner:'L4 Owner', finance:'L3 Finance', ops:'L2 Ops/Trading', support:'L1 Support' };
 const _ROLE_MENUS = {
@@ -1277,10 +1320,11 @@ function _afterLoginSuccess(email, sess) {
   document.getElementById('app').classList.add('on');
   document.getElementById('loginAt').textContent = new Date().toLocaleString('th-TH') + ' · ' + (_ROLE_LABEL[_role]||_role);
   applyRoleUI();
-  if (sess && sess.bootstrap) toast('⚠️ ยังไม่มี owner ในชีต AdminUsers — ทุกบัญชีที่อนุมัติแล้วเป็น owner ชั่วคราว · รัน setAdminRole(\'อีเมล\',\'owner\') ใน GAS Editor เพื่อกำหนดสิทธิ์','er');
+  if (sess && sess.bootstrap) toast('⚠️ ยังไม่มี owner ที่กำหนดชัดเจน — ทุกบัญชีที่อนุมัติแล้วเป็น owner ชั่วคราว · ไปที่เมนู "จัดการแอดมิน" แล้วกด "กำหนดฉันเป็น owner" (หรือรัน setupFirstOwner() ใน GAS Editor)','er');
   document.getElementById('cfg-gas').textContent = ADMIN_SCRIPT_URL.slice(0,60)+'...';
   sessionStorage.setItem('tcc_admin_email', email);
   startClock(); loadAll(); startAuto();
+  if (_role==='owner') startAdmBadge();
   setTimeout(()=>{ testGAS(); }, 1200);
 }
 
@@ -1424,6 +1468,7 @@ function logout() {
   document.getElementById('lkPass').value = '';
   _clearSession();
   clearInterval(_autoTimer);
+  try { clearInterval(_admBadgeTimer); } catch(e){}
 }
 
 async function chgPass() {
@@ -1461,6 +1506,7 @@ const pgTitles = {
   team:'Team Management', system:'System Center & Reserve Fund',
   futures:'Futures Direct / Loans / Spot Coins (GAS)',
   supportchat:'แชทซัพพอร์ต (สมาชิก ↔ ทีมซัพพอร์ต)',
+  admins:'จัดการแอดมิน / อนุมัติ / สิทธิ์',
 };
 
 function go(id) {
@@ -1474,7 +1520,7 @@ function go(id) {
   // lazy render
   const rmap = {deposits:rdep,withdrawals:rwd,txlog:rtx,members:rmem,
     positions:()=>{rpos();updatePosHead()},earncontracts:rec,
-    revenue:rrv,fundingfee:rff,team:rteam,system:rsystem,futures:()=>rfx(true)};
+    revenue:rrv,fundingfee:rff,team:rteam,system:rsystem,futures:()=>rfx(true),admins:radmins};
   if (rmap[id]) rmap[id]();
 }
 
@@ -4675,31 +4721,168 @@ document.getElementById('unlockOtpCode').addEventListener('keydown',e=>{ if(e.ke
 
 // ══════════════════════════════════════════
 //  🔐 ADMIN MANAGER (owner เท่านั้น — GAS บังคับสิทธิ์อีกชั้น)
+//  อนุมัติผู้สมัคร · กำหนด/เปลี่ยนสิทธิ์ · ระงับ · ปลดล็อก · ลบผู้สมัคร · ดูประวัติรายคน
 // ══════════════════════════════════════════
-async function openAdminMgr() {
+const _ADM_ST = {
+  pending:   { l:'รออนุมัติ', c:'p-pend' },
+  active:    { l:'ใช้งานอยู่', c:'p-ok'   },
+  suspended: { l:'ถูกระงับ',  c:'p-frz'  },
+  locked:    { l:'ถูกล็อก',   c:'p-no'   },
+};
+function _admFmt(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return isNaN(d.getTime()) ? _esc(String(ts)) : d.toLocaleString('th-TH', { dateStyle:'short', timeStyle:'short' });
+}
+function _admSetBadge(n) {
+  const el = document.getElementById('bdgAdm');
+  if (el) { el.textContent = n; el.style.display = n > 0 ? '' : 'none'; }
+}
+
+async function radmins() {
+  const tb = document.getElementById('admTb');
+  if (tb && !_admList.length) tb.innerHTML = '<tr class="loading-row"><td colspan="6">กำลังโหลด...</td></tr>';
   const res = await gasAdminCall('adminListAdmins');
-  if (!res || res.status!=='ok') { toast('⚠️ โหลดรายชื่อแอดมินไม่ได้: '+(res?.message||''),'er'); return; }
-  const roles = ['owner','finance','ops','support'];
-  const rows = (res.data||[]).map((a,i)=>`
-    <tr>
-      <td style="font-size:11px">${_esc(a.email)}${a.locked?' 🔒':''}</td>
-      <td><select id="am-role-${i}">${roles.map(r=>`<option value="${r}" ${a.role===r?'selected':''}>${_ROLE_LABEL[r]}</option>`).join('')}</select></td>
-      <td><input type="checkbox" id="am-ap-${i}" ${a.approved?'checked':''}></td>
-      <td><button class="ab ok" onclick='saveAdminRole(${JSON.stringify(a.email).replace(/'/g,"&#39;")},${i})'>บันทึก</button></td>
-    </tr>`).join('');
-  modal('🔐 จัดการแอดมิน / สิทธิ์', `
-    ${res.bootstrap?'<div style="color:var(--gold);font-size:11px;margin-bottom:8px">⚠️ ยังไม่มี owner ที่กำหนดชัดเจน — กำหนด owner ให้ตัวเองก่อน</div>':''}
-    <div style="overflow:auto;max-height:55vh"><table class="tbl"><thead><tr><th>อีเมล</th><th>Role</th><th>อนุมัติ</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="4">ไม่มีข้อมูล</td></tr>'}</tbody></table></div>
-    <div style="font-size:10px;color:var(--t3);margin-top:8px">เปลี่ยนสิทธิ์ตัวเองไม่ได้ · ต้องเหลือ owner อย่างน้อย 1 คน · มีผลทันทีทุก request</div>
-  `, [{l:'ปิด',c:'can',fn:'cm()'}]);
+  if (!res || res.status !== 'ok') {
+    if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--r);padding:20px">โหลดรายชื่อแอดมินไม่สำเร็จ'+(res&&res.message?': '+_esc(res.message):'')+'</td></tr>';
+    return;
+  }
+  _admList = res.data || [];
+  _admMe   = res.me || _admMe;
+  _admBoot = !!res.bootstrap;
+  const c = res.counts || {};
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set('adm-pend', c.pending||0); set('adm-act', c.active||0); set('adm-own', c.owners||0); set('adm-tot', c.total||0);
+  set('adm-sub', 'ระงับ '+(c.suspended||0)+' · ล็อก '+(c.locked||0));
+  _admSetBadge(c.pending||0); _admPendPrev = c.pending||0;
+  admRender();
 }
-async function saveAdminRole(email, i) {
-  const role = document.getElementById('am-role-'+i)?.value;
-  const approved = !!document.getElementById('am-ap-'+i)?.checked;
-  const res = await gasWrite('adminSetAdminRole', { email, role, approved });
-  if (res?.status==='ok') toast('✅ บันทึกสิทธิ์ '+email+' → '+(_ROLE_LABEL[res.role]||res.role),'ok');
-  else toast('⚠️ '+(res?.message||'บันทึกไม่สำเร็จ'),'er');
+
+function admRender() {
+  const tb = document.getElementById('admTb'); if (!tb) return;
+  const q  = (document.getElementById('admQ')?.value||'').trim().toLowerCase();
+  const st = document.getElementById('admSt')?.value||'all';
+  const order = { pending:0, locked:1, active:2, suspended:3 };
+  const rows = _admList.map((a,i)=>({a,i}))
+    .filter(({a}) => (!q || a.email.indexOf(q)>-1) && (st==='all' || a.status===st))
+    .sort((x,y) => ((order[x.a.status]??9)-(order[y.a.status]??9)) || x.a.email.localeCompare(y.a.email));
+
+  const boot = document.getElementById('admBoot');
+  if (boot) {
+    if (_admBoot) {
+      boot.style.display = '';
+      boot.innerHTML = '⚠️ <b>ยังไม่มี owner ที่กำหนดชัดเจน</b> — ตอนนี้ทุกบัญชีที่อนุมัติแล้วถือเป็น owner ชั่วคราว<br>กดปุ่ม <b>👑 กำหนดฉันเป็น owner</b> ที่แถวของคุณ · เมื่อมี owner แล้ว บัญชีที่อนุมัติแล้วแต่ยังไม่ได้กำหนด Role จะกลายเป็น L1 Support ทันที';
+    } else boot.style.display = 'none';
+  }
+
+  tb.innerHTML = rows.length ? rows.map(({a,i}) => {
+    const stl = _ADM_ST[a.status] || { l:a.status, c:'p-frz' };
+    const roleCell = a.is_self
+      ? `<span class="pill p-act">${_ROLE_LABEL[a.role]||a.role}</span>`
+      : `<select class="fs" id="adm-role-${i}" style="padding:4px 6px;font-size:11px">${['owner','finance','ops','support'].map(r=>`<option value="${r}" ${a.role===r?'selected':''}>${_ROLE_LABEL[r]}</option>`).join('')}</select>`;
+    let act = '';
+    if (a.is_self) {
+      act = (_admBoot ? `<button class="ab ok" onclick="admClaimOwner(${i})">👑 กำหนดฉันเป็น owner</button>` : '<span style="font-size:10px;color:var(--t3)">บัญชีของคุณ</span>')
+          + `<button class="ab" onclick="admHistory(${i})">📜</button>`;
+    } else if (a.status==='pending') {
+      act = `<button class="ab ok" onclick="admApprove(${i})">✅ อนุมัติ</button><button class="ab no" onclick="admReject(${i})">❌ ปฏิเสธ</button>`;
+    } else if (a.status==='suspended') {
+      act = `<button class="ab ok" onclick="admApprove(${i})">✅ อนุมัติอีกครั้ง</button><button class="ab no" onclick="admReject(${i})">🗑 ลบ</button><button class="ab" onclick="admHistory(${i})">📜</button>`;
+    } else { // active | locked (ที่ยังอนุมัติอยู่)
+      act = (a.locked ? `<button class="ab ok" onclick="admUnlock(${i})">🔓 ปลดล็อก</button>` : '')
+          + `<button class="ab vi" onclick="admSaveRole(${i})">💾 บันทึกสิทธิ์</button><button class="ab no" onclick="admSuspend(${i})">⏸ ระงับ</button><button class="ab" onclick="admHistory(${i})">📜</button>`;
+    }
+    return `<tr>
+      <td style="font-size:12px">${_esc(a.email)}${a.is_self?' <span style="color:var(--gold);font-size:10px">(คุณ)</span>':''}</td>
+      <td><span class="pill ${stl.c}">${stl.l}</span>${a.failed_attempts>0&&a.status!=='pending'?` <span style="font-size:10px;color:var(--t3)">ผิด ${a.failed_attempts}</span>`:''}</td>
+      <td>${roleCell}</td>
+      <td class="mono" style="font-size:11px">${_admFmt(a.last_login_at)}</td>
+      <td class="mono" style="font-size:11px">${_admFmt(a.created_at)}</td>
+      <td style="white-space:nowrap">${act}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">ไม่พบรายการ</td></tr>';
 }
+
+function _admRoleSel(i) { return document.getElementById('adm-role-'+i)?.value; }
+async function _admSet(i, payload, okMsg) {
+  const a = _admList[i]; if (!a) return null;
+  const res = await gasWrite('adminSetAdminRole', Object.assign({ email:a.email }, payload));
+  if (res?.status === 'ok') {
+    toast('✅ '+okMsg+' — '+a.email+(res.mail_sent===true?' (ส่งอีเมลแจ้งแล้ว)':''), 'ok');
+    await radmins();
+  } else if (res && res.code!=='FORBIDDEN') toast('⚠️ '+(res.message||'ไม่สำเร็จ'), 'er');
+  return res;
+}
+async function admApprove(i) {
+  const a = _admList[i]; if (!a) return;
+  const role = _admRoleSel(i) || 'support';
+  const msg = 'อนุมัติ '+a.email+' เป็น '+(_ROLE_LABEL[role]||role)+'?'+(role==='owner'?'\n⚠️ owner เข้าถึงได้ทุกอย่าง รวมถึงจัดการแอดมินคนอื่น':'')+'\nระบบจะส่งอีเมลแจ้งผู้สมัคร (ครั้งแรกที่เข้าระบบต้องยืนยัน OTP ทางอีเมลนี้)';
+  if (!(await customConfirm(msg, { title:'อนุมัติแอดมิน', okLabel:'อนุมัติ', danger: role==='owner', icon:'✅' }))) return;
+  await _admSet(i, { role, approved:true }, 'อนุมัติเป็น '+(_ROLE_LABEL[role]||role));
+}
+async function admSaveRole(i) {
+  const a = _admList[i]; if (!a) return;
+  const role = _admRoleSel(i);
+  if (!role || role === a.role) { toast('ℹ️ สิทธิ์ยังไม่เปลี่ยน',''); return; }
+  const up = ['owner','finance','ops','support'].indexOf(role) < ['owner','finance','ops','support'].indexOf(a.role);
+  const msg = 'เปลี่ยนสิทธิ์ '+a.email+'\n'+(_ROLE_LABEL[a.role]||a.role)+' → '+(_ROLE_LABEL[role]||role)+(role==='owner'?'\n⚠️ owner เข้าถึงได้ทุกอย่าง รวมถึงจัดการแอดมินคนอื่น':'')+'\nมีผลทันทีทุก request';
+  if (!(await customConfirm(msg, { title:'เปลี่ยนสิทธิ์แอดมิน', okLabel:'ยืนยัน', danger: role==='owner' || up, icon:'🔑' }))) return;
+  await _admSet(i, { role }, 'เปลี่ยนสิทธิ์เป็น '+(_ROLE_LABEL[role]||role));
+}
+async function admSuspend(i) {
+  const a = _admList[i]; if (!a) return;
+  if (!(await customConfirm('ระงับ '+a.email+'?\nเข้าระบบไม่ได้ทันที (session ที่เปิดอยู่ใช้ต่อไม่ได้) · อนุมัติกลับได้ภายหลัง', { title:'ระงับแอดมิน', okLabel:'ระงับ', danger:true, icon:'⏸' }))) return;
+  await _admSet(i, { approved:false }, 'ระงับแล้ว');
+}
+async function admUnlock(i) {
+  const a = _admList[i]; if (!a) return;
+  if (!(await customConfirm('ปลดล็อก '+a.email+'? (ล้างจำนวนครั้งที่กรอกรหัสผิด)', { title:'ปลดล็อกบัญชี', okLabel:'ปลดล็อก', icon:'🔓' }))) return;
+  await _admSet(i, { locked:false }, 'ปลดล็อกแล้ว');
+}
+async function admReject(i) {
+  const a = _admList[i]; if (!a) return;
+  const isPend = a.status === 'pending';
+  if (!(await customConfirm((isPend?'ปฏิเสธผู้สมัคร ':'ลบบัญชี ')+a.email+'?\nแถวของบัญชีนี้จะถูกลบออกจากชีต AdminUsers (ประวัติใน AdminLog ยังอยู่)', { title:isPend?'ปฏิเสธผู้สมัคร':'ลบบัญชีแอดมิน', okLabel:isPend?'ปฏิเสธ':'ลบ', danger:true }))) return;
+  const res = await gasWrite('adminRejectAdmin', { email:a.email });
+  if (res?.status === 'ok') { toast('🗑 '+(isPend?'ปฏิเสธแล้ว':'ลบแล้ว')+' — '+a.email, 'ok'); await radmins(); }
+  else if (res && res.code!=='FORBIDDEN') toast('⚠️ '+(res.message||'ไม่สำเร็จ'), 'er');
+}
+async function admClaimOwner(i) {
+  const a = _admList[i]; if (!a) return;
+  if (!(await customConfirm('กำหนด '+a.email+' เป็น owner (L4)?\n⚠️ หลังจากนี้ บัญชีที่อนุมัติแล้วแต่ยังไม่ได้กำหนด Role จะกลายเป็น L1 Support ทันที — กำหนดสิทธิ์ให้ทุกคนอีกครั้งในหน้านี้', { title:'กำหนดตัวเองเป็น owner', okLabel:'กำหนด', danger:true, icon:'👑' }))) return;
+  await _admSet(i, { role:'owner' }, 'กำหนดเป็น owner แล้ว');
+}
+async function admHistory(i) {
+  const a = _admList[i]; if (!a) return;
+  modal('📜 ประวัติแอดมิน — '+a.email, '<div style="padding:16px;text-align:center;color:var(--t3)">กำลังโหลด...</div>', [{ l:'ปิด', c:'can', fn:'cm()' }]);
+  const res = await gasAdminCall('adminGetAdminLog', { admin:a.email, limit:100 });
+  const bd = document.getElementById('mBdy'); if (!bd) return;
+  if (!res || res.status !== 'ok') { bd.innerHTML = '<div style="color:var(--r)">โหลดประวัติไม่สำเร็จ'+(res&&res.message?': '+_esc(res.message):'')+'</div>'; return; }
+  const rows = (res.data||[]).map(r => {
+    const meta = String(r.meta||''); 
+    return `<tr><td class="mono" style="font-size:10px;white-space:nowrap">${_admFmt(r.ts)}</td><td style="font-size:11px">${_esc(r.action)}</td><td style="font-size:10px">${_esc(r.uid)}</td><td style="font-size:10px">${_esc(r.admin)}</td><td style="font-size:10px;color:var(--t3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_esc(meta)}">${_esc(meta.slice(0,80))}</td></tr>`;
+  }).join('');
+  bd.innerHTML = '<div style="overflow:auto;max-height:55vh"><table class="tbl"><thead><tr><th>เวลา</th><th>action</th><th>เป้าหมาย</th><th>ผู้ทำ</th><th>รายละเอียด</th></tr></thead><tbody>'+(rows||'<tr><td colspan="5" style="text-align:center;color:var(--t3)">ไม่มีประวัติ</td></tr>')+'</tbody></table></div><div style="font-size:10px;color:var(--t3);margin-top:8px">แสดงสูงสุด 100 รายการล่าสุด · แถวเก่าก่อนอัปเดต v4.0 บันทึกผู้ทำเป็น "admin" ทั้งหมด</div>';
+}
+
+// badge จำนวนผู้สมัครรออนุมัติ (เฉพาะ owner) — ตรวจทุก 60 วินาที
+async function refreshAdmBadge() {
+  if (_role !== 'owner' || !_adminToken) return;
+  const res = await gasAdminCall('adminListAdmins');
+  if (!res || res.status !== 'ok') return;
+  const n = (res.counts||{}).pending || 0;
+  _admSetBadge(n);
+  if (_admPendPrev !== null && n > _admPendPrev) toast('🔔 มีผู้สมัครแอดมินใหม่รออนุมัติ '+n+' คน','ok');
+  _admPendPrev = n;
+}
+function startAdmBadge() {
+  clearInterval(_admBadgeTimer);
+  _admPendPrev = null;
+  refreshAdmBadge();
+  _admBadgeTimer = setInterval(refreshAdmBadge, 60000);
+}
+// เข้ากันได้กับปุ่ม/โค้ดเดิมที่เรียก openAdminMgr()
+function openAdminMgr() { go('admins'); }
 
 // ══════════════════════════════════════════
 //  👥 TEAM MANAGEMENT  (Team sheet จริง — key: team_name)

@@ -4992,7 +4992,53 @@ const ALERT_CONFIG = {
   onlyMarket:    null,
   alertCoins:    new Set(['BTC','ETH','XRP','SOL','BNB','ADA','DOGE']),
   tgChannels:    {},      // โหลดจาก Apps Script ตอน init
+  // v45: เซิร์ฟเวอร์ (GAS trigger / Worker ingest) เป็นผู้ส่ง Telegram + เขียน Sheet เพียงแหล่งเดียว
+  //      browser แสดงผล (toast/chip) อย่างเดียว — กัน alert ซ้ำเมื่อมีหลายแท็บ/หลายผู้ใช้
+  serverAlerts:  true,
 };
+
+// ── v45: ป้องกัน XSS — escape ข้อความภายนอกก่อนใส่ innerHTML ──────────────
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+// ── v45: GAS fetch wrapper — แนบ session token ให้ทุก POST ที่ยิงไป GAS อัตโนมัติ ──
+//    ถ้า GAS ตอบ AUTH_REQUIRED → ล้าง session แล้วแสดงหน้า login (authRenderGate)
+(function () {
+  const _origFetch  = window.fetch.bind(window);
+  const SESSION_KEY = 'whaleFcSession';      // ต้องตรงกับ AUTH_KEY
+  function _token() {
+    try { const x = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); return (x && x.token) || ''; }
+    catch (e) { return ''; }
+  }
+  function _authRequired() {
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+    if (typeof authRenderGate === 'function') authRenderGate();
+  }
+  window.fetch = function (input, init) {
+    let url = '';
+    try { url = typeof input === 'string' ? input : ((input && input.url) || ''); } catch (e) {}
+    const isGas  = !!(url && ALERT_CONFIG.appsScriptURL && url.indexOf(ALERT_CONFIG.appsScriptURL) === 0);
+    const isPost = !!(init && String(init.method || '').toUpperCase() === 'POST');
+    if (!isGas) return _origFetch(input, init);
+    if (isPost && typeof init.body === 'string') {
+      try {
+        const o = JSON.parse(init.body);
+        const t = _token();
+        if (o && !o.token && t) { o.token = t; init = Object.assign({}, init, { body: JSON.stringify(o) }); }
+      } catch (e) {}
+    }
+    return _origFetch(input, init).then(function (res) {
+      if (isPost) {
+        res.clone().json().then(function (d) { if (d && d.error === 'AUTH_REQUIRED') _authRequired(); }).catch(function () {});
+      }
+      return res;
+    });
+  };
+})();
+
 
 // โหลด Token จาก Apps Script (อ่านจาก Google Sheet "Token")
 // v14: เพิ่ม status bar update + retry 1 ครั้ง + timeout ที่สั้นลง
@@ -5357,6 +5403,7 @@ const OB_MAX_RETRY = 2;
 const OB_COINS     = ['BTC','ETH','SOL','BNB','XRP'];
 
 async function obFetchData() {
+  if (document.hidden) return;   // v45: แท็บถูกซ่อน → ไม่ poll (ลดโหลด GAS/HL)
   if (obLoading) return;
   obLoading = true;
   const btn1 = document.getElementById('obRefreshBtn');
@@ -5429,7 +5476,7 @@ async function obFetchData() {
       return;
     }
     obRetryCount = 0;
-    if (rowsEl) rowsEl.innerHTML = '<div class="ob-loading" style="color:var(--r);">⚠ ' + (isTimeout?'HL API timeout — กด Refresh อีกครั้ง':'Error: '+e.message.slice(0,80)) + '</div>';
+    if (rowsEl) rowsEl.innerHTML = '<div class="ob-loading" style="color:var(--r);">⚠ ' + (isTimeout?'HL API timeout — กด Refresh อีกครั้ง':'Error: '+escHtml(e.message.slice(0,80))) + '</div>';
   }
   obLoading = false;
   [btn1,btn2].forEach(b => { if (b) { b.disabled=false; b.textContent='🔄 Refresh Data'; } });
@@ -6038,11 +6085,13 @@ async function checkAndAlert(trade) {
     price: trade.price ? parseFloat(trade.price).toFixed(4) : '0',
   };
   // ✅ v37 FIX: ถ้า tgToken ว่าง (Config ยังโหลดไม่สำเร็จ) → retry โหลด Config ก่อนส่ง TG
-  if (!ALERT_CONFIG.tgToken) {
-    console.warn('[Alert] tgToken ว่าง — retry loadConfigFromSheet ก่อนส่ง alert');
-    await loadConfigFromSheet();
+  if (!ALERT_CONFIG.serverAlerts) {   // v45: โหมดเดิม (ไม่แนะนำ — ทำให้ alert ซ้ำ)
+    if (!ALERT_CONFIG.tgToken) {
+      console.warn('[Alert] tgToken ว่าง — retry loadConfigFromSheet ก่อนส่ง alert');
+      await loadConfigFromSheet();
+    }
+    await Promise.allSettled([sendTelegramAlert(payload), sendToSheets(payload)]);
   }
-  await Promise.allSettled([sendTelegramAlert(payload), sendToSheets(payload)]);
   const webAlertVisible = !selectedCoin || selectedCoin === trade.coin;
   if (webAlertVisible) { showAlertToast(trade); addAlertChip(trade); }
   else {
@@ -6056,6 +6105,7 @@ async function checkAndAlert(trade) {
 
 let _tgLastSent = 0;
 async function sendTelegramAlert(p) {
+  if (ALERT_CONFIG.serverAlerts) return;   // v45: server ส่งแทน
   const now = Date.now();
   // ✅ v33 FIX: เพิ่ม price ใน rlKey เพื่อให้ 2 trade ราคาต่างกัน (คนละ order) ผ่านได้
   // เดิมใช้แค่ coin|direction → ทำให้ trade ที่ 2 ถูก block ถ้าห่างกัน < 30s
@@ -6147,6 +6197,7 @@ function _bkkTimeShort(d) {
 }
 
 async function sendToSheets(p) {
+  if (ALERT_CONFIG.serverAlerts) return;   // v45: server เขียน Sheet แทน (saveAlert ต้องมี _secret)
   if (!ALERT_CONFIG.appsScriptURL) return;
   try {
     // ✅ FIX v10: ใช้ Content-Type: text/plain เพื่อหลีกเลี่ยง preflight CORS
@@ -6447,6 +6498,7 @@ function subscribeCoins() {
 }
 
 async function pollRecentTradesBatchSafe() {
+  if (document.hidden) return;   // v45: แท็บถูกซ่อน → ไม่ poll (ลดโหลด GAS/HL)
   const coin = REST_BATCH_COINS[restPollIdx % REST_BATCH_COINS.length];
   restPollIdx++;
   try {
@@ -6539,6 +6591,7 @@ let gasProxyActive    = false;
 const GAS_PROXY_COINS = ['BTC','ETH','SOL','BNB','XRP','HYPE','SUI','DOGE','ARB','AVAX'];
 
 async function pollHlViaGasProxy() {
+  if (document.hidden) return;   // v45: แท็บถูกซ่อน → ไม่ poll (ลดโหลด GAS/HL)
   if (!ALERT_CONFIG.appsScriptURL) return;
   try {
     const r = await fetch(ALERT_CONFIG.appsScriptURL, {
@@ -6714,6 +6767,7 @@ function startRealFeed() { if(!wsConn) connectWebSocket(); scheduleRestFallback(
 function startSim() { startRealFeed(); }
 
 async function pollRealPrices() {
+  if (document.hidden) return;   // v45: แท็บถูกซ่อน → ไม่ poll (ลดโหลด GAS/HL)
   // ✅ FIX Bug#1: หยุดยิง allMids เมื่อ backoff กำลังทำงาน (restFailCount > 0)
   // ก่อนหน้านี้ฟังก์ชันนี้วิ่งต่อแม้ระบบ pause อยู่ ทำให้เห็น error ซ้ำๆ ใน console
   if (restFailCount > 0) {
@@ -7240,7 +7294,7 @@ async function _aiFlushQueue() {
         const text = await r.text();
         let d;
         try { d = JSON.parse(text); } catch(e) { reject(new Error('Parse error: ' + text.slice(0,80))); continue; }
-        if (!d.ok) { reject(new Error(d.error || 'AI proxy error')); }
+        if (!d.ok) { reject(new Error(d.error === 'AUTH_REQUIRED' ? '🔐 กรุณาเข้าสู่ระบบสมาชิก (แท็บ Forecast) เพื่อใช้ AI' : (d.error || 'AI proxy error'))); }
         else if (d.result && d.result.startsWith('⚠️ Rate Limit')) {
           // ── GAS reported rate-limit → re-queue with retry ──
           const r2 = retry || 0;
@@ -7442,14 +7496,14 @@ async function runAnAI() {
     const text = await callAIProxy(prompt, 1200);
     load.style.display = 'none';
     // Render HTML (bold + colour) แทน plain textContent
-    res.innerHTML = text
+    res.innerHTML = escHtml(text)
       .replace(/[*][*](.+?)[*][*]/g, '<strong style="color:var(--t0);">$1</strong>')
       .replace(/\n/g, '<br>')
       .replace(/BULLISH/g, '<span style="color:var(--g);font-weight:700;">BULLISH</span>')
       .replace(/BEARISH/g, '<span style="color:var(--r);font-weight:700;">BEARISH</span>');
   } catch(e) {
     load.style.display = 'none';
-    res.innerHTML = '<span style="color:var(--r);">❌ ' + e.message + '</span><br><br>'
+    res.innerHTML = '<span style="color:var(--r);">❌ ' + escHtml(e.message) + '</span><br><br>'
       + 'วิธีแก้: ตรวจสอบ Apps Script ว่า<br>'
       + '1. ตั้ง ANTHROPIC_API_KEY แล้ว<br>'
       + '2. Deploy ใหม่หลังแก้ไข<br>'
@@ -8166,7 +8220,7 @@ async function runMobAI() {
   try {
     const text = await callAIProxy(prompt, 1200);
     // Render with basic markdown bold support
-    res.innerHTML = text
+    res.innerHTML = escHtml(text)
       .replace(/[*][*](.+?)[*][*]/g, '<strong style="color:var(--t0);">$1</strong>')
       .replace(/\n/g, '<br>')
       .replace(/BULLISH/g, '<span style="color:var(--g);font-weight:700;">BULLISH</span>')
@@ -9535,7 +9589,7 @@ async function fetchMarketContext(coins) {
     return d;
   } catch(err) {
     if (loadEl) loadEl.style.display = 'none';
-    if (dataEl) dataEl.innerHTML = `<span style="color:var(--r);font-size:10px;">❌ ${err.message}</span>`;
+    if (dataEl) dataEl.innerHTML = `<span style="color:var(--r);font-size:10px;">❌ ${escHtml(err.message)}</span>`;
     st.marketCtx = null;
     return null;
   }
@@ -9834,7 +9888,7 @@ async function fcFetchSharpeNews(category = 'macro') {
     if (evEl) {
       evEl.innerHTML = d.articles.slice(0,4).map(art =>
         `<div style="font-family:var(--mono);font-size:8px;line-height:1.5;padding:3px 6px;border-radius:4px;background:rgba(41,182,246,.07);border:1px solid rgba(41,182,246,.2);color:var(--t1);">
-          <span style="color:var(--b);">[${art.source||'—'}]</span> ${(art.title||'').slice(0,55)}${art.title&&art.title.length>55?'…':''}
+          <span style="color:var(--b);">[${escHtml(art.source||'—')}]</span> ${escHtml((art.title||'').slice(0,55))}${art.title&&art.title.length>55?'…':''}
         </div>`
       ).join('');
     }
@@ -12019,7 +12073,7 @@ function authCheckSession() {
     if (!raw) return null;
     const s = JSON.parse(raw);
     // session หมดอายุ 8 ชั่วโมง
-    if (Date.now() - s.ts > 24 * 3600 * 1000) { sessionStorage.removeItem(AUTH_KEY); return null; }
+    if (Date.now() - s.ts > 8 * 3600 * 1000) { sessionStorage.removeItem(AUTH_KEY); return null; }
     return s; // { bnbId, name, status }
   } catch { return null; }
 }
@@ -12111,7 +12165,7 @@ async function authLogin() {
 
     if (d.ok && d.member) {
       const m = d.member;
-      sessionStorage.setItem(AUTH_KEY, JSON.stringify({ bnbId: m.bnbId, name: m.name, status: m.status, ts: Date.now() }));
+      sessionStorage.setItem(AUTH_KEY, JSON.stringify({ bnbId: m.bnbId, name: m.name, status: m.status, token: d.token || '', ts: Date.now() }));
       authRenderGate();
       if (m.status === 'approve') {
         // โหลด forecast ทันที
@@ -12320,9 +12374,7 @@ function fcSubTab(tab) {
 
   /* ── โหลดข้อมูลผ่าน Apps Script (เหมือน loadSheetData หลัก) ── */
   async function wdFetchViaAppsScript() {
-    const baseURL = (window.ALERT_CONFIG && window.ALERT_CONFIG.appsScriptURL)
-      ? window.ALERT_CONFIG.appsScriptURL
-      : 'https://script.google.com/macros/s/AKfycbwDBjadnEFN7_JqVH5oCUTSkMLGAsKzIOMfrs5RvstxonBvGxwQcTKZja6kji0wSKHqEQ/exec';
+    const baseURL = ALERT_CONFIG.appsScriptURL;   // v45: ใช้ค่าเดียวจาก ALERT_CONFIG
 
     const [rBig, rSmall] = await Promise.allSettled([
       fetch(baseURL + '?action=getData',              { signal: AbortSignal.timeout(25000) }),
@@ -12968,6 +13020,7 @@ async function fetchCandles() {
      P3: HL direct      → markPx เดิม (เหมือนเดิมเมื่อ Worker ล่มทั้งคู่)
 ═══════════════════════════════════════════════════════ */
 async function fetchPrice() {
+  if (document.hidden) return;   // v45: แท็บถูกซ่อน → ไม่ poll (ลดโหลด GAS/HL)
   try {
     const _priceCtrl = new AbortController();
     const _priceTimeout = setTimeout(() => _priceCtrl.abort(), 12000);
@@ -13030,6 +13083,7 @@ async function fetchPrice() {
    Priority 2 ใน fallback chain — ทำงานคู่กับ fetchPrice()
 ═══════════════════════════════════════════════════════ */
 async function fetchAgg() {
+  if (document.hidden) return;   // v45: แท็บถูกซ่อน → ไม่ poll (ลดโหลด GAS/HL)
   try {
     const _aggCtrl = new AbortController();
     const _aggTimeout = setTimeout(() => _aggCtrl.abort(), 15000);
@@ -15099,6 +15153,7 @@ let hmTimer    = null; // NEW v18: real heatmap refresh timer
    ถ้า GAS ส่ง empty (fapi geo-block) → realHeatmapData = null → model bands แสดงปกติ */
 let _hmAbortCtrl = null;
 async function fetchRealHeatmap() {
+  if (document.hidden) return;   // v45: แท็บถูกซ่อน → ไม่ poll (ลดโหลด GAS/HL)
   const ivToHours = { '5m': 4, '15m': 6, '1h': 24, '4h': 48, '1d': 168, '1w': 168 };
   const hoursBack = ivToHours[S.iv] || 24;
   const gridIv    = ['5m', '15m'].includes(S.iv) ? '1h' : (S.iv === '4h' ? '4h' : '1h');

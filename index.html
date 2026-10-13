@@ -31193,6 +31193,10 @@ setInterval(() => {
 setInterval(() => {
   if (typeof msgRefreshBadge === 'function') msgRefreshBadge();
 }, 30000);
+// [MSG-F1] กลับมาที่แอปแล้วรีเฟรช badge ทันที (ไม่ต้องรอรอบ 30s)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && typeof msgRefreshBadge === 'function') msgRefreshBadge();
+});
 
 // ══════════════════════════════════════════════════════════════
 //  USER PROFILE — Dummy data, connect to backend later
@@ -32884,6 +32888,9 @@ function _msgCurrentUid() {
 
 /** ดึง unread_count จาก GAS แล้วอัปเดต badge ที่กระดิ่งข้อความ (เรียกตอน init + polling) */
 async function msgRefreshBadge() {
+  // [MSG-F1] แท็บ/แอปที่อยู่เบื้องหลังไม่ต้อง poll — ทุกครั้งคือ 1 execution ของ GAS ที่อ่านทั้งชีต AdminMessages
+  //          (กลับมาหน้าจอแล้ว visibilitychange ด้านล่างจะรีเฟรช badge ให้ทันที)
+  if (typeof document !== 'undefined' && document.hidden) return;
   const uid = _msgCurrentUid();
   if (!uid) return;
   try {

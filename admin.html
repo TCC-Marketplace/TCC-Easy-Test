@@ -2573,13 +2573,13 @@ async function loadMemberMessages(bid) {
   box2.innerHTML = all.map(m => `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:11px;${m.deleted?'opacity:.45':''}">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:start">
-        <div style="font-weight:600;color:var(--t1)">${m.type==='broadcast'?'📢 ':'📨 '}${m.title||'(ไม่มีหัวข้อ)'}</div>
+        <div style="font-weight:600;color:var(--t1)">${m.type==='broadcast'?'📢 ':'📨 '}${_esc(m.title||'(ไม่มีหัวข้อ)')}</div>
         <div style="display:flex;gap:6px;align-items:center;white-space:nowrap">
           <span style="color:var(--t3);font-size:10px">${fdt(m.created_at)}</span>
-          ${!m.deleted ? `<button class="ab no" style="padding:2px 6px;font-size:10px" onclick="recallMessage('${m.message_id}','${bid}')">ลบ</button>` : ''}
+          ${(!m.deleted && can('adminDeleteMessage')) ? `<button class="ab no" style="padding:2px 6px;font-size:10px" onclick="recallMessage('${m.message_id}','${bid}',${m.type==='broadcast'})">ลบ</button>` : ''}
         </div>
       </div>
-      <div style="color:var(--t2);margin-top:4px;white-space:pre-wrap">${m.body||''}</div>
+      <div style="color:var(--t2);margin-top:4px;white-space:pre-wrap">${_esc(m.body||'')}</div>
       <div style="margin-top:4px;font-size:10px;color:var(--t3)">
         ${m.deleted ? '🗑️ ถูกลบแล้ว' : (m.type==='broadcast' ? `👥 อ่านแล้ว ${m.read_count||0} คน` : (m.read ? '✅ อ่านแล้ว' : '⏳ ยังไม่อ่าน'))}
       </div>
@@ -2587,8 +2587,12 @@ async function loadMemberMessages(bid) {
   `).join('');
 }
 
-async function recallMessage(messageId, bid) {
-  if (!(await customConfirm('ลบ/เรียกคืนข้อความนี้ใช่หรือไม่?', {title:'🗑️ ลบข้อความ', danger:true, okLabel:'ลบข้อความ'}))) return;
+async function recallMessage(messageId, bid, isBroadcast) {
+  // [MSG-H2] Broadcast คือแถวเดียวที่สมาชิกทุกคนเห็นร่วมกัน — ลบจากโมดัลสมาชิกคนไหนก็หายจากทุกคน ต้องบอกให้ชัดก่อนกดยืนยัน
+  const _cfmMsg = isBroadcast
+    ? 'นี่คือ Broadcast — การลบจะเรียกคืนข้อความนี้จาก "สมาชิกทุกคน" (ไม่ใช่เฉพาะคนนี้) ยืนยันหรือไม่?'
+    : 'ลบ/เรียกคืนข้อความนี้ใช่หรือไม่?';
+  if (!(await customConfirm(_cfmMsg, {title: isBroadcast ? '📢 เรียกคืน Broadcast' : '🗑️ ลบข้อความ', danger:true, okLabel:'ลบข้อความ'}))) return;
   const res = await gasWrite('adminDeleteMessage', { message_id: messageId });
   if (res?.status==='ok') { toast('✅ ลบข้อความสำเร็จ','ok'); loadMemberMessages(bid); }
   else toast('⚠️ GAS: '+(res?.message||'เกิดข้อผิดพลาด'),'er');
@@ -2605,21 +2609,29 @@ function openSendMessage(bid, name) {
   ]);
 }
 
+// [MSG-H3] กันกดส่งซ้ำระหว่างรอ GAS (เดิมกดรัวได้ → ข้อความซ้ำหลายใบในกล่องข้อความสมาชิก)
+let _msgSendBusy = false;
 async function doSendMessage(bid) {
+  if (_msgSendBusy) return;
   const title = document.getElementById('msg-title')?.value?.trim()||'';
   const body  = document.getElementById('msg-body')?.value?.trim()||'';
   if (!title && !body) { toast('⚠️ กรุณาระบุหัวข้อหรือเนื้อหาข้อความ','er'); return; }
-  const res = await gasWrite('adminSendMessage', { uid: bid, title, body });
-  if (res?.status==='ok') {
-    toast('✅ ส่งข้อความสำเร็จ','ok');
-    cm();
-  } else {
-    toast('⚠️ GAS: '+(res?.message||'เกิดข้อผิดพลาด'),'er');
-  }
+  _msgSendBusy = true;
+  try {
+    const res = await gasWrite('adminSendMessage', { uid: bid, title, body });
+    if (res?.status==='ok') {
+      toast('✅ ส่งข้อความสำเร็จ','ok');
+      cm();
+    } else if (res && res.code!=='FORBIDDEN') {
+      toast('⚠️ GAS: '+(res?.message||'เกิดข้อผิดพลาด'),'er');
+    }
+  } finally { _msgSendBusy = false; }
 }
 
 // ── Broadcast — ส่งหาสมาชิกทุกคน ──
 function openBroadcast() {
+  // [MSG-H4] role support (L1) ส่ง Broadcast ไม่ได้ (GAS บล็อกด้วย) — ไม่ต้องเปิดฟอร์มให้เสียเวลาพิมพ์
+  if (_role==='support') { toast('⛔ สิทธิ์ support ส่ง Broadcast ไม่ได้ — ส่งได้เฉพาะรายสมาชิก','er'); return; }
   modal('📢 Broadcast — ส่งข้อความหาสมาชิกทุกคน',`
     <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:var(--rmd);padding:10px;margin-bottom:12px;font-size:11px;color:#3b82f6">
       ⚠️ ข้อความนี้จะถูกส่งถึงสมาชิก <strong>ทุกคน</strong> ในระบบ (${D.members.length} คน) กรุณาตรวจสอบเนื้อหาก่อนส่ง
@@ -2633,17 +2645,22 @@ function openBroadcast() {
 }
 
 async function doBroadcast() {
+  if (_msgSendBusy) return;   // [MSG-H3] กัน Broadcast ซ้ำ (ส่งถึงสมาชิกทุกคน 2 รอบ)
+  if (_role==='support') { toast('⛔ สิทธิ์ support ส่ง Broadcast ไม่ได้ — ส่งได้เฉพาะรายสมาชิก','er'); return; }
   const title = document.getElementById('bc-title')?.value?.trim()||'';
   const body  = document.getElementById('bc-body')?.value?.trim()||'';
   if (!title && !body) { toast('⚠️ กรุณาระบุหัวข้อหรือเนื้อหาข้อความ','er'); return; }
-  if (!(await customConfirm('ข้อความนี้จะถูกส่งถึงสมาชิกทุกคนในระบบ ('+D.members.length+' คน) ทันที', {title:'📢 ยืนยันส่ง Broadcast', okLabel:'ส่ง Broadcast'}))) return;
-  const res = await gasWrite('adminSendMessage', { uid: '__all__', title, body });
-  if (res?.status==='ok') {
-    toast('✅ ส่ง Broadcast สำเร็จ','ok');
-    cm();
-  } else {
-    toast('⚠️ GAS: '+(res?.message||'เกิดข้อผิดพลาด'),'er');
-  }
+  _msgSendBusy = true;
+  try {
+    if (!(await customConfirm('ข้อความนี้จะถูกส่งถึงสมาชิกทุกคนในระบบ ('+D.members.length+' คน) ทันที', {title:'📢 ยืนยันส่ง Broadcast', okLabel:'ส่ง Broadcast'}))) return;
+    const res = await gasWrite('adminSendMessage', { uid: '__all__', title, body });
+    if (res?.status==='ok') {
+      toast('✅ ส่ง Broadcast สำเร็จ','ok');
+      cm();
+    } else if (res && res.code!=='FORBIDDEN') {
+      toast('⚠️ GAS: '+(res?.message||'เกิดข้อผิดพลาด'),'er');
+    }
+  } finally { _msgSendBusy = false; }
 }
 
 // แก้ไขข้อมูลสมาชิก — ⚠️ เขียนได้เฉพาะ field ที่อยู่ใน Users sheet จริง

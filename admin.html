@@ -85,8 +85,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .panel{display:none}
 .panel.on{display:block}
 /* [SCH v1] แชทซัพพอร์ต — iframe เต็มแผง + ให้ปุ่มใน modal ขึ้นบรรทัดใหม่ได้เมื่อไม่พอ (ไม่มีผลถ้าปุ่มพอดีอยู่แล้ว) */
-#p-supportchat iframe{display:block;width:100%;height:calc(100vh - var(--hdr-h) - 34px);height:calc(100dvh - var(--hdr-h) - 34px);border:0;border-radius:var(--rmd);background:#000}
-@media(max-width:680px){#p-supportchat iframe{height:calc(100vh - 46px - 18px);height:calc(100dvh - 46px - 18px)}}
+#p-supportchat iframe,#p-kbmenu iframe{display:block;width:100%;height:calc(100vh - var(--hdr-h) - 34px);height:calc(100dvh - var(--hdr-h) - 34px);border:0;border-radius:var(--rmd);background:#000}
+@media(max-width:680px){#p-supportchat iframe,#p-kbmenu iframe{height:calc(100vh - 46px - 18px);height:calc(100dvh - 46px - 18px)}}
 .m-acts{flex-wrap:wrap}
 
 /* ── STAT CARDS ── */
@@ -506,6 +506,10 @@ tr:hover td{background:var(--bgh)}
       <div class="si" onclick="go('supportchat');schAdminInit()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span class="lbl">แชทซัพพอร์ต</span>
+      </div>
+      <div class="si" onclick="go('kbmenu');kbmInit()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        <span class="lbl">เมนูถามตอบ</span>
       </div>
       <div class="si" onclick="go('team')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -1074,8 +1078,8 @@ tr:hover td{background:var(--bgh)}
           </select>
         </div>
         <div class="tw">
-          <table><thead><tr><th>อีเมล</th><th>สถานะ</th><th>สิทธิ์ (Role)</th><th>เข้าสู่ระบบล่าสุด</th><th>สมัครเมื่อ</th><th>จัดการ</th></tr></thead>
-          <tbody id="admTb"><tr class="loading-row"><td colspan="6">กำลังโหลด...</td></tr></tbody></table>
+          <table><thead><tr><th>อีเมล</th><th>สถานะ</th><th>สิทธิ์ (Role)</th><th>แก้เมนูถามตอบ</th><th>เข้าสู่ระบบล่าสุด</th><th>สมัครเมื่อ</th><th>จัดการ</th></tr></thead>
+          <tbody id="admTb"><tr class="loading-row"><td colspan="7">กำลังโหลด...</td></tr></tbody></table>
         </div>
         <div class="card">
           <div class="ctitle">🔑 ระดับสิทธิ์ (บังคับที่เซิร์ฟเวอร์ GAS ทุก request)</div>
@@ -1174,6 +1178,11 @@ tr:hover td{background:var(--bgh)}
         <iframe id="sch-admin-frame" title="Support chat (admin)" src="about:blank"></iframe>
       </div>
 
+      <!-- ════ เมนูถามตอบ [KBM v1] — iframe kb-admin.html?embed=1 (ข้ามหน้าล็อกอิน · ขอ token ผ่าน postMessage → GAS adminKbSession) ════ -->
+      <div class="panel" id="p-kbmenu">
+        <iframe id="kbm-frame" title="KB menu editor" src="about:blank"></iframe>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -1261,6 +1270,8 @@ let _role  = sessionStorage.getItem('tcc_admin_role') || '';
 let _admList = [], _admMe = { email:'', role:'' }, _admBoot = false, _admBadgeTimer = null, _admPendPrev = null;
 let _perms = [];
 const _ROLE_LABEL = { owner:'L4 Owner', finance:'L3 Finance', ops:'L2 Ops/Trading', support:'L1 Support' };
+// [KBM] 'kbmenu' (เมนูถามตอบ) ไม่ผูกกับ role: owner เห็นเสมอ (null = ทุกเมนู) · role อื่นเห็นเมื่อ owner เปิดสวิตช์รายคน (perms มี 'adminKbSession') — ดู _menusFor()
+const _KB_MENU = 'kbmenu', _KB_PERM = 'adminKbSession';
 const _ROLE_MENUS = {
   owner:   null, // ทุกเมนู
   finance: ['dashboard','search','deposits','withdrawals','txlog','members','revenue','team','settings'],
@@ -1281,8 +1292,13 @@ function _sessionExpired(msg){
   logout();
   setTimeout(()=>{ _expiredShown = false; }, 3000);
 }
+function _menusFor(role){
+  const base = _ROLE_MENUS[role];              // null = ทุกเมนู
+  if (!base) return base;
+  return (_perms.indexOf(_KB_PERM)>-1) ? base.concat([_KB_MENU]) : base;
+}
 function applyRoleUI(){
-  const allow = _ROLE_MENUS[_role];            // null = ทุกเมนู
+  const allow = _menusFor(_role);              // null = ทุกเมนู
   document.querySelectorAll('.sb-nav .si').forEach(si=>{
     const m = /go\('([a-z]+)'\)/.exec(si.getAttribute('onclick')||'');
     const id = m ? m[1] : '';
@@ -1469,6 +1485,7 @@ function logout() {
   _clearSession();
   clearInterval(_autoTimer);
   try { clearInterval(_admBadgeTimer); } catch(e){}
+  try { kbmReset(); } catch(e){}   // [KBM] ล้าง iframe เมนูถามตอบ (ทิ้ง token ผู้แก้ไข)
 }
 
 async function chgPass() {
@@ -1506,6 +1523,7 @@ const pgTitles = {
   team:'Team Management', system:'System Center & Reserve Fund',
   futures:'Futures Direct / Loans / Spot Coins (GAS)',
   supportchat:'แชทซัพพอร์ต (สมาชิก ↔ ทีมซัพพอร์ต)',
+  kbmenu:'จัดการเมนูถามตอบ (FAQ)',
   admins:'จัดการแอดมิน / อนุมัติ / สิทธิ์',
 };
 
@@ -4741,10 +4759,10 @@ function _admSetBadge(n) {
 
 async function radmins() {
   const tb = document.getElementById('admTb');
-  if (tb && !_admList.length) tb.innerHTML = '<tr class="loading-row"><td colspan="6">กำลังโหลด...</td></tr>';
+  if (tb && !_admList.length) tb.innerHTML = '<tr class="loading-row"><td colspan="7">กำลังโหลด...</td></tr>';
   const res = await gasAdminCall('adminListAdmins');
   if (!res || res.status !== 'ok') {
-    if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--r);padding:20px">โหลดรายชื่อแอดมินไม่สำเร็จ'+(res&&res.message?': '+_esc(res.message):'')+'</td></tr>';
+    if (tb) tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--r);padding:20px">โหลดรายชื่อแอดมินไม่สำเร็จ'+(res&&res.message?': '+_esc(res.message):'')+'</td></tr>';
     return;
   }
   _admList = res.data || [];
@@ -4792,15 +4810,22 @@ function admRender() {
       act = (a.locked ? `<button class="ab ok" onclick="admUnlock(${i})">🔓 ปลดล็อก</button>` : '')
           + `<button class="ab vi" onclick="admSaveRole(${i})">💾 บันทึกสิทธิ์</button><button class="ab no" onclick="admSuspend(${i})">⏸ ระงับ</button><button class="ab" onclick="admHistory(${i})">📜</button>`;
     }
+    // [KBM] สวิตช์สิทธิ์แก้เมนูถามตอบรายคน — owner แก้ได้เสมอ · ผู้สมัครที่ยังไม่อนุมัติยังไม่เปิดให้
+    const kbCell = (a.role==='owner' && a.approved)
+      ? '<span style="font-size:10px;color:var(--t3)">เสมอ (owner)</span>'
+      : (a.is_self || !a.approved)
+        ? '<span style="font-size:10px;color:var(--t3)">—</span>'
+        : `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:11px"><input type="checkbox" ${a.kb_edit?'checked':''} onchange="admKbToggle(${i},this)"> ${a.kb_edit?'<span style="color:var(--g)">แก้ได้</span>':'<span style="color:var(--t3)">ไม่ได้</span>'}</label>`;
     return `<tr>
       <td style="font-size:12px">${_esc(a.email)}${a.is_self?' <span style="color:var(--gold);font-size:10px">(คุณ)</span>':''}</td>
       <td><span class="pill ${stl.c}">${stl.l}</span>${a.failed_attempts>0&&a.status!=='pending'?` <span style="font-size:10px;color:var(--t3)">ผิด ${a.failed_attempts}</span>`:''}</td>
       <td>${roleCell}</td>
+      <td>${kbCell}</td>
       <td class="mono" style="font-size:11px">${_admFmt(a.last_login_at)}</td>
       <td class="mono" style="font-size:11px">${_admFmt(a.created_at)}</td>
       <td style="white-space:nowrap">${act}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">ไม่พบรายการ</td></tr>';
+  }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:20px">ไม่พบรายการ</td></tr>';
 }
 
 function _admRoleSel(i) { return document.getElementById('adm-role-'+i)?.value; }
@@ -4812,6 +4837,14 @@ async function _admSet(i, payload, okMsg) {
     await radmins();
   } else if (res && res.code!=='FORBIDDEN') toast('⚠️ '+(res.message||'ไม่สำเร็จ'), 'er');
   return res;
+}
+// [KBM] เปิด/ปิดสิทธิ์แก้เมนูถามตอบรายคน (บันทึกทันที — owner เท่านั้นที่เรียก adminSetAdminRole ได้)
+async function admKbToggle(i, el) {
+  const a = _admList[i]; if (!a || !el) return;
+  const on = !!el.checked;
+  el.disabled = true;
+  const res = await _admSet(i, { kb_edit:on }, on ? 'เปิดสิทธิ์แก้เมนูถามตอบ' : 'ปิดสิทธิ์แก้เมนูถามตอบ');
+  if (!res || res.status !== 'ok') { el.checked = !on; el.disabled = false; }
 }
 async function admApprove(i) {
   const a = _admList[i]; if (!a) return;
@@ -5424,6 +5457,54 @@ function exportCSV(type) {
   if (p && window.MutationObserver) new MutationObserver(function () { postVisible(); if (panelOn()) postAvatars(); }).observe(p, { attributes: true, attributeFilter: ['class'] });
   var f0 = frameEl();
   if (f0) f0.addEventListener('load', function () { postVisible(); postAvatars(); });
+})();
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   [KBM v1] เมนูถามตอบ (admin) — เพิ่มใหม่ ไม่แก้ go() / ระบบแชทเดิม
+   • แผง #p-kbmenu = iframe ของ kb-admin.html?embed=1 (โหลดครั้งแรกตอนกดเข้าเมนู)
+   • iframe ไม่มีหน้าล็อกอิน: ขอ token ผ่าน postMessage 'kbm-need-token' → หน้านี้เรียก GAS adminKbSession (gasWrite) → ส่ง 'kbm-token' กลับ
+   • สิทธิ์: owner หรือบัญชีที่ owner เปิดสวิตช์ "แก้เมนูถามตอบ" (GAS ตรวจจากชีตทุกครั้งที่ขอ token) — token อายุสั้น iframe ขอใหม่เองก่อนหมด
+   ═══════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  var KBM_URL = 'kb-admin.html';   // relative ได้ถ้าอยู่โดเมน/โฟลเดอร์เดียวกับหน้าแอดมิน
+  var TGT = '*';
+  try { var o = new URL(KBM_URL, location.href).origin; if (o && o !== 'null') TGT = o; } catch (e) {}
+  var busy = false;
+
+  function frameEl() { return document.getElementById('kbm-frame'); }
+  function post(msg) {
+    var f = frameEl();
+    if (!f || !f.contentWindow || !f.getAttribute('data-kbm')) return;
+    try { f.contentWindow.postMessage(msg, TGT); } catch (e) {}
+  }
+  window.kbmInit = function () {
+    var f = frameEl(); if (!f) return;
+    if (!f.getAttribute('data-kbm')) {
+      var u = new URL(KBM_URL, location.href); u.searchParams.set('embed', '1');
+      f.setAttribute('data-kbm', '1'); f.src = u.toString();
+    }
+  };
+  window.kbmReset = function () {
+    var f = frameEl(); if (!f) return;
+    f.removeAttribute('data-kbm'); f.src = 'about:blank';
+  };
+  async function sendToken() {
+    if (busy) return; busy = true;
+    try {
+      var r = await gasWrite('adminKbSession', {});
+      if (r && r.status === 'ok' && r.token) post({ type: 'kbm-token', token: r.token, exp_ms: r.exp_ms, me: { name: r.name || '', role: 'editor' } });
+      else post({ type: 'kbm-error', message: (r && r.message) || 'ขอสิทธิ์แก้เมนูถามตอบไม่สำเร็จ' });
+    } catch (e) { post({ type: 'kbm-error', message: 'ขอสิทธิ์แก้เมนูถามตอบไม่สำเร็จ' }); }
+    finally { busy = false; }
+  }
+  window.addEventListener('message', function (ev) {
+    var f = frameEl();
+    if (!f || ev.source !== f.contentWindow) return;
+    if (TGT !== '*' && ev.origin !== TGT) return;
+    if (ev.data && ev.data.type === 'kbm-need-token') sendToken();
+  });
 })();
 </script>
 </body>

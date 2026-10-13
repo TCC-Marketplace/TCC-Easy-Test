@@ -1575,21 +1575,35 @@ function closeSb() {
 // ══════════════════════════════════════════
 
 // GAS fetch (admin read actions → ADMIN_SCRIPT_URL, GET)
+// [FIX] loadAll ยิงอ่านพร้อมกัน 16 คำขอ → GAS ตอบพลาดระดับแพลตฟอร์มบางคำขอ (คิว/จำนวนรันพร้อมกันเต็ม ได้หน้า error ที่ไม่มี CORS header
+//       เบราว์เซอร์เลยรายงานเป็น "blocked by CORS policy / ERR_FAILED 200") — จึงจำกัดจำนวนที่ยิงพร้อมกัน + ลองใหม่อัตโนมัติเฉพาะคำขออ่าน (GET)
+//       การเขียน (gasWrite) ไม่ลองซ้ำ เพื่อกันทำรายการซ้ำ
+const _GAS_MAX_PAR = 4; let _gasActive = 0; const _gasWait = [];
+function _gasAcquire() { return new Promise(res => { if (_gasActive < _GAS_MAX_PAR) { _gasActive++; res(); } else _gasWait.push(res); }); }
+function _gasRelease() { const n = _gasWait.shift(); if (n) n(); else _gasActive--; }
 async function gasAdminCall(action, params={}) {
+  await _gasAcquire();
   try {
     const u = new URL(ADMIN_SCRIPT_URL);
     u.searchParams.set('action', action);
     if (_adminToken) u.searchParams.set('_adminToken', _adminToken);
     Object.entries(params).forEach(([k,v])=>{ if(v!==undefined&&v!==null) u.searchParams.set(k,v); });
-    const r = await fetch(u.toString(), { redirect:'follow' });
-    if (!r.ok) throw new Error('HTTP '+r.status);
-    const j = await r.json();
-    if (j && j.code==='UNAUTHORIZED' && _AUTH_NOTOKEN.indexOf(action)===-1) _sessionExpired(j.message);
-    return j;
-  } catch(e) {
-    console.warn('[Admin GAS]', action, e.message);
+    let lastErr;
+    for (let t = 0; t < 3; t++) {
+      try {
+        const r = await fetch(u.toString(), { redirect:'follow' });
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        const j = await r.json();
+        if (j && j.code==='UNAUTHORIZED' && _AUTH_NOTOKEN.indexOf(action)===-1) _sessionExpired(j.message);
+        return j;
+      } catch(e) {
+        lastErr = e;
+        if (t < 2) await new Promise(r => setTimeout(r, 900 * (t + 1)));
+      }
+    }
+    console.warn('[Admin GAS]', action, lastErr && lastErr.message);
     return null;
-  }
+  } finally { _gasRelease(); }
 }
 
 // GAS write (admin actions → ADMIN_SCRIPT_URL, POST)

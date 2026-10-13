@@ -118,6 +118,9 @@ th{font-weight:500;color:var(--mute)}
 "use strict";
 const DEFAULT_API = "https://line-chat-worker.tcc-team-developer.workers.dev";
 const API = (new URLSearchParams(location.search).get("api") || DEFAULT_API).replace(/\/$/, "");
+// [KB v3.7] โหมดฝัง (?embed=1): หน้าแอดมินหลักเป็นผู้ยืนยันตัวตน/สิทธิ์ — ข้ามหน้าล็อกอิน แล้วขอ token ผู้แก้ไขจากหน้าแม่ผ่าน postMessage (ไม่เก็บ token ใน sessionStorage)
+const EMBED = new URLSearchParams(location.search).get("embed") === "1";
+const PARENT_ORIGIN = (() => { try { if (document.referrer) return new URL(document.referrer).origin; } catch (_) {} return location.origin; })();
 const LANGS = ["th", "en", "vi", "kh", "mm", "la"];
 const LNAME = { th: "ไทย", en: "English", vi: "Tiếng Việt", kh: "ខ្មែរ", mm: "မြန်မာ", la: "ລາວ" };
 const ACT = { "cat.create": "เพิ่มหมวด", "cat.update": "แก้หมวด", "cat.delete": "ลบหมวด", "cat.move": "เลื่อนหมวด", "faq.create": "เพิ่มคำถาม", "faq.update": "แก้คำถาม", "faq.delete": "ลบคำถาม", "faq.move": "เลื่อนคำถาม", "editor.create": "เพิ่มผู้แก้ไข", "editor.enable": "เปิดสิทธิ์ผู้แก้ไข", "editor.disable": "ปิดสิทธิ์ผู้แก้ไข", "editor.reset": "รีเซ็ตรหัสผู้แก้ไข" };
@@ -126,7 +129,7 @@ const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":
 const nums = (s) => (String(s || "").match(/\d+(?:[.,]\d+)*/g) || []).sort().join("|");
 const nm = (c, l) => (c && c.name && (c.name[l] || c.name.th)) || (c ? c.id : "");
 
-const S = { tok: sessionStorage.getItem("kbTok") || "", role: sessionStorage.getItem("kbRole") || "", name: sessionStorage.getItem("kbName") || "",
+const S = { tok: EMBED ? "" : sessionStorage.getItem("kbTok") || "", role: EMBED ? "editor" : sessionStorage.getItem("kbRole") || "", name: EMBED ? "" : sessionStorage.getItem("kbName") || "",
   cats: [], faq: [], editors: [], log: [], tab: "", sel: "", loginMode: "editor", err: "", busy: false, pv: { lang: "th", cat: "", sub: "", open: "" } };
 let FD = null, CD = null;   // ฟอร์มคำถาม / ฟอร์มหมวด ที่กำลังแก้
 
@@ -141,7 +144,35 @@ const errText = (e) => (e && e.data && (e.data.errors ? e.data.errors.join(" · 
 let tt = 0;
 function toast(msg, kind) { const t = $("#toast"); t.textContent = msg; t.className = kind || ""; clearTimeout(tt); tt = setTimeout(() => t.classList.add("hide"), 3200); }
 
-function logout() { sessionStorage.clear(); Object.assign(S, { tok: "", role: "", name: "", cats: [], faq: [], editors: [], log: [], loginMode: "editor", err: "" }); closeDlg(); render(); }
+function logout() {
+  sessionStorage.clear(); Object.assign(S, { tok: "", role: EMBED ? "editor" : "", name: "", cats: [], faq: [], editors: [], log: [], loginMode: "editor", err: "" }); closeDlg(); render();
+  if (EMBED) askToken();   // token หมดอายุ/ถูกปฏิเสธ → ขอใหม่จากหน้าแม่ (ถ้าถูกปิดสิทธิ์แล้ว หน้าแม่จะตอบ error)
+}
+/* ---------- [KB v3.7] โหมดฝัง: ขอ/รับ token จากหน้าแอดมิน ---------- */
+let tokTimer = 0;
+function askToken() {
+  if (!EMBED || window.parent === window) return;
+  try { window.parent.postMessage({ type: "kbm-need-token" }, PARENT_ORIGIN); } catch (_) {}
+}
+window.addEventListener("message", (ev) => {
+  if (!EMBED || ev.source !== window.parent || ev.origin !== PARENT_ORIGIN) return;
+  const m = ev.data || {};
+  if (m.type === "kbm-token" && m.token) {
+    const first = !S.tok;
+    S.tok = String(m.token); S.role = "editor"; S.name = (m.me && m.me.name) || "ผู้แก้ไข"; S.err = "";
+    clearTimeout(tokTimer);
+    const left = Number(m.exp_ms) - Date.now() - 5 * 60000;   // ขอ token ใหม่ก่อนหมดอายุ 5 นาที (ถ้าสิทธิ์ถูกปิดไปแล้วจะขอไม่ได้)
+    tokTimer = setTimeout(askToken, Math.max(30000, isFinite(left) ? left : 3600000));
+    if (first) { S.tab = S.tab || "menu"; loadTab(); }
+  } else if (m.type === "kbm-error") {
+    clearTimeout(tokTimer); closeDlg();
+    Object.assign(S, { tok: "", cats: [], faq: [], log: [], err: String(m.message || "ขอสิทธิ์ไม่สำเร็จ") }); render();
+  }
+});
+function embedView() {
+  if (window.parent === window) return `<div class="login"><h1>จัดการเมนูถามตอบ</h1><p>โหมดฝังต้องเปิดผ่านหน้าแอดมินเท่านั้น</p></div>`;
+  return `<div class="login"><h1>จัดการเมนูถามตอบ</h1>${S.err ? `<div class="err">${esc(S.err)}</div><button class="btn pri" style="width:100%;margin-top:10px" data-act="retoken">ลองใหม่</button>` : "<p>กำลังขอสิทธิ์จากระบบแอดมิน…</p>"}</div>`;
+}
 async function login() {
   const key = $("#key").value.trim(); if (!key) return;
   S.busy = true; S.err = ""; render();
@@ -184,12 +215,12 @@ function liveTree() {
 /* ---------- วาดหน้า ---------- */
 function render() {
   const app = $("#app");
-  if (!S.tok) { app.innerHTML = loginView(); return; }
+  if (!S.tok) { app.innerHTML = EMBED ? embedView() : loginView(); return; }
   const owner = S.role === "owner";
   const tabs = owner ? [["editors", "ผู้แก้ไข"], ["log", "ประวัติ"]] : [["menu", "เมนู"], ["preview", "ตัวอย่างที่สมาชิกเห็น"], ["log", "ประวัติ"]];
   app.innerHTML = `<div class="top"><h1>จัดการเมนูถามตอบ</h1>
     <nav class="tabs">${tabs.map(([k, n]) => `<button data-act="tab" data-v="${k}" class="${S.tab === k ? "on" : ""}">${n}</button>`).join("")}</nav>
-    <div class="who"><span>${esc(S.name)}</span><button class="btn sm" data-act="logout">ออกจากระบบ</button></div></div>
+    <div class="who"><span>${esc(S.name)}</span>${EMBED ? "" : '<button class="btn sm" data-act="logout">ออกจากระบบ</button>'}</div></div>
     <div class="wrap">${S.tab === "menu" ? menuView() : S.tab === "preview" ? previewView() : S.tab === "log" ? logView() : editorsView()}</div>`;
 }
 function loginView() {
@@ -345,6 +376,7 @@ document.addEventListener("click", async (ev) => {
   const a = b.dataset.act, id = b.dataset.id, v = b.dataset.v;
   if (a === "lmode") { S.loginMode = v; S.err = ""; render(); }
   else if (a === "logout") logout();
+  else if (a === "retoken") { S.err = ""; render(); askToken(); }
   else if (a === "tab") { S.tab = v; await loadTab(); }
   else if (a === "reload") await loadTab();
   else if (a === "selcat") { S.sel = id; render(); }
@@ -380,7 +412,7 @@ dlg().addEventListener("input", (ev) => {
   else if (CD && t.dataset.c) { const k = t.dataset.c; if (k.startsWith("name:")) CD.name[k.slice(5)] = val; else if (k.startsWith("kw:")) CD.kw[Number(k.slice(3))] = val; else CD[k] = val; }
 });
 dlg().addEventListener("close", () => { FD = CD = null; S._ai = false; });
-if (S.tok) { S.tab = S.role === "owner" ? "editors" : "menu"; loadTab(); } else render();
+if (S.tok) { S.tab = S.role === "owner" ? "editors" : "menu"; loadTab(); } else { render(); if (EMBED) askToken(); }
 </script>
 </body>
 </html>

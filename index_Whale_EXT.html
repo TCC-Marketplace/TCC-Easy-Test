@@ -7505,7 +7505,7 @@ async function runAnAI() {
     load.style.display = 'none';
     res.innerHTML = '<span style="color:var(--r);">❌ ' + escHtml(e.message) + '</span><br><br>'
       + 'วิธีแก้: ตรวจสอบ Apps Script ว่า<br>'
-      + '1. ตั้ง ANTHROPIC_API_KEY แล้ว<br>'
+      + '1. ตั้ง GROQ_API_KEY ใน Token sheet แล้ว<br>'
       + '2. Deploy ใหม่หลังแก้ไข<br>'
       + '3. Permission: Execute as = Me, Access = Anyone';
   }
@@ -8226,7 +8226,7 @@ async function runMobAI() {
       .replace(/BULLISH/g, '<span style="color:var(--g);font-weight:700;">BULLISH</span>')
       .replace(/BEARISH/g, '<span style="color:var(--r);font-weight:700;">BEARISH</span>');
   } catch(e) {
-    res.textContent = '❌ ' + e.message + '\n\nกรุณาตรวจสอบ:\n1. ANTHROPIC_API_KEY ใน Apps Script\n2. Deploy Apps Script ใหม่\n3. Permission: Execute as Me, Access Anyone';
+    res.textContent = '❌ ' + e.message + '\n\nกรุณาตรวจสอบ:\n1. GROQ_API_KEY ใน Token sheet (Google Sheet)\n2. Deploy Apps Script ใหม่\n3. Permission: Execute as Me, Access Anyone';
   }
   btn.disabled = false;
   btn.innerHTML = '✨ วิเคราะห์อีกครั้ง ↗';

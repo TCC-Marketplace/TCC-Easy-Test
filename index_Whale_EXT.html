@@ -9595,7 +9595,8 @@ setInterval(() => {
 // State
 window._msbState = {
   newsDir: null,   newsConf: 0,   newsText: '',
-  sharpeDir: null, sharpeConf: 0, sharpeText: '',   // v21: Sharpe News source
+  sharpeDir: null, sharpeConf: 0, sharpeText: '',   // v21: Sharpe News source — sharpeText = คำตอบ AI (ใช้ใน Synthesis)
+  sharpeRaw: '',   // v47: ข่าวดิบจาก Sharpe API (แยกจากคำตอบ AI เพื่อไม่ให้ข้ามการดึงข่าวรอบถัดไป)
   sheetDir: null,  sheetConf: 0,  sheetSummary: '',
   liveDir: null,   liveConf: 0,   liveSummary: '',
   // v15 NEW: Binance OI/L-S and CoinGecko/F&G as separate AI signals
@@ -9928,7 +9929,7 @@ async function fcFetchSharpeNews(category = 'macro') {
   if (!ALERT_CONFIG.appsScriptURL) {
     if (statusEl) { statusEl.textContent = '⚠️ ไม่มี GAS URL'; statusEl.style.color = 'var(--y)'; }
     if (resultEl) resultEl.textContent = '⚠️ ยังไม่ได้ตั้งค่า Apps Script URL';
-    window._msbState.sharpeText = '';
+    window._msbState.sharpeRaw = '';
     return;
   }
 
@@ -9950,14 +9951,14 @@ async function fcFetchSharpeNews(category = 'macro') {
         : '❌ ' + (d.message || d.error);
       if (statusEl) { statusEl.textContent = '⚠️ ' + (d.error || 'Error'); statusEl.style.color = 'var(--y)'; }
       if (resultEl) { resultEl.className = 'msb-signal-result'; resultEl.textContent = msg; }
-      window._msbState.sharpeText = '';
+      window._msbState.sharpeRaw = '';
       return;
     }
 
     if (!d.articles || d.articles.length === 0) {
       if (statusEl) { statusEl.textContent = '📭 ไม่มีข่าวใหม่'; statusEl.style.color = 'var(--t2)'; }
       if (resultEl) { resultEl.className = 'msb-signal-result'; resultEl.textContent = 'ไม่พบข่าว High-impact ใน 6 ชั่วโมงที่ผ่านมา'; }
-      window._msbState.sharpeText = '';
+      window._msbState.sharpeRaw = '';
       return;
     }
 
@@ -9974,7 +9975,7 @@ async function fcFetchSharpeNews(category = 'macro') {
     const sharpeText = d.articles.map(art =>
       `[${art.source}] ${art.title}${art.summary && art.summary !== '—' ? ' — ' + art.summary.slice(0, 120) : ''}`
     ).join('\n');
-    window._msbState.sharpeText = sharpeText;
+    window._msbState.sharpeRaw = sharpeText;   // v47: เก็บข่าวดิบ (ไม่ใช่คำตอบ AI)
 
     if (statusEl) { statusEl.textContent = `✅ ${d.articles.length} บทความ`; statusEl.style.color = 'var(--g)'; }
     if (resultEl) { resultEl.className = 'msb-signal-result'; resultEl.textContent = `โหลด ${d.articles.length} บทความจาก Sharpe (Bloomberg/Reuters/CoinDesk) — AI กำลังวิเคราะห์...`; }
@@ -9983,7 +9984,7 @@ async function fcFetchSharpeNews(category = 'macro') {
   } catch(err) {
     if (statusEl) { statusEl.textContent = '❌ Error'; statusEl.style.color = 'var(--r)'; }
     if (resultEl) { resultEl.className = 'msb-signal-result'; resultEl.textContent = '❌ ' + err.message; }
-    window._msbState.sharpeText = '';
+    window._msbState.sharpeRaw = '';
   }
 }
 
@@ -9997,7 +9998,11 @@ async function msbAnalyzeSharpe() {
   // ✅ v41b FIX: เปลี่ยนจาก sequential → parallel fetch macro+crypto พร้อม text merge
   // เดิม: await macro (30s) → await crypto (30s) = รวม 60s → อาจ timeout หรือ sharpeText ว่าง
   // ใหม่: Promise.all = parallel ~30s + merge text ทั้ง 2 category ให้ AI ได้ข้อมูลครบ
-  if (!st.sharpeText) {
+  // ✅ v47 FIX: ดึงข่าว Sharpe ใหม่ทุกรอบ — เดิมเช็ก !st.sharpeText แต่หลังวิเคราะห์เสร็จ sharpeText ถูกเขียนทับด้วยคำตอบ AI
+  //   ทำให้รอบที่ 2 เป็นต้นไปข้ามการดึงข่าว แล้วเอาคำตอบ AI เก่าไปวิเคราะห์ซ้ำเป็น "ข่าว"
+  st.sharpeRaw  = '';
+  st.sharpeText = '';
+  {
     const [macroResult, cryptoResult] = await Promise.allSettled([
       fcFetchSharpeNews('macro'),
       fcFetchSharpeNews('crypto'),
@@ -10007,12 +10012,11 @@ async function msbAnalyzeSharpe() {
     const cryptoText = cryptoResult.status === 'fulfilled' && cryptoResult.value ? cryptoResult.value : '';
     const mergedText = [macroText, cryptoText].filter(Boolean).join('\n---\n');
     if (mergedText) {
-      st.sharpeText = mergedText; // ✅ ได้ข้อมูล 2 category รวมกัน → AI วิเคราะห์ครบกว่า
+      st.sharpeRaw = mergedText; // ✅ ได้ข้อมูล 2 category รวมกัน → AI วิเคราะห์ครบกว่า
     }
-    // ถ้า mergedText ว่าง → st.sharpeText อาจยังมีจาก fcFetchSharpeNews (เขียน side-effect) → ใช้ได้
   }
 
-  if (!st.sharpeText) {
+  if (!st.sharpeRaw) {
     if (resultEl) { resultEl.className = 'msb-signal-result'; resultEl.textContent = '⚠️ ไม่มีข้อมูล Sharpe — ข้ามขั้นตอนนี้'; }
     st.sharpeDir  = 'NEUTRAL';
     st.sharpeConf = 25;
@@ -10028,7 +10032,7 @@ async function msbAnalyzeSharpe() {
   const prompt = `คุณคือผู้เชี่ยวชาญ Macro & Crypto Market วิเคราะห์ผลกระทบต่อตลาด Crypto จากข่าวล่าสุด พร้อม FORECAST ทิศทางล่วงหน้าทุก timeframe
 
 📡 ข่าวจาก Sharpe Terminal (Bloomberg, Reuters, CoinDesk, The Block):
-${st.sharpeText.slice(0, 2000)}
+${st.sharpeRaw.slice(0, 2000)}
 
 🎯 หลักเกณฑ์ CONFIDENCE (วิเคราะห์ตามนี้ก่อนตอบ):
 • 80-100% = ข่าวหลายสำนักชี้ทิศทางเดียวกัน + มีข่าว Market-Moving ชัดเจน
@@ -10062,11 +10066,11 @@ FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
 
   try {
     const text = await callAIProxy(prompt, 820);
-    const dirM  = text.match(/DIRECTION[:\s]*([A-Z]+)/i);
-    const confM = text.match(/CONFIDENCE[:\s]*(\d+)/i);
-    st.sharpeDir  = (dirM?.[1] || 'NEUTRAL').toUpperCase();
-    st.sharpeConf = Math.min(100, Math.max(0, parseInt(confM?.[1] || '50')));
-    // ✅ v07: store AI text back + parse forecasts
+    const pr = msbParseDirConf(text);   // ✅ v47: parser ทนรูปแบบ — อ่านไม่ได้ = ไม่มีข้อมูล (ไป catch)
+    if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
+    st.sharpeDir  = pr.dir;
+    st.sharpeConf = pr.conf;
+    // ✅ v07: เก็บคำตอบ AI ใน sharpeText (Synthesis ใช้) — ข่าวดิบอยู่ใน sharpeRaw
     st.sharpeText = text;
     st.sharpeHasData = true; // ✅ v35: มีข้อมูลจริง
     st.sharpeForecasts = msbParseForecasts(text);
@@ -10200,15 +10204,53 @@ function msbSetColDir(id, dir) {
 function msbParseForecasts(text) {
   const TFS = ['1H','3H','6H','12H','24H','48H'];
   const result = {};
+  const t = String(text || '');
   TFS.forEach(tf => {
-    const rx = new RegExp(`FORECAST_${tf}[:\\s*_]*([A-Z]+)[\\s]*([\\d]+)%?`, 'i');
-    const m  = text.match(rx);
-    result[tf] = {
-      dir:  m ? m[1].toUpperCase() : 'NEUTRAL',
-      conf: m ? Math.min(100, parseInt(m[2])) : 50
-    };
+    // v47: ทนรูปแบบ **FORECAST_1H:** / FORECAST_1H: [BEARISH] [81%] / BEARISH 81%
+    const rx = new RegExp('FORECAST_' + tf + '[*_:\\s\\[\\(]*(BULLISH|BEARISH|NEUTRAL)[^\\d\\n]{0,8}(\\d{1,3})\\s*%?', 'i');
+    const m  = t.match(rx);
+    // v47: อ่านไม่ได้ → _missing (ไม่นับเป็นเสียงใน Time-Grid แทนการใส่ NEUTRAL 50% ปลอม)
+    result[tf] = m
+      ? { dir: m[1].toUpperCase(), conf: Math.min(100, parseInt(m[2], 10)) }
+      : { dir: 'NEUTRAL', conf: 50, _missing: true };
   });
   return result;
+}
+
+// ✅ v47 NEW: parser DIRECTION/CONFIDENCE ตัวเดียวใช้ทุกแหล่ง (ทนต่อ **DIRECTION:** / DIRECTION: [BULLISH])
+// ok=false เมื่ออ่านไม่ได้ → caller ต้องถือว่า "ไม่มีข้อมูล" (HasData=false) ไม่ใช่ NEUTRAL 50%
+function msbParseDirConf(text) {
+  const t = String(text || '');
+  const dirM  = t.match(/DIRECTION[*_:\s\[\(]*(BULLISH|BEARISH|NEUTRAL)/i);
+  const confM = t.match(/CONFIDENCE[*_:\s\[\(]*(\d{1,3})/i);
+  return {
+    ok:   !!(dirM && confM),
+    dir:  dirM  ? dirM[1].toUpperCase() : null,
+    conf: confM ? Math.min(100, parseInt(confM[1], 10)) : null,
+  };
+}
+
+// ✅ v47 NEW: helper สำหรับ Live — allTrades เรียงใหม่→เก่า (unshift) และมี _time (ms)
+function msbTradeMs(t) {
+  const v = t && t._time;
+  let n = typeof v === 'number' ? v : parseInt(v, 10);
+  if (!isFinite(n) || n <= 0) return null;
+  if (n < 1e12) n *= 1000; // เผื่อเป็นหน่วยวินาที
+  return n;
+}
+// Perps: long/short · Spot: buy/sell — BUY นับเป็นฝั่ง long, SELL นับเป็นฝั่ง short
+function msbIsLongSide(dir) {
+  const d = String(dir || '').toUpperCase();
+  return d === 'LONG' || d === 'BUY';
+}
+// trades ≥$100K จาก Sheet ภายใน N นาทีล่าสุด (เรียงใหม่→เก่า ตามเวลาจริง ไม่พึ่งลำดับ array)
+function msbRecentSheetTrades(minutes) {
+  if (typeof anLoaded === 'undefined' || !anLoaded) return [];   // ไม่ใช้ demo/fallback data
+  const now = Date.now(), cutoff = now - minutes * 60000;
+  return (AN_ALL || []).map(t => ({ t, ms: _anEpoch(t) }))
+    .filter(x => x.ms !== null && x.ms >= cutoff && x.ms <= now + 60000)
+    .sort((a, b) => b.ms - a.ms)
+    .map(x => x.t);
 }
 
 // ✅ v09 NEW: ดึงเหตุผล (text หลัง — ) จากแต่ละบรรทัด FORECAST_XH
@@ -10486,10 +10528,10 @@ FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
 
   try {
     const text = await callAIProxy(prompt, 800);
-    const dirM  = text.match(/DIRECTION[:\s]*([A-Z]+)/i);
-    const confM = text.match(/CONFIDENCE[:\s]*(\d+)/i);
-    st.newsDir  = dirM  ? dirM[1].toUpperCase()  : 'NEUTRAL';
-    st.newsConf = confM ? Math.min(100, parseInt(confM[1])) : 50;
+    const pr = msbParseDirConf(text);   // ✅ v47
+    if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
+    st.newsDir  = pr.dir;
+    st.newsConf = pr.conf;
     st.newsText = text;
     st.newsHasData = !isFallback; // ✅ v35: real data = not fallback
     // ✅ v07: parse + store forecast ทุก timeframe
@@ -10585,7 +10627,13 @@ async function msbAnalyzeSheet(data, buckets) {
 
   // ── ✅ v36: Small Whale context block ($10K–$99K) ──────────────
   let swContextBlock = '';
-  const sw = SW_ALL || [];
+  // ✅ v47 FIX: เดิมใช้ SW_ALL ทั้งชุดไม่กรองเวลา → กรองให้อยู่ในช่วงเดียวกับข้อมูล Whale (fcPresetHours) และเรียงตามเวลาจริง
+  const _swNowMs   = Date.now();
+  const _swStartMs = _swNowMs - (fcPresetHours || 6) * 3600000;
+  const swRows = (SW_ALL || []).map(t => ({ t, ms: _anEpoch(t) }))
+    .filter(x => x.ms !== null && x.ms >= _swStartMs && x.ms <= _swNowMs + 60000)
+    .sort((a, b) => b.ms - a.ms);   // ใหม่ → เก่า
+  const sw = swRows.map(x => x.t);
   if (sw.length > 0) {
     const swTot   = sw.reduce((s,t) => s+t.usd, 0);
     const swLCnt  = sw.filter(t => t.dir==='LONG'||t.dir==='BUY').length;
@@ -10593,11 +10641,13 @@ async function msbAnalyzeSheet(data, buckets) {
     const swSPct  = 100 - swLPct;
 
     // hourly count ล่าสุด 3 ชั่วโมง — retail เป็น leading indicator
-    const nowH   = _bkkHour(); // ✅ v26 FIX: Bangkok hour แทน browser local
-    const swHvol = {}; sw.forEach(t => { swHvol[t.h] = (swHvol[t.h]||0)+1; });
-    const swHrStr = [nowH, nowH-1, nowH-2].map(h => {
-      const hh = (h+24)%24;
-      return `${hh}:00=${swHvol[hh]||0}T`;
+    // ✅ v47 FIX: นับต่อ "วัน+ชั่วโมง" (Bangkok) ไม่รวมทุกวันเข้าชั่วโมงเดียวกัน
+    const swHvol = {};
+    swRows.forEach(x => { const k = _anBkkDate(x.ms) + '|' + _anBkkHour(x.ms); swHvol[k] = (swHvol[k]||0) + 1; });
+    const swHrStr = [0, 1, 2].map(i => {
+      const ms = _swNowMs - i * 3600000;
+      const h  = _anBkkHour(ms);
+      return `${h}:00=${swHvol[_anBkkDate(ms) + '|' + h] || 0}T`;
     }).join(', ');
 
     // coin breakdown
@@ -10606,7 +10656,7 @@ async function msbAnalyzeSheet(data, buckets) {
       .map(([c,n]) => `${c}:${n}`).join(', ');
 
     // momentum SW: recent 20 vs prev 20
-    const swSorted = [...sw].sort((a,b) => (b.ts||'').localeCompare(a.ts||''));
+    const swSorted = sw;   // ✅ v47: เรียงตามเวลาจริงใหม่→เก่าแล้ว (เดิมเรียงด้วย HH:MM ข้ามวัน)
     const swRec20  = swSorted.slice(0, 20);
     const swPrv20  = swSorted.slice(20, 40);
     const swRecL   = swRec20.filter(t => t.dir==='LONG'||t.dir==='BUY').length;
@@ -10680,10 +10730,10 @@ Cross-validate: (1 ประโยค — Whale bias สอดคล้องห
 
   try {
     const text = await callAIProxy(prompt, 820);
-    const dirM  = text.match(/DIRECTION[:\s]*([A-Z]+)/i);
-    const confM = text.match(/CONFIDENCE[:\s]*(\d+)/i);
-    st.sheetDir  = dirM  ? dirM[1].toUpperCase() : 'NEUTRAL';
-    st.sheetConf = confM ? Math.min(100, parseInt(confM[1])) : 50;
+    const pr = msbParseDirConf(text);   // ✅ v47
+    if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
+    st.sheetDir  = pr.dir;
+    st.sheetConf = pr.conf;
     st.sheetSummary = text;
     st.sheetHasData = true; // ✅ v35: มีข้อมูลจริง
     // ✅ v07: parse + store forecast ทุก timeframe
@@ -10723,26 +10773,33 @@ async function msbAnalyzeLive(data) {
     }
   }
 
-  const liveTrades = allTrades.filter(t => t.usd >= 100000);
+  // ✅ v47 FIX (Live): allTrades เรียงใหม่→เก่า (unshift) → ใช้เวลาจริงกรอง 90 นาทีล่าสุด
+  //   และนับ Spot BUY เป็นฝั่ง long / SELL เป็นฝั่ง short (เดิมเช็กแค่ 'LONG' ทำให้ BUY ถูกนับเป็น short)
+  const _liveNow    = Date.now();
+  const _liveWinMs  = 90 * 60 * 1000;
+  const liveWindowTrades = allTrades.filter(t => { const ms = msbTradeMs(t); return ms === null || (_liveNow - ms) <= _liveWinMs; });
+  const liveTrades = liveWindowTrades.filter(t => t.usd >= 100000);
   const liveVol    = liveTrades.reduce((s,t) => s+t.usd, 0);
-  const liveLong   = liveTrades.filter(t => (t.direction||'').toUpperCase() === 'LONG').reduce((s,t) => s+t.usd, 0);
+  const liveLong   = liveTrades.filter(t => msbIsLongSide(t.direction)).reduce((s,t) => s+t.usd, 0);
   // ✅ FIX v24: fix undefined lV/sV bug
   const liveShort  = liveVol - liveLong;
   const liveLPct   = liveVol > 0 ? Math.round(liveLong/liveVol*100) : 50;
 
-  const recentMega = allTrades.filter(t => t.usd >= 1000000).slice(-5)
+  const recentMega = liveWindowTrades.filter(t => t.usd >= 1000000)
+    .sort((a, b) => (msbTradeMs(b) || 0) - (msbTradeMs(a) || 0)).slice(0, 5)   // ✅ v47: 5 รายการ "ล่าสุด" (เดิม slice(-5) ได้ 5 เก่าสุด)
     .map(t => `${t.coin} ${(t.direction||'').toUpperCase()} $${Math.round(t.usd/1000)}K`).join(', ');
 
   // ✅ v41b FIX: ถ้า allTrades ว่าง (HL 500) → fallback ไป AN_ALL trades ล่าสุด 90 นาที
   // ทำให้ liveHasData=true แม้ WS ยังไม่ connect → ได้ข้อมูล 6/7 แหล่งขึ้นไป
-  if (liveTrades.length === 0 && AN_ALL && AN_ALL.length > 0) {
-    const cutoff90m = Date.now() - 90 * 60 * 1000;
-    // AN_ALL ไม่มี _time → ใช้ index ล่าสุด 30 รายการ (เรียงจากใหม่→เก่า)
-    const recentSheet = AN_ALL.slice(0, 30);
-    const sheetLong  = recentSheet.filter(t => (t.dir||'').toUpperCase() === 'LONG').reduce((s,t) => s+(t.usd||0), 0);
+  // ✅ v47 FIX: เดิมใช้ AN_ALL.slice(0,30) โดยเข้าใจว่าเรียงใหม่→เก่า แต่ GAS ส่งเก่า→ใหม่ จึงได้ข้อมูลเก่าสุดมาเรียกว่า "Live"
+  //   ตอนนี้เลือกจากเวลาจริง (_anEpoch) เฉพาะ 90 นาทีล่าสุด — ถ้าไม่มี → ไม่นับเป็นข้อมูล Live
+  const _sheetRecent90 = liveTrades.length === 0 ? msbRecentSheetTrades(90) : [];
+  if (liveTrades.length === 0 && _sheetRecent90.length > 0) {
+    const recentSheet = _sheetRecent90;
+    const sheetLong  = recentSheet.filter(t => msbIsLongSide(t.dir)).reduce((s,t) => s+(t.usd||0), 0);
     const sheetVol   = recentSheet.reduce((s,t) => s+(t.usd||0), 0);
     const sheetLPct  = sheetVol > 0 ? Math.round(sheetLong/sheetVol*100) : 50;
-    const sheetMega  = recentSheet.filter(t => t.usd >= 1000000).slice(-5)
+    const sheetMega  = recentSheet.filter(t => t.usd >= 1000000).slice(0, 5)
       .map(t => `${t.coin} ${(t.dir||'').toUpperCase()} $${Math.round(t.usd/1000)}K`).join(', ');
     const sheetBias  = Math.abs(sheetLPct - 50);
     const sheetConfHint = recentSheet.length >= 20 && sheetBias >= 20
@@ -10752,7 +10809,7 @@ async function msbAnalyzeLive(data) {
       : 'ข้อมูลน้อย → CONFIDENCE ไม่เกิน 40%';
 
     const prompt = `คุณคือผู้เชี่ยวชาญ Order Flow วิเคราะห์พฤติกรรม Whale จาก Hyperliquid Sheet Data พร้อม FORECAST ทิศทางล่วงหน้าทุก timeframe
-⚠️ หมายเหตุ: HL API ชั่วคราวไม่พร้อม — ใช้ข้อมูล Historical Sheet (ล่าสุดสุด ${recentSheet.length} รายการ) แทน real-time WebSocket
+⚠️ หมายเหตุ: HL API ชั่วคราวไม่พร้อม — ใช้ข้อมูล Historical Sheet (เฉพาะ 90 นาทีล่าสุด ${recentSheet.length} รายการ) แทน real-time WebSocket
 
 📋 Recent Whale Flow (Sheet Data ล่าสุด):
 - Trades ≥$100K: ${recentSheet.length} รายการ
@@ -10791,10 +10848,10 @@ Cross-validate: (1 ประโยค — สอดคล้องกับ OI/F
     if (statusEl) statusEl.textContent = `📋 ${recentSheet.length} trades (Sheet fallback)`;
     try {
       const text = await callAIProxy(prompt, 820);
-      const dirM  = text.match(/DIRECTION[*_:\s]*([A-Z]+)/i);
-      const confM = text.match(/CONFIDENCE[*_:\s]*(\d+)/i);
-      st.liveDir  = dirM  ? dirM[1].toUpperCase() : 'NEUTRAL';
-      st.liveConf = confM ? Math.min(100, parseInt(confM[1])) : 35;
+      const pr = msbParseDirConf(text);   // ✅ v47
+      if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
+      st.liveDir  = pr.dir;
+      st.liveConf = pr.conf;
       st.liveSummary = text;
       // ✅ liveHasData=true เพราะมีข้อมูล Sheet → นับเป็น 1 แหล่ง ไม่ใช่ NEUTRAL
       st.liveHasData = true;
@@ -10883,10 +10940,10 @@ Cross-validate: (1 ประโยค — live flow สอดคล้องห�
 
   try {
     const text = await callAIProxy(prompt, 820);
-    const dirM  = text.match(/DIRECTION[*_:\s]*([A-Z]+)/i);
-    const confM = text.match(/CONFIDENCE[*_:\s]*(\d+)/i);
-    st.liveDir  = dirM  ? dirM[1].toUpperCase() : 'NEUTRAL';
-    st.liveConf = confM ? Math.min(100, parseInt(confM[1])) : 50;
+    const pr = msbParseDirConf(text);   // ✅ v47
+    if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
+    st.liveDir  = pr.dir;
+    st.liveConf = pr.conf;
     st.liveSummary = text;
     st.liveHasData = true; // ✅ v35: มีข้อมูลจริง
     // ✅ v07: parse + store forecast ทุก timeframe
@@ -10957,15 +11014,69 @@ async function msbSynthesize() {
   const failedSources = sourceInfo.filter(s => !s.has);
   const realCount = realSources.length;
 
+  // ✅ v47: คำนวณ Time-Grid ก่อน เพื่อให้ทิศทางรวม (masterDir) มาจากการถ่วงน้ำหนักชุดเดียวกับ Forecast Grid
+  // ✅ v07+v35: สร้าง Forecast Grid summary จาก real sources เท่านั้น (skip failed sources)
+  const TF_WEIGHTS = {
+    news:    { '1H':0.05,'3H':0.08,'6H':0.13,'12H':0.13,'24H':0.10,'48H':0.08 },
+    sharpe:  { '1H':0.05,'3H':0.08,'6H':0.12,'12H':0.12,'24H':0.10,'48H':0.08 },
+    sheet:   { '1H':0.08,'3H':0.10,'6H':0.18,'12H':0.18,'24H':0.14,'48H':0.10 },
+    live:    { '1H':0.25,'3H':0.22,'6H':0.12,'12H':0.06,'24H':0.04,'48H':0.03 },
+    binance: { '1H':0.15,'3H':0.18,'6H':0.15,'12H':0.12,'24H':0.08,'48H':0.06 },
+    cg:      { '1H':0.04,'3H':0.05,'6H':0.07,'12H':0.10,'24H':0.15,'48H':0.18 },
+    cvd:     { '1H':0.20,'3H':0.18,'6H':0.10,'12H':0.06,'24H':0.04,'48H':0.03 },
+  };
+  const ALL_TF = ['1H','3H','6H','12H','24H','48H'];
+  const sources = {
+    news: st.newsForecasts, sharpe: st.sharpeForecasts,
+    sheet: st.sheetForecasts, live: st.liveForecasts,
+    binance: st.binanceForecasts, cg: st.cgForecasts, cvd: st.cvdForecasts
+  };
+
+  // v35 FIX: คำนวณ weighted forecast แต่ละ timeframe จาก real sources เท่านั้น
+  const realSourceKeys = new Set(realSources.map(s => s.key));
+  const tfGrid = {};
+  ALL_TF.forEach(tf => {
+    let bullScore = 0, bearScore = 0, totalW = 0, used = 0;
+    Object.entries(sources).forEach(([src, fc]) => {
+      if (!realSourceKeys.has(src)) return; // ✅ v35: ข้าม source ที่ไม่มีข้อมูลจริง
+      if (!fc || !fc[tf] || fc[tf]._missing) return;   // v47: ข้ามเมื่อ parse ไม่ได้
+      const w = TF_WEIGHTS[src]?.[tf] || 0.10;
+      const dir = fc[tf].dir; const conf = fc[tf].conf / 100;
+      if (dir === 'BULLISH') bullScore += w * conf;
+      else if (dir === 'BEARISH') bearScore += w * conf;
+      totalW += w; used++;
+    });
+    const norm = totalW > 0 ? totalW : 1;
+    const netBull = bullScore/norm; const netBear = bearScore/norm;
+    const gap = Math.abs(netBull - netBear);
+    const dir = netBull > netBear ? 'BULLISH' : netBear > netBull ? 'BEARISH' : 'NEUTRAL';
+    const conf = Math.round(Math.min(95, (gap * 180 + 30)));
+    tfGrid[tf] = { dir, conf, bullScore: Math.round(netBull*100), bearScore: Math.round(netBear*100), n: used };
+  });
+
   // Vote จากเฉพาะ source ที่มีข้อมูลจริง (ไม่นับ NEUTRAL ปลอม)
   const bulls    = realSources.filter(d => d.dir === 'BULLISH').length;
   const bears    = realSources.filter(d => d.dir === 'BEARISH').length;
   const neutrals = realSources.filter(d => d.dir === 'NEUTRAL').length;
 
   // ถ้าไม่มีข้อมูลจริงเลย → NEUTRAL
-  const masterDir = realCount === 0 ? 'NEUTRAL'
-    : bulls > bears ? 'BULLISH'
-    : bears > bulls ? 'BEARISH' : 'NEUTRAL';
+  // ✅ v47 FIX: เดิมตัดสินจากจำนวนเสียง (bulls > bears) ไม่ดูน้ำหนัก/ความมั่นใจ → ขัดกับ Forecast Grid
+  //   ใหม่: ใช้ทิศทางจาก Time-Grid ช่วง 6H (ถ่วงน้ำหนักด้วย weight × confidence เช่นเดียวกับกริด)
+  //   ถ้ากริด 6H ไม่มีข้อมูลเลย (ทุกแหล่ง parse forecast ไม่ได้) → ถ่วงน้ำหนักจาก DIRECTION/CONFIDENCE หลักของแต่ละแหล่งแทน
+  const _g6 = tfGrid['6H'];
+  let masterDir;
+  if (realCount === 0) {
+    masterDir = 'NEUTRAL';
+  } else if (_g6 && _g6.n > 0) {
+    masterDir = _g6.dir;
+  } else {
+    let _bs = 0, _rs = 0;
+    realSources.forEach(src => {
+      if (src.dir === 'BULLISH') _bs += src.w * (src.conf / 100);
+      else if (src.dir === 'BEARISH') _rs += src.w * (src.conf / 100);
+    });
+    masterDir = _bs > _rs ? 'BULLISH' : _rs > _bs ? 'BEARISH' : 'NEUTRAL';
+  }
 
   msbSetDirection(masterDir);
 
@@ -10976,7 +11087,8 @@ async function msbSynthesize() {
     : 25; // ถ้าไม่มีข้อมูลเลย ให้ 25%
 
   // Agreement bonus: ใช้ real votes เท่านั้น
-  const agreement = Math.max(bulls, bears);
+  // ✅ v47: นับเฉพาะแหล่งที่เห็นด้วยกับทิศทางรวมจริง (เดิมใช้ฝั่งที่มีเสียงมากสุดโดยไม่สนว่าตรงกับ masterDir หรือไม่)
+  const agreement = masterDir === 'BULLISH' ? bulls : masterDir === 'BEARISH' ? bears : neutrals;
   const agreementBonus = realCount >= 5 && agreement >= realCount
     ? 10 : realCount >= 4 && agreement >= realCount
     ? 7  : agreement >= realCount - 1 && realCount >= 3
@@ -11036,45 +11148,6 @@ async function msbSynthesize() {
   // ── CVD/OB summary text
   const cvdText = (st.cvdSummary || 'ไม่มีข้อมูล').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').trim().slice(0,200);
 
-  // ✅ v07+v35: สร้าง Forecast Grid summary จาก real sources เท่านั้น (skip failed sources)
-  const TF_WEIGHTS = {
-    news:    { '1H':0.05,'3H':0.08,'6H':0.13,'12H':0.13,'24H':0.10,'48H':0.08 },
-    sharpe:  { '1H':0.05,'3H':0.08,'6H':0.12,'12H':0.12,'24H':0.10,'48H':0.08 },
-    sheet:   { '1H':0.08,'3H':0.10,'6H':0.18,'12H':0.18,'24H':0.14,'48H':0.10 },
-    live:    { '1H':0.25,'3H':0.22,'6H':0.12,'12H':0.06,'24H':0.04,'48H':0.03 },
-    binance: { '1H':0.15,'3H':0.18,'6H':0.15,'12H':0.12,'24H':0.08,'48H':0.06 },
-    cg:      { '1H':0.04,'3H':0.05,'6H':0.07,'12H':0.10,'24H':0.15,'48H':0.18 },
-    cvd:     { '1H':0.20,'3H':0.18,'6H':0.10,'12H':0.06,'24H':0.04,'48H':0.03 },
-  };
-  const ALL_TF = ['1H','3H','6H','12H','24H','48H'];
-  const sources = {
-    news: st.newsForecasts, sharpe: st.sharpeForecasts,
-    sheet: st.sheetForecasts, live: st.liveForecasts,
-    binance: st.binanceForecasts, cg: st.cgForecasts, cvd: st.cvdForecasts
-  };
-
-  // v35 FIX: คำนวณ weighted forecast แต่ละ timeframe จาก real sources เท่านั้น
-  const realSourceKeys = new Set(realSources.map(s => s.key));
-  const tfGrid = {};
-  ALL_TF.forEach(tf => {
-    let bullScore = 0, bearScore = 0, totalW = 0;
-    Object.entries(sources).forEach(([src, fc]) => {
-      if (!realSourceKeys.has(src)) return; // ✅ v35: ข้าม source ที่ไม่มีข้อมูลจริง
-      if (!fc || !fc[tf]) return;
-      const w = TF_WEIGHTS[src]?.[tf] || 0.10;
-      const dir = fc[tf].dir; const conf = fc[tf].conf / 100;
-      if (dir === 'BULLISH') bullScore += w * conf;
-      else if (dir === 'BEARISH') bearScore += w * conf;
-      totalW += w;
-    });
-    const norm = totalW > 0 ? totalW : 1;
-    const netBull = bullScore/norm; const netBear = bearScore/norm;
-    const gap = Math.abs(netBull - netBear);
-    const dir = netBull > netBear ? 'BULLISH' : netBear > netBull ? 'BEARISH' : 'NEUTRAL';
-    const conf = Math.round(Math.min(95, (gap * 180 + 30)));
-    tfGrid[tf] = { dir, conf, bullScore: Math.round(netBull*100), bearScore: Math.round(netBear*100) };
-  });
-
   // สร้าง grid text สำหรับ prompt
   const gridText = ALL_TF.map(tf => {
     const g = tfGrid[tf];
@@ -11113,6 +11186,7 @@ ${buildMarketCtxPromptText(st.marketCtx)}
 
 ━━━ VOTE SUMMARY (เฉพาะ source ที่มีข้อมูลจริง ${realCount}/7 แหล่ง) ━━━
 ${bulls} BULLISH | ${bears} BEARISH | ${neutrals} NEUTRAL (จาก ${realCount} แหล่งที่มีข้อมูล)
+ทิศทางรวม (ถ่วงน้ำหนักตาม Time-Grid 6H): ${masterDir}
 ${dataQualityNote}
 Weighted Confidence (re-normalized จาก ${realCount} แหล่ง): ${weightedConf}%
 Agreement Bonus: +${agreementBonus}% | Conflict Penalty: -${conflictPenalty}% | Missing Data Penalty: -${missingPenalty}%
@@ -11448,8 +11522,10 @@ async function msbAnalyzeBinanceOI() {
         const fbData = await fbResp.json();
         const fbText = fbData.result || '';
         // parse ผล
-        const fbDir    = (fbText.match(/DIRECTION:\s*(BULLISH|BEARISH|NEUTRAL)/i)||[])[1] || 'NEUTRAL';
-        const fbConf   = parseInt((fbText.match(/CONFIDENCE:\s*(\d+)/i)||[])[1] || '30');
+        const _fbp = msbParseDirConf(fbText);   // ✅ v47: อ่านไม่ได้ → ไป catch (ประเมินจาก funding โดยตรง)
+        if (!_fbp.ok) throw new Error('parse');
+        const fbDir    = _fbp.dir;
+        const fbConf   = _fbp.conf;
         const fbSumm   = (fbText.match(/SUMMARY:\s*(.+)/i)||[])[1] || '(HL Funding fallback)';
         st.binanceDir = fbDir; st.binanceConf = Math.min(fbConf, 55); // cap confidence เพราะข้อมูลไม่ครบ
         st.binanceSummary = `[HL Funding fallback — Binance geo-blocked]\n${fbSumm}`;
@@ -11541,10 +11617,10 @@ Funding Signal: (1 ประโยค — crowded long/short risk + ระดั
 
   try {
     const text = await callAIProxy(prompt, 820);
-    const dirM  = text.match(/DIRECTION[:\s]*([A-Z]+)/i);
-    const confM = text.match(/CONFIDENCE[:\s]*(\d+)/i);
-    st.binanceDir  = (dirM?.[1] || 'NEUTRAL').toUpperCase();
-    st.binanceConf = Math.min(100, Math.max(0, parseInt(confM?.[1] || '50')));
+    const pr = msbParseDirConf(text);   // ✅ v47
+    if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
+    st.binanceDir  = pr.dir;
+    st.binanceConf = pr.conf;
     st.binanceSummary = text;
     st.binanceHasData = true; // ✅ v35: มีข้อมูล OI จริง (อาจมาจาก HL fallback ก็ยังนับ)
     // ✅ v07: parse + store forecast ทุก timeframe
@@ -11721,10 +11797,10 @@ Market Structure: (1 ประโยค — ภาพรวม Market Cap + ก�
 
   try {
     const text = await callAIProxy(prompt, 820);
-    const dirM  = text.match(/DIRECTION[:\s]*([A-Z]+)/i);
-    const confM = text.match(/CONFIDENCE[:\s]*(\d+)/i);
-    st.cgDir  = (dirM?.[1] || 'NEUTRAL').toUpperCase();
-    st.cgConf = Math.min(100, Math.max(0, parseInt(confM?.[1] || '50')));
+    const pr = msbParseDirConf(text);   // ✅ v47
+    if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
+    st.cgDir  = pr.dir;
+    st.cgConf = pr.conf;
     st.cgSummary = text;
     st.cgHasData = true; // ✅ v35: มีข้อมูล F&G / Dominance จริง
     // ✅ v07: parse + store forecast ทุก timeframe
@@ -11910,10 +11986,10 @@ Futures Risk: (1 ประโยค — ความเสี่ยง squeeze/l
 
   try {
     const text = await callAIProxy(prompt, 820);
-    const dirM  = text.match(/DIRECTION:\s*(BULLISH|BEARISH|NEUTRAL)/i);
-    const confM = text.match(/CONFIDENCE:\s*(\d+)/i);
-    st.cvdDir  = (dirM?.[1]  || 'NEUTRAL').toUpperCase();
-    st.cvdConf = Math.min(100, Math.max(0, parseInt(confM?.[1] || '45')));
+    const pr = msbParseDirConf(text);   // ✅ v47
+    if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
+    st.cvdDir  = pr.dir;
+    st.cvdConf = pr.conf;
     st.cvdSummary = text;
     st.cvdHasData = true; // ✅ v35: มีข้อมูล CVD/OB จริง (อาจ HL fallback แต่ยังใช้ได้)
     // ✅ v07: parse + store forecast ทุก timeframe
@@ -11948,6 +12024,9 @@ async function msbRunAnalysis() {
   const btn = document.getElementById('msbRunBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="msb-spinner"></span> กำลังวิเคราะห์...'; }
 
+  // ✅ v47 FIX: ครอบด้วย try/catch/finally — ถ้ามี error หลุด running จะไม่ค้างเป็น true จนปุ่มวิเคราะห์ใช้ไม่ได้
+  try {
+
   // Reset state
   msbSetDirection(null);
   msbUpdateRing(0);
@@ -11962,6 +12041,8 @@ async function msbRunAnalysis() {
   // ✅ v35 FIX: Reset data-quality flags — ป้องกัน NEUTRAL ปลอมจาก source ที่ fail เข้า synthesis
   ['newsHasData','sharpeHasData','sheetHasData','liveHasData',
    'binanceHasData','cgHasData','cvdHasData'].forEach(k => { window._msbState[k] = false; });
+  // ✅ v47: ล้างข้อความจากรอบก่อน (ข่าวดิบ Sharpe + คำตอบ AI) กันค่าเก่าหลุดเข้า prompt รอบนี้
+  window._msbState.newsText = ''; window._msbState.sharpeText = ''; window._msbState.sharpeRaw = '';
   const fgEl = document.getElementById('msbForecastGrid');
   if (fgEl) fgEl.innerHTML = '';
 
@@ -11999,12 +12080,11 @@ async function msbRunAnalysis() {
   fcRender1H(buckets1H);
 
   // Run news fetch if needed
-  const newsText = (document.getElementById('fcNewsText')?.value || '').trim();
-  if (!newsText) {
-    document.getElementById('msbNewsStatus').textContent = '🔄 กำลังดึงข่าว...';
-    await fcFetchEcoCalendar(false);
-    await new Promise(r => setTimeout(r, 800));
-  }
+  // ✅ v47 FIX: ดึงข่าว Macro ใหม่ทุกครั้งที่กดวิเคราะห์ — เดิมดึงเฉพาะเมื่อช่อง fcNewsText ว่าง จึงใช้ข่าวเก่าที่ค้างอยู่ต่อ
+  //   (fcNewsText เป็น textarea ที่ซ่อนอยู่ ไม่มีผู้ใช้พิมพ์เอง → เขียนทับได้ปลอดภัย)
+  document.getElementById('msbNewsStatus').textContent = '🔄 กำลังดึงข่าว...';
+  try { await fcFetchEcoCalendar(false); } catch(newsErr) { console.warn('[MSB] fetch news failed:', newsErr && newsErr.message); }
+  await new Promise(r => setTimeout(r, 800));
   document.getElementById('msbNewsStatus').textContent = '✅ พร้อม';
 
   // v14 NEW: ดึง Market Context ก่อนรัน AI (ให้ทุก prompt มีข้อมูลครบ)
@@ -12043,8 +12123,14 @@ async function msbRunAnalysis() {
   // Final synthesis
   await msbSynthesize();
 
-  window._msbState.running = false;
-  if (btn) { btn.disabled = false; btn.innerHTML = '🎯 วิเคราะห์ Master Signal'; }
+  } catch (runErr) {
+    console.error('[MSB] msbRunAnalysis error:', runErr);
+    const _subEl = document.getElementById('msbSubtitle');
+    if (_subEl) _subEl.textContent = '❌ วิเคราะห์ไม่สำเร็จ: ' + (runErr && runErr.message ? runErr.message : runErr) + ' — กดวิเคราะห์ใหม่ได้';
+  } finally {
+    window._msbState.running = false;
+    if (btn) { btn.disabled = false; btn.innerHTML = '🎯 วิเคราะห์ Master Signal'; }
+  }
 }
 
 // ════════════════════════════════════════════════════════════════

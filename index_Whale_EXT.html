@@ -7283,12 +7283,12 @@ async function _aiFlushQueue() {
   if (window._aiRunning) return;
   window._aiRunning = true;
   while (window._aiQueue.length > 0) {
-    const { prompt, maxTokens, resolve, reject, retry } = window._aiQueue.shift();
+    const { prompt, maxTokens, resolve, reject, retry, pub } = window._aiQueue.shift();
     try {
       const r = await fetch(ALERT_CONFIG.appsScriptURL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'aiAnalyze', prompt, maxTokens: maxTokens || 800 }),
+        body: JSON.stringify({ action: pub ? 'aiAnalyzePublic' : 'aiAnalyze', prompt, maxTokens: maxTokens || 800 }),   // v46: pub = Analytics (ไม่ต้อง login)
       });
       if (!r.ok) { reject(new Error('HTTP ' + r.status)); }
       else {
@@ -7300,7 +7300,7 @@ async function _aiFlushQueue() {
           // ── GAS reported rate-limit → re-queue with retry ──
           const r2 = retry || 0;
           if (r2 < _AI_MAX_RETRY) {
-            window._aiQueue.unshift({ prompt, maxTokens, resolve, reject, retry: r2 + 1 });
+            window._aiQueue.unshift({ prompt, maxTokens, resolve, reject, retry: r2 + 1, pub });
             await new Promise(res => setTimeout(res, _AI_RETRY_MS));
           } else {
             resolve(d.result); // ส่งต่อ error message ให้ signal handler จัดการ
@@ -7318,9 +7318,10 @@ async function _aiFlushQueue() {
   window._aiRunning = false;
 }
 
-async function callAIProxy(prompt, maxTokens) {
+async function callAIProxy(prompt, maxTokens, opts) {
+  const pub = !!(opts && opts.pub);   // v46: Analytics ใช้ action สาธารณะ (ไม่ต้อง login สมาชิก)
   return new Promise((resolve, reject) => {
-    window._aiQueue.push({ prompt, maxTokens, resolve, reject, retry: 0 });
+    window._aiQueue.push({ prompt, maxTokens, resolve, reject, retry: 0, pub });
     _aiFlushQueue();
   });
 }
@@ -7337,142 +7338,213 @@ function buildWhalePrompt(data, sections) {
   return `คุณคือผู้เชี่ยวชาญด้าน crypto whale trading วิเคราะห์:\n\n${summary}\n\nสรุปภาษาไทย กระชับชัดเจน:\n1. 🕐 Peak Hour — เวลาที่ whale active มากสุด/น้อยสุด\n2. 📅 รูปแบบรายวัน — วันไหนร้อนแรงสุด\n3. ⚖️ Long vs Short — whale มองตลาดอย่างไร\n4. 🐋 รูปแบบน่าสังเกต\n5. 💡 แนะนำนักลงทุนทั่วไป`;
 }
 
-// ✅ v24 NEW: buildForecastPrompt — prompt พร้อม Forecast 1/3/6h + Confidence % จากข้อมูล Sheet จริง
-// ✅ v36 UPD: รับ swData (Small Whale $10K–$99K) เป็น context เพิ่มเติม
-function buildForecastPrompt(data, swData) {
-  const now   = _bkkNow(); // ✅ v26 FIX: Bangkok time แทน browser local time
-  const nowH  = now.getHours();
-  const tot   = data.reduce((s,t)=>s+t.usd,0);
-  const lUsd  = data.filter(t=>t.dir==='LONG'||t.dir==='BUY').reduce((s,t)=>s+t.usd,0);
-  const sUsd  = data.filter(t=>t.dir==='SHORT'||t.dir==='SELL').reduce((s,t)=>s+t.usd,0);
-  const lPct  = tot>0 ? Math.round(lUsd/tot*100) : 50;
-  const sPct  = 100-lPct;
-  // hourly volume (recent 6h)
-  const hvol={};data.forEach(t=>{hvol[t.h]=(hvol[t.h]||0)+t.usd;});
-  const recentH = [nowH,nowH-1,nowH-2,nowH-3,nowH-4,nowH-5].map(h=>(h+24)%24);
-  const hourTrend = recentH.map(h=>`${h}:00=${hvol[h]?'$'+(hvol[h]/1e6).toFixed(2)+'M':'ว่าง'}`).join(', ');
-  // coin stats
-  const coinStats={};
-  data.forEach(t=>{
-    if(!coinStats[t.coin]) coinStats[t.coin]={l:0,s:0,n:0};
+// ✅ v46: Market Context สาธารณะสำหรับ Analytics (ไม่ต้อง login) — cache ฝั่ง client 3 นาที + ฝั่ง GAS 3 นาที
+async function fetchMarketContextPublic(coins) {
+  try {
+    const c = window._anMktCtx;
+    if (c && (Date.now() - c.at) < 180000) return c.data;
+    if (!ALERT_CONFIG.appsScriptURL) return null;
+    const r = await fetch(ALERT_CONFIG.appsScriptURL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'getMarketContextPublic', coins: coins || ['BTC','ETH','SOL'] }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (!d || !d.ok) return null;
+    window._anMktCtx = { at: Date.now(), data: d };
+    return d;
+  } catch (e) { console.warn('fetchMarketContextPublic:', e.message); return null; }
+}
+
+function _anTopCoinsForMarket() {
+  const ok = ['BTC','ETH','SOL','BNB','XRP'];
+  const cnt = {};
+  (AN_FD || []).forEach(t => { if (ok.indexOf(t.coin) !== -1) cnt[t.coin] = (cnt[t.coin] || 0) + 1; });
+  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
+  return [...new Set([...top, 'BTC', 'ETH', 'SOL'])].slice(0, 5);
+}
+// helper: เวลาของ trade เป็น epoch ms (Sheet เก็บเวลา Bangkok)
+function _anEpoch(t) {
+  try {
+    const hhmm = String(t.ts || '00:00').slice(0, 5);
+    const ms = new Date((t.date || '') + 'T' + hhmm + ':00+07:00').getTime();
+    return isNaN(ms) ? null : ms;
+  } catch (e) { return null; }
+}
+function _anBkkHour(ms) {
+  return parseInt(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Asia/Bangkok' }).format(ms), 10) % 24;
+}
+function _anBkkDate(ms) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(ms);   // YYYY-MM-DD
+}
+
+// ✅ v46: buildForecastPrompt — Whale (Sheet) + Small Whale + ราคา live + Market Context (Binance/HL/CoinGecko)
+//   แก้: ใช้เวลาจริง (date+time) แทน HH:MM, ส่ง peak hour/day ให้ AI, SW เอารายการล่าสุด, ไม่สรุปรายวันเมื่อข้อมูลน้อยกว่า 3 วัน
+function buildForecastPrompt(data, swData, mktCtx) {
+  const nowMs = Date.now();
+  const nowH  = _anBkkHour(nowMs);
+  const nowMin = new Date(new Date(nowMs).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })).getMinutes();
+  const isL = t => t.dir === 'LONG' || t.dir === 'BUY';
+  const DAYS = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์'];
+
+  const rows = data.map(t => ({ t, ms: _anEpoch(t) })).filter(x => x.ms !== null).sort((a, b) => b.ms - a.ms); // ใหม่ → เก่า
+  const tot  = data.reduce((s, t) => s + t.usd, 0);
+  const lUsd = data.filter(isL).reduce((s, t) => s + t.usd, 0);
+  const lPct = tot > 0 ? Math.round(lUsd / tot * 100) : 50;
+  const sPct = 100 - lPct;
+
+  // ช่วงเวลาที่ข้อมูลครอบคลุม + ความสดของข้อมูล
+  const dates   = new Set(data.map(t => t.date).filter(Boolean));
+  const nDays   = Math.max(dates.size, 1);
+  const newest  = rows.length ? rows[0].ms : null;
+  const oldest  = rows.length ? rows[rows.length - 1].ms : null;
+  const ageMin  = newest ? Math.round((nowMs - newest) / 60000) : null;
+  const spanStr = (oldest && newest) ? `${_anBkkDate(oldest)} → ${_anBkkDate(newest)} (${nDays} วันที่มีข้อมูล)` : '—';
+  const freshStr = ageMin === null ? 'ไม่ทราบ' : (ageMin < 90 ? `ล่าสุดเมื่อ ${ageMin} นาทีที่แล้ว` : `⚠️ ข้อมูลล่าสุดเก่า ${Math.round(ageMin / 60)} ชม. — ระบุในผลวิเคราะห์ว่าข้อมูลไม่สด`);
+
+  // Volume 6 ชม.ล่าสุดจริง (นับย้อนจากเวลาปัจจุบัน)
+  const hourTrend = [0,1,2,3,4,5].map(i => {
+    const to = nowMs - i * 3600000, from = to - 3600000;
+    const inW = rows.filter(x => x.ms > from && x.ms <= to);
+    const v = inW.reduce((s, x) => s + x.t.usd, 0);
+    return `${String(_anBkkHour(to)).padStart(2,'0')}:xx=${inW.length ? '$' + (v / 1e6).toFixed(2) + 'M/' + inW.length + 'T' : 'ว่าง'}`;
+  }).join(', ');
+
+  // Peak hour (ทุกวันรวมกัน) + Peak day (เมื่อมีข้อมูล ≥3 วัน)
+  const hc = {}; data.forEach(t => { hc[t.h] = (hc[t.h] || 0) + 1; });
+  const peakHour = Object.entries(hc).sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .map(([h, n]) => `${String(h).padStart(2,'0')}:00 น. (${n} trades, ${Math.round(n / (data.length || 1) * 100)}%)`).join(', ') || '—';
+  let dayBlock;
+  if (nDays >= 3) {
+    const dc = {}; data.forEach(t => { dc[t.dow] = (dc[t.dow] || 0) + 1; });
+    const peakDay = Object.entries(dc).sort((a, b) => b[1] - a[1]).slice(0, 2)
+      .map(([d, n]) => `${DAYS[d]} (${n} trades, ${Math.round(n / (data.length || 1) * 100)}%)`).join(', ');
+    const todayStr = _anBkkDate(nowMs);
+    const todayCnt = data.filter(t => t.date === todayStr).length;
+    const avgCnt = data.length / nDays;
+    dayBlock = `วันที่ร้อนแรงสุด: ${peakDay}\nวันนี้: ${todayCnt} trades เทียบค่าเฉลี่ย ${avgCnt.toFixed(1)}/วัน → ${todayCnt > avgCnt * 1.3 ? 'สูงกว่าปกติ' : todayCnt < avgCnt * 0.7 ? 'ต่ำกว่าปกติ' : 'ปกติ'}`;
+  } else {
+    dayBlock = `วันที่ร้อนแรงสุด: ไม่สรุป (ข้อมูลครอบคลุมเพียง ${nDays} วัน — น้อยเกินจะหารูปแบบรายวัน)`;
+  }
+
+  // Coin stats
+  const coinStats = {};
+  data.forEach(t => {
+    if (!coinStats[t.coin]) coinStats[t.coin] = { l: 0, s: 0, n: 0 };
     coinStats[t.coin].n++;
-    if(t.dir==='LONG'||t.dir==='BUY') coinStats[t.coin].l+=t.usd;
-    else coinStats[t.coin].s+=t.usd;
+    if (isL(t)) coinStats[t.coin].l += t.usd; else coinStats[t.coin].s += t.usd;
   });
-  const coinSummary = Object.entries(coinStats)
-    .sort((a,b)=>b[1].n-a[1].n).slice(0,5)
-    .map(([c,v])=>`${c}(${v.n}T L${Math.round(v.l/(v.l+v.s||1)*100)}%S${Math.round(v.s/(v.l+v.s||1)*100)}%)`)
-    .join(', ');
-  // momentum: recent 30 vs previous 30
-  const sorted=[...data].sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
-  const rec30=sorted.slice(0,30);
-  const prv30=sorted.slice(30,60);
-  const recL=rec30.filter(t=>t.dir==='LONG'||t.dir==='BUY').length;
-  const prvL=prv30.filter(t=>t.dir==='LONG'||t.dir==='BUY').length;
-  const momentum=recL>prvL*1.2?'LONG Momentum เพิ่มขึ้น':recL<prvL*0.8?'LONG Momentum ลดลง':'Momentum คงที่';
-  // day pattern
-  const dc={};data.forEach(t=>{dc[t.dow]=(dc[t.dow]||0)+1;});
-  const todayCnt=dc[now.getDay()]||0;
-  const avgCnt=data.length/7;
-  const dayNote=todayCnt>avgCnt*1.3?'วันนี้ Historical Active สูงกว่าปกติ':'วันนี้ Historical Activity ปกติ';
+  const coinEntries = Object.entries(coinStats).sort((a, b) => b[1].n - a[1].n);
+  const coinSummary = coinEntries.slice(0, 5)
+    .map(([c, v]) => `${c}(${v.n}T L${Math.round(v.l / ((v.l + v.s) || 1) * 100)}%/S${Math.round(v.s / ((v.l + v.s) || 1) * 100)}%)`).join(', ');
 
-  // ── ✅ Small Whale context block ──────────────────────────────
+  // Momentum: 30 รายการล่าสุด vs 30 ก่อนหน้า (เรียงด้วยเวลาจริง)
+  const rec30 = rows.slice(0, 30), prv30 = rows.slice(30, 60);
+  const recL = rec30.filter(x => isL(x.t)).length, prvL = prv30.filter(x => isL(x.t)).length;
+  const momentum = prv30.length < 10 ? 'ข้อมูลไม่พอเทียบ Momentum'
+    : recL > prvL * 1.2 ? 'LONG Momentum เพิ่มขึ้น' : recL < prvL * 0.8 ? 'LONG Momentum ลดลง' : 'Momentum คงที่';
+  const last10 = rec30.slice(0, 10).map(x => x.t.coin + ':' + x.t.dir.charAt(0)).join(' ');
+
+  // ราคา live
+  const priceCoins = [...new Set([...coinEntries.slice(0, 5).map(e => e[0]), 'BTC', 'ETH', 'SOL'])].slice(0, 8);
+  let livePrices = {};
+  try { livePrices = fcGetLivePrices(priceCoins); } catch (e) {}
+  const priceBlock = Object.keys(livePrices).length
+    ? '🚨 ราคา LIVE ณ ขณะนี้ (ข้อมูลจริง — ห้ามใช้ราคาจาก training data):\n' + Object.entries(livePrices).map(([c, p]) => `   ${c} = $${p.toLocaleString('en-US', { maximumFractionDigits: 2 })}`).join('\n')
+    : '⚠️ ไม่มีราคา live — ห้ามอ้างอิงราคาจาก training data ให้ระบุว่าไม่มีข้อมูลราคา';
+
+  // Market Context (Binance OI/LS/Taker, HL Funding, Fear&Greed, Dominance, Price momentum)
+  const mktText = mktCtx ? buildMarketCtxPromptText(mktCtx) : '⚠️ ไม่สามารถดึง Market Context ได้ในรอบนี้ — ห้ามอ้างข้อมูลตลาดที่ไม่มีในนี้ และลดความมั่นใจลง';
+
+  // ── Small Whale (เอารายการล่าสุด 50 รายการ) ──
   let swBlock = '';
-  // ✅ กรอง small whale เฉพาะ coin ที่กำลังดูอยู่ + จำกัดจำนวน 50 รายการล่าสุด
-  const swRaw = swData || SW_ALL;
-  const sw = fcCurrentCoin && fcCurrentCoin !== 'ALL'
-    ? swRaw.filter(t => t.coin === fcCurrentCoin).slice(0, 50)
-    : swRaw.slice(0, 50);
-  if (sw && sw.length > 0) {
-    const swTot  = sw.reduce((s,t) => s+t.usd, 0);
-    const swLPct = sw.length > 0
-      ? Math.round(sw.filter(t=>t.dir==='LONG'||t.dir==='BUY').length / sw.length * 100)
-      : 50;
-    const swSPct = 100 - swLPct;
-
-    // hourly count (recent 3h) — เทรดเดอร์รายเล็กดูเป็น leading indicator
-    const swHvol = {}; sw.forEach(t => { swHvol[t.h] = (swHvol[t.h]||0)+1; });
-    const swHrTrend = [nowH, nowH-1, nowH-2].map(h => {
-      const hh = (h+24)%24;
-      return `${hh}:00=${swHvol[hh]||0}trades`;
+  const swRaw = (swData || SW_ALL || []).map(t => ({ t, ms: _anEpoch(t) })).filter(x => x.ms !== null);
+  const swFilt = (fcCurrentCoin && fcCurrentCoin !== 'ALL') ? swRaw.filter(x => x.t.coin === fcCurrentCoin) : swRaw;
+  const swRows = swFilt.sort((a, b) => b.ms - a.ms).slice(0, 50);   // ใหม่ → เก่า
+  if (swRows.length > 0) {
+    const sw = swRows.map(x => x.t);
+    const swTot  = sw.reduce((s, t) => s + t.usd, 0);
+    const swLPct = Math.round(sw.filter(isL).length / sw.length * 100);
+    const swHr = [0,1,2].map(i => {
+      const to = nowMs - i * 3600000, from = to - 3600000;
+      return `${String(_anBkkHour(to)).padStart(2,'0')}:xx=${swRows.filter(x => x.ms > from && x.ms <= to).length}T`;
     }).join(', ');
-
-    // coin breakdown สำหรับ 5 coins SW monitor
-    const swCoins = {}; sw.forEach(t=>{ swCoins[t.coin]=(swCoins[t.coin]||0)+1; });
-    const swCoinStr = Object.entries(swCoins)
-      .sort((a,b)=>b[1]-a[1]).slice(0,5)
-      .map(([c,n])=>c+':'+n+'T').join(', ');
-
-    // momentum SW: recent 20 vs prev 20
-    const swSorted = [...sw].sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
-    const swRec20  = swSorted.slice(0,20);
-    const swPrv20  = swSorted.slice(20,40);
-    const swRecL   = swRec20.filter(t=>t.dir==='LONG'||t.dir==='BUY').length;
-    const swPrvL   = swPrv20.filter(t=>t.dir==='LONG'||t.dir==='BUY').length;
-    const swMom    = swRecL > swPrvL*1.2 ? 'LONG เพิ่มขึ้น (retail bullish)'
-                   : swRecL < swPrvL*0.8 ? 'LONG ลดลง (retail bearish)'
-                   : 'Momentum คงที่';
-
+    const swCoins = {}; sw.forEach(t => { swCoins[t.coin] = (swCoins[t.coin] || 0) + 1; });
+    const swCoinStr = Object.entries(swCoins).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([c, n]) => c + ':' + n + 'T').join(', ');
+    const swRecL = swRows.slice(0, 20).filter(x => isL(x.t)).length, swPrvL = swRows.slice(20, 40).filter(x => isL(x.t)).length;
+    const swMom = swRows.length < 30 ? 'ข้อมูลไม่พอเทียบ' : swRecL > swPrvL * 1.2 ? 'LONG เพิ่มขึ้น (retail bullish)' : swRecL < swPrvL * 0.8 ? 'LONG ลดลง (retail bearish)' : 'Momentum คงที่';
     swBlock = `
-═══ Small Whale Context ($10K–$99K) — BTC/ETH/SOL/BNB/XRP ═══
-⚠️ ข้อมูลนี้คือ Retail/Mid-tier Trader — ใช้เป็น Leading Indicator เพิ่มเติม ไม่ใช่ข้อมูลหลัก
-รายการ: ${sw.length} trades | มูลค่ารวม: $${(swTot/1e6).toFixed(2)}M
-Long/Short: LONG ${swLPct}% | SHORT ${swSPct}%
-Volume 3h ล่าสุด: ${swHrTrend}
+═══ Small Whale Context ($10K–$99K) — ${swRows.length} รายการล่าสุด ═══
+⚠️ Retail/Mid-tier — ใช้เป็น Leading Indicator เสริม ไม่ใช่ข้อมูลหลัก
+มูลค่ารวม: $${(swTot / 1e6).toFixed(2)}M | LONG ${swLPct}% | SHORT ${100 - swLPct}%
+Volume 3h ล่าสุด: ${swHr}
 เหรียญ: ${swCoinStr}
 Momentum Retail: ${swMom}
-Agreement กับ Whale: ${Math.sign(swLPct-50)===Math.sign(lPct-50) ? '✅ Whale + Retail ทิศทางเดียวกัน (signal แข็งขึ้น)' : '⚠️ Whale vs Retail ทิศทางต่างกัน (divergence — ระวัง)'}`;
+Agreement กับ Whale: ${Math.sign(swLPct - 50) === Math.sign(lPct - 50) ? '✅ ทิศทางเดียวกัน (signal แข็งขึ้น)' : '⚠️ Whale vs Retail ทิศทางต่างกัน (ระวัง divergence)'}
+`;
   }
-  // ─────────────────────────────────────────────────────────────
 
-  return `คุณคือนักวิเคราะห์ Crypto Whale Behavior ผู้เชี่ยวชาญ
-ใช้ข้อมูล Whale Alert จากฐานข้อมูล Google Sheet (≥$100K) เพื่อวิเคราะห์ Pattern และสร้าง FORECAST
+  return `[TCC-AN]
+คุณคือนักวิเคราะห์ Crypto Whale Behavior + Market Structure ผู้เชี่ยวชาญ
+ใช้ข้อมูลที่ให้ด้านล่างเท่านั้น (Whale Alert ≥$100K จาก Google Sheet + Small Whale + ราคา live + Market Context) เพื่อวิเคราะห์ Pattern และสร้าง FORECAST
+กฎ: ห้ามเดาตัวเลขที่ไม่มีในข้อมูล | ความมั่นใจสูงสุด 85% | ถ้า Market Context ขัดแย้งกับ Whale ให้ลดความมั่นใจและบอกว่าขัดแย้งอย่างไร
 
-═══ ข้อมูลจาก Google Sheet ═══
-เวลาปัจจุบัน: ${nowH}:${String(now.getMinutes()).padStart(2,'0')} น. (Bangkok UTC+7)
-Whale Trades: ${data.length} รายการ | มูลค่ารวม: $${(tot/1e6).toFixed(2)}M
-Long/Short: LONG ${lPct}% | SHORT ${sPct}%
-Volume 6h ล่าสุด: ${hourTrend}
+${priceBlock}
+
+═══ ข้อมูล Whale จาก Google Sheet ═══
+เวลาปัจจุบัน: ${String(nowH).padStart(2,'0')}:${String(nowMin).padStart(2,'0')} น. (Bangkok UTC+7)
+ช่วงข้อมูล: ${spanStr} | ความสด: ${freshStr}
+Whale Trades: ${data.length} รายการ | มูลค่ารวม: $${(tot / 1e6).toFixed(2)}M
+Long/Short (by USD): LONG ${lPct}% | SHORT ${sPct}%
+Volume 6 ชม.ล่าสุด: ${hourTrend}
+Peak Hour (ทุกวันรวมกัน): ${peakHour}
+${dayBlock}
 เหรียญหลัก: ${coinSummary}
-${dayNote}
 Momentum ล่าสุด: ${momentum}
-Trades ล่าสุด 10 รายการ: ${rec30.map(t=>t.coin+':'+t.dir.charAt(0)).slice(0,10).join(' ')}
+Trades ล่าสุด 10 รายการ: ${last10 || '—'}
 ${swBlock}
+═══ Market Context (Binance / Hyperliquid / CoinGecko) ═══
+${mktText}
 
 ═══ รูปแบบผลลัพธ์ที่ต้องการ ═══
 ตอบภาษาไทย กระชับ ใช้รูปแบบนี้เท่านั้น:
 
 **สรุปข้อมูล Whale Alert**
 
-1. **Peak Hour** 🕐: [ชั่วโมง peak + จำนวน trades + % ของทั้งหมด]
-2. **รูปแบบรายวัน** 📅: [วันที่ร้อนแรงสุด + trades + % ของทั้งหมด]
+1. **Peak Hour** 🕐: [ใช้ตัวเลขจาก Peak Hour ที่ให้]
+2. **รูปแบบรายวัน** 📅: [ใช้ข้อมูลรายวันที่ให้ — ถ้าระบุว่าไม่สรุป ให้บอกว่าข้อมูลน้อยเกินไป]
 3. **Long vs Short** ⚖️: [whale มองตลาดอย่างไร + % L/S]
 4. **รูปแบบน่าสังเกต**: [เหรียญหลัก + pattern สำคัญ]
 5. **คำแนะนำ** 💡: [คำแนะนำสำคัญ สั้น]
 
 **เหรียญที่มีการซื้อขายมากที่สุด**
 [Coin:Trades บรรทัดละเหรียญ]
-${sw && sw.length > 0 ? `
+${swRows.length > 0 ? `
 **📊 Small Whale Signal ($10K–$99K)**
 [สรุป Retail sentiment 1-2 ประโยค + agreement/divergence กับ Whale]` : ''}
 
-**🔮 FORECAST จากข้อมูล TCC Data**
+**🌐 มุมมองตลาด (Market Context)**
+[สรุป 2-3 ประโยค จาก OI / L-S Ratio / Funding / Fear&Greed ที่ให้ — ตรงกับ Whale หรือขัดแย้ง]
 
-📊 **1 ชั่วโมงข้างหน้า** (~${nowH+1}:00 น.):
+**🔮 FORECAST จาก TCC Data + Market Data**
+
+📊 **1 ชั่วโมงข้างหน้า** (~${(nowH + 1) % 24}:00 น.):
 แนวโน้ม: [BULLISH/BEARISH/NEUTRAL] — [เหตุผลสั้น 1 ประโยค]
-ความมั่นใจ: **[0-100]%** | เหตุผล: [จาก Momentum/Volume/Pattern ล่าสุด]
+ความมั่นใจ: **[0-85]%** | เหตุผล: [จาก Momentum/Volume ล่าสุด]
 
-📊 **3 ชั่วโมงข้างหน้า** (~${nowH+3}:00 น.):
+📊 **3 ชั่วโมงข้างหน้า** (~${(nowH + 3) % 24}:00 น.):
 แนวโน้ม: [BULLISH/BEARISH/NEUTRAL] — [เหตุผลสั้น 1 ประโยค]
-ความมั่นใจ: **[0-100]%** | เหตุผล: [จาก Historical Pattern วัน/ชั่วโมงที่ตรงกัน]
+ความมั่นใจ: **[0-85]%** | เหตุผล: [จาก Pattern ชั่วโมงนี้ + Market Context]
 
-📊 **6 ชั่วโมงข้างหน้า** (~${nowH+6}:00 น.):
+📊 **6 ชั่วโมงข้างหน้า** (~${(nowH + 6) % 24}:00 น.):
 แนวโน้ม: [BULLISH/BEARISH/NEUTRAL] — [เหตุผลสั้น 1 ประโยค]
-ความมั่นใจ: **[0-100]%** | เหตุผล: [จาก Long-term Trend & Day Pattern]
+ความมั่นใจ: **[0-85]%** | เหตุผล: [จาก Trend โดยรวม + Funding/OI]
 
-⚠️ **ข้อควรระวัง**: [ปัจจัยที่อาจทำให้ Forecast ผิดพลาด 1-2 ประโยค]
+⚠️ **ข้อควรระวัง**: [ปัจจัยที่อาจทำให้ Forecast ผิดพลาด 1-2 ประโยค — รวมความสดของข้อมูลและแหล่งที่ขาด]
 
-_Forecast วิเคราะห์จาก Whale Pattern ใน Sheet เท่านั้น ไม่ใช่การแนะนำการลงทุน_`;
+_Forecast วิเคราะห์จาก Whale Pattern + Market Data ที่มี ไม่ใช่การแนะนำการลงทุน_`;
 }
 
 async function runAnAI() {
@@ -7492,9 +7564,11 @@ async function runAnAI() {
   box.style.display = 'block';
   load.style.display = 'block';
   res.innerHTML = '';
-  const prompt = buildForecastPrompt(AN_FD, SW_ALL);
+  const _anCoins = _anTopCoinsForMarket();
+  const _mkt = await fetchMarketContextPublic(_anCoins);   // v46: ดึง Market Context สาธารณะ (ไม่ต้อง login)
+  const prompt = buildForecastPrompt(AN_FD, SW_ALL, _mkt);
   try {
-    const text = await callAIProxy(prompt, 1200);
+    const text = await callAIProxy(prompt, 1200, { pub: true });   // v46: Analytics ไม่ต้อง login
     load.style.display = 'none';
     // Render HTML (bold + colour) แทน plain textContent
     res.innerHTML = escHtml(text)
@@ -8217,9 +8291,11 @@ async function runMobAI() {
   res.style.display = 'block';
   res.innerHTML = '<div style="color:var(--t2);font-size:10px;padding:8px 0;">⏳ TCC AI กำลังวิเคราะห์ข้อมูลจาก TCC Data และสร้าง Forecast 1/3/6h...</div>';
   // ✅ v24: ใช้ buildForecastPrompt แทน buildWhalePrompt — รวม Forecast + Confidence %
-  const prompt = buildForecastPrompt(AN_FD, SW_ALL);
+  const _anCoins = _anTopCoinsForMarket();
+  const _mkt = await fetchMarketContextPublic(_anCoins);   // v46: ดึง Market Context สาธารณะ (ไม่ต้อง login)
+  const prompt = buildForecastPrompt(AN_FD, SW_ALL, _mkt);
   try {
-    const text = await callAIProxy(prompt, 1200);
+    const text = await callAIProxy(prompt, 1200, { pub: true });   // v46: Analytics ไม่ต้อง login
     // Render with basic markdown bold support
     res.innerHTML = escHtml(text)
       .replace(/[*][*](.+?)[*][*]/g, '<strong style="color:var(--t0);">$1</strong>')

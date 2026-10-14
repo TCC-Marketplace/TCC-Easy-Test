@@ -5063,15 +5063,8 @@ async function loadConfigFromSheet() {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const data = await r.json();
       if (data.ok && data.config) {
-        ALERT_CONFIG.tgToken  = data.config.TG_TOKEN    || '';
-        ALERT_CONFIG.tgChatId = data.config.TG_CHAT_MAIN || '';
-        ALERT_CONFIG.tgChannels = {
-          'BTC': data.config.TG_BTC || '',
-          'ETH': data.config.TG_ETH || '',
-          'SOL': data.config.TG_SOL || '',
-          'BNB': data.config.TG_BNB || '',
-          'XRP': data.config.TG_XRP || '',
-        };
+        // v46: GAS ไม่ส่ง TG_TOKEN/chat id มาแล้ว (SEC-1) — server ส่ง Telegram เอง
+        ALERT_CONFIG.tgConfigured = !!data.config.tgConfigured;
         console.log('✅ Config โหลดจาก Sheet สำเร็จ');
         if (el) { el.textContent = '✅ Config OK'; el.style.color = 'var(--g)'; }
         return; // สำเร็จ — ออกจาก loop
@@ -6896,9 +6889,17 @@ async function loadSheetData() {
     const urlSW = ALERT_CONFIG.appsScriptURL + '?action=getSWData&rows=1000';
 
     // ✅ Parallel fetch: Whale + Small Whale พร้อมกัน
+    // v46: timeout 25s (GAS cold-start 10-15s) + retry 1 ครั้งเมื่อ timeout/ล้มเหลว
+    const _fetchRetry = async (u) => {
+      try {
+        const x = await fetch(u, { signal: AbortSignal.timeout(25000) });
+        if (x.ok) return x;
+      } catch(e) {}
+      return fetch(u, { signal: AbortSignal.timeout(25000) });
+    };
     const [r, rSW] = await Promise.allSettled([
-      fetch(url,   { signal: AbortSignal.timeout(10000) }),
-      fetch(urlSW, { signal: AbortSignal.timeout(10000) }),
+      _fetchRetry(url),
+      _fetchRetry(urlSW),
     ]);
 
     // ── Whale ≥$100K ──
@@ -6942,7 +6943,7 @@ async function loadSheetData() {
       market: t.mkt.toUpperCase(), wallet: t.wallet,
     }));
     AN_FD = [...AN_ALL];
-    anLoaded = true;
+    // v46: ไม่ set anLoaded — fallback/demo ไม่ใช่ข้อมูลจริง ให้ลองโหลดใหม่เมื่อเปิดแท็บอีกครั้ง
     if (info) info.textContent = `📡 Live feed: ${AN_ALL.length} รายการ`;
     anRenderAll();
   } else {
@@ -6950,7 +6951,7 @@ async function loadSheetData() {
     // แสดง demo data
     AN_ALL = generateDemoData();
     AN_FD  = [...AN_ALL];
-    anLoaded = true;
+    // v46: ไม่ set anLoaded — fallback/demo ไม่ใช่ข้อมูลจริง ให้ลองโหลดใหม่เมื่อเปิดแท็บอีกครั้ง
     if (info) info.textContent += ' · (Demo data)';
     anRenderAll();
   }

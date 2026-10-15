@@ -12434,7 +12434,7 @@ function fcSubTab(tab) {
     const baseURL = ALERT_CONFIG.appsScriptURL;   // v45: ใช้ค่าเดียวจาก ALERT_CONFIG
 
     const [rBig, rSmall] = await Promise.allSettled([
-      fetch(baseURL + '?action=getData',              { signal: AbortSignal.timeout(25000) }),
+      fetch(baseURL + '?action=getData&rows=3000',    { signal: AbortSignal.timeout(25000) }),
       fetch(baseURL + '?action=getSWData&rows=3000',  { signal: AbortSignal.timeout(25000) }),
     ]);
 

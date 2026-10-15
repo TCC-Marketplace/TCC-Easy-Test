@@ -10099,8 +10099,8 @@ FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
     st.sharpeText = text;
     st.sharpeHasData = true; // ✅ v35: มีข้อมูลจริง
     st.sharpeForecasts = msbParseForecasts(text);
-    const clean = text.replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'')
-      .replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim();
+    const clean = text.replace(/^[*_\s]*DIRECTION[^\n]*\n?/im,'').replace(/^[*_\s]*CONFIDENCE[^\n]*\n?/im,'')
+      .replace(/^[*_\s]*FORECAST_\d+H[^\n]*\n?/gim,'').trim();
     if (resultEl) { resultEl.className = 'msb-signal-result'; resultEl.textContent = clean; }
     msbSetColDir('msbSharpeDir', st.sharpeDir);
     msbSetBar('msbConfSharpe','msbConfSharpePct', st.sharpeConf, st.sharpeDir);
@@ -10573,8 +10573,8 @@ FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
     // Render in MSB
     const resultEl = document.getElementById('msbNewsResult');
     resultEl.className = 'msb-signal-result';
-    const cleanText = text.replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'')
-      .replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim();
+    const cleanText = text.replace(/^[*_\s]*DIRECTION[^\n]*\n?/im,'').replace(/^[*_\s]*CONFIDENCE[^\n]*\n?/im,'')
+      .replace(/^[*_\s]*FORECAST_\d+H[^\n]*\n?/gim,'').trim();
     resultEl.textContent = cleanText;
     msbSetColDir('msbNewsDir', st.newsDir);
     msbSetBar('msbConfNews', 'msbConfNewsPct', st.newsConf, st.newsDir);
@@ -10666,7 +10666,15 @@ async function msbAnalyzeWhaleFlow(finalData) {
 
   // ── ถ้าไม่มีข้อมูลเลยทั้ง Live และ Historical ──
   if (liveList.length === 0 && data.length === 0) {
-    resultEl.textContent = '⚠️ ยังไม่มีข้อมูล Whale (รอ Live Feed เชื่อมต่อ หรือกด 🔄 โหลดจาก Sheet ใน Analytics tab)';
+    // v49: บอกสาเหตุจริง — Live ว่าง + Sheet ไม่มีข้อมูลในช่วงที่เลือก (มักเพราะ Sheet ไม่ถูกอัปเดต)
+    let _newestAge = null;
+    try {
+      const _eps = (AN_ALL || []).map(t => _anEpoch(t)).filter(x => x !== null);
+      if (_eps.length) _newestAge = Math.round((Date.now() - Math.max.apply(null, _eps)) / 3600000);
+    } catch (e) {}
+    resultEl.textContent = `⚠️ ไม่มีข้อมูล Whale ≥$100K ในช่วง ${_preset}h — Live ≤90น.: 0 trades` +
+      (_newestAge !== null ? ` · Sheet ล่าสุดเมื่อ ~${_newestAge} ชม.ก่อน` : ' · ยังไม่ได้โหลด Sheet') +
+      (_newestAge !== null && _newestAge >= _preset ? '\n(Sheet ไม่อัปเดต — ตรวจ Trigger บันทึก Whale ใน Apps Script)' : '');
     st.sheetDir = 'NEUTRAL'; st.sheetConf = 25;
     st.sheetHasData = false;
     st.sheetForecasts = msbDefaultForecasts('NEUTRAL', 25);
@@ -10815,8 +10823,8 @@ Cross-validate: (1 ประโยค — Whale bias สอดคล้องห
 
     resultEl.className = 'msb-signal-result';
     resultEl.textContent = `🐋 Live ${liveList.length} (${liveSrc}) + Historical ${data.length} trades\n` +
-      text.replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'')
-      .replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim();
+      text.replace(/^[*_\s]*DIRECTION[^\n]*\n?/im,'').replace(/^[*_\s]*CONFIDENCE[^\n]*\n?/im,'')
+      .replace(/^[*_\s]*FORECAST_\d+H[^\n]*\n?/gim,'').trim();
     msbSetColDir('msbSheetDir', st.sheetDir);
     msbSetBar('msbConfSheet', 'msbConfSheetPct', st.sheetConf, st.sheetDir);
   } catch(e) {
@@ -11004,7 +11012,7 @@ async function msbSynthesize() {
   }
 
   // ── CVD/OB summary text
-  const cvdText = (st.cvdSummary || 'ไม่มีข้อมูล').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').trim().slice(0,200);
+  const cvdText = (st.cvdSummary || 'ไม่มีข้อมูล').replace(/^[*_\s]*DIRECTION[^\n]*\n?/im,'').replace(/^[*_\s]*CONFIDENCE[^\n]*\n?/im,'').trim().slice(0,200);
 
   // สร้าง grid text สำหรับ prompt
   const gridText = ALL_TF.map(tf => {
@@ -11017,19 +11025,19 @@ ${failedNote}
 
 ━━━ INPUT จาก ${realCount} แหล่ง (✅ = มีข้อมูลจริง | ⛔ = ไม่มีข้อมูล/ล้มเหลว) ━━━
 ${st.newsHasData ? '✅' : '⛔'} [1] Financial Economic Calendar → ${st.newsDir} | ${st.newsConf}% (น้ำหนัก 13%)
-${st.newsHasData ? (st.newsText||'').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,180) : '⚠️ ข้อมูลไม่พร้อม — ยกเว้นจากการคำนวณ'}
+${st.newsHasData ? (st.newsText||'').replace(/^[*_\s]*DIRECTION[^\n]*\n?/im,'').replace(/^[*_\s]*CONFIDENCE[^\n]*\n?/im,'').replace(/^[*_\s]*FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,180) : '⚠️ ข้อมูลไม่พร้อม — ยกเว้นจากการคำนวณ'}
 
 ${st.sharpeHasData ? '✅' : '⛔'} [2] TCC Data (Bloomberg/Reuters/CoinDesk) → ${st.sharpeDir} | ${st.sharpeConf}% (น้ำหนัก 12%)
-${st.sharpeHasData ? (st.sharpeText||'').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,200) : '⚠️ ไม่มี SHARPE_API_KEY หรือ API ตอบไม่ได้ — ยกเว้นจากการคำนวณ'}
+${st.sharpeHasData ? (st.sharpeText||'').replace(/^[*_\s]*DIRECTION[^\n]*\n?/im,'').replace(/^[*_\s]*CONFIDENCE[^\n]*\n?/im,'').replace(/^[*_\s]*FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,200) : '⚠️ ไม่มี SHARPE_API_KEY หรือ API ตอบไม่ได้ — ยกเว้นจากการคำนวณ'}
 
 ${st.sheetHasData ? '✅' : '⛔'} [3] 🐋 Whale Flow (Live ≤90น. + Historical + Small Whale) → ${st.sheetDir} | ${st.sheetConf}% (น้ำหนัก 28% — สำคัญสุด)
-${st.sheetHasData ? (st.sheetSummary||'').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,340) : '⚠️ ยังไม่มีข้อมูล Whale Flow — ยกเว้นจากการคำนวณ'}
+${st.sheetHasData ? (st.sheetSummary||'').replace(/^[*_\s]*DIRECTION[^\n]*\n?/im,'').replace(/^[*_\s]*CONFIDENCE[^\n]*\n?/im,'').replace(/^[*_\s]*FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,340) : '⚠️ ยังไม่มีข้อมูล Whale Flow — ยกเว้นจากการคำนวณ'}
 
 ${st.binanceHasData ? '✅' : '⛔'} [4] Binance OI / Long-Short → ${st.binanceDir} | ${st.binanceConf}% (น้ำหนัก 15%)
-${st.binanceHasData ? (st.binanceSummary||'').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,160) : '⚠️ Binance Geo-block HTTP 451 (GAS server อยู่นอก TH) — ยกเว้นจากการคำนวณ'}
+${st.binanceHasData ? (st.binanceSummary||'').replace(/^[*_\s]*DIRECTION[^\n]*\n?/im,'').replace(/^[*_\s]*CONFIDENCE[^\n]*\n?/im,'').replace(/^[*_\s]*FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,160) : '⚠️ Binance Geo-block HTTP 451 (GAS server อยู่นอก TH) — ยกเว้นจากการคำนวณ'}
 
 ${st.cgHasData ? '✅' : '⛔'} [5] CoinGecko F&G + Dominance → ${st.cgDir} | ${st.cgConf}% (น้ำหนัก 7%)
-${st.cgHasData ? (st.cgSummary||'').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,120) : '⚠️ CoinGecko Rate Limit 429 หรือ API error — ยกเว้นจากการคำนวณ'}
+${st.cgHasData ? (st.cgSummary||'').replace(/^[*_\s]*DIRECTION[^\n]*\n?/im,'').replace(/^[*_\s]*CONFIDENCE[^\n]*\n?/im,'').replace(/^[*_\s]*FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,120) : '⚠️ CoinGecko Rate Limit 429 หรือ API error — ยกเว้นจากการคำนวณ'}
 
 ${st.cvdHasData ? '✅' : '⛔'} [6] CVD + Order Book Depth → ${st.cvdDir} | ${st.cvdConf}% (น้ำหนัก 15%)
 ${st.cvdHasData ? cvdText : '⚠️ Binance Futures FAPI Geo-block — ยกเว้นจากการคำนวณ'}
@@ -11481,8 +11489,8 @@ Funding Signal: (1 ประโยค — crowded long/short risk + ระดั
     // ✅ v07: parse + store forecast ทุก timeframe
     st.binanceForecasts = msbParseForecasts(text);
 
-    const clean = text.replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'')
-      .replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim();
+    const clean = text.replace(/^[*_\s]*DIRECTION[^\n]*\n?/im,'').replace(/^[*_\s]*CONFIDENCE[^\n]*\n?/im,'')
+      .replace(/^[*_\s]*FORECAST_\d+H[^\n]*\n?/gim,'').trim();
     if (resultEl) { resultEl.className = 'msb-signal-result'; resultEl.textContent = clean; }
     msbSetColDir('msbBinanceDir', st.binanceDir);
     msbSetBar('msbConfBinance', 'msbConfBinancePct', st.binanceConf, st.binanceDir);
@@ -11661,8 +11669,8 @@ Market Structure: (1 ประโยค — ภาพรวม Market Cap + ก�
     // ✅ v07: parse + store forecast ทุก timeframe
     st.cgForecasts = msbParseForecasts(text);
 
-    const clean = text.replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'')
-      .replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim();
+    const clean = text.replace(/^[*_\s]*DIRECTION[^\n]*\n?/im,'').replace(/^[*_\s]*CONFIDENCE[^\n]*\n?/im,'')
+      .replace(/^[*_\s]*FORECAST_\d+H[^\n]*\n?/gim,'').trim();
     if (resultEl) { resultEl.className = 'msb-signal-result'; resultEl.textContent = clean; }
     msbSetColDir('msbCGDir', st.cgDir);
     msbSetBar('msbConfCG', 'msbConfCGPct', st.cgConf, st.cgDir);
@@ -11859,8 +11867,8 @@ Futures Risk: (1 ประโยค — ความเสี่ยง squeeze/l
     // ✅ v07: parse + store forecast ทุก timeframe
     st.cvdForecasts = msbParseForecasts(text);
 
-    const clean = text.replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'')
-      .replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim();
+    const clean = text.replace(/^[*_\s]*DIRECTION[^\n]*\n?/im,'').replace(/^[*_\s]*CONFIDENCE[^\n]*\n?/im,'')
+      .replace(/^[*_\s]*FORECAST_\d+H[^\n]*\n?/gim,'').trim();
     if (resultEl) { resultEl.className = 'msb-signal-result'; resultEl.textContent = clean; }
     msbSetColDir('msbCVDDir', st.cvdDir);
     msbSetBar('msbConfCVD', 'msbConfCVDPct', st.cvdConf, st.cvdDir);
@@ -11949,9 +11957,15 @@ async function msbRunAnalysis() {
   // Run news fetch if needed
   // ✅ v47 FIX: ดึงข่าว Macro ใหม่ทุกครั้งที่กดวิเคราะห์ — เดิมดึงเฉพาะเมื่อช่อง fcNewsText ว่าง จึงใช้ข่าวเก่าที่ค้างอยู่ต่อ
   //   (fcNewsText เป็น textarea ที่ซ่อนอยู่ ไม่มีผู้ใช้พิมพ์เอง → เขียนทับได้ปลอดภัย)
-  document.getElementById('msbNewsStatus').textContent = '🔄 กำลังดึงข่าว...';
-  try { await fcFetchEcoCalendar(false); } catch(newsErr) { console.warn('[MSB] fetch news failed:', newsErr && newsErr.message); }
-  await new Promise(r => setTimeout(r, 800));
+  // v49: จำกัดความถี่ — ดึงใหม่เมื่อเกิน 10 นาที / ยังไม่มีข่าว / ครั้งก่อนเป็น fallback (ปฏิทินรายสัปดาห์ไม่เปลี่ยนทุกนาที และแหล่งข่าวมี rate limit)
+  const _newsTxtNow = (document.getElementById('fcNewsText')?.value || '').trim();
+  const _newsStale  = !window._msbNewsAt || (Date.now() - window._msbNewsAt) > 10 * 60 * 1000
+                      || !_newsTxtNow || window._fcEcoSource === 'fallback' || _newsTxtNow.includes('[FALLBACK DATA');
+  if (_newsStale) {
+    document.getElementById('msbNewsStatus').textContent = '🔄 กำลังดึงข่าว...';
+    try { await fcFetchEcoCalendar(false); window._msbNewsAt = Date.now(); } catch(newsErr) { console.warn('[MSB] fetch news failed:', newsErr && newsErr.message); }
+    await new Promise(r => setTimeout(r, 800));
+  }
   document.getElementById('msbNewsStatus').textContent = '✅ พร้อม';
 
   // v14 NEW: ดึง Market Context ก่อนรัน AI (ให้ทุก prompt มีข้อมูลครบ)

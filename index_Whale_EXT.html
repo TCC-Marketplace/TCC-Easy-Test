@@ -3122,7 +3122,7 @@ html{
 ══════════════════════════════════════════════════════ -->
 <div class="sidebar">
   <div class="sb-head"><span>Coins</span><span id="totalCoins" style="color:var(--b);">…</span></div>
-  <div class="sb-search"><input type="text" id="searchInput" placeholder="ค้นหาเหรียญ..." oninput="filterCoinList()"/></div>
+  <div class="sb-search"><input type="search" id="searchInput" name="coin_search_q" placeholder="ค้นหาเหรียญ..." oninput="filterCoinList()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" readonly onfocus="this.removeAttribute('readonly')"/></div>
   <div class="sb-sort">
     <button class="sb-sort-btn active-def" id="srt-def" onclick="setSbSort('def')" title="MCap">MCap</button>
     <button class="sb-sort-btn" id="srt-up" onclick="setSbSort('up')" title="% บวก">▲ TOP</button>
@@ -3767,11 +3767,11 @@ html{
         <div id="authFormLogin" class="auth-card-body">
           <div class="auth-field">
             <label class="auth-label">BNB ID (รหัสสมาชิก)</label>
-            <input class="auth-input" id="loginBnbId" type="text" placeholder="เช่น 123456789" inputmode="numeric"/>
+            <input class="auth-input" id="loginBnbId" type="text" placeholder="เช่น 123456789" inputmode="numeric" autocomplete="username"/>
           </div>
           <div class="auth-field">
             <label class="auth-label">Password</label>
-            <input class="auth-input" id="loginPassword" type="password" placeholder="รหัสผ่านของคุณ"/>
+            <input class="auth-input" id="loginPassword" type="password" placeholder="รหัสผ่านของคุณ" autocomplete="current-password"/>
           </div>
           <div class="auth-msg" id="loginMsg"></div>
           <button class="auth-submit-btn" id="loginBtn" onclick="authLogin()">🔑 เข้าสู่ระบบ</button>
@@ -3791,11 +3791,11 @@ html{
           </div>
           <div class="auth-field">
             <label class="auth-label">Email *</label>
-            <input class="auth-input" id="regEmail" type="email" placeholder="email@example.com"/>
+            <input class="auth-input" id="regEmail" type="email" placeholder="email@example.com" autocomplete="email"/>
           </div>
           <div class="auth-field">
             <label class="auth-label">Password *</label>
-            <input class="auth-input" id="regPassword" type="password" placeholder="ตั้งรหัสผ่าน (อย่างน้อย 6 ตัว)"/>
+            <input class="auth-input" id="regPassword" type="password" placeholder="ตั้งรหัสผ่าน (อย่างน้อย 6 ตัว)" autocomplete="new-password"/>
           </div>
           <div class="auth-msg" id="regMsg"></div>
           <button class="auth-submit-btn" id="regBtn" onclick="authRegister()" style="background:linear-gradient(135deg,#00a152,#00e676);color:#000;">✍️ สมัครสมาชิก</button>
@@ -6833,7 +6833,28 @@ function setSbSort(mode) {
   showAllPerps=false; showAllSpot=false; renderCoinList();
 }
 function sortCoins(arr){ if(sbSort==='up')return[...arr].sort((a,b)=>b.chg-a.chg); if(sbSort==='dn')return[...arr].sort((a,b)=>a.chg-b.chg); return arr; }
-function filterCoinList(){ searchQ=document.getElementById('searchInput').value.toUpperCase(); showAllPerps=false; showAllSpot=false; renderCoinList(); }
+// ✅ v49 FIX: Chrome autofill เคยเอาอีเมล/ข้อความที่บันทึกไว้มาใส่ช่องค้นหา → ไม่มีเหรียญตรงกับตัวกรอง → รายการเหรียญว่าง (PERPETUALS 0 / SPOT 0)
+//   ชื่อเหรียญมีเฉพาะ A-Z 0-9 (บางตัวมี . - _) → ค่าที่มี @ หรืออักขระแปลก ถือเป็น autofill: ล้างทิ้งแล้วแสดงรายการเต็ม
+function _looksAutofilled(v){ v=String(v||'').trim(); return /\s/.test(v) || /@.+\./.test(v) || /[^A-Za-z0-9@._\-\/]/.test(v); }
+function _sanitizeCoinSearch(){
+  const el = document.getElementById('searchInput');
+  if (!el) return '';
+  const raw = el.value || '';
+  if (_looksAutofilled(raw)) { el.value = ''; return ''; }
+  return raw.trim().toUpperCase();
+}
+function filterCoinList(){ searchQ=_sanitizeCoinSearch(); showAllPerps=false; showAllSpot=false; renderCoinList(); }
+// autofill อาจเกิดหลังโหลดหน้า/หลังคลิกครั้งแรก — ตรวจซ้ำและกู้รายการเหรียญ
+['DOMContentLoaded'].forEach(ev => document.addEventListener(ev, () => {
+  [300, 1200, 3000].forEach(ms => setTimeout(() => {
+    const el = document.getElementById('searchInput');
+    if (el && el.value && _sanitizeCoinSearch() === '' && searchQ) { searchQ = ''; try { renderCoinList(); } catch(e) {} }
+  }, ms));
+}));
+document.addEventListener('click', () => {
+  const el = document.getElementById('searchInput');
+  if (el && el.value && _looksAutofilled(el.value)) { el.value = ''; if (searchQ) { searchQ=''; try { renderCoinList(); } catch(e) {} } }
+}, true);
 
 function renderCoinList() {
   let fP=sortCoins(perpsCoins.filter(c=>c.name.includes(searchQ)));
@@ -7410,7 +7431,7 @@ function buildForecastPrompt(data, swData, mktCtx) {
     const to = nowMs - i * 3600000, from = to - 3600000;
     const inW = rows.filter(x => x.ms > from && x.ms <= to);
     const v = inW.reduce((s, x) => s + x.t.usd, 0);
-    return `${String(_anBkkHour(to)).padStart(2,'0')}:xx=${inW.length ? '$' + (v / 1e6).toFixed(2) + 'M/' + inW.length + 'T' : 'ว่าง'}`;
+    return `${String(_anBkkHour(to)).padStart(2,'0')}:xx=${inW.length ? '$' + (v / 1e6).toFixed(2) + 'M/' + inW.length + ' trades' : 'ว่าง'}`;
   }).join(', ');
 
   // Peak hour (ทุกวันรวมกัน) + Peak day (เมื่อมีข้อมูล ≥3 วัน)
@@ -7439,7 +7460,9 @@ function buildForecastPrompt(data, swData, mktCtx) {
   });
   const coinEntries = Object.entries(coinStats).sort((a, b) => b[1].n - a[1].n);
   const coinSummary = coinEntries.slice(0, 5)
-    .map(([c, v]) => `${c}(${v.n}T L${Math.round(v.l / ((v.l + v.s) || 1) * 100)}%/S${Math.round(v.s / ((v.l + v.s) || 1) * 100)}%)`).join(', ');
+    // ✅ v49: เดิมเขียน "BTC(283T L48%/S52%)" — "T" = จำนวน trades แต่ AI ตีความผิด (เห็นเป็นหน่วยพัน/ล้าน และอ้างว่า L/S เป็น % ของ trades)
+    //   ที่จริง L/S คิดตามมูลค่า USD → ระบุชัดทั้งจำนวน trades, มูลค่ารวม และฐานของ %
+    .map(([c, v]) => `${c}: ${v.n} trades, มูลค่า $${((v.l + v.s) / 1e6).toFixed(2)}M, สัดส่วนตามมูลค่า USD = LONG ${Math.round(v.l / ((v.l + v.s) || 1) * 100)}% / SHORT ${Math.round(v.s / ((v.l + v.s) || 1) * 100)}%`).join(' | ');
 
   // Momentum: 30 รายการล่าสุด vs 30 ก่อนหน้า (เรียงด้วยเวลาจริง)
   const rec30 = rows.slice(0, 30), prv30 = rows.slice(30, 60);
@@ -7470,10 +7493,10 @@ function buildForecastPrompt(data, swData, mktCtx) {
     const swLPct = Math.round(sw.filter(isL).length / sw.length * 100);
     const swHr = [0,1,2].map(i => {
       const to = nowMs - i * 3600000, from = to - 3600000;
-      return `${String(_anBkkHour(to)).padStart(2,'0')}:xx=${swRows.filter(x => x.ms > from && x.ms <= to).length}T`;
+      return `${String(_anBkkHour(to)).padStart(2,'0')}:xx=${swRows.filter(x => x.ms > from && x.ms <= to).length} trades`;
     }).join(', ');
     const swCoins = {}; sw.forEach(t => { swCoins[t.coin] = (swCoins[t.coin] || 0) + 1; });
-    const swCoinStr = Object.entries(swCoins).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([c, n]) => c + ':' + n + 'T').join(', ');
+    const swCoinStr = Object.entries(swCoins).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([c, n]) => c + ':' + n + ' trades').join(', ');
     const swRecL = swRows.slice(0, 20).filter(x => isL(x.t)).length, swPrvL = swRows.slice(20, 40).filter(x => isL(x.t)).length;
     const swMom = swRows.length < 30 ? 'ข้อมูลไม่พอเทียบ' : swRecL > swPrvL * 1.2 ? 'LONG เพิ่มขึ้น (retail bullish)' : swRecL < swPrvL * 0.8 ? 'LONG ลดลง (retail bearish)' : 'Momentum คงที่';
     swBlock = `
@@ -7502,7 +7525,8 @@ Long/Short (by USD): LONG ${lPct}% | SHORT ${sPct}%
 Volume 6 ชม.ล่าสุด: ${hourTrend}
 Peak Hour (ทุกวันรวมกัน): ${peakHour}
 ${dayBlock}
-เหรียญหลัก: ${coinSummary}
+เหรียญหลัก (เรียงตามจำนวน trades): ${coinSummary}
+📌 นิยาม: "trades" = จำนวนรายการ whale trade ≥$100K (ไม่ใช่มูลค่าเงิน) | LONG/SHORT % ในรายการเหรียญคำนวณตามมูลค่า USD ไม่ใช่ตามจำนวน trades
 Momentum ล่าสุด: ${momentum}
 Trades ล่าสุด 10 รายการ: ${last10 || '—'}
 ${swBlock}
@@ -7521,7 +7545,7 @@ ${mktText}
 5. **คำแนะนำ** 💡: [คำแนะนำสำคัญ สั้น]
 
 **เหรียญที่มีการซื้อขายมากที่สุด**
-[Coin:Trades บรรทัดละเหรียญ]
+[บรรทัดละเหรียญ รูปแบบ "BTC: 283 trades (L 48% / S 52% ตามมูลค่า USD)" — เขียนคำเต็มว่า trades ห้ามย่อเป็น T และห้ามเรียก % นี้ว่าสัดส่วนของ trades]
 ${swRows.length > 0 ? `
 **📊 Small Whale Signal ($10K–$99K)**
 [สรุป Retail sentiment 1-2 ประโยค + agreement/divergence กับ Whale]` : ''}
@@ -10689,7 +10713,7 @@ async function msbAnalyzeWhaleFlow(finalData) {
     const swHrStr = [0, 1, 2].map(i => {
       const ms = _swNowMs - i * 3600000;
       const h  = _anBkkHour(ms);
-      return `${h}:00=${swHvol[_anBkkDate(ms) + '|' + h] || 0}T`;
+      return `${h}:00=${swHvol[_anBkkDate(ms) + '|' + h] || 0} trades`;
     }).join(', ');
 
     // coin breakdown

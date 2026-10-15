@@ -8731,11 +8731,24 @@ function fcFmtTime(ms) {
 // ════════════════════════════════════════════════════════════════
 // FORECAST — Render 6H Buckets (v15: แสดงเวลาอนาคต = endMs+offset)
 // ════════════════════════════════════════════════════════════════
+// ✅ v50: อธิบายสาเหตุเมื่อกราฟว่าง (เดิมขึ้นแค่ "ไม่มีข้อมูล" ทำให้ดูเหมือนระบบเสีย ทั้งที่ Sheet เก่า/Live ไม่มี whale ในช่วงที่เลือก)
+function fcEmptyReason() {
+  const preset = fcPresetHours || 6;
+  let age = null;
+  try {
+    const eps = (AN_ALL || []).map(t => _anEpoch(t)).filter(x => x !== null);
+    if (eps.length) age = Math.round((Date.now() - Math.max.apply(null, eps)) / 3600000);
+  } catch (e) {}
+  const liveN = (allTrades || []).filter(t => t.usd >= 100000).length;
+  let msg = `ไม่มี whale trade ≥$100K ในช่วง ${preset}h · Live: ${liveN} trades · Sheet ล่าสุด: ${age === null ? 'ยังไม่โหลด' : '~' + age + ' ชม.ก่อน'}`;
+  if (age !== null && age >= preset) msg += ` → Sheet ไม่ได้อัปเดต ลองเลือกช่วง ${age <= 24 ? '24H' : '48H'} หรือตรวจ Trigger บันทึก Whale ใน Apps Script`;
+  return msg;
+}
 function fcRender6H(buckets) {
   const grid = document.getElementById('fc6HGrid');
   const maxVol = Math.max(...buckets.map(b => b.total), 1);
   if (!buckets.length) {
-    grid.innerHTML = '<div style="text-align:center;padding:30px;color:var(--t2);font-family:var(--mono);font-size:11px;grid-column:1/-1;">ไม่มีข้อมูลในช่วงเวลานี้</div>';
+    grid.innerHTML = '<div style="text-align:center;padding:30px;color:var(--t2);font-family:var(--mono);font-size:11px;grid-column:1/-1;line-height:1.6;">ไม่มีข้อมูลในช่วงเวลานี้<br><span style="font-size:10px;opacity:.8;">' + fcEmptyReason() + '</span></div>';
     return;
   }
   // v15: offset เวลา = bucketMs ของ bucket สุดท้าย เพื่อชี้ไปข้างหน้า
@@ -8797,7 +8810,7 @@ function fcRender1H(buckets) {
   const grid = document.getElementById('fc1HGrid');
   const maxVol = Math.max(...buckets.map(b => b.total), 1);
   if (!buckets.length) {
-    grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t2);font-family:var(--mono);font-size:11px;grid-column:1/-1;background:var(--bg1);border-radius:10px;border:1px solid var(--border);">ไม่มีข้อมูลรายชั่วโมง</div>';
+    grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t2);font-family:var(--mono);font-size:11px;grid-column:1/-1;background:var(--bg1);border-radius:10px;border:1px solid var(--border);line-height:1.6;">ไม่มีข้อมูลรายชั่วโมง<br><span style="font-size:10px;opacity:.8;">' + fcEmptyReason() + '</span></div>';
     return;
   }
   // v15: offset = bucket duration เพื่อแสดงอนาคต
@@ -10665,14 +10678,16 @@ async function msbAnalyzeWhaleFlow(finalData) {
   const allLPct = allVol > 0 ? Math.round((lUsd + liveLongV) / allVol * 100) : 50;
 
   // ── ถ้าไม่มีข้อมูลเลยทั้ง Live และ Historical ──
-  if (liveList.length === 0 && data.length === 0) {
+  // ✅ v50: ข้อมูลน้อยเกินไป (เช่น 1 trade) ไม่ควรถือเป็นแหล่งสัญญาณเต็มน้ำหนัก 28% — ต้องมีอย่างน้อย 5 trades (Live+Historical)
+  const MIN_WHALE_TRADES = 5;
+  if (liveList.length + data.length < MIN_WHALE_TRADES) {
     // v49: บอกสาเหตุจริง — Live ว่าง + Sheet ไม่มีข้อมูลในช่วงที่เลือก (มักเพราะ Sheet ไม่ถูกอัปเดต)
     let _newestAge = null;
     try {
       const _eps = (AN_ALL || []).map(t => _anEpoch(t)).filter(x => x !== null);
       if (_eps.length) _newestAge = Math.round((Date.now() - Math.max.apply(null, _eps)) / 3600000);
     } catch (e) {}
-    resultEl.textContent = `⚠️ ไม่มีข้อมูล Whale ≥$100K ในช่วง ${_preset}h — Live ≤90น.: 0 trades` +
+    resultEl.textContent = `⚠️ ข้อมูล Whale น้อยเกินไป (${liveList.length + data.length} trades < ${MIN_WHALE_TRADES}) ในช่วง ${_preset}h — Live ≤90น.: ${liveList.length} trades` +
       (_newestAge !== null ? ` · Sheet ล่าสุดเมื่อ ~${_newestAge} ชม.ก่อน` : ' · ยังไม่ได้โหลด Sheet') +
       (_newestAge !== null && _newestAge >= _preset ? '\n(Sheet ไม่อัปเดต — ตรวจ Trigger บันทึก Whale ใน Apps Script)' : '');
     st.sheetDir = 'NEUTRAL'; st.sheetConf = 25;

@@ -3940,7 +3940,7 @@ html{
         <div>
           <div class="msb-title">🎯 MASTER SIGNAL</div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <div class="msb-subtitle" id="msbSubtitle">กด วิเคราะห์ เพื่อรับสัญญาณรวม 7 แหล่งข้อมูล</div>
+            <div class="msb-subtitle" id="msbSubtitle">กด วิเคราะห์ เพื่อรับสัญญาณรวม 6 แหล่งข้อมูล</div>
             <!-- ✅ v35: Data Quality Badge — แสดงจำนวน source ที่มีข้อมูลจริง -->
             <div id="msbDataQualityBadge" style="display:none;font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:10px;border:1px solid rgba(255,213,79,.4);background:rgba(255,213,79,.08);color:var(--y);white-space:nowrap;"></div>
           </div>
@@ -3985,14 +3985,14 @@ html{
             <span class="msb-conf-pct" id="msbConfSharpePct" style="color:var(--t2);">—</span>
           </div>
           <div class="msb-conf-row">
-            <span class="msb-conf-label">📋 Historical</span>
+            <span class="msb-conf-label">🐋 Whale Flow</span>
             <div class="msb-conf-track">
               <div class="msb-conf-fill" id="msbConfSheet"
                 style="width:0%;background:rgba(255,255,255,0.12);"></div>
             </div>
             <span class="msb-conf-pct" id="msbConfSheetPct" style="color:var(--t2);">—</span>
           </div>
-          <div class="msb-conf-row">
+          <div class="msb-conf-row" style="display:none;">
             <span class="msb-conf-label">⚡ Live</span>
             <div class="msb-conf-track">
               <div class="msb-conf-fill" id="msbConfLive"
@@ -4038,14 +4038,14 @@ html{
           </svg>
           <div class="msb-ring-inner">
             <div class="msb-ring-score" id="msbRingScore" style="color:var(--t2);">—</div>
-            <div class="msb-ring-label" title="ค่าเฉลี่ยความมั่นใจจาก 7 แหล่ง: ข่าว + Sharpe + Sheet + Live + Binance OI + CoinGecko + CVD/OB">ความมั่นใจ</div>
+            <div class="msb-ring-label" title="ค่าเฉลี่ยความมั่นใจจาก 6 แหล่ง: ข่าว + Sharpe + Whale Flow(Live+Sheet) + Binance OI + CoinGecko + CVD/OB">ความมั่นใจ</div>
           </div>
         </div>
 
       </div>
 
-      <!-- 7-Column Signal Detail: FF News | Sharpe News | Sheet | Live | Binance OI | CoinGecko F&G | CVD+OB -->
-      <div class="msb-signals-row" style="grid-template-columns:repeat(7,1fr);">
+      <!-- 6-Column Signal Detail (v48): FF News | Sharpe News | Whale Flow (Live+Sheet) | Binance OI | CoinGecko F&G | CVD+OB -->
+      <div class="msb-signals-row" style="grid-template-columns:repeat(6,1fr);">
 
         <!-- Col 1: ForexFactory Economic Calendar -->
         <div class="msb-signal-col">
@@ -4080,18 +4080,19 @@ html{
         <!-- Col 3: Google Sheet / Historical -->
         <div class="msb-signal-col">
           <div class="msb-signal-col-title" style="color:var(--y);">
-            <span>📋</span> Historical Whale
+            <span>🐋</span> Whale Flow
             <span id="msbSheetStatus" style="margin-left:auto;font-family:var(--mono);font-size:8px;color:var(--t2);font-weight:400;">
               <span id="fcInfoSheetCnt2"></span>
             </span>
           </div>
-          <div style="font-family:var(--mono);font-size:8px;color:var(--t2);margin-bottom:3px;padding:0 2px;">≥$100K + 🐟SW $10K–$99K</div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--t2);margin-bottom:3px;padding:0 2px;">Live ≤90น. + Historical + 🐟SW $10K–$99K</div>
+          <div id="msbHlApiStatus" style="font-family:var(--mono);font-size:9px;color:var(--t2);margin-bottom:3px;display:none;"></div>
           <div id="msbSheetDir" class="msb-signal-direction wait" style="display:none;">—</div>
           <div id="msbSheetResult" class="msb-signal-result loading">กด วิเคราะห์ เพื่อโหลดและดูข้อมูล Whale...</div>
         </div>
 
-        <!-- Col 4: Live Hyperliquid -->
-        <div class="msb-signal-col">
+        <!-- Col 4 (v48): Live Hyperliquid ถูกรวมเข้า Whale Flow (Col 3) — ซ่อนไว้ แต่คง element id เดิมเพื่อไม่ให้โค้ดอื่นพัง -->
+        <div class="msb-signal-col" style="display:none;">
           <div class="msb-signal-col-title" style="color:var(--g);">
             <span>⚡</span> Live Hyperliquid
             <span id="msbLiveStatus" style="margin-left:auto;font-family:var(--mono);font-size:8px;color:var(--g);font-weight:400;">
@@ -4099,7 +4100,6 @@ html{
             </span>
           </div>
           <div id="msbLiveDir" class="msb-signal-direction wait" style="display:none;">—</div>
-          <div id="msbHlApiStatus" style="font-family:var(--mono);font-size:9px;color:var(--t2);margin-bottom:3px;display:none;"></div>
           <div id="msbLiveResult" class="msb-signal-result loading">รอข้อมูล Live Feed...</div>
         </div>
 
@@ -4172,7 +4172,7 @@ html{
       <!-- AI Final Synthesis -->
       <div id="msbSynthesisRow" style="display:none;padding:12px 14px;border-top:1px solid var(--border);background:rgba(206,147,216,.04);overflow:hidden;word-break:break-word;overflow-wrap:break-word;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <span style="font-family:var(--mono);font-size:10px;font-weight:700;color:var(--p);">🤖 AI Synthesis — สรุปรวม 7 แหล่งข้อมูล</span>
+          <span style="font-family:var(--mono);font-size:10px;font-weight:700;color:var(--p);">🤖 AI Synthesis — สรุปรวม 6 แหล่งข้อมูล</span>
           <span id="msbSynthTime" style="font-family:var(--mono);font-size:9px;color:var(--t2);margin-left:auto;"></span>
         </div>
         <div id="msbSynthLoad" style="display:none;font-family:var(--mono);font-size:11px;color:var(--t2);"><span class="spinner"></span> AI กำลังสังเคราะห์ข้อมูล...</div>
@@ -7283,12 +7283,12 @@ async function _aiFlushQueue() {
   if (window._aiRunning) return;
   window._aiRunning = true;
   while (window._aiQueue.length > 0) {
-    const { prompt, maxTokens, resolve, reject, retry, pub } = window._aiQueue.shift();
+    const { prompt, maxTokens, resolve, reject, retry, pub, cacheSec } = window._aiQueue.shift();
     try {
       const r = await fetch(ALERT_CONFIG.appsScriptURL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: pub ? 'aiAnalyzePublic' : 'aiAnalyze', prompt, maxTokens: maxTokens || 800 }),   // v46: pub = Analytics (ไม่ต้อง login)
+        body: JSON.stringify({ action: pub ? 'aiAnalyzePublic' : 'aiAnalyze', prompt, maxTokens: maxTokens || 800, cacheSec: cacheSec || 0 }),   // v46: pub = Analytics (ไม่ต้อง login) · v48: cacheSec = ให้ GAS แคชคำตอบ (opt-in)
       });
       if (!r.ok) { reject(new Error('HTTP ' + r.status)); }
       else {
@@ -7300,7 +7300,7 @@ async function _aiFlushQueue() {
           // ── GAS reported rate-limit → re-queue with retry ──
           const r2 = retry || 0;
           if (r2 < _AI_MAX_RETRY) {
-            window._aiQueue.unshift({ prompt, maxTokens, resolve, reject, retry: r2 + 1, pub });
+            window._aiQueue.unshift({ prompt, maxTokens, resolve, reject, retry: r2 + 1, pub, cacheSec });
             await new Promise(res => setTimeout(res, _AI_RETRY_MS));
           } else {
             resolve(d.result); // ส่งต่อ error message ให้ signal handler จัดการ
@@ -7320,8 +7320,9 @@ async function _aiFlushQueue() {
 
 async function callAIProxy(prompt, maxTokens, opts) {
   const pub = !!(opts && opts.pub);   // v46: Analytics ใช้ action สาธารณะ (ไม่ต้อง login สมาชิก)
+  const cacheSec = (opts && opts.cacheSec) ? Math.min(parseInt(opts.cacheSec, 10) || 0, 600) : 0;   // v48: opt-in แคชคำตอบฝั่ง GAS
   return new Promise((resolve, reject) => {
-    window._aiQueue.push({ prompt, maxTokens, resolve, reject, retry: 0, pub });
+    window._aiQueue.push({ prompt, maxTokens, resolve, reject, retry: 0, pub, cacheSec });
     _aiFlushQueue();
   });
 }
@@ -10065,7 +10066,7 @@ FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
 *ต้องระบุ DIRECTION, CONFIDENCE และ FORECAST ทุก timeframe ก่อนเสมอ*`;
 
   try {
-    const text = await callAIProxy(prompt, 820);
+    const text = await callAIProxy(prompt, 820, { cacheSec: 180 });
     const pr = msbParseDirConf(text);   // ✅ v47: parser ทนรูปแบบ — อ่านไม่ได้ = ไม่มีข้อมูล (ไป catch)
     if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
     st.sharpeDir  = pr.dir;
@@ -10527,7 +10528,7 @@ FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
 *ต้องระบุ DIRECTION, CONFIDENCE และ FORECAST ทุก timeframe ก่อนเสมอ*`;
 
   try {
-    const text = await callAIProxy(prompt, 800);
+    const text = await callAIProxy(prompt, 800, { cacheSec: 180 });
     const pr = msbParseDirConf(text);   // ✅ v47
     if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
     st.newsDir  = pr.dir;
@@ -10576,34 +10577,75 @@ FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
 }
 
 // ── Step 2: Analyze Sheet Data ──
-async function msbAnalyzeSheet(data, buckets) {
+// ═══════════════════════════════════════════════════════════════
+// ✅ v48: Whale Flow — รวม Sheet(Historical) + Live เป็นแหล่งเดียว / น้ำหนักเดียว / AI call เดียว
+//   • Live  = trades ≥$100K ภายใน 90 นาทีล่าสุด (WebSocket; ถ้าว่างใช้ Sheet ช่วง 90 นาทีล่าสุด)
+//   • Hist  = trades ในช่วงที่เลือก (fcPresetHours) ที่ "เก่ากว่า 90 นาที" → สองส่วนไม่ซ้ำกันโดยโครงสร้าง
+//   • Small Whale เป็น sub-layer เหมือนเดิม
+//   State ยังใช้ key เดิม st.sheet* (Dir/Conf/HasData/Forecasts/Summary) เพื่อไม่กระทบส่วนอื่น
+// ═══════════════════════════════════════════════════════════════
+async function msbAnalyzeWhaleFlow(finalData) {
   const st = window._msbState;
   const resultEl = document.getElementById('msbSheetResult');
   resultEl.className = 'msb-signal-result loading';
-  resultEl.textContent = '⏳ AI กำลังวิเคราะห์ข้อมูล Historical Whale...';
+  resultEl.textContent = '⏳ AI กำลังวิเคราะห์ Whale Flow (Live + Historical)...';
   msbSetColDir('msbSheetDir', null);
 
-  const tot  = data.reduce((s,t)=>s+t.usd, 0);
-  const lUsd = data.filter(t=>t.dir==='LONG'||t.dir==='BUY').reduce((s,t)=>s+t.usd, 0);
-  const lPct = tot > 0 ? Math.round(lUsd/tot*100) : 50;
-  let sheetItems = (AN_ALL || []).length;
-
-  // ── FIX v14: ถ้า AN_ALL ว่าง แต่มี live trades → ใช้ live แทน ──
-  let dataSource = 'Sheet (Historical)';
-  if (sheetItems === 0 && allTrades && allTrades.length > 0) {
-    const liveFallback = allTrades.filter(t => t.usd >= 100000);
-    sheetItems = liveFallback.length;
-    dataSource = 'Live Feed (Fallback)';
-    // แจ้ง user ว่า fallback ใช้ live
-    const statusEl = document.getElementById('msbSheetStatus');
-    if (statusEl) statusEl.innerHTML = `<span style="color:var(--y);font-size:8px;">📡 Live fallback</span>`;
+  // แสดง HL API error (ย้ายมาจากคอลัมน์ Live เดิม)
+  const hlApiEl = document.getElementById('msbHlApiStatus');
+  if (hlApiEl) {
+    if (restFailCount > 0) {
+      hlApiEl.textContent = `⚠️ HL API Error (${restFailCount}x) — ข้อมูล Live อาจไม่ครบ`;
+      hlApiEl.style.color = 'var(--r)'; hlApiEl.style.display = 'block';
+    } else {
+      hlApiEl.style.display = 'none';
+    }
   }
 
-  // ── ถ้าไม่มีข้อมูลเลยทั้ง Sheet และ Live ──
-  if (sheetItems === 0 && data.length === 0) {
+  const _nowMs    = Date.now();
+  const _cutoffMs = _nowMs - 90 * 60 * 1000;
+  const _coinSel  = (typeof fcCurrentCoin !== 'undefined' && fcCurrentCoin) ? fcCurrentCoin : 'ALL';
+
+  // ── LIVE (≤90 นาที) ────────────────────────────────────────────
+  // allTrades เรียงใหม่→เก่า (unshift) มีทั้ง Perps(long/short) และ Spot(buy/sell) → BUY=long, SELL=short
+  let liveList = allTrades
+    .filter(t => t.usd >= 100000 && (_coinSel === 'ALL' || t.coin === _coinSel))
+    .map(t => ({ coin: t.coin, dir: String(t.direction || '').toUpperCase(), usd: t.usd, ms: msbTradeMs(t) }))
+    .filter(t => t.ms === null || (_nowMs - t.ms) <= 90 * 60 * 1000);
+  let liveSrc = 'WebSocket';
+  if (liveList.length === 0) {
+    // WS ยังไม่มีข้อมูล → ใช้ Sheet เฉพาะ 90 นาทีล่าสุด (เลือกตามเวลาจริง ไม่ใช่ลำดับ array)
+    liveList = msbRecentSheetTrades(90)
+      .filter(t => _coinSel === 'ALL' || t.coin === _coinSel)
+      .map(t => ({ coin: t.coin, dir: String(t.dir || '').toUpperCase(), usd: t.usd || 0, ms: _anEpoch(t) }));
+    liveSrc = liveList.length > 0 ? 'Sheet (90 นาทีล่าสุด)' : '—';
+  }
+  const liveVol   = liveList.reduce((a, t) => a + t.usd, 0);
+  const liveLongV = liveList.filter(t => msbIsLongSide(t.dir)).reduce((a, t) => a + t.usd, 0);
+  const liveLPct  = liveVol > 0 ? Math.round(liveLongV / liveVol * 100) : 50;
+  const liveMega  = liveList.filter(t => t.usd >= 1000000)
+    .sort((x, y) => (y.ms || 0) - (x.ms || 0)).slice(0, 5)
+    .map(t => `${t.coin} ${t.dir} $${Math.round(t.usd / 1000)}K`).join(', ');
+
+  // ── HISTORICAL (เก่ากว่า 90 นาที ภายในช่วงที่เลือก) ─────────────────
+  const data = (finalData || []).filter(t => typeof t.ts === 'number' && t.ts < _cutoffMs);
+  const _preset = fcPresetHours || 6;
+  const _bucketMs = _preset <= 1 ? 3600000 : _preset <= 6 ? 6 * 3600000 : 12 * 3600000;
+  const buckets = fcAggregate(data, _bucketMs);
+  const tot  = data.reduce((a, t) => a + t.usd, 0);
+  const lUsd = data.filter(t => t.dir === 'LONG' || t.dir === 'BUY').reduce((a, t) => a + t.usd, 0);
+  const lPct = tot > 0 ? Math.round(lUsd / tot * 100) : 50;
+
+  // ── รวม (ใช้สำหรับ bias/agreement) ──────────────────────────────
+  const allVol  = tot + liveVol;
+  const allLPct = allVol > 0 ? Math.round((lUsd + liveLongV) / allVol * 100) : 50;
+
+  // ── ถ้าไม่มีข้อมูลเลยทั้ง Live และ Historical ──
+  if (liveList.length === 0 && data.length === 0) {
     resultEl.textContent = '⚠️ ยังไม่มีข้อมูล Whale (รอ Live Feed เชื่อมต่อ หรือกด 🔄 โหลดจาก Sheet ใน Analytics tab)';
     st.sheetDir = 'NEUTRAL'; st.sheetConf = 25;
-    st.sheetHasData = false; // ✅ v35
+    st.sheetHasData = false;
+    st.sheetForecasts = msbDefaultForecasts('NEUTRAL', 25);
     msbSetBar('msbConfSheet', 'msbConfSheetPct', 25, 'NEUTRAL');
     msbSetColDir('msbSheetDir', 'NEUTRAL');
     return;
@@ -10618,8 +10660,8 @@ async function msbAnalyzeSheet(data, buckets) {
   }).join(' → ');
 
   // คำนวณ confidence factors สำหรับ prompt
-  const tradeCount = data.length;
-  const biasStrength = Math.abs(lPct - 50); // 0=neutral, 50=max bias
+  const tradeCount = data.length + liveList.length;
+  const biasStrength = Math.abs(allLPct - 50); // 0=neutral, 50=max bias  (v48: รวม Live+Historical)
   const confHint = tradeCount >= 200 && biasStrength >= 20 ? 'ข้อมูลมากและ bias ชัดเจน → CONFIDENCE สูงได้ถึง 75-85%'
                  : tradeCount >= 50  && biasStrength >= 10 ? 'ข้อมูลพอสมควร → CONFIDENCE 55-70%'
                  : tradeCount >= 10                        ? 'ข้อมูลน้อย → CONFIDENCE 35-55%'
@@ -10666,11 +10708,11 @@ async function msbAnalyzeSheet(data, buckets) {
                    : '➡️ Retail Momentum คงที่';
 
     // agreement/divergence กับ whale ≥$100K
-    const whaleIsBull = lPct >= 50;
+    const whaleIsBull = allLPct >= 50;
     const swIsBull    = swLPct >= 50;
     const agreement   = whaleIsBull === swIsBull
-      ? `✅ AGREE — Whale (${lPct}%L) + Retail (${swLPct}%L) ทิศทางเดียวกัน → signal แข็งขึ้น`
-      : `⚠️ DIVERGE — Whale (${lPct}%L) vs Retail (${swLPct}%L) ขัดแย้งกัน → ระวัง false signal`;
+      ? `✅ AGREE — Whale (${allLPct}%L) + Retail (${swLPct}%L) ทิศทางเดียวกัน → signal แข็งขึ้น`
+      : `⚠️ DIVERGE — Whale (${allLPct}%L) vs Retail (${swLPct}%L) ขัดแย้งกัน → ระวัง false signal`;
 
     swContextBlock = `
 🐟 Small Whale Context ($10K–$99K) — BTC/ETH/SOL/BNB/XRP:
@@ -10685,14 +10727,20 @@ async function msbAnalyzeSheet(data, buckets) {
   }
   // ──────────────────────────────────────────────────────────────
 
-  const prompt = `คุณคือผู้เชี่ยวชาญ Whale Flow Analysis วิเคราะห์พฤติกรรม Whale จากข้อมูลประวัติ พร้อม FORECAST ทิศทางล่วงหน้าทุก timeframe
+  const prompt = `คุณคือผู้เชี่ยวชาญ Whale Flow Analysis วิเคราะห์พฤติกรรม Whale จากแหล่งข้อมูลเดียว (Live ≤90 นาทีล่าสุด + Historical ก่อนหน้านั้น — คนละช่วงเวลา ไม่ซ้ำกัน) พร้อม FORECAST ทิศทางล่วงหน้าทุก timeframe
 
-📋 ข้อมูล Whale Trade จาก ${dataSource}:
-- รายการทั้งหมด: ${sheetItems} trades | ในช่วงที่เลือก: ${tradeCount} trades
-- มูลค่ารวม: $${(tot/1e6).toFixed(2)}M
-- LONG: ${lPct}% | SHORT: ${100-lPct}% | Bias strength: ${biasStrength.toFixed(1)}%
+⚡ LIVE (≤90 นาทีล่าสุด, ≥$100K, แหล่ง: ${liveSrc}):
+${liveList.length > 0 ? `- รายการ: ${liveList.length} trades | มูลค่า: $${(liveVol/1e6).toFixed(2)}M
+- LONG/BUY: ${liveLPct}% | SHORT/SELL: ${100-liveLPct}%
+- Mega trades ≥$1M ล่าสุด: ${liveMega || 'ไม่มี'}` : '- ไม่มี trade ≥$100K ใน 90 นาทีล่าสุด'}
+
+📋 HISTORICAL (ก่อนหน้า 90 นาที ในช่วงที่เลือก ${_preset}h):
+${data.length > 0 ? `- รายการ: ${data.length} trades | มูลค่า: $${(tot/1e6).toFixed(2)}M
+- LONG: ${lPct}% | SHORT: ${100-lPct}%
 - เหรียญหลัก: ${topCoins || '—'}
-- Trend ล่าสุด (3 bucket): ${recentTrend || '—'}
+- Trend (3 bucket): ${recentTrend || '—'}` : '- ไม่มีข้อมูลในช่วงนี้'}
+
+🔀 รวม Live+Historical: LONG ${allLPct}% | Bias strength: ${biasStrength.toFixed(1)}% | รวม ${tradeCount} trades
 ${swContextBlock}
 📊 Market Context (Binance OI + Funding + F&G):
 ${buildMarketCtxPromptText(window._msbState.marketCtx)}
@@ -10706,10 +10754,11 @@ ${confHint}
 • OI/Funding ขัดแย้งกับ Whale bias → หัก CONFIDENCE -15%
 • Market Context ไม่มีข้อมูล → หัก CONFIDENCE -10%
 
-⏱️ หลักเกณฑ์ FORECAST ตาม Timeframe (Historical Whale — ส่งผลช้า):
-• FORECAST_1H/3H: Historical data ไม่แม่นระยะสั้น — confidence ต่ำกว่า 6H เสมอ
-• FORECAST_6H/12H: ช่วงที่ whale positioning ส่งผลชัดเจนที่สุด — confidence สูงสุด
-• FORECAST_24H/48H: whale bias มักยังคงอยู่แต่ถูก override ได้ — confidence ลดลง
+⏱️ หลักเกณฑ์ FORECAST ตาม Timeframe (Whale Flow = Live + Historical):
+• FORECAST_1H/3H: ให้น้ำหนัก LIVE ≤90 นาทีมากที่สุด — ถ้า Live ไม่มีข้อมูล confidence ต้องต่ำ
+• FORECAST_6H/12H: ผสม Live + Historical trend — ช่วงที่ whale positioning ส่งผลชัดเจนที่สุด
+• FORECAST_24H/48H: Historical bias เป็นหลัก แต่ถูก override ได้ — confidence ลดลง
+• Live กับ Historical ขัดแย้งกัน → ระบุในเหตุผลและหัก CONFIDENCE -8%
 
 ตอบในรูปแบบ (ไทย ไม่เกิน 230 คำ):
 DIRECTION: [BULLISH/BEARISH/NEUTRAL]
@@ -10721,8 +10770,8 @@ FORECAST_12H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
 FORECAST_24H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
 FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
 
-Whale Bias: (1-2 ประโยค — Long/Short bias + ความแข็งแกร่งของ signal)
-Trend Analysis: (1 ประโยค — 3 bucket ล่าสุดชี้ทิศทางไหน)
+Whale Bias: (1-2 ประโยค — Long/Short bias รวม Live+Historical + ความแข็งแกร่งของ signal)
+Trend Analysis: (1 ประโยค — Live ล่าสุดสอดคล้องหรือขัดกับ Trend Historical?)
 ${sw.length > 0 ? 'Small Whale Signal: (1 ประโยค — Retail agreement/divergence + leading signal ถ้ามี)' : ''}
 Cross-validate: (1 ประโยค — Whale bias สอดคล้องหรือขัดแย้งกับ OI/Funding?)
 เหตุผล CONFIDENCE: (1 ประโยค — ระบุว่าทำไมถึงมั่นใจระดับนี้)`;
@@ -10736,11 +10785,13 @@ Cross-validate: (1 ประโยค — Whale bias สอดคล้องห
     st.sheetConf = pr.conf;
     st.sheetSummary = text;
     st.sheetHasData = true; // ✅ v35: มีข้อมูลจริง
+    st.liveHasData = false; st.liveSummary = '';   // v48: Live ถูกรวมเข้า Whale Flow แล้ว (ไม่นับเป็นแหล่งแยก)
     // ✅ v07: parse + store forecast ทุก timeframe
     st.sheetForecasts = msbParseForecasts(text);
 
     resultEl.className = 'msb-signal-result';
-    resultEl.textContent = text.replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'')
+    resultEl.textContent = `🐋 Live ${liveList.length} (${liveSrc}) + Historical ${data.length} trades\n` +
+      text.replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'')
       .replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim();
     msbSetColDir('msbSheetDir', st.sheetDir);
     msbSetBar('msbConfSheet', 'msbConfSheetPct', st.sheetConf, st.sheetDir);
@@ -10753,222 +10804,7 @@ Cross-validate: (1 ประโยค — Whale bias สอดคล้องห
   }
 }
 
-// ── Step 3: Analyze Live Flow ──
-async function msbAnalyzeLive(data) {
-  const st       = window._msbState;
-  const resultEl = document.getElementById('msbLiveResult');
-  const statusEl = document.getElementById('msbLiveStatus');
-  const hlApiEl  = document.getElementById('msbHlApiStatus');
-  resultEl.className = 'msb-signal-result loading';
-  resultEl.textContent = '⏳ AI กำลังวิเคราะห์ Live Flow...';
-  msbSetColDir('msbLiveDir', null);
-
-  // ✅ FIX v24: แสดง HL API error ก่อนวิเคราะห์
-  if (hlApiEl) {
-    if (restFailCount > 0) {
-      hlApiEl.textContent = `⚠️ HL API Error (${restFailCount}x) — ข้อมูล Live อาจไม่ครบ`;
-      hlApiEl.style.color = 'var(--r)'; hlApiEl.style.display = 'block';
-    } else {
-      hlApiEl.style.display = 'none';
-    }
-  }
-
-  // ✅ v47 FIX (Live): allTrades เรียงใหม่→เก่า (unshift) → ใช้เวลาจริงกรอง 90 นาทีล่าสุด
-  //   และนับ Spot BUY เป็นฝั่ง long / SELL เป็นฝั่ง short (เดิมเช็กแค่ 'LONG' ทำให้ BUY ถูกนับเป็น short)
-  const _liveNow    = Date.now();
-  const _liveWinMs  = 90 * 60 * 1000;
-  const liveWindowTrades = allTrades.filter(t => { const ms = msbTradeMs(t); return ms === null || (_liveNow - ms) <= _liveWinMs; });
-  const liveTrades = liveWindowTrades.filter(t => t.usd >= 100000);
-  const liveVol    = liveTrades.reduce((s,t) => s+t.usd, 0);
-  const liveLong   = liveTrades.filter(t => msbIsLongSide(t.direction)).reduce((s,t) => s+t.usd, 0);
-  // ✅ FIX v24: fix undefined lV/sV bug
-  const liveShort  = liveVol - liveLong;
-  const liveLPct   = liveVol > 0 ? Math.round(liveLong/liveVol*100) : 50;
-
-  const recentMega = liveWindowTrades.filter(t => t.usd >= 1000000)
-    .sort((a, b) => (msbTradeMs(b) || 0) - (msbTradeMs(a) || 0)).slice(0, 5)   // ✅ v47: 5 รายการ "ล่าสุด" (เดิม slice(-5) ได้ 5 เก่าสุด)
-    .map(t => `${t.coin} ${(t.direction||'').toUpperCase()} $${Math.round(t.usd/1000)}K`).join(', ');
-
-  // ✅ v41b FIX: ถ้า allTrades ว่าง (HL 500) → fallback ไป AN_ALL trades ล่าสุด 90 นาที
-  // ทำให้ liveHasData=true แม้ WS ยังไม่ connect → ได้ข้อมูล 6/7 แหล่งขึ้นไป
-  // ✅ v47 FIX: เดิมใช้ AN_ALL.slice(0,30) โดยเข้าใจว่าเรียงใหม่→เก่า แต่ GAS ส่งเก่า→ใหม่ จึงได้ข้อมูลเก่าสุดมาเรียกว่า "Live"
-  //   ตอนนี้เลือกจากเวลาจริง (_anEpoch) เฉพาะ 90 นาทีล่าสุด — ถ้าไม่มี → ไม่นับเป็นข้อมูล Live
-  const _sheetRecent90 = liveTrades.length === 0 ? msbRecentSheetTrades(90) : [];
-  if (liveTrades.length === 0 && _sheetRecent90.length > 0) {
-    const recentSheet = _sheetRecent90;
-    const sheetLong  = recentSheet.filter(t => msbIsLongSide(t.dir)).reduce((s,t) => s+(t.usd||0), 0);
-    const sheetVol   = recentSheet.reduce((s,t) => s+(t.usd||0), 0);
-    const sheetLPct  = sheetVol > 0 ? Math.round(sheetLong/sheetVol*100) : 50;
-    const sheetMega  = recentSheet.filter(t => t.usd >= 1000000).slice(0, 5)
-      .map(t => `${t.coin} ${(t.dir||'').toUpperCase()} $${Math.round(t.usd/1000)}K`).join(', ');
-    const sheetBias  = Math.abs(sheetLPct - 50);
-    const sheetConfHint = recentSheet.length >= 20 && sheetBias >= 20
-      ? 'ข้อมูลล่าสุดจาก Sheet มาก bias ชัด → CONFIDENCE 55-70%'
-      : recentSheet.length >= 10
-      ? 'ข้อมูลจาก Sheet พอสมควร → CONFIDENCE 40-55%'
-      : 'ข้อมูลน้อย → CONFIDENCE ไม่เกิน 40%';
-
-    const prompt = `คุณคือผู้เชี่ยวชาญ Order Flow วิเคราะห์พฤติกรรม Whale จาก Hyperliquid Sheet Data พร้อม FORECAST ทิศทางล่วงหน้าทุก timeframe
-⚠️ หมายเหตุ: HL API ชั่วคราวไม่พร้อม — ใช้ข้อมูล Historical Sheet (เฉพาะ 90 นาทีล่าสุด ${recentSheet.length} รายการ) แทน real-time WebSocket
-
-📋 Recent Whale Flow (Sheet Data ล่าสุด):
-- Trades ≥$100K: ${recentSheet.length} รายการ
-- Long Vol: ${sheetLPct}% | Short Vol: ${100-sheetLPct}% | Bias: ${sheetBias.toFixed(1)}%
-- มูลค่ารวม: $${(sheetVol/1e6).toFixed(2)}M
-- Mega trades $1M+: ${sheetMega || 'ยังไม่มีใน batch นี้'}
-- L/S Ratio: ${(100-sheetLPct) > 0 ? (sheetLong/(sheetVol-sheetLong+1)).toFixed(2) : '—'}
-
-📊 Market Context (Binance OI + Funding — ใช้ cross-validate):
-${buildMarketCtxPromptText(window._msbState.marketCtx)}
-
-🎯 หลักเกณฑ์ CONFIDENCE (ข้อมูล Sheet ไม่ใช่ real-time):
-${sheetConfHint}
-• ลด CONFIDENCE ลง -15% จากทุก timeframe เพราะเป็น historical data ไม่ใช่ real-time WebSocket
-• Mega trade $1M+ → ปรับ CONFIDENCE +10% (ถ้ามี)
-• ข้อมูลน้อยกว่า 5 trades → CONFIDENCE ไม่ควรเกิน 35%
-
-⏱️ หลักเกณฑ์ FORECAST ตาม Timeframe:
-• FORECAST_1H/3H: ข้อมูล historical ไม่ถนัด — confidence ต่ำ (ใช้ Sources อื่น cross-validate)
-• FORECAST_6H/12H: momentum อาจยังสะท้อนใน historical — confidence ปานกลาง
-• FORECAST_24H/48H: historical data ยังพอใช้ — confidence พอสมควร
-
-ตอบ (ไทย ไม่เกิน 200 คำ):
-DIRECTION: [BULLISH/BEARISH/NEUTRAL]
-CONFIDENCE: [0-100]
-FORECAST_1H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
-FORECAST_3H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
-FORECAST_6H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
-FORECAST_12H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
-FORECAST_24H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
-FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
-Sentiment ปัจจุบัน: (1-2 ประโยค — bias จาก Sheet)
-Cross-validate: (1 ประโยค — สอดคล้องกับ OI/Funding?)
-เหตุผล CONFIDENCE: (1 ประโยค — ระบุว่าทำไม confidence ระดับนี้)`;
-
-    if (statusEl) statusEl.textContent = `📋 ${recentSheet.length} trades (Sheet fallback)`;
-    try {
-      const text = await callAIProxy(prompt, 820);
-      const pr = msbParseDirConf(text);   // ✅ v47
-      if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
-      st.liveDir  = pr.dir;
-      st.liveConf = pr.conf;
-      st.liveSummary = text;
-      // ✅ liveHasData=true เพราะมีข้อมูล Sheet → นับเป็น 1 แหล่ง ไม่ใช่ NEUTRAL
-      st.liveHasData = true;
-      st.liveForecasts = msbParseForecasts(text);
-      resultEl.className = 'msb-signal-result';
-      resultEl.textContent = '📋 [Sheet Fallback]\n' + text.replace(/^DIRECTION[^\n]*\n?/im,'')
-        .replace(/^CONFIDENCE[^\n]*\n?/im,'').replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim();
-      if (statusEl) {
-        const dI = st.liveDir==='BULLISH'?'▲':st.liveDir==='BEARISH'?'▼':'●';
-        const dC = st.liveDir==='BULLISH'?'var(--g)':st.liveDir==='BEARISH'?'var(--r)':'var(--y)';
-        statusEl.innerHTML = `<span style="color:${dC};">📋 ${dI} ${st.liveConf}%</span>`;
-      }
-      msbSetColDir('msbLiveDir', st.liveDir);
-      msbSetBar('msbConfLive', 'msbConfLivePct', st.liveConf, st.liveDir);
-    } catch(e) {
-      st.liveDir = 'NEUTRAL'; st.liveConf = 20;
-      st.liveHasData = false;
-      st.liveForecasts = msbDefaultForecasts('NEUTRAL', 20);
-      resultEl.textContent = '❌ ' + e.message;
-      msbSetBar('msbConfLive', 'msbConfLivePct', 20, 'NEUTRAL');
-    }
-    return; // ✅ ออกจาก function หลัง Sheet fallback เสร็จ
-  }
-
-  if (liveTrades.length === 0) {
-    resultEl.textContent = '⚠️ ยังไม่มีข้อมูล Live (WebSocket กำลังเชื่อมต่อ...' + (restFailCount > 0 ? ` · HL API Error ${restFailCount}x` : '') + ')';
-    if (statusEl) statusEl.textContent = restFailCount > 0 ? '⚠️ HL Err' : '⏳ รอ WS...';
-    st.liveDir = 'NEUTRAL'; st.liveConf = 20;
-    st.liveHasData = false; // ✅ v35: ไม่มี live trades
-    msbSetBar('msbConfLive', 'msbConfLivePct', 20, 'NEUTRAL');
-    msbSetColDir('msbLiveDir', 'NEUTRAL');
-    return;
-  }
-
-  if (statusEl) statusEl.textContent = `${liveTrades.length} trades · 🤖 AI...`;
-
-  // คำนวณ confidence factors สำหรับ live data
-  const liveBiasStr = Math.abs(liveLPct - 50); // 0=neutral, 50=max
-  const hasMega     = recentMega && recentMega !== 'ยังไม่มี';
-  const liveConfHint = liveTrades.length >= 30 && liveBiasStr >= 20
-    ? 'trades มากและ bias ชัด → CONFIDENCE สูงได้ถึง 75-85% (live data มีน้ำหนักมาก)'
-    : liveTrades.length >= 10 && liveBiasStr >= 10
-    ? 'trades พอสมควร → CONFIDENCE 55-70%'
-    : liveTrades.length >= 3
-    ? 'trades น้อย → CONFIDENCE 35-55% (real-time แต่ sample เล็ก)'
-    : 'trades น้อยมาก → CONFIDENCE ไม่ควรเกิน 40%';
-
-  const prompt = `คุณคือผู้เชี่ยวชาญ Real-time Order Flow วิเคราะห์พฤติกรรม Whale สด จาก Hyperliquid พร้อม FORECAST ทิศทางล่วงหน้าทุก timeframe
-
-⚡ Live Whale Flow (Real-time WebSocket):
-- Trades ≥$100K: ${liveTrades.length} รายการ (สดมากที่สุด — ข้อมูลมีน้ำหนักสูง)
-- Long Vol: ${liveLPct}% | Short Vol: ${100-liveLPct}% | Bias: ${liveBiasStr.toFixed(1)}%
-- มูลค่ารวม: $${(liveVol/1e6).toFixed(2)}M
-- Mega trades $1M+: ${recentMega || 'ยังไม่มี'}${hasMega ? ' ⚠️ สัญญาณแรง' : ''}
-- L/S Ratio: ${liveShort > 0 ? (liveLong/liveShort).toFixed(2) : '—'}
-
-📊 Market Context (Binance OI + Funding — ใช้ cross-validate):
-${buildMarketCtxPromptText(window._msbState.marketCtx)}
-
-🎯 หลักเกณฑ์ CONFIDENCE สำหรับ Live Data:
-${liveConfHint}
-• Mega trade $1M+ ปรากฏ → ปรับ CONFIDENCE +15% (Whale ตัดสินใจแล้ว)
-• Live bias ตรงกับ Funding Rate → ปรับ CONFIDENCE +10%
-• Live bias ขัดแย้งกับ OI/Funding → หัก CONFIDENCE -15% (squeeze risk)
-• ข้อมูลน้อยกว่า 5 trades → CONFIDENCE ไม่ควรเกิน 50% ต่อให้ bias ชัด
-
-⏱️ หลักเกณฑ์ FORECAST ตาม Timeframe (Live Flow — สัญญาณสดแต่ fade เร็ว):
-• FORECAST_1H/3H: สัญญาณแข็งที่สุด — Live flow ถนัดช่วงนี้ confidence สูงสุด
-• FORECAST_6H/12H: momentum อาจยังคงอยู่ถ้า mega trade ชัด — confidence ลดลง 10-20%
-• FORECAST_24H/48H: Live signal fade เร็ว — confidence ต่ำ ระบุ uncertainty สูง
-
-ตอบ (ไทย ไม่เกิน 230 คำ):
-DIRECTION: [BULLISH/BEARISH/NEUTRAL]
-CONFIDENCE: [0-100]
-FORECAST_1H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
-FORECAST_3H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
-FORECAST_6H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
-FORECAST_12H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
-FORECAST_24H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
-FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [0-100%]
-
-Sentiment ปัจจุบัน: (1-2 ประโยค — bias ชัดแค่ไหน + Mega trade ส่งสัญญาณอะไร)
-Cross-validate: (1 ประโยค — live flow สอดคล้องหรือขัดแย้งกับ Binance OI/Funding?)
-เหตุผล CONFIDENCE: (1 ประโยค — ระบุปัจจัยหลักที่กำหนด confidence ระดับนี้)`;
-
-
-  try {
-    const text = await callAIProxy(prompt, 820);
-    const pr = msbParseDirConf(text);   // ✅ v47
-    if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
-    st.liveDir  = pr.dir;
-    st.liveConf = pr.conf;
-    st.liveSummary = text;
-    st.liveHasData = true; // ✅ v35: มีข้อมูลจริง
-    // ✅ v07: parse + store forecast ทุก timeframe
-    st.liveForecasts = msbParseForecasts(text);
-
-    resultEl.className = 'msb-signal-result';
-    resultEl.textContent = text.replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'')
-      .replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim();
-    // ✅ FIX v24: อัปเดต statusEl หลัง AI เสร็จ
-    if (statusEl) {
-      const dI = st.liveDir==='BULLISH'?'▲':st.liveDir==='BEARISH'?'▼':'●';
-      const dC = st.liveDir==='BULLISH'?'var(--g)':st.liveDir==='BEARISH'?'var(--r)':'var(--y)';
-      statusEl.innerHTML = `<span style="color:${dC};">✅ ${dI} ${st.liveConf}%</span>`;
-    }
-    msbSetColDir('msbLiveDir', st.liveDir);
-    msbSetBar('msbConfLive', 'msbConfLivePct', st.liveConf, st.liveDir);
-  } catch(e) {
-    st.liveDir = 'NEUTRAL'; st.liveConf = 20;
-    st.liveHasData = false; // ✅ v35
-    st.liveForecasts = msbDefaultForecasts('NEUTRAL', 20);
-    resultEl.textContent = '❌ ' + e.message;
-    if (statusEl) statusEl.textContent = '❌ Error';
-    msbSetBar('msbConfLive', 'msbConfLivePct', 20, 'NEUTRAL');
-  }
-}
+// ── Step 3: (v48) Live Flow ถูกรวมเข้า msbAnalyzeWhaleFlow แล้ว — ไม่มี AI call แยก ──
 
 // ── Step 4: Final Synthesis ──
 async function msbSynthesize() {
@@ -10998,13 +10834,12 @@ async function msbSynthesize() {
   // ปัญหาเดิม: source ที่ fail ส่ง NEUTRAL 20-25% เข้า weighted avg ทำให้ confidence ถูกดึงลงเสมอ
   // Fix: สร้าง sourceInfo array, ใช้เฉพาะ source ที่ hasData=true ในการ vote + weighted avg
   const SOURCE_BASE_WEIGHTS = {
-    news: 0.13, sharpe: 0.12, sheet: 0.18, live: 0.20, binance: 0.15, cg: 0.07, cvd: 0.15
+    news: 0.13, sharpe: 0.12, sheet: 0.28, binance: 0.15, cg: 0.07, cvd: 0.15   // v48: sheet = Whale Flow (Live+Historical รวมเป็นแหล่งเดียว; เดิม 18%+20%)
   };
   const sourceInfo = [
     { key:'news',    dir:st.newsDir,    conf:st.newsConf,    has:!!st.newsHasData,    w:SOURCE_BASE_WEIGHTS.news,    fc:st.newsForecasts    },
     { key:'sharpe',  dir:st.sharpeDir,  conf:st.sharpeConf,  has:!!st.sharpeHasData,  w:SOURCE_BASE_WEIGHTS.sharpe,  fc:st.sharpeForecasts  },
     { key:'sheet',   dir:st.sheetDir,   conf:st.sheetConf,   has:!!st.sheetHasData,   w:SOURCE_BASE_WEIGHTS.sheet,   fc:st.sheetForecasts   },
-    { key:'live',    dir:st.liveDir,    conf:st.liveConf,    has:!!st.liveHasData,    w:SOURCE_BASE_WEIGHTS.live,    fc:st.liveForecasts    },
     { key:'binance', dir:st.binanceDir, conf:st.binanceConf, has:!!st.binanceHasData, w:SOURCE_BASE_WEIGHTS.binance, fc:st.binanceForecasts },
     { key:'cg',      dir:st.cgDir,      conf:st.cgConf,      has:!!st.cgHasData,      w:SOURCE_BASE_WEIGHTS.cg,      fc:st.cgForecasts      },
     { key:'cvd',     dir:st.cvdDir,     conf:st.cvdConf,     has:!!st.cvdHasData,     w:SOURCE_BASE_WEIGHTS.cvd,     fc:st.cvdForecasts     },
@@ -11019,8 +10854,7 @@ async function msbSynthesize() {
   const TF_WEIGHTS = {
     news:    { '1H':0.05,'3H':0.08,'6H':0.13,'12H':0.13,'24H':0.10,'48H':0.08 },
     sharpe:  { '1H':0.05,'3H':0.08,'6H':0.12,'12H':0.12,'24H':0.10,'48H':0.08 },
-    sheet:   { '1H':0.08,'3H':0.10,'6H':0.18,'12H':0.18,'24H':0.14,'48H':0.10 },
-    live:    { '1H':0.25,'3H':0.22,'6H':0.12,'12H':0.06,'24H':0.04,'48H':0.03 },
+    sheet:   { '1H':0.22,'3H':0.22,'6H':0.18,'12H':0.14,'24H':0.10,'48H':0.07 },   // v48: Whale Flow (Live เด่นช่วงสั้น + Historical เด่นช่วงยาว)
     binance: { '1H':0.15,'3H':0.18,'6H':0.15,'12H':0.12,'24H':0.08,'48H':0.06 },
     cg:      { '1H':0.04,'3H':0.05,'6H':0.07,'12H':0.10,'24H':0.15,'48H':0.18 },
     cvd:     { '1H':0.20,'3H':0.18,'6H':0.10,'12H':0.06,'24H':0.04,'48H':0.03 },
@@ -11028,7 +10862,7 @@ async function msbSynthesize() {
   const ALL_TF = ['1H','3H','6H','12H','24H','48H'];
   const sources = {
     news: st.newsForecasts, sharpe: st.sharpeForecasts,
-    sheet: st.sheetForecasts, live: st.liveForecasts,
+    sheet: st.sheetForecasts,
     binance: st.binanceForecasts, cg: st.cgForecasts, cvd: st.cvdForecasts
   };
 
@@ -11110,35 +10944,35 @@ async function msbSynthesize() {
   msbUpdateRing(adjustedConf);
 
   // ── สร้างข้อความแจ้ง failed sources สำหรับ UI และ prompt ──
-  const failedNames = { news:'Economic Calendar', sharpe:'TCC Data/Sharpe', sheet:'Historical Whale Sheet',
-                        live:'Live Hyperliquid', binance:'Binance OI/L-S', cg:'CoinGecko/F&G', cvd:'CVD+OrderBook' };
+  const failedNames = { news:'Economic Calendar', sharpe:'TCC Data/Sharpe', sheet:'Whale Flow (Live+Historical)',
+                        binance:'Binance OI/L-S', cg:'CoinGecko/F&G', cvd:'CVD+OrderBook' };
   const failedList = failedSources.map(s => failedNames[s.key] || s.key).join(', ');
   const failedNote = failedSources.length > 0
-    ? `\n⚠️ แหล่งข้อมูลที่ไม่มีข้อมูลจริง (${failedSources.length}/7 แหล่ง — ถูกยกเว้นจากการคำนวณ): ${failedList}`
+    ? `\n⚠️ แหล่งข้อมูลที่ไม่มีข้อมูลจริง (${failedSources.length}/6 แหล่ง — ถูกยกเว้นจากการคำนวณ): ${failedList}`
     : '';
-  const dataQualityNote = realCount < 7
-    ? `⚠️ ใช้ข้อมูลจาก ${realCount}/7 แหล่ง — ${failedSources.length} แหล่งล้มเหลว (Geo-block/ไม่มี API Key/WS ยังไม่ Connect)`
-    : `✅ ข้อมูลครบทุก 7 แหล่ง`;
+  const dataQualityNote = realCount < 6
+    ? `⚠️ ใช้ข้อมูลจาก ${realCount}/6 แหล่ง — ${failedSources.length} แหล่งล้มเหลว (Geo-block/ไม่มี API Key/WS ยังไม่ Connect)`
+    : `✅ ข้อมูลครบทุก 6 แหล่ง`;
 
   document.getElementById('msbSubtitle').textContent =
-    `สัญญาณจาก ${realCount}/7 แหล่ง: ${masterDir} · ความมั่นใจ ${adjustedConf}% · ${_bkkTimeStr()}`;
+    `สัญญาณจาก ${realCount}/6 แหล่ง: ${masterDir} · ความมั่นใจ ${adjustedConf}% · ${_bkkTimeStr()}`;
 
   // ✅ v35: อัพเดต Data Quality Badge
   const dqBadge = document.getElementById('msbDataQualityBadge');
   if (dqBadge) {
     dqBadge.style.display = 'inline-block';
     if (realCount === 7) {
-      dqBadge.textContent = '✅ ข้อมูลครบ 7/7 แหล่ง';
+      dqBadge.textContent = '✅ ข้อมูลครบ 6/6 แหล่ง';
       dqBadge.style.borderColor = 'rgba(0,230,118,.4)';
       dqBadge.style.background  = 'rgba(0,230,118,.07)';
       dqBadge.style.color       = 'var(--g)';
     } else if (realCount >= 4) {
-      dqBadge.textContent = `⚠️ ข้อมูล ${realCount}/7 แหล่ง`;
+      dqBadge.textContent = `⚠️ ข้อมูล ${realCount}/6 แหล่ง`;
       dqBadge.style.borderColor = 'rgba(255,213,79,.4)';
       dqBadge.style.background  = 'rgba(255,213,79,.08)';
       dqBadge.style.color       = 'var(--y)';
     } else {
-      dqBadge.textContent = `❌ ข้อมูลน้อย ${realCount}/7 แหล่ง`;
+      dqBadge.textContent = `❌ ข้อมูลน้อย ${realCount}/6 แหล่ง`;
       dqBadge.style.borderColor = 'rgba(255,61,87,.4)';
       dqBadge.style.background  = 'rgba(255,61,87,.07)';
       dqBadge.style.color       = 'var(--r)';
@@ -11154,7 +10988,7 @@ async function msbSynthesize() {
     return `${tf}: ${g.dir} ${g.conf}% (Bull:${g.bullScore}% Bear:${g.bearScore}%)`;
   }).join('\n');
 
-  const prompt = `คุณคือ Master Signal AI — สรุปสัญญาณเทรด crypto จาก ${realCount} แหล่งข้อมูลที่มีข้อมูลจริง (จากทั้งหมด 7 แหล่ง) พร้อม TIME-GRID FORECAST ล่วงหน้า 6 ช่วงเวลา เพื่อใช้วางแผนเข้าออก Order
+  const prompt = `คุณคือ Master Signal AI — สรุปสัญญาณเทรด crypto จาก ${realCount} แหล่งข้อมูลที่มีข้อมูลจริง (จากทั้งหมด 6 แหล่ง) พร้อม TIME-GRID FORECAST ล่วงหน้า 6 ช่วงเวลา เพื่อใช้วางแผนเข้าออก Order
 ${failedNote}
 
 ━━━ INPUT จาก ${realCount} แหล่ง (✅ = มีข้อมูลจริง | ⛔ = ไม่มีข้อมูล/ล้มเหลว) ━━━
@@ -11164,19 +10998,16 @@ ${st.newsHasData ? (st.newsText||'').replace(/^DIRECTION[^\n]*\n?/im,'').replace
 ${st.sharpeHasData ? '✅' : '⛔'} [2] TCC Data (Bloomberg/Reuters/CoinDesk) → ${st.sharpeDir} | ${st.sharpeConf}% (น้ำหนัก 12%)
 ${st.sharpeHasData ? (st.sharpeText||'').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,200) : '⚠️ ไม่มี SHARPE_API_KEY หรือ API ตอบไม่ได้ — ยกเว้นจากการคำนวณ'}
 
-${st.sheetHasData ? '✅' : '⛔'} [3] Historical Whale + Small Whale Data → ${st.sheetDir} | ${st.sheetConf}% (น้ำหนัก 18%)
-${st.sheetHasData ? (st.sheetSummary||'').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,260) : '⚠️ ยังไม่มีข้อมูล Whale Sheet — ยกเว้นจากการคำนวณ'}
+${st.sheetHasData ? '✅' : '⛔'} [3] 🐋 Whale Flow (Live ≤90น. + Historical + Small Whale) → ${st.sheetDir} | ${st.sheetConf}% (น้ำหนัก 28% — สำคัญสุด)
+${st.sheetHasData ? (st.sheetSummary||'').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,340) : '⚠️ ยังไม่มีข้อมูล Whale Flow — ยกเว้นจากการคำนวณ'}
 
-${st.liveHasData ? '✅' : '⛔'} [4] Live Hyperliquid Flow → ${st.liveDir} | ${st.liveConf}% (น้ำหนัก 20% — สำคัญสุด)
-${st.liveHasData ? (st.liveSummary||'').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,160) : '⚠️ WebSocket ยังไม่ connect หรือ HL API error — ยกเว้นจากการคำนวณ'}
-
-${st.binanceHasData ? '✅' : '⛔'} [5] Binance OI / Long-Short → ${st.binanceDir} | ${st.binanceConf}% (น้ำหนัก 15%)
+${st.binanceHasData ? '✅' : '⛔'} [4] Binance OI / Long-Short → ${st.binanceDir} | ${st.binanceConf}% (น้ำหนัก 15%)
 ${st.binanceHasData ? (st.binanceSummary||'').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,160) : '⚠️ Binance Geo-block HTTP 451 (GAS server อยู่นอก TH) — ยกเว้นจากการคำนวณ'}
 
-${st.cgHasData ? '✅' : '⛔'} [6] CoinGecko F&G + Dominance → ${st.cgDir} | ${st.cgConf}% (น้ำหนัก 7%)
+${st.cgHasData ? '✅' : '⛔'} [5] CoinGecko F&G + Dominance → ${st.cgDir} | ${st.cgConf}% (น้ำหนัก 7%)
 ${st.cgHasData ? (st.cgSummary||'').replace(/^DIRECTION[^\n]*\n?/im,'').replace(/^CONFIDENCE[^\n]*\n?/im,'').replace(/^FORECAST_\d+H[^\n]*\n?/gim,'').trim().slice(0,120) : '⚠️ CoinGecko Rate Limit 429 หรือ API error — ยกเว้นจากการคำนวณ'}
 
-${st.cvdHasData ? '✅' : '⛔'} [7] CVD + Order Book Depth → ${st.cvdDir} | ${st.cvdConf}% (น้ำหนัก 15%)
+${st.cvdHasData ? '✅' : '⛔'} [6] CVD + Order Book Depth → ${st.cvdDir} | ${st.cvdConf}% (น้ำหนัก 15%)
 ${st.cvdHasData ? cvdText : '⚠️ Binance Futures FAPI Geo-block — ยกเว้นจากการคำนวณ'}
 ${st.cvdHasData && st.cvdData ? `• CVD: ${Object.entries(st.cvdData.cvd||{}).filter(([,v])=>v.fetchOk).map(([c,v])=>`${c}:${v.cvdBias}/${v.cvdTrend}`).join(' | ')}` : ''}
 ${st.cvdHasData && st.cvdData ? `• OB: ${Object.entries(st.cvdData.orderBook||{}).filter(([,v])=>v.fetchOk).map(([c,v])=>`${c}:${v.obBias}(${v.bidAskRatio})`).join(' | ')}` : ''}
@@ -11184,7 +11015,7 @@ ${st.cvdHasData && st.cvdData ? `• OB: ${Object.entries(st.cvdData.orderBook||
 🌐 Market Context:
 ${buildMarketCtxPromptText(st.marketCtx)}
 
-━━━ VOTE SUMMARY (เฉพาะ source ที่มีข้อมูลจริง ${realCount}/7 แหล่ง) ━━━
+━━━ VOTE SUMMARY (เฉพาะ source ที่มีข้อมูลจริง ${realCount}/6 แหล่ง) ━━━
 ${bulls} BULLISH | ${bears} BEARISH | ${neutrals} NEUTRAL (จาก ${realCount} แหล่งที่มีข้อมูล)
 ทิศทางรวม (ถ่วงน้ำหนักตาม Time-Grid 6H): ${masterDir}
 ${dataQualityNote}
@@ -11197,7 +11028,7 @@ ${gridText}
 
 ━━━ สรุป Master Signal (ภาษาไทย ไม่เกิน 400 คำ) ━━━
 
-🎯 MASTER VERDICT: ${masterDir} — CONFIDENCE FINAL: ${adjustedConf}% (จาก ${realCount}/7 แหล่ง)
+🎯 MASTER VERDICT: ${masterDir} — CONFIDENCE FINAL: ${adjustedConf}% (จาก ${realCount}/6 แหล่ง)
 
 ⏱️ TIME-GRID FORECAST (ยืนยัน + ปรับจากข้อมูลข้างต้น):
 FORECAST_1H:  [BULLISH/BEARISH/NEUTRAL] [%] — [เหตุผล 1 ประโยคกระชับ: Live Flow + CVD ชี้อะไร]
@@ -11207,7 +11038,7 @@ FORECAST_12H: [BULLISH/BEARISH/NEUTRAL] [%] — [เหตุผล 1 ประ�
 FORECAST_24H: [BULLISH/BEARISH/NEUTRAL] [%] — [เหตุผล 1 ประโยคกระชับ: News + CoinGecko Sentiment]
 FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [%] — [เหตุผล 1 ประโยคกระชับ: CoinGecko + Macro Outlook]
 
-1. 📊 CONFIDENCE BREAKDOWN — เหตุผลที่ Confidence อยู่ที่ ${adjustedConf}% (จาก ${realCount}/7 แหล่ง):
+1. 📊 CONFIDENCE BREAKDOWN — เหตุผลที่ Confidence อยู่ที่ ${adjustedConf}% (จาก ${realCount}/6 แหล่ง):
    • แหล่งที่มีข้อมูลและเห็นด้วย: ระบุและอธิบายว่าข้อมูลชี้ชัดแค่ไหน
    • แหล่งที่ขัดแย้ง: ระบุและกระทบ confidence มากแค่ไหน
    • แหล่งที่ขาดข้อมูล: ${failedSources.length > 0 ? failedList + ' — ระบุว่ากระทบการวิเคราะห์อย่างไร' : 'ครบทุกแหล่ง'}
@@ -11616,7 +11447,7 @@ Funding Signal: (1 ประโยค — crowded long/short risk + ระดั
 *ต้องระบุ DIRECTION, CONFIDENCE และ FORECAST ทุก timeframe ก่อนเสมอ*`;
 
   try {
-    const text = await callAIProxy(prompt, 820);
+    const text = await callAIProxy(prompt, 820, { cacheSec: 180 });
     const pr = msbParseDirConf(text);   // ✅ v47
     if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
     st.binanceDir  = pr.dir;
@@ -11796,7 +11627,7 @@ Market Structure: (1 ประโยค — ภาพรวม Market Cap + ก�
 *ต้องระบุ DIRECTION, CONFIDENCE และ FORECAST ทุก timeframe ก่อนเสมอ*`;
 
   try {
-    const text = await callAIProxy(prompt, 820);
+    const text = await callAIProxy(prompt, 820, { cacheSec: 180 });
     const pr = msbParseDirConf(text);   // ✅ v47
     if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
     st.cgDir  = pr.dir;
@@ -11830,6 +11661,23 @@ Market Structure: (1 ประโยค — ภาพรวม Market Cap + ก�
 // v20 NEW — Step 7: Analyze CVD + Order Book Depth (Futures)
 // ดึงข้อมูลจาก getCVDOrderBook action ใน GAS → AI วิเคราะห์
 // ════════════════════════════════════════════════════════════════
+// ✅ v48: แยกการดึง CVD/OB จาก GAS ออกมา เพื่อให้เริ่ม prefetch ขนานกับขั้นตอนอื่นได้ (ดู msbRunAnalysis)
+async function msbFetchCVDData() {
+  if (!ALERT_CONFIG.appsScriptURL) throw new Error('ยังไม่ได้ตั้งค่า Apps Script URL');
+  const coinsToFetch = buildBinanceCoinList();
+  const resp = await fetch(ALERT_CONFIG.appsScriptURL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'getCVDOrderBook', coins: coinsToFetch }),
+    // ✅ v41b: timeout 55s (GAS ทำ 2 rounds: Binance → HL fallback) — v48: GAS แคช 90s + จำ Binance geo-block แล้ว จึงมักเสร็จเร็วกว่านี้มาก
+    signal: AbortSignal.timeout(55000),
+  });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const d = await resp.json();
+  if (!d.ok) throw new Error(d.error || 'GAS error');
+  return d;
+}
+
 async function msbAnalyzeCVDOrderBook() {
   const st       = window._msbState;
   const resultEl = document.getElementById('msbCVDResult');
@@ -11849,17 +11697,9 @@ async function msbAnalyzeCVDOrderBook() {
     const coinsToFetch = buildBinanceCoinList();
     if (coinListEl) coinListEl.textContent = coinsToFetch.join(', ');
 
-    const resp = await fetch(ALERT_CONFIG.appsScriptURL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'getCVDOrderBook', coins: coinsToFetch }),
-      // ✅ v41b FIX: เพิ่มจาก 25s → 55s (GAS ทำ 2 parallel rounds ~20-40s + buffer)
-      // เดิม 25s timeout บ่อย โดยเฉพาะเมื่อ Binance block → ต้อง fallback HL (round2 + aggregate)
-      signal: AbortSignal.timeout(55000),
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const d = await resp.json();
-    if (!d.ok) throw new Error(d.error || 'GAS error');
+    // ✅ v48: ใช้ผลที่ prefetch ไว้ตั้งแต่ต้นรอบ (ถ้าไม่มี → ดึงเอง)
+    const d = await (window._msbCvdPromise || msbFetchCVDData());
+    window._msbCvdPromise = null;
 
     cvdData = d;
     st.cvdData = d; // เก็บใน state สำหรับ msbSynthesize
@@ -11985,7 +11825,7 @@ Divergence Alert: (ถ้ามี CVD divergence กับ price action — ร
 Futures Risk: (1 ประโยค — ความเสี่ยง squeeze/liquidation จาก order flow)`;
 
   try {
-    const text = await callAIProxy(prompt, 820);
+    const text = await callAIProxy(prompt, 820, { cacheSec: 180 });
     const pr = msbParseDirConf(text);   // ✅ v47
     if (!pr.ok) throw new Error('อ่านผลลัพธ์ AI ไม่ได้ (ไม่พบ DIRECTION/CONFIDENCE) — ยกเว้นจากการคำนวณ');
     st.cvdDir  = pr.dir;
@@ -12030,7 +11870,10 @@ async function msbRunAnalysis() {
   // Reset state
   msbSetDirection(null);
   msbUpdateRing(0);
-  document.getElementById('msbSubtitle').textContent = 'กำลังดึงข้อมูลจาก 7 แหล่ง...';
+  document.getElementById('msbSubtitle').textContent = 'กำลังดึงข้อมูลจาก 6 แหล่ง...';
+  // ✅ v48: เริ่มดึง CVD/OrderBook จาก GAS ทันที (ขนานกับขั้นตอนอื่น) — เดิมรอจนถึงกลุ่ม AI แล้วค่อยดึง ทำให้ต้องรอ 20-55 วินาทีต่อท้าย
+  window._msbCvdPromise = msbFetchCVDData();
+  window._msbCvdPromise.catch(() => {});   // กัน unhandled rejection (ผลจริงถูก await ใน msbAnalyzeCVDOrderBook)
   // ✅ v35: ซ่อน badge ระหว่าง run
   const _dqb = document.getElementById('msbDataQualityBadge');
   if (_dqb) _dqb.style.display = 'none';
@@ -12092,25 +11935,23 @@ async function msbRunAnalysis() {
   // ✅ v17: ใช้ buildBinanceCoinList() — รับประกัน BTC/ETH/SOL + กรอง coin ที่ valid เท่านั้น
   const ctxCoins = buildBinanceCoinList();
   await fetchMarketContext(ctxCoins);
-  document.getElementById('msbSubtitle').textContent = 'กำลังดึงข้อมูลจาก 7 แหล่ง...';
+  document.getElementById('msbSubtitle').textContent = 'กำลังดึงข้อมูลจาก 6 แหล่ง...';
 
-  // ✅ v08: รัน 7 แหล่งแบบ sequential group (ไม่ parallel ทั้งหมด → ป้องกัน 429)
-  // กลุ่ม 1: Data-fetch heavy (ดึงข้อมูลพร้อมกัน ไม่เรียก AI ก่อน)
-  // กลุ่ม 2: Short-signal AI (Live + CVD = สั้น เสร็จเร็ว)
-  // กลุ่ม 3: Medium-signal AI (News + Sheet + Binance)
-  // กลุ่ม 4: Slow-signal AI (Sharpe + CoinGecko)
-  // callAIProxy มี _AI_STAGGER_MS=1.2s queue → 8 calls ใช้เวลา ~10s รวม
+  // ✅ v48: 6 แหล่ง → AI 6 calls + Synthesis 1 call = 7 calls ต่อรอบ (เดิม 8) — CVD ถูก prefetch ไว้แล้วตั้งแต่ต้น
+  // กลุ่ม 1: Whale Flow (Live+Historical รวมแหล่งเดียว) + CVD
+  // กลุ่ม 2: News + Binance OI
+  // กลุ่ม 3: Sharpe + CoinGecko
+  // callAIProxy มี _AI_STAGGER_MS=1.2s queue; แหล่งที่เป็นข้อมูลตลาดรวม (ไม่ขึ้นกับผู้ใช้) ส่ง cacheSec ให้ GAS แคชคำตอบ → สมาชิกคนอื่นกดซ้ำไม่กิน Groq quota
 
-  document.getElementById('msbSubtitle').textContent = '⚡ วิเคราะห์ Live + CVD...';
+  document.getElementById('msbSubtitle').textContent = '🐋 วิเคราะห์ Whale Flow + CVD...';
   await Promise.allSettled([
-    msbAnalyzeLive(finalData),
+    msbAnalyzeWhaleFlow(finalData),
     msbAnalyzeCVDOrderBook()
   ]);
 
-  document.getElementById('msbSubtitle').textContent = '📰 วิเคราะห์ News + Whale + OI...';
+  document.getElementById('msbSubtitle').textContent = '📰 วิเคราะห์ News + OI...';
   await Promise.allSettled([
     msbAnalyzeNews(),
-    msbAnalyzeSheet(finalData, buckets6H),
     msbAnalyzeBinanceOI()
   ]);
 

@@ -6431,6 +6431,7 @@ function renderFeed() {
 const REST_BATCH_COINS = ['BTC','ETH','SOL','BNB','XRP','SUI','HYPE','DOGE','AVAX','LINK','ADA','ARB','WIF','PEPE','TAO'];
 
 function connectWebSocket() {
+  if (window.__pgFrozen) return;   // v37c: หน้ากำลังเข้า bfcache/ปิด — ห้ามเปิด WS ใหม่
   // ✅ v39 FIX WS-1: cleanup WS เก่าก่อนสร้างใหม่ — ป้องกัน double connection
   if (wsConn && wsConn.readyState !== WebSocket.CLOSED) {
     wsConn.onclose = null; wsConn.onerror = null;
@@ -13262,6 +13263,7 @@ function calcLiqZonesFrontend(pAgg) {
 ═══════════════════════════════════════════════════════ */
 let _hlTag = 0; // instance tag — ป้องกัน stale onclose ของ instance เก่า fire หลัง replace
 function connectWS() {
+  if (window.__pgFrozen) return;   // v37c
   if (ws) { try { ws.close(); } catch (_) {} }
   document.getElementById('wsLbl').textContent = 'กำลังเชื่อมต่อ…';
   document.getElementById('wsDot').classList.remove('live');
@@ -13314,6 +13316,7 @@ function connectWS() {
 ═══════════════════════════════════════════════════════ */
 let _bnTag = 0; // instance tag — ป้องกัน stale onclose ของ instance เก่า fire หลัง replace
 function connectBinanceWS() {
+  if (window.__pgFrozen) return;   // v37c
   if (bnWS) { try { bnWS.close(); } catch (_) {} }
   if (wsIsBlocked('binance')) return; // blocked ถาวรแล้ว — ไม่ลองใหม่
   const sym = exchSymbol().toLowerCase();
@@ -13376,6 +13379,7 @@ function connectBinanceWS() {
 ═══════════════════════════════════════════════════════ */
 let _bnLiqTag = 0; // instance tag — ป้องกัน stale onclose ของ instance เก่า
 function connectBinanceLiqWS() {
+  if (window.__pgFrozen) return;   // v37c
   if (bnLiqWS) { try { bnLiqWS.close(); } catch (_) {} }
   if (wsIsBlocked('binanceLiq')) return; // blocked ถาวรแล้ว — ไม่ลองใหม่
   const tag = ++_bnLiqTag;
@@ -16101,6 +16105,30 @@ window.HistoryModule = (function () {
 })();
 
 
+</script>
+
+<script>
+/* v37c — Back-Forward Cache lifecycle: ปิด WS ก่อนออกจากหน้า + ต่อใหม่เมื่อกลับมา
+   (แก้ error "WebSocket … failed: Page entered Back-Forward Cache" และ reconnect loop ตอนหน้าถูกแช่แข็ง) */
+(function () {
+  function closeAll() {
+    try { if (typeof wsConn !== 'undefined' && wsConn) { wsConn.onclose = null; wsConn.onerror = null; try { wsConn.close(); } catch (_) {} wsConn = null; wsReady = false; subscribedCoins.clear(); } } catch (_) {}
+    try { if (typeof _hlTag !== 'undefined') _hlTag++; if (typeof ws !== 'undefined' && ws) { try { ws.close(); } catch (_) {} } } catch (_) {}
+    try { if (typeof _bnTag !== 'undefined') _bnTag++; if (typeof bnWS !== 'undefined' && bnWS) { try { bnWS.close(); } catch (_) {} } } catch (_) {}
+    try { if (typeof _bnLiqTag !== 'undefined') _bnLiqTag++; if (typeof bnLiqWS !== 'undefined' && bnLiqWS) { try { bnLiqWS.close(); } catch (_) {} } } catch (_) {}
+    try { if (typeof _sseTag !== 'undefined') _sseTag++; if (typeof tradesSSE !== 'undefined' && tradesSSE) { try { tradesSSE.close(); } catch (_) {} } } catch (_) {}
+  }
+  window.addEventListener('pagehide', function () { window.__pgFrozen = true; closeAll(); });
+  window.addEventListener('pageshow', function (e) {
+    if (!window.__pgFrozen && !e.persisted) return;
+    window.__pgFrozen = false;
+    try { wsRetryCount = 0; } catch (_) {}
+    try { connectWebSocket(); } catch (_) {}
+    try { connectWS(); } catch (_) {}
+    try { connectAllExchangeFeeds(); } catch (_) {}
+    try { connectBinanceLiqWS(); } catch (_) {}
+  });
+})();
 </script>
 </body>
 </html>

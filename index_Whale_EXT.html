@@ -3103,6 +3103,247 @@ html{
 }
 
 
+/* ══════════════════════════════════════════════════════════════
+   v41 · HUNTER MOBILE REDESIGN (≤768px)
+   CSS-only — ไม่แตะโลจิกคำนวณ / Worker / desktop layout
+   วางท้ายสุดของ <style> เพื่อให้ชนะ rule มือถือเดิมด้านบนด้วยลำดับ cascade
+   (หมายเหตุ: .stat.primary เดิมมี border-bottom 2px สีฟ้า → ถูก reset ที่นี่)
+══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px){
+
+  /* ── 1) Root: ตัด padding ซ้ำ — .main เว้นที่ให้ bottom nav (56px) อยู่แล้ว
+        เดิม #hunterApp เว้นซ้ำอีก 56px → เกิดพื้นที่ว่างใต้ Volume ── */
+  #hunterApp{ padding-bottom: 0; background: var(--bg); }
+
+  /* ── 2) TOPBAR ── */
+  #hunterApp #topbar{
+    height: 52px;
+    padding: 0 10px;
+    gap: 8px;
+    background: linear-gradient(180deg, rgba(15,23,35,.97) 0%, rgba(8,13,20,.97) 100%);
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    box-shadow: 0 8px 18px -14px rgba(0,0,0,.9);
+  }
+
+  /* ปุ่มกลับ: inline style ในมาร์กอัพ → ต้องใช้ !important เฉพาะ geometry */
+  #hunterApp #hunterBackBtn{
+    height: 34px;
+    padding: 0 12px !important;
+    border-radius: 17px !important;
+    font-size: 12px !important;
+    display: inline-flex;
+    align-items: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #hunterApp #hunterBackBtn:active{ transform: scale(.95); }
+
+  #hunterApp #topbar h1{
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px;
+    letter-spacing: .8px;
+  }
+
+  #hunterApp #coinSel,
+  #hunterApp #ivSel{
+    height: 34px;
+    padding: 0 24px 0 13px;
+    border-radius: 17px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    background-color: rgba(255,255,255,.05);
+    border-color: rgba(255,255,255,.10);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2378909f'/%3E%3C/svg%3E");
+    background-position: right 10px center;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* จุดสถานะ: ดันชิดขวา + ใหญ่ขึ้นเล็กน้อยให้เห็นชัด */
+  #hunterApp #wsTag{ margin-left: auto; }
+  #hunterApp #wsTag, #hunterApp #liqTag{ gap: 0; }
+  #hunterApp #topbar .dot{ width: 9px; height: 9px; }
+  #hunterApp #topbar .dot.live{ box-shadow: 0 0 8px var(--green); }
+
+  /* ── 3) RANGE BAR: แถวบน = segmented tabs เต็มความกว้าง / แถวล่าง = สถานะ Liq ── */
+  #hunterApp #rangeBar{
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    padding: 6px 10px 4px;
+    overflow: visible;
+    background: var(--panel);
+    border-bottom: 1px solid rgba(255,255,255,.05);
+  }
+
+  #hunterApp #rangeTabs{
+    flex: 1 1 100%;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 2px;
+    padding: 2px;
+    background: rgba(255,255,255,.035);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 12px;
+  }
+
+  #hunterApp #rangeTabs button{
+    min-height: 28px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    color: #6f879f;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .2px;
+    transition: background .15s, color .15s, box-shadow .15s, transform .1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #hunterApp #rangeTabs button:active{ transform: scale(.95); }
+
+  #hunterApp #rangeTabs button.active{
+    background: linear-gradient(180deg, rgba(64,196,255,.24) 0%, rgba(64,196,255,.10) 100%);
+    border-color: rgba(64,196,255,.50);
+    color: var(--accent);
+    font-weight: 700;
+    box-shadow: 0 0 12px -3px rgba(64,196,255,.45);
+  }
+
+  /* สถานะ Liq: บรรทัดเดียวเต็มกว้าง ไม่ถูกตัดจากแถบแท็บ — ข้อความถูก JS เขียนทับ (liqSetStatus) */
+  #hunterApp #liqStatus{
+    flex: 1 1 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0 2px;
+    font-size: 10px;
+    line-height: 14px;
+    letter-spacing: .2px;
+    color: #6f879f;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #hunterApp #liqStatus::before{
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    margin-right: 6px;
+    vertical-align: 1px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+  }
+  /* JS ตั้ง inline color เมื่อมี warning/error → จุดเปลี่ยนตามสีข้อความ (ส้ม/แดง) */
+  #hunterApp #liqStatus[style*="color"]::before{
+    background: currentColor;
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  /* ── 4) STATS: grid 4 คอลัมน์ × 2 แถว (คงการจับคู่เดิม: ราคา | Volume | Coverage/OI | Long/Short)
+        แถวสูงคงที่ → ไม่ clip แนวตั้ง, เส้นแบ่งบาง 1px ด้วย gap, ไม่มีกรอบสีฟ้าหนา ── */
+  #hunterApp #statsbar{
+    grid-template-columns: minmax(0, 1.15fr) repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(2, 44px);
+    height: auto;
+    gap: 1px;
+    background: rgba(255,255,255,.06);          /* สีเส้นแบ่งที่โผล่ผ่าน gap */
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    overflow: hidden;
+  }
+
+  #hunterApp #statsbar > .stat{
+    padding: 4px 7px 3px;
+    border: 0;                                  /* reset border ซ้อนจาก rule เดิมทั้งหมด */
+    background: #0a1018;
+    justify-content: center;
+  }
+  #hunterApp #statsbar > .stat.primary{
+    background: linear-gradient(180deg, rgba(64,196,255,.07) 0%, #0a1018 100%);
+  }
+  #hunterApp #statsbar > .stat.primary::before{ content: none; }  /* ไม่ใช้แถบฟ้าซ้ำ 4 จุด */
+
+  /* Long / Short OI: คง accent เขียว/แดง ให้อ่านทิศทางได้ทันที */
+  #hunterApp .stat:has(#sLongOI)::before,
+  #hunterApp .stat:has(#sShortOI)::before{ width: 3px; border-radius: 0 2px 2px 0; }
+
+  #hunterApp #statsbar .stat .lbl{
+    font-size: 9.5px;
+    line-height: 1.15;
+    letter-spacing: 0;
+    text-transform: none;                       /* mixed-case แคบกว่า UPPERCASE → "Futures Vol 24H" ไม่ถูกตัด */
+    color: #6f879f;
+    margin-bottom: 1px;
+  }
+  #hunterApp #statsbar .stat .val,
+  #hunterApp #statsbar .stat.primary .val{
+    font-size: clamp(11.5px, 3.5vw, 14px);
+    line-height: 1.15;
+    letter-spacing: -.3px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  #hunterApp #statsbar .stat .stat-sub{
+    font-size: 9px;
+    line-height: 1.15;
+    margin-top: 1px;
+    color: #5d7490;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── 5) CHART AREA: ซ่อนคำอธิบาย (caption) ที่ลอยทับ colorbar — legend อยู่ในแท็บ "ข้อมูล" แล้ว ── */
+  #hunterApp #caption{ display: none; }
+
+  /* ── 6) BOTTOM NAV: ความสูง = ที่ .main เว้นไว้ (56px + safe-area) เพื่อไม่ให้เหลือช่องว่าง ── */
+  #hunterApp #mobileBottomNav{
+    box-sizing: border-box;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding: 0 6px env(safe-area-inset-bottom, 0px);
+    background: linear-gradient(180deg, rgba(13,20,31,.95) 0%, rgba(7,11,17,.98) 100%);
+    border-top: 1px solid rgba(255,255,255,.07);
+    box-shadow: 0 -10px 28px -14px rgba(0,0,0,.8);
+  }
+
+  #hunterApp .mob-nav-item{
+    margin: 6px 3px;
+    padding: 0 2px;
+    gap: 2px;
+    border-radius: 14px;
+    color: #6f879f;
+    transition: background .15s, color .15s;
+  }
+  #hunterApp .mob-nav-item::before{ content: none; }      /* เลิกขีดเส้นบน → ใช้ pill พื้นหลังแทน */
+  #hunterApp .mob-nav-item.active::before{ content: none; }
+  #hunterApp .mob-nav-item.active{
+    background: rgba(64,196,255,.12);
+    color: var(--accent);
+  }
+  #hunterApp .mob-nav-item:active{ background: rgba(255,255,255,.07); }
+
+  #hunterApp .mob-nav-icon{
+    font-size: 19px;
+    opacity: .72;
+    filter: saturate(.7);
+    transition: opacity .15s, filter .15s;
+  }
+  #hunterApp .mob-nav-item.active .mob-nav-icon{ opacity: 1; filter: none; }
+
+  #hunterApp .mob-nav-label{
+    font-size: 10px;
+    letter-spacing: .2px;
+    text-transform: none;                                 /* "History" กับภาษาไทยดูสม่ำเสมอ */
+  }
+  #hunterApp .mob-nav-item.active .mob-nav-label{ font-weight: 700; }
+
+  #hunterApp .mob-nav-item .mob-live-dot{ top: 7px; right: calc(50% - 16px); }
+}
+
+/* จอเล็กมาก (≤360px): ตัดชื่อ "TCC HUNTER" เพื่อไม่ให้ topbar แน่น */
+@media (max-width: 360px){
+  #hunterApp #topbar h1{ display: none; }
+}
 
 </style>
 
@@ -12960,6 +13201,13 @@ const S = {
   liqZones: [],        // Array[8]: { lev, longLiq, shortLiq, distPct, densityScore }
   priceSourcesOk: 0,   // จำนวน exchange ที่ดึง /price ได้
   priceIsEstimate: false,
+  // ── v42: สถานะการโหลด /price (ใช้แสดง WAIT แทน ERR ระหว่างรอ + กันค่าเก่าของเหรียญเดิม) ──
+  priceLoaded: false,    // true = มีข้อมูลราคาแสดงแล้ว (จาก Worker / direct / cache)
+  priceVia: '',          // 'worker' | 'direct' | 'cache' — แหล่งของข้อมูลที่แสดงอยู่
+  priceWorkerOk: false,  // Worker /price ตอบสำเร็จแล้วอย่างน้อย 1 ครั้งใน init() รอบนี้
+  priceWorkerAt: 0,      // เวลาที่ Worker /price ตอบสำเร็จล่าสุด (ms)
+  priceCacheTs: 0,       // เวลาที่ snapshot ที่แสดงจาก cache ถูกบันทึก
+  initAt: 0,             // เวลาที่ init() รอบนี้เริ่ม (ms)
   // ── /agg data (เดิม) ──
   markPx: 0, impliedLev: 10, avgMaxLev: 50,
   blendedFunding: 0, totalOI: 0, longRatio: 0.5, mmr: 0.0125,
@@ -13086,38 +13334,87 @@ window.addEventListener('resize', resize);
 /* ═══════════════════════════════════════════════════════
    FETCH CANDLES (via Worker proxy → Hyperliquid)
 ═══════════════════════════════════════════════════════ */
-async function fetchCandles() {
+/* ═══════════════════════════════════════════════════════
+   v42: HELPERS — timeout fetch · cache ล่าสุดใน localStorage · generation guard
+═══════════════════════════════════════════════════════ */
+let _initGen = 0;          // เพิ่มทุกครั้งที่ init() เริ่ม — ผลของ request รอบเก่า (เหรียญ/interval เดิม) จะถูกทิ้ง
+let _lastInitCoin = '';
+let _pricePendTimer = null, _pricePendTries = 0;
+const HUNTER_STALE_WAIT_MS = 40000;   // รอ Worker ได้อีกไม่เกินนี้ก่อนจะเปลี่ยน WAIT เป็น ERR/BLOCK
+
+// fetch → JSON พร้อม timeout (throw เมื่อ timeout / HTTP ไม่ ok / ไม่ใช่ JSON)
+async function _jsonTimeout(url, opts, ms) {
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), ms);
   try {
-    // Try Worker first
-    // v38: ส่ง &n= ตาม range ที่เลือก (Worker เก่าที่ไม่รู้จัก n จะ ignore → ใช้จำนวนเดิม)
-    const _rc = RANGE_CFG[S.range];
-    let url = `${CFG.workerUrl}/candles?coin=${S.coin}&iv=${S.iv}` + ((_rc && _rc.iv === S.iv) ? `&n=${_rc.n}` : '');
-    let r = await fetch(url);
-    // Fallback ตรงถ้า Worker ยังไม่ได้ตั้ง
-    if (!r.ok) throw new Error('worker fail');
-    const d = await r.json();
-    candles = d.map(k => ({
-      t: +k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v,
-    }));
-    _bandsEpoch++;  // BUG-A: candle history loaded
-  } catch (_) {
-    // Fallback: ดึง Hyperliquid ตรง
+    const r = await fetch(url, Object.assign({}, opts || {}, { signal: ctrl.signal }));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(tid); }
+}
+
+// cache ค่าล่าสุด (localStorage) — ไว้แสดงทันทีตอนเปิด/เปลี่ยนเหรียญ ระหว่างรอข้อมูลสด; ใช้ไม่ได้ (private mode ฯลฯ) ก็แค่ข้าม
+const HC_PREFIX = 'hunterCache_v42_';
+function hcSave(key, data) {
+  try { localStorage.setItem(HC_PREFIX + key, JSON.stringify({ t: Date.now(), d: data })); } catch (_) {}
+}
+function hcLoad(key, maxAgeMs) {
+  try {
+    const r = JSON.parse(localStorage.getItem(HC_PREFIX + key) || 'null');
+    if (!r || !r.d || !(Date.now() - r.t <= maxAgeMs)) return null;
+    return r;
+  } catch (_) { return null; }
+}
+
+// กำลังรอข้อมูลสดจาก Worker อยู่ (ยังไม่เคยได้ในรอบนี้ และยังไม่เกินเวลารอ) → UI แสดง WAIT/รอ… แทน ERR/—
+function priceWaiting() {
+  return !S.priceWorkerOk && !S.workerDown && (Date.now() - S.initAt) < HUNTER_STALE_WAIT_MS;
+}
+
+/* ═══════════════════════════════════════════════════════
+   FETCH CANDLES — v42: Hyperliquid ตรงก่อน (Worker /candles ก็แค่ proxy ไป HL) timeout 8 วิ → ไม่ได้ค่อยลอง Worker
+   ไม่ค้างรอ Worker อีก · ทิ้งผลถ้าระหว่างรอผู้ใช้เปลี่ยนเหรียญ/interval ไปแล้ว
+═══════════════════════════════════════════════════════ */
+function _candlesFromRaw(d) {
+  if (!Array.isArray(d) || !d.length) throw new Error('empty candles');
+  return d.map(k => ({ t: +k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v }));
+}
+async function fetchCandles() {
+  const coin = S.coin, iv = S.iv, range = S.range;
+  const _rc = RANGE_CFG[range];
+  const useN = !!(_rc && _rc.iv === iv);
+  const spanMap = { '5m': 5*60e3, '15m': 15*60e3, '1h': 3600e3, '4h': 4*3600e3, '1d': 86400e3, '1w': 7*86400e3 };
+  const candleCountMap = { '5m': 500, '15m': 500, '1h': 200, '4h': 60, '1d': 365, '1w': 52 };
+  const cnt  = useN ? _rc.n : (candleCountMap[iv] || 220);
+  const span = (spanMap[iv] || 15*60e3) * cnt;
+  let list = null;
+
+  // 1) Hyperliquid ตรง
+  try {
+    const now = Date.now();
+    const d = await _jsonTimeout(HL_REST, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'candleSnapshot', req: { coin, interval: iv, startTime: now - span, endTime: now } }),
+    }, 8000);
+    list = _candlesFromRaw(d);
+  } catch (e) { console.warn('[fetchCandles] HL direct fail:', e.message); }
+
+  // 2) Worker /candles (สำรอง — เผื่อ browser ต่อ HL ตรงไม่ได้)
+  if (!list) {
     try {
-      const spanMap = { '5m': 5*60e3, '15m': 15*60e3, '1h': 3600e3, '4h': 4*3600e3, '1d': 86400e3, '1w': 7*86400e3 };
-      const candleCountMap = { '5m': 500, '15m': 500, '1h': 200, '4h': 60, '1d': 365, '1w': 52 };
-      const _rc2 = RANGE_CFG[S.range];
-      const cnt  = (_rc2 && _rc2.iv === S.iv) ? _rc2.n : (candleCountMap[S.iv] || 220);
-      const span = (spanMap[S.iv] || 15*60e3) * cnt;
-      const now = Date.now();
-      const r = await fetch(HL_REST, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'candleSnapshot', req: { coin: S.coin, interval: S.iv, startTime: now - span, endTime: now } }),
-      });
-      const d = await r.json();
-      candles = d.map(k => ({ t: +k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v }));
-    } catch (e2) { console.warn('candle fallback fail', e2); }
+      const url = `${CFG.workerUrl}/candles?coin=${coin}&iv=${iv}` + (useN ? `&n=${_rc.n}` : '');
+      list = _candlesFromRaw(await _jsonTimeout(url, null, 8000));
+    } catch (e) { console.warn('[fetchCandles] worker fail:', e.message); }
   }
+
+  if (!list) return false;
+  if (coin !== S.coin || iv !== S.iv) return false;   // เปลี่ยนเหรียญ/interval ระหว่างรอ → ทิ้งผลเก่า
+  candles = list;
+  _bandsEpoch++;  // BUG-A: candle history loaded
+  needsRedraw = true;
+  hcSave('candles_' + coin + '_' + iv + '_' + range, list.slice(-300));
+  return true;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -13143,44 +13440,45 @@ function _boReset() { for (const k in POLL_BO) _boOk(k); }
    FETCH PRICE — Priority 1: Worker /price → P_agg + liqZones (Phase 3)
    Fallback chain:
      P1: Worker /price  → P_agg (6 exchanges Volume-Weighted)
+     P1b (v42): ดึงราคา+volume ตรงจาก browser (HL / Bybit / OKX / Binance spot) เมื่อ Worker ช้าเกิน 3 วิ หรือล้ม
+                — แสดงทันทีเป็นค่าประมาณ (est.) แล้ว Worker มาทับเมื่อตอบกลับ
      P2: Worker /agg    → markPx จาก blended (cached fallback)
      P3: HL direct      → markPx เดิม (เหมือนเดิมเมื่อ Worker ล่มทั้งคู่)
 ═══════════════════════════════════════════════════════ */
-async function fetchPrice() {
-  if (document.hidden) return;   // v45: แท็บถูกซ่อน → ไม่ poll (ลดโหลด GAS/HL)
-  if (_boWait('price')) return;   // v39: backoff หลัง /price ล้มติดกัน
-  try {
-    const _priceCtrl = new AbortController();
-    const _priceTimeout = setTimeout(() => _priceCtrl.abort(), 12000);
-    const r = await fetch(`${CFG.workerUrl}/price?coin=${S.coin}`, { signal: _priceCtrl.signal });
-    clearTimeout(_priceTimeout);
-    if (!r.ok) throw new Error('price fail ' + r.status);
-    const d = await r.json();
-    _boOk('price');
 
-    // ── อัปเดต P_agg state ──
-    if (d.pAgg && d.pAgg > 0) {
-      S.pAgg          = d.pAgg;
-      S.pSpot         = d.pSpot   || d.pAgg;
-      S.pFutures      = d.pFutures || d.pAgg;
-      S.vSpotTotal    = d.vSpotTotal    || 0;
-      S.vFuturesTotal = d.vFuturesTotal || 0;
-      S.vTotal        = d.vTotal        || 0;
-      S.liqZones      = d.liqZones      || [];
-      S.priceSourcesOk = d.sourcesOk    || 0;
-      S.priceIsEstimate = !!d.isEstimate;
-      // ใช้ P_agg เป็น markPx fallback ถ้ายังไม่ได้ markPx จาก /agg
-      if (!S.markPx || S.markPx === 0) S.markPx = S.pAgg;
-      S.workerDown = false;
-    }
+// ใส่ผลของ /price (จาก Worker | direct | cache) ลง state + UI — ตรรกะเดิมของ fetchPrice ย้ายมารวมที่เดียว
+function applyPriceData(d, via) {
+  if (!d || !(d.pAgg > 0)) return false;
+  S.pAgg          = d.pAgg;
+  S.pSpot         = d.pSpot   || d.pAgg;
+  S.pFutures      = d.pFutures || d.pAgg;
+  S.vSpotTotal    = d.vSpotTotal    || 0;
+  S.vFuturesTotal = d.vFuturesTotal || 0;
+  S.vTotal        = d.vTotal        || 0;
+  S.liqZones      = (d.liqZones && d.liqZones.length) ? d.liqZones : calcLiqZonesFrontend(d.pAgg);
+  S.priceSourcesOk = d.sourcesOk    || 0;
+  S.priceIsEstimate = !!d.isEstimate;
+  // ใช้ P_agg เป็น markPx fallback ถ้ายังไม่ได้ markPx จาก /agg
+  if (!S.markPx || S.markPx === 0) S.markPx = S.pAgg;
+  S.priceVia = via;
+  S.priceLoaded = true;
+  if (via === 'worker') {
+    S.workerDown = false;
+    S.priceWorkerOk = true;
+    S.priceWorkerAt = Date.now();
+  }
+  if (via === 'cache') S.priceCacheTs = d._cacheTs || 0;
 
-    // ── อัปเดต source status จาก /price sources ──
-    // /price sources: { binance:{spotOk,futuresOk}, bybit:{...}, mexc:{...}, gate:{...}, hyperliquid:{...} }
+  // ── อัปเดต source status จาก /price sources ── (cache = ข้อมูลเก่า → ไม่แตะสถานะแหล่งข้อมูล)
+  // /price sources: { binance:{spotOk,futuresOk}, bybit:{...}, mexc:{...}, gate:{...}, hyperliquid:{...} }
+  if (via !== 'cache') {
     const priceSources = d.sources || {};
     for (const [k, v] of Object.entries(priceSources)) {
       if (!S.sourceDetail[k]) S.sourceDetail[k] = {};
       S.sourceDetail[k].priceSpotOk    = v.spotOk;
       S.sourceDetail[k].priceFuturesOk = v.futuresOk;
+      // v42: Worker ตอบก่อนที่ GAS (Binance) จะมา → "ยังรอ" ไม่ใช่ "พัง" (UI แสดง WAIT)
+      if (k === 'binance') S.sourceDetail.binance.pending = (via === 'worker' && v._via === 'gas_pending');
       // อัปเดต sourceStatus สำหรับ MEXC/Gate (ไม่มี SSE feed — ใช้ REST เท่านั้น)
       if (k === 'mexc' || k === 'gate') {
         S.sourceStatus[k] = v.spotOk || v.futuresOk;
@@ -13195,33 +13493,142 @@ async function fetchPrice() {
         S.sourceStatus[k] = v.spotOk || v.futuresOk;
       }
     }
+  }
 
-    // FIX v16: เรียก updateSourceUI() ใน fetchPrice ด้วย — ไม่รอ fetchAgg()
-    updateSourceUI();
-    hunterUpdateStats();
-    _bandsEpoch++;  // BUG-A: data changed
-    needsRedraw = true;
+  // FIX v16: เรียก updateSourceUI() ใน fetchPrice ด้วย — ไม่รอ fetchAgg()
+  updateSourceUI();
+  hunterUpdateStats();
+  _bandsEpoch++;  // BUG-A: data changed
+  needsRedraw = true;
+  return true;
+}
+
+// ดึงราคา + volume 24h ตรงจาก browser — ใช้เป็นตัวสำรองเมื่อ Worker ช้า/ล้ม
+// หน่วย volume เป็น USD ทั้งหมด (ตรงกับ Worker): Bybit turnover24h · OKX spot volCcy24h(USDT) · OKX swap volCcy24h(เหรียญ)×ราคา · Binance quoteVolume · HL dayNtlVlm
+async function fetchPriceDirect(coin) {
+  const T = 4500;
+  const jt = (u, o) => _jsonTimeout(u, o, T).catch(() => null);
+  const sym = coin + 'USDT';
+  const [hl, bbS, bbF, okS, okF, bnS] = await Promise.all([
+    jt(HL_REST, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'metaAndAssetCtxs' }) }),
+    jt(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${sym}`),
+    jt(`https://api.bybit.com/v5/market/tickers?category=linear&symbol=${sym}`),
+    jt(`https://www.okx.com/api/v5/market/ticker?instId=${coin}-USDT`),
+    jt(`https://www.okx.com/api/v5/market/ticker?instId=${coin}-USDT-SWAP`),
+    jt(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${sym}`),
+  ]);
+  const num = x => { const v = parseFloat(x); return isFinite(v) ? v : 0; };
+  const mid = (bid, ask, last) => (bid > 0 && ask > 0) ? (bid + ask) / 2 : last;
+  const spot = {}, fut = {};
+  const put = (box, k, p, v) => { if (p > 0 && v > 0) box[k] = { p, v }; };
+
+  if (bnS) put(spot, 'binance', mid(num(bnS.bidPrice), num(bnS.askPrice), num(bnS.lastPrice)), num(bnS.quoteVolume));
+  const bs = bbS && bbS.result && bbS.result.list && bbS.result.list[0];
+  if (bs) put(spot, 'bybit', mid(num(bs.bid1Price), num(bs.ask1Price), num(bs.lastPrice)), num(bs.turnover24h));
+  const bf = bbF && bbF.result && bbF.result.list && bbF.result.list[0];
+  if (bf) put(fut, 'bybit', num(bf.markPrice) || num(bf.lastPrice), num(bf.turnover24h));
+  const os = okS && okS.data && okS.data[0];
+  if (os) {
+    const p = mid(num(os.bidPx), num(os.askPx), num(os.last));
+    put(spot, 'okx', p, num(os.volCcy24h) > 0 ? num(os.volCcy24h) : num(os.vol24h) * p);   // spot: volCcy24h = USDT, vol24h = หน่วยเหรียญ
+  }
+  const of = okF && okF.data && okF.data[0];
+  if (of) {
+    const p = num(of.markPx) || num(of.last);
+    put(fut, 'okx', p, num(of.volCcy24h) * p);                                                // swap: volCcy24h = หน่วยเหรียญ
+  }
+  try {
+    const [m, ctxArr] = hl;
+    const idx = m.universe.findIndex(u => u.name === coin);
+    if (idx >= 0) {
+      const c = ctxArr[idx];
+      const p = num(c.markPx) || num(c.midPx);
+      put(fut, 'hyperliquid', p, num(c.dayNtlVlm) || p * num(c.openInterest) * 0.1);
+    }
+  } catch (_) {}
+
+  const sum = box => { let pv = 0, v = 0; for (const k in box) { pv += box[k].p * box[k].v; v += box[k].v; } return { pv, v }; };
+  const a = sum(spot), b = sum(fut);
+  const vTotal = a.v + b.v;
+  const pSpot = a.v > 0 ? a.pv / a.v : 0, pFut = b.v > 0 ? b.pv / b.v : 0;
+  const pAgg = vTotal > 0 ? (pSpot * a.v + pFut * b.v) / vTotal : 0;
+  if (!(pAgg > 0)) return null;
+
+  const sources = {};
+  for (const k of ['binance', 'bybit', 'okx', 'hyperliquid']) {
+    const sp = spot[k], fu = fut[k];
+    sources[k] = {
+      spotOk: !!sp, futuresOk: !!fu,
+      spotPMid: sp ? sp.p : null, futuresPMid: fu ? fu.p : null,
+      spotVol24Usd: sp ? Math.round(sp.v) : null, futVol24Usd: fu ? Math.round(fu.v) : null,
+    };
+  }
+  const okKeys = new Set([...Object.keys(spot), ...Object.keys(fut)]);
+  return {
+    coin, ts: Date.now(),
+    pAgg: +pAgg.toFixed(2), pSpot: +(pSpot || pAgg).toFixed(2), pFutures: +(pFut || pAgg).toFixed(2),
+    vSpotTotal: Math.round(a.v), vFuturesTotal: Math.round(b.v), vTotal: Math.round(vTotal),
+    sourcesOk: okKeys.size, isEstimate: true,        // direct ครอบคลุมไม่ครบทุกเจ้า → ติดป้าย (est.)
+    liqZones: calcLiqZonesFrontend(pAgg),
+    sources,
+  };
+}
+
+async function fetchPrice(force) {
+  if (document.hidden && !force) return;   // v45: แท็บถูกซ่อน → ไม่ poll (ลดโหลด GAS/HL)
+  if (!force && _boWait('price')) return;   // v39: backoff หลัง /price ล้มติดกัน
+  const coin = S.coin, gen = _initGen;
+  let directStarted = false, directTimer = null;
+  const runDirect = async () => {
+    if (directStarted) return;
+    directStarted = true;
+    const b = await fetchPriceDirect(coin);
+    // Worker ตอบมาก่อนแล้ว หรือเปลี่ยนเหรียญไปแล้ว → ทิ้งผล direct
+    if (b && coin === S.coin && gen === _initGen && !S.priceWorkerOk) applyPriceData(b, 'direct');
+  };
+  // Worker ยังไม่เคยตอบในรอบนี้ → ถ้าเกิน 3 วิยังไม่มา เริ่มดึงตรงขนานไปเลย (ไม่รอ timeout เต็ม)
+  if (!S.priceWorkerOk) directTimer = setTimeout(runDirect, 3000);
+
+  let d = null;
+  try {
+    d = await _jsonTimeout(`${CFG.workerUrl}/price?coin=${coin}`, null, 8000);
+    _boOk('price');
   } catch (e) {
     _boFail('price', CFG.priceInterval);   // v39
     console.warn('[fetchPrice] fail:', e.message);
     // ไม่ set workerDown ที่นี่ — ให้ fetchAgg() จัดการ fallback chain ต่อ
   }
+  clearTimeout(directTimer);
+  if (coin !== S.coin || gen !== _initGen) return;   // เปลี่ยนเหรียญระหว่างรอ
+
+  if (d && d.pAgg > 0) {
+    applyPriceData(d, 'worker');
+    hcSave('price_' + coin, d);
+    // Worker ตอบก่อน GAS (Binance) → ถามซ้ำใน 4 วิ (สูงสุด 3 ครั้ง) ไม่ต้องรอรอบ poll 15 วิ
+    const pend = !!(d.sources && d.sources.binance && d.sources.binance._via === 'gas_pending');
+    if (pend && _pricePendTries < 3 && !_pricePendTimer) {
+      _pricePendTries++;
+      _pricePendTimer = setTimeout(() => { _pricePendTimer = null; fetchPrice(true); }, 4000);
+    } else if (!pend) { _pricePendTries = 0; }
+  } else if (!S.priceWorkerOk) {
+    await runDirect();   // Worker ล้ม/ตอบว่าง และยังไม่มีข้อมูลสดเลย → ดึงตรง
+  }
+  // อัปเดต WAIT→ERR เมื่อหมดเวลารอ (แม้รอบนี้ไม่มีข้อมูลใหม่)
+  updateSourceUI();
+  hunterUpdateStats();
 }
 
 /* ═══════════════════════════════════════════════════════
    FETCH AGG DATA (Worker → OI, Funding, Leverage, blended markPx)
    Priority 2 ใน fallback chain — ทำงานคู่กับ fetchPrice()
 ═══════════════════════════════════════════════════════ */
-async function fetchAgg() {
-  if (document.hidden) return;   // v45: แท็บถูกซ่อน → ไม่ poll (ลดโหลด GAS/HL)
+async function fetchAgg(force) {
+  if (document.hidden && !force) return;   // v45: แท็บถูกซ่อน → ไม่ poll (ลดโหลด GAS/HL)
+  const coin = S.coin, gen = _initGen;     // v42: กันผลของเหรียญ/รอบ init เก่าเขียนทับ
   try {
-    if (_boWait('agg')) { const _sk = new Error('agg backoff'); _sk._boSkip = true; throw _sk; }   // v39: ข้ามการยิง Worker แต่ยังตกไป fallback HL ด้านล่างตามเดิม
-    const _aggCtrl = new AbortController();
-    const _aggTimeout = setTimeout(() => _aggCtrl.abort(), 15000);
-    const r = await fetch(`${CFG.workerUrl}/agg?coin=${S.coin}`, { signal: _aggCtrl.signal });
-    clearTimeout(_aggTimeout);
-    if (!r.ok) throw new Error('agg fail');
-    const d = await r.json();
+    if (!force && _boWait('agg')) { const _sk = new Error('agg backoff'); _sk._boSkip = true; throw _sk; }   // v39: ข้ามการยิง Worker แต่ยังตกไป fallback HL ด้านล่างตามเดิม
+    const d = await _jsonTimeout(`${CFG.workerUrl}/agg?coin=${coin}`, null, 10000);   // v42: timeout 15→10 วิ
+    if (coin !== S.coin || gen !== _initGen) return;
 
     S.impliedLev     = d.blended.impliedLev;
     S.avgMaxLev      = d.blended.avgMaxLev;
@@ -13233,7 +13640,7 @@ async function fetchAgg() {
     // /agg ยังคง markPx (HL mark price) — ใช้เป็น S.markPx เดิม
     if (d.blended.markPx) S.markPx = d.blended.markPx;
     // P_agg จาก /agg (ถ้า Worker v10 ส่ง pAgg ใน blended response แล้ว)
-    if (d.blended.pAgg && !S.pAgg) S.pAgg = d.blended.pAgg;
+    if (d.blended.pAgg && !S.pAgg) { S.pAgg = d.blended.pAgg; S.priceIsEstimate = true; }   // v42: ค่านี้คือ markPx proxy ไม่ใช่ P_agg จริง → ติด (est.) จนกว่า /price จะมา
     S.workerDown = false;
     _boOk('agg');   // v39
 
@@ -13278,16 +13685,19 @@ async function fetchAgg() {
     _bandsEpoch++;  // BUG-A: data changed
     needsRedraw = true;
   } catch (e) {
+    if (coin !== S.coin || gen !== _initGen) return;
     if (!(e && e._boSkip)) _boFail('agg', CFG.aggInterval);   // v39: นับเฉพาะล้มจริง ไม่นับ tick ที่ถูกข้าม
     // Priority 3 Fallback: ดึง Hyperliquid meta ตรง — เกิดเมื่อ Worker ล่ม/เข้าไม่ถึง
-    S.workerDown = true;
+    // v42: /price ยังตอบอยู่ (≤ 90 วิ) = Worker ไม่ได้ล่มทั้งตัว → ไม่ขึ้นป้าย fallback และไม่ล้างสถานะแหล่งข้อมูลที่ได้จาก /price
+    const priceAlive = S.priceWorkerAt > 0 && (Date.now() - S.priceWorkerAt) < 90000;
+    S.workerDown = !priceAlive;
     try {
-      const r = await fetch(HL_REST, {
+      const [meta, ctxArr] = await _jsonTimeout(HL_REST, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'metaAndAssetCtxs' }),
-      });
-      const [meta, ctxArr] = await r.json();
+      }, 8000);
+      if (coin !== S.coin || gen !== _initGen) return;
       const idx = meta.universe.findIndex(u => u.name === S.coin);
       if (idx >= 0) {
         const u = meta.universe[idx], ctx = ctxArr[idx];
@@ -13302,9 +13712,17 @@ async function fetchAgg() {
         S.impliedLev = Math.max(3, Math.min(Math.round(S.avgMaxLev * scale), S.avgMaxLev));
         S.mmr = 1 / (2 * S.avgMaxLev);
         S.leverageIsEstimate = true;
-        S.priceIsEstimate = true;
-        S.sourceStatus = { binance: false, bybit: false, okx: false, mexc: false, gate: false, hyperliquid: true };
-        S.sourceDetail = {};
+        if (priceAlive) {
+          S.sourceStatus.hyperliquid = true;   // v42: เก็บสถานะ BN/MX/GT/BB/OKX ที่ได้จาก /price ไว้
+        } else if (S.priceVia === 'direct') {
+          // v42: Worker ล่ม แต่ดึงราคาตรงสำเร็จ → เก็บผลของแหล่งที่ดึงตรงได้ไว้ (ไม่ล้าง priceSpotOk/priceFuturesOk)
+          S.priceIsEstimate = true;
+          S.sourceStatus.hyperliquid = true;
+        } else {
+          S.priceIsEstimate = true;
+          S.sourceStatus = { binance: false, bybit: false, okx: false, mexc: false, gate: false, hyperliquid: true };
+          S.sourceDetail = {};
+        }
         // สร้าง liqZones จาก HL markPx ถ้าไม่มีจาก /price
         if (!S.liqZones.length) {
           S.liqZones = calcLiqZonesFrontend(S.pAgg);
@@ -14641,38 +15059,45 @@ function hunterUpdateStats() {
     paggEl.textContent = '$' + H_fmt(S.pAgg);
     paggEl.className = 'val neu';
     // เปรียบ P_agg vs markPx
+    // v42: บอกที่มาของตัวเลขเมื่อยังไม่ใช่ข้อมูลสดจาก Worker
+    let viaTxt = '';
+    if (S.priceVia === 'cache') {
+      const d0 = S.priceCacheTs ? new Date(S.priceCacheTs) : null;
+      viaTxt = d0 ? ' · แคช ' + String(d0.getHours()).padStart(2, '0') + ':' + String(d0.getMinutes()).padStart(2, '0') : ' · แคช';
+    } else if (S.priceVia === 'direct') viaTxt = ' · direct';
     if (S.markPx && S.markPx > 0) {
       const diff = ((S.pAgg - S.markPx) / S.markPx * 100).toFixed(3);
       const sign = diff >= 0 ? '+' : '';
-      paggSubEl.textContent = `vs HL: ${sign}${diff}%${S.priceIsEstimate ? ' (est.)' : ''}`;
+      paggSubEl.textContent = `vs HL: ${sign}${diff}%${S.priceIsEstimate ? ' (est.)' : ''}${viaTxt}`;
     } else {
-      paggSubEl.textContent = S.priceIsEstimate ? 'ค่าประมาณ (HL fallback)' : '';
+      paggSubEl.textContent = (S.priceIsEstimate ? 'ค่าประมาณ (HL fallback)' : '') + viaTxt;
     }
   } else {
     paggEl.textContent = '—';
     paggEl.className = 'val';
-    paggSubEl.textContent = 'รอ /price…';
+    paggSubEl.textContent = priceWaiting() ? 'กำลังโหลด…' : 'รอ /price…';
   }
 
   // ── Mark Price HL ──
   document.getElementById('sMark').textContent = S.markPx ? '$' + H_fmt(S.markPx) : '—';
 
   // ── Spot + Futures Volume 24h ──
-  document.getElementById('sSpotVol').textContent    = S.vSpotTotal    > 0 ? '$' + fmtM(S.vSpotTotal)    : '—';
-  document.getElementById('sFutVol').textContent     = S.vFuturesTotal > 0 ? '$' + fmtM(S.vFuturesTotal) : '—';
+  const _waitTxt = priceWaiting() ? 'รอ…' : '—';   // v42: ยังรอข้อมูลสด → "รอ…" ไม่ใช่ "—" เหมือนข้อมูลหาย
+  document.getElementById('sSpotVol').textContent    = S.vSpotTotal    > 0 ? '$' + fmtM(S.vSpotTotal)    : _waitTxt;
+  document.getElementById('sFutVol').textContent     = S.vFuturesTotal > 0 ? '$' + fmtM(S.vFuturesTotal) : _waitTxt;
 
   // ── Coverage (จำนวน exchange ที่ /price ดึงได้) ──
   const covEl    = document.getElementById('sCoverage');
   const covSubEl = document.getElementById('sCoverageSub');
-  const maxSrc = 5; // Binance Spot + Bybit + OKX + MEXC + Gate + HL (Binance futures blocked)
+  const maxSrc = 6; // v42: นับเป็น "exchange" = Binance, Bybit, OKX, MEXC, Gate, HL (เดิมตั้ง 5 ทั้งที่ Worker นับได้ถึง 6 → เคยขึ้น 6 / 5)
   if (S.priceSourcesOk > 0) {
     covEl.textContent = `${S.priceSourcesOk} / ${maxSrc}`;
     covEl.className   = S.priceSourcesOk >= 4 ? 'val up' : (S.priceSourcesOk >= 2 ? 'val neu' : 'val dn');
     covSubEl.textContent = S.vTotal > 0 ? 'Vol: $' + fmtM(S.vTotal) : '';
   } else {
-    covEl.textContent    = '— / ' + maxSrc;
+    covEl.textContent    = (priceWaiting() ? '… / ' : '— / ') + maxSrc;
     covEl.className      = 'val';
-    covSubEl.textContent = '';
+    covSubEl.textContent = priceWaiting() ? 'กำลังโหลด…' : '';
   }
 
   // ── Blended OI ──
@@ -14715,6 +15140,8 @@ function updateSourceUI() {
     const spotOk    = S.sourceDetail?.[k]?.priceSpotOk    || false;
     const futOk     = S.sourceDetail?.[k]?.priceFuturesOk || false;
     const wsBlocked = !!S.sourceDetail?.[k]?.wsBlocked;
+    const bnPending = !!S.sourceDetail?.[k]?.pending;   // v42: Worker ตอบก่อน GAS (Binance) → ยังรอ ไม่ใช่ error
+    const waiting   = priceWaiting();                   // v42: ยังไม่เคยได้ข้อมูลสดจาก Worker ในรอบนี้
 
     // dot: ขึ้นอยู่กับ Spot (เป็นส่วนที่ active จริง)
     if (dotEl) dotEl.className = 'src-dot' + (spotOk ? ' ok' : '');
@@ -14727,6 +15154,9 @@ function updateSourceUI() {
       } else if (wsBlocked) {
         ssSpotEl.textContent = 'BLOCK';
         ssSpotEl.className   = 'src-status blocked';
+      } else if (waiting || bnPending) {
+        ssSpotEl.textContent = 'WAIT';
+        ssSpotEl.className   = 'src-status wait';
       } else {
         ssSpotEl.textContent = 'ERR';
         ssSpotEl.className   = 'src-status err';
@@ -14738,6 +15168,9 @@ function updateSourceUI() {
       if (futOk) {
         ssFutEl.textContent = 'OK';
         ssFutEl.className   = 'src-status ok';
+      } else if (waiting || bnPending) {
+        ssFutEl.textContent = 'WAIT';
+        ssFutEl.className   = 'src-status wait';
       } else {
         ssFutEl.textContent = 'BLOCK';         // ระบุชัดว่า block ไม่ใช่ error ของระบบ
         ssFutEl.className   = 'src-status blocked';
@@ -14777,6 +15210,10 @@ function updateSourceUI() {
       // FIX v16: SSE ยังไม่มา — ถ้า /price ดึงได้แล้วให้แสดง OK ไม่ใช่แค่ PRICE/WAIT
       ssEl.textContent = priceAnyOk ? 'OK' : 'WAIT';
       ssEl.className = priceAnyOk ? 'src-status ok' : 'src-status wait';
+    } else if (priceWaiting() && !priceAnyOk) {
+      // v42: ยังรอข้อมูลสดจาก Worker (MX/GT/HL ฯลฯ) → WAIT แทน ERR
+      ssEl.textContent = 'WAIT';
+      ssEl.className = 'src-status wait';
     } else {
       ssEl.textContent = priceAnyOk ? 'PRICE' : 'ERR';
       ssEl.className = priceAnyOk ? 'src-status partial' : 'src-status err';
@@ -15027,10 +15464,13 @@ let priceTimer = null;
 let hmTimer    = null; // NEW v18: real heatmap refresh timer
 
 async function init() {
+  const gen = ++_initGen;   // v42: request ของรอบก่อน (เหรียญ/interval เดิม) จะถูกทิ้งเมื่อกลับมา
   _boReset();   // v39: เปลี่ยนเหรียญ/โหลดใหม่ → ยิง /price /agg ทันที ไม่ติด backoff เดิม
   if (aggTimer)   clearInterval(aggTimer);
   if (priceTimer) clearInterval(priceTimer);
   if (hmTimer)    { clearTimeout(hmTimer); hmTimer = null; }
+  if (_pricePendTimer) { clearTimeout(_pricePendTimer); _pricePendTimer = null; }
+  _pricePendTries = 0;
 
   // reset retry counters ทุกครั้งที่ init (เปลี่ยนเหรียญ / โหลดใหม่)
   Object.keys(WS_RETRY).forEach(k => { WS_RETRY[k] = 0; });
@@ -15039,12 +15479,22 @@ async function init() {
     if (S.sourceDetail[k]) {
       S.sourceDetail[k].blocked   = false;
       S.sourceDetail[k].wsBlocked = false;
+      // v42: ผล /price ของเหรียญก่อนหน้าใช้ไม่ได้ — ล้างเพื่อให้ขึ้น WAIT จนกว่าข้อมูลใหม่จะมา
+      delete S.sourceDetail[k].priceSpotOk;
+      delete S.sourceDetail[k].priceFuturesOk;
+      delete S.sourceDetail[k].pending;
     }
   }
+  S.sourceStatus.mexc = false; S.sourceStatus.gate = false; S.sourceStatus.hyperliquid = false;   // v42: มาจาก /price อย่างเดียว
   // reset P_agg state เมื่อเปลี่ยนเหรียญ
   S.pAgg = 0; S.pSpot = 0; S.pFutures = 0;
   S.vSpotTotal = 0; S.vFuturesTotal = 0; S.vTotal = 0;
   S.liqZones = []; S.priceSourcesOk = 0; S.priceIsEstimate = false;
+  S.priceLoaded = false; S.priceVia = ''; S.priceWorkerOk = false; S.priceWorkerAt = 0; S.priceCacheTs = 0;
+  S.initAt = Date.now();
+  const coinChanged = (_lastInitCoin !== S.coin);
+  _lastInitCoin = S.coin;
+  if (coinChanged) { S.markPx = 0; candles = []; }   // v42: ไม่ให้ราคา/แท่งเทียนของเหรียญก่อนหน้าค้างบนหน้าจอ
   liqReset();          // v38: ล้างข้อมูล/กริด Liq เมื่อเปลี่ยนเหรียญ/range/iv
   liqStartPolling();   // ดึง /liqdata ทันที (ขนานกับ candles/price/agg) แล้ว poll ทุก 60 วิ + backoff
 
@@ -15052,17 +15502,22 @@ async function init() {
   // ถูก guard ออกทันที ไม่ schedule reconnect ซ้อนกัน เมื่อเปลี่ยนเหรียญหรือ reload
   _hlTag++; _bnTag++; _bnLiqTag++; _sseTag++;
 
-  await fetchCandles();
-  VP.offsetX  = 0;
-  VP.visCount = Math.min(VP_VIS_MAX, candles.length || 120);   // v38: แสดงทั้งช่วง range ที่เลือก
-  VP.yScale   = 1.0;
-  VP.yOffset  = 0;
+  // ── v42: แสดงค่าล่าสุดจาก cache ทันที (ถ้ามี) ระหว่างรอข้อมูลสด ──
+  const _cp = hcLoad('price_' + S.coin, 6 * 3600e3);
+  if (_cp) { _cp.d._cacheTs = _cp.t; applyPriceData(_cp.d, 'cache'); }
+  const _cc = hcLoad('candles_' + S.coin + '_' + S.iv + '_' + S.range, 30 * 60e3);
+  if (_cc && Array.isArray(_cc.d) && _cc.d.length) {
+    candles = _cc.d;
+    VP.visCount = Math.min(VP_VIS_MAX, candles.length || 120);
+    _bandsEpoch++;
+  }
+  VP.offsetX = 0; VP.yScale = 1.0; VP.yOffset = 0;
+  updateSourceUI();       // ขึ้น WAIT ทันที (แทน — / ERR ค้างจากรอบก่อน)
+  hunterUpdateStats();
+  needsRedraw = true;
 
-  // Phase 3 fallback chain: ดึง /price ก่อน แล้วค่อย /agg ตามมา
-  // /price ให้ P_agg + liqZones เร็วกว่า /agg (API endpoints น้อยกว่า)
-  await fetchPrice();
-  await fetchAgg();
-
+  // ── v42: เปิดทุกการเชื่อมต่อ + โหลดข้อมูล "ขนานกัน" (เดิมรอ candles → price → agg ทีละขั้นแล้วค่อยต่อ WS/SSE) ──
+  // WS/SSE ไม่ขึ้นกับ candles/price: HL ws ส่ง candle ล่าสุดเข้ามา, fetchCandles() จะ replace ทั้งชุดเมื่อมาถึง
   connectWS();
   connectAllExchangeFeeds();
   if (!bnLiqWS || bnLiqWS.readyState > 1) connectBinanceLiqWS();
@@ -15071,6 +15526,19 @@ async function init() {
   priceTimer = setInterval(fetchPrice, CFG.priceInterval * 1000);
   aggTimer   = setInterval(fetchAgg,   CFG.aggInterval   * 1000);
 
+  const pCandles = fetchCandles().then(ok => {
+    if (gen !== _initGen) return;
+    if (ok) {
+      VP.offsetX  = 0;
+      VP.visCount = Math.min(VP_VIS_MAX, candles.length || 120);   // v38: แสดงทั้งช่วง range ที่เลือก
+      VP.yScale   = 1.0;
+      VP.yOffset  = 0;
+      needsRedraw = true;
+    }
+  }).catch(e => console.warn('[init] candles fail', e));
+  const pPrice = fetchPrice(true).catch(e => console.warn('[init] price fail', e));
+  const pAgg   = fetchAgg(true).catch(e => console.warn('[init] agg fail', e));
+  await Promise.allSettled([pCandles, pPrice, pAgg]);
 }
 
 // Hunter Boot — deferred, called via hunterInit() when Hunter tab is first opened

@@ -289,17 +289,20 @@ td{padding:5px 10px;font-family:var(--mono);font-size:11px;vertical-align:middle
 .dtab.active{color:var(--b);border-color:rgba(41,182,246,.3);background:var(--bbg);}
 @media(max-width:800px){.desktop-tab-bar{display:none!important;}}
 
-#analyticsPanel{display:none;flex:1;overflow-y:auto;flex-direction:column;padding:14px 18px;gap:12px;background:var(--bg);}
+#analyticsPanel{display:none;flex:1;overflow-y:auto;overflow-x:hidden;min-width:0;flex-direction:column;padding:14px 18px;gap:12px;background:var(--bg);
+  /* v53: ตัวอักษรจางเกินไป (--t2 เดิม #3a5570 คอนทราสต์ ~2:1) → ยกเฉพาะในแผง Analytics */
+  --t1:#9db6cf; --t2:#6a88a6;}
+#analyticsPanel > *{min-width:0;}
 #analyticsPanel.active{display:flex;}
 
 /* ── ANALYTICS DESCRIPTION BANNER ── */
 .an-desc-banner{background:var(--bg1);border:1px solid var(--border);border-left:3px solid var(--b);border-radius:8px;padding:10px 14px;font-family:var(--sans);font-size:12px;color:var(--t1);line-height:1.7;flex-shrink:0;}
 .an-desc-banner strong{color:var(--b);font-family:var(--mono);}
-.an-desc-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex-shrink:0;}
+.an-desc-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex-shrink:0;}
 .an-desc-item{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;}
 .an-desc-item-icon{font-size:16px;margin-bottom:3px;}
-.an-desc-item-title{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--b);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
-.an-desc-item-body{font-size:10px;color:var(--t2);line-height:1.5;}
+.an-desc-item-title{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--b);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
+.an-desc-item-body{font-size:12px;color:var(--t2);line-height:1.55;}
 @media(max-width:800px){.an-desc-row{grid-template-columns:1fr 1fr;}}
 
 /* ── MOBILE ANALYTICS CARD (full redesign) ── */
@@ -353,11 +356,11 @@ td{padding:5px 10px;font-family:var(--mono);font-size:11px;vertical-align:middle
 
 
 /* KPI row */
-.an-kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;flex-shrink:0;}
+.an-kpi-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;flex-shrink:0;}
 .an-kpi{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:10px 14px;}
-.an-kpi-lbl{font-family:var(--mono);font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.an-kpi-lbl{font-family:var(--mono);font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
 .an-kpi-val{font-family:var(--mono);font-size:18px;font-weight:700;}
-.an-kpi-sub{font-family:var(--mono);font-size:9px;color:var(--t2);margin-top:2px;}
+.an-kpi-sub{font-family:var(--mono);font-size:11px;color:var(--t2);margin-top:2px;}
 
 /* Filter bar */
 .an-filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0;}
@@ -369,20 +372,21 @@ td{padding:5px 10px;font-family:var(--mono);font-size:11px;vertical-align:middle
 
 /* Chart cards */
 .an-row{display:grid;gap:12px;flex-shrink:0;}
-.an-row-2{grid-template-columns:3fr 2fr;}
-.an-row-3{grid-template-columns:1fr 1fr 1fr;}
-.an-card{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:14px;}
-.an-card-title{font-family:var(--mono);font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
-.an-chart-box{position:relative;}
+/* v53: minmax(0,…) กัน canvas Chart.js ดันคอลัมน์จนการ์ดล้นจอ (เดิม 3fr 2fr / 1fr×3 → การ์ดโดนบีบ/หลุดขอบขวา) */
+.an-row-2{grid-template-columns:minmax(0,3fr) minmax(0,2fr);}
+.an-row-3{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);}
+.an-card{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:14px;min-width:0;}
+.an-card-title{font-family:var(--mono);font-size:12px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+.an-chart-box{position:relative;min-width:0;width:100%;}
 
 /* Heatmap */
 .an-heatmap-grid{overflow-x:auto;}
-.hcell{height:22px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;cursor:default;transition:opacity .1s;}
+.hcell{height:26px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;cursor:default;transition:opacity .1s;}
 .hcell:hover{opacity:.8;}
 
 /* Top Wallets table */
-.an-tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
-.an-tbl th{padding:4px 8px;font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
+.an-tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;}
+.an-tbl th{padding:4px 8px;font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
 .an-tbl td{padding:5px 8px;border-bottom:1px solid rgba(26,40,64,.35);white-space:nowrap;}
 .an-tbl tr:last-child td{border-bottom:none;}
 .an-tbl tr:hover td{background:var(--bg2);}
@@ -3541,7 +3545,7 @@ html{
     <div class="an-kpi-row">
       <div class="an-kpi"><div class="an-kpi-lbl">💰 มูลค่ารวม</div><div class="an-kpi-val" id="anKvTotal" style="color:var(--y);">—</div><div class="an-kpi-sub" id="anKvSub"></div></div>
       <div class="an-kpi"><div class="an-kpi-lbl">📊 จำนวนรายการ</div><div class="an-kpi-val" id="anKvCount">—</div><div class="an-kpi-sub">Whale trades ≥$100K</div></div>
-      <div class="an-kpi"><div class="an-kpi-lbl">⏰ ช่วงพีค</div><div class="an-kpi-val" id="anKvPeak" style="color:var(--b);">—</div><div class="an-kpi-sub">active มากสุด</div></div>
+      <div class="an-kpi"><div class="an-kpi-lbl">⏰ ช่วงพีค</div><div class="an-kpi-val" id="anKvPeak" style="color:var(--b);">—</div><div class="an-kpi-sub" id="anKvPeakSub">active มากสุด</div></div>
       <div class="an-kpi"><div class="an-kpi-lbl">⚖️ L/S Ratio</div><div class="an-kpi-val" id="anKvLS" style="color:var(--g);">—</div><div class="an-kpi-sub" id="anKvLSSub"></div></div>
       <div class="an-kpi"><div class="an-kpi-lbl">🪙 เหรียญหลัก</div><div class="an-kpi-val" id="anKvCoin" style="color:var(--p);">—</div><div class="an-kpi-sub" id="anKvCoinSub"></div></div>
     </div>
@@ -7181,21 +7185,25 @@ async function loadSheetData() {
 
   // ใช้ข้อมูลจาก live feed ก่อน (ถ้ามี) + พยายามดึงจาก Apps Script
   try {
-    const url   = ALERT_CONFIG.appsScriptURL + '?action=getData';
-    const urlSW = ALERT_CONFIG.appsScriptURL + '?action=getSWData&rows=1000';
+    // v53: เดิมไม่ส่ง rows → GAS ใช้ default 500 แถว (ครอบคลุมแค่ ~2–3 ชม. → Heatmap/Peak/รายวัน/L-S ไม่ครบ)
+    //      ขอ 20000 (= เพดานชีต Whale Alerts ≈ 4 วัน) · GAS ตัดเองตาม READ_MAX_ROWS (เวอร์ชันเก่าตัดที่ 5000)
+    const url    = ALERT_CONFIG.appsScriptURL + '?action=getData&rows=20000';
+    const urlSm  = ALERT_CONFIG.appsScriptURL + '?action=getData&rows=5000';   // fallback ถ้าก้อนใหญ่ timeout
+    const urlSW  = ALERT_CONFIG.appsScriptURL + '?action=getSWData&rows=1000';
 
     // ✅ Parallel fetch: Whale + Small Whale พร้อมกัน
     // v46: timeout 25s (GAS cold-start 10-15s) + retry 1 ครั้งเมื่อ timeout/ล้มเหลว
-    const _fetchRetry = async (u) => {
+    const _fetchRetry = async (u, ms, u2) => {
+      ms = ms || 25000;
       try {
-        const x = await fetch(u, { signal: AbortSignal.timeout(25000) });
+        const x = await fetch(u, { signal: AbortSignal.timeout(ms) });
         if (x.ok) return x;
       } catch(e) {}
-      return fetch(u, { signal: AbortSignal.timeout(25000) });
+      return fetch(u2 || u, { signal: AbortSignal.timeout(ms) });   // v53: รอบ 2 ใช้ URL ที่เล็กกว่าได้
     };
     const [r, rSW] = await Promise.allSettled([
-      _fetchRetry(url),
-      _fetchRetry(urlSW),
+      _fetchRetry(url, 45000, urlSm),   // v53: 20,000 แถว → timeout 45s
+      _fetchRetry(urlSW, 25000),
     ]);
 
     // ── Whale ≥$100K ──
@@ -7205,7 +7213,13 @@ async function loadSheetData() {
         AN_ALL = parseSheetData(d.data);
         AN_FD  = [...AN_ALL];
         anLoaded = true;
-        if (info) info.textContent = `✅ Whale: ${AN_ALL.length} รายการ ≥$100K`;
+        if (info) {
+          // v53: แสดงช่วงวันที่ข้อมูลครอบคลุม — เห็นทันทีว่าได้ข้อมูลกี่วัน
+          const _ds = AN_ALL.map(t => t.date).filter(Boolean).sort();
+          const _fd = s => s.slice(8) + '/' + s.slice(5, 7);
+          const _nd = new Set(_ds).size;
+          info.textContent = `✅ Whale: ${AN_ALL.length.toLocaleString()} รายการ ≥$100K` + (_ds.length ? ` · ${_nd} วัน (${_fd(_ds[0])} → ${_fd(_ds[_ds.length - 1])})` : '');
+        }
       }
     }
 
@@ -7374,15 +7388,16 @@ function anRenderAll() {
 }
 
 function anChartColors() {
-  return { tc:'rgba(226,234,244,0.6)', gc:'rgba(255,255,255,0.07)' };
+  return { tc:'rgba(226,234,244,0.8)', gc:'rgba(255,255,255,0.08)' };   // v53: tick ชัดขึ้น (0.6 → 0.8)
 }
 
 function anRenderKPIs() {
   const tot=AN_FD.reduce((s,t)=>s+t.usd,0);
   const lUsd=AN_FD.filter(t=>t.dir==='LONG'||t.dir==='BUY').reduce((s,t)=>s+t.usd,0);
   const sUsd=AN_FD.filter(t=>t.dir==='SHORT'||t.dir==='SELL').reduce((s,t)=>s+t.usd,0);
-  const sc={};AN_FD.forEach(t=>{sc[t.s15]=(sc[t.s15]||0)+1;});
-  const peak=Object.entries(sc).sort((a,b)=>b[1]-a[1])[0];
+  // v53: Peak นับเป็น "ชั่วโมง" (เดิมนับช่อง 15 นาที → ไม่ตรงกับ Peak Hour ของ AI/mobile)
+  const hcK={};AN_FD.forEach(t=>{hcK[t.h]=(hcK[t.h]||0)+1;});
+  const peak=Object.entries(hcK).sort((a,b)=>b[1]-a[1])[0];
   const coins={};AN_FD.forEach(t=>{coins[t.coin]=(coins[t.coin]||0)+1;});
   const topCoin=Object.entries(coins).sort((a,b)=>b[1]-a[1])[0];
   const lPct=tot>0?Math.round(lUsd/tot*100):0;
@@ -7390,7 +7405,8 @@ function anRenderKPIs() {
   set('anKvTotal', tot>=1e6?'$'+(tot/1e6).toFixed(2)+'M':'$'+Math.round(tot/1000).toLocaleString()+'K');
   set('anKvSub', AN_FD.length+' รายการ ≥$100K'+(SW_ALL.length>0?' · SW:'+SW_ALL.length:''));
   set('anKvCount', AN_FD.length.toLocaleString());
-  set('anKvPeak', peak?peak[0]+' น.':'—');
+  set('anKvPeak', peak?String(peak[0]).padStart(2,'0')+':00 น.':'—');
+  set('anKvPeakSub', peak?Number(peak[1]).toLocaleString()+' trades/ชม. · '+Math.round(peak[1]/(AN_FD.length||1)*100)+'%':'active มากสุด');
   set('anKvLS', ls+(sUsd>0?(lUsd>sUsd?' L⬆':' S⬇'):''));
   set('anKvLSSub', 'Long '+lPct+'% / Short '+(100-lPct)+'%');
   set('anKvCoin', topCoin?topCoin[0]:'—');
@@ -7407,14 +7423,15 @@ function anRenderHeatmap() {
   const mx=Math.max(1,...Object.values(map).flatMap(r=>Object.values(r)));
   let html=`<div style="display:grid;grid-template-columns:52px repeat(${HOURS.length},1fr);gap:2px;min-width:680px;">`;
   html+=`<div></div>`;
-  HOURS.forEach(h=>{html+=`<div style="font-size:9px;color:var(--t2);text-align:center;padding-bottom:3px">${h}</div>`;});
+  HOURS.forEach(h=>{html+=`<div style="font-size:11px;color:var(--t1);text-align:center;padding-bottom:3px">${h}</div>`;});
   DAYS.forEach(d=>{
-    html+=`<div style="font-size:10px;color:var(--t1);display:flex;align-items:center;font-weight:500;white-space:nowrap;">${d.n}</div>`;
+    html+=`<div style="font-size:12px;color:var(--t1);display:flex;align-items:center;font-weight:500;white-space:nowrap;">${d.n}</div>`;
     HOURS.forEach(h=>{
       const cnt=map[d.d][h]||0;
       const iv=cnt/mx;
-      const bg=cnt===0?'rgba(128,128,128,0.07)':iv<0.25?'rgba(41,182,246,0.2)':iv<0.5?'rgba(41,182,246,0.45)':iv<0.75?'rgba(41,182,246,0.7)':'var(--b)';
-      const tc=iv>=0.75?'#000':'transparent';
+      const bg=cnt===0?'rgba(128,128,128,0.14)':iv<0.25?'rgba(41,182,246,0.2)':iv<0.5?'rgba(41,182,246,0.45)':iv<0.75?'rgba(41,182,246,0.7)':'var(--b)';
+      // v53: เดิมโชว์เลขเฉพาะเซลล์ ≥75% (ที่เหลือ transparent) → แสดงเลขทุกเซลล์ที่มีข้อมูล
+      const tc=cnt===0?'transparent':iv>=0.75?'#000':'var(--t0)';
       html+=`<div class="hcell" title="${d.n} ${h}:00 — ${cnt} รายการ" style="background:${bg};color:${tc}">${cnt||''}</div>`;
     });
   });
@@ -7437,8 +7454,8 @@ function anRenderVol() {
       {label:'Short',data:slots.map(s=>Math.round(sv[s]/1000)),backgroundColor:'rgba(255,61,87,.7)'}
     ]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{ticks:{color:tc,font:{size:10}},grid:{display:false}},
-              y:{ticks:{color:tc,font:{size:10},callback:v=>'$'+v.toLocaleString()+'K'},grid:{color:gc}}}}
+      scales:{x:{ticks:{color:tc,font:{size:11},maxRotation:0,autoSkip:true,maxTicksLimit:16},grid:{display:false}},
+              y:{ticks:{color:tc,font:{size:11},maxTicksLimit:6,callback:v=>'$'+v.toLocaleString()+'K'},grid:{color:gc}}}}
   });
 }
 
@@ -7447,7 +7464,7 @@ function anRenderCoin() {
   const coins=Object.keys(cc).sort((a,b)=>cc[b]-cc[a]);
   const tot=AN_FD.length||1;
   const legend=document.getElementById('anCoinLegend');
-  if(legend) legend.innerHTML=coins.map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--t1);font-family:var(--mono);"><span style="width:8px;height:8px;border-radius:2px;background:${COIN_CLR[c]||COIN_CLR.DEFAULT};display:inline-block;"></span>${c} ${Math.round(cc[c]/tot*100)}%</span>`).join('');
+  if(legend) legend.innerHTML=coins.map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--t1);font-family:var(--mono);"><span style="width:8px;height:8px;border-radius:2px;background:${COIN_CLR[c]||COIN_CLR.DEFAULT};display:inline-block;"></span>${c} ${Math.round(cc[c]/tot*100)}%</span>`).join('');
   const canvas=document.getElementById('anCoinChart');
   if(!canvas) return;
   if(AN_CH.coin)AN_CH.coin.destroy();
@@ -7470,8 +7487,8 @@ function anRenderLS() {
       {label:'Short',data:coins.map(c=>Math.round(AN_FD.filter(t=>t.coin===c&&(t.dir==='SHORT'||t.dir==='SELL')).reduce((s,t)=>s+t.usd,0)/1000)),backgroundColor:'rgba(255,61,87,.7)'}
     ]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{ticks:{color:tc,font:{size:11}},grid:{display:false}},
-              y:{ticks:{color:tc,font:{size:10},callback:v=>'$'+v.toLocaleString()+'K'},grid:{color:gc}}}}
+      scales:{x:{ticks:{color:tc,font:{size:12}},grid:{display:false}},
+              y:{ticks:{color:tc,font:{size:11},maxTicksLimit:6,callback:v=>'$'+v.toLocaleString()+'K'},grid:{color:gc}}}}
   });
 }
 
@@ -7485,10 +7502,12 @@ function anRenderHour() {
   if(AN_CH.hour)AN_CH.hour.destroy();
   AN_CH.hour=new Chart(document.getElementById('anHourChart'),{
     type:'bar',
-    data:{labels:show.map(h=>h+':00'),datasets:[{label:'รายการ',data:show.map(h=>hc[h]||0),backgroundColor:show.map(h=>{const r=(hc[h]||0)/maxC;return r===0?'rgba(41,182,246,0.08)':r<0.3?'rgba(41,182,246,0.35)':r<0.6?'rgba(41,182,246,0.65)':'rgba(41,182,246,1)';})}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{ticks:{color:tc,font:{size:9},autoSkip:false,maxRotation:45},grid:{display:false}},
-              y:{ticks:{color:tc,font:{size:10},stepSize:1},grid:{color:gc}}}}
+    data:{labels:show.map(h=>String(h).padStart(2,'0')),datasets:[{label:'รายการ',data:show.map(h=>hc[h]||0),backgroundColor:show.map(h=>{const r=(hc[h]||0)/maxC;return r===0?'rgba(41,182,246,0.08)':r<0.3?'rgba(41,182,246,0.35)':r<0.6?'rgba(41,182,246,0.65)':'rgba(41,182,246,1)';})}]},
+    // v53: เดิม stepSize:1 → แกน Y ติ๊กถี่มาก (ค่าสูงถึงหลักร้อย) ตัวเลขทับกันดูเบลอ · label ใช้ 2 หลัก (HH) ไม่หมุน
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>it[0].label+':00 น.'}}},
+      scales:{x:{ticks:{color:tc,font:{size:11},autoSkip:false,maxRotation:0},grid:{display:false}},
+              y:{beginAtZero:true,ticks:{color:tc,font:{size:11},maxTicksLimit:6,precision:0},grid:{color:gc}}}}
   });
 }
 
@@ -7503,8 +7522,8 @@ function anRenderDayBar() {
       {label:'Short',data:DAYS.map(d=>Math.round(AN_FD.filter(t=>t.dow===d.d&&(t.dir==='SHORT'||t.dir==='SELL')).reduce((s,t)=>s+t.usd,0)/1000)),backgroundColor:'rgba(255,61,87,.7)'}
     ]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{ticks:{color:tc,font:{size:11}},grid:{display:false}},
-              y:{ticks:{color:tc,font:{size:10},callback:v=>'$'+v.toLocaleString()+'K'},grid:{color:gc}}}}
+      scales:{x:{ticks:{color:tc,font:{size:12}},grid:{display:false}},
+              y:{ticks:{color:tc,font:{size:11},maxTicksLimit:6,callback:v=>'$'+v.toLocaleString()+'K'},grid:{color:gc}}}}
   });
 }
 
@@ -7527,11 +7546,11 @@ function anRenderWallets() {
     const short=w.slice(0,6)+'…'+w.slice(-4);
     return `<tr>
       <td style="color:var(--t2)">${i+1}</td>
-      <td style="font-family:var(--mono);font-size:10px;color:var(--b);cursor:pointer;" onclick="openWallet('${w}')">${short}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--b);cursor:pointer;" onclick="openWallet('${w}')">${short}</td>
       <td style="color:var(--t0);font-weight:700;">${v.cnt}</td>
       <td style="color:var(--g);">$${fmt(v.l)}</td>
       <td style="color:var(--r);">$${fmt(v.s)}</td>
-      <td style="color:${biasColor};font-size:10px;">${bias}</td>
+      <td style="color:${biasColor};font-size:11px;">${bias}</td>
     </tr>`;
   }).join('');
 }
@@ -7546,11 +7565,11 @@ function anRenderTrades() {
     const isLong=t.dir==='LONG'||t.dir==='BUY';
     const dirColor=isLong?'var(--g)':'var(--r)';
     return `<tr>
-      <td style="color:var(--t2);font-size:10px;white-space:nowrap;">${t.day} · ${t.ts}</td>
+      <td style="color:var(--t2);font-size:11px;white-space:nowrap;">${t.day} · ${t.ts}</td>
       <td style="font-weight:700;font-family:var(--mono);">${t.coin}</td>
-      <td><span style="color:${dirColor};font-family:var(--mono);font-size:10px;">${isLong?'▲':'▼'} ${t.dir}</span></td>
+      <td><span style="color:${dirColor};font-family:var(--mono);font-size:11px;">${isLong?'▲':'▼'} ${t.dir}</span></td>
       <td style="font-weight:700;text-align:right;color:var(--y);">$${Math.round(t.usd).toLocaleString()}</td>
-      <td style="color:var(--p);font-family:var(--mono);font-size:10px;">${t.lev}</td>
+      <td style="color:var(--p);font-family:var(--mono);font-size:11px;">${t.lev}</td>
     </tr>`;
   }).join('');
 }
@@ -7655,10 +7674,12 @@ async function fetchMarketContextPublic(coins) {
   } catch (e) { console.warn('fetchMarketContextPublic:', e.message); return null; }
 }
 
+// v53: AI สรุปจากข้อมูลทั้งหมดที่โหลด (AN_ALL) ไม่ใช่ชุดที่กรองอยู่ (AN_FD) — กัน Peak Hour/รายวัน/L-S เพี้ยนเมื่อกรองวัน/ชั่วโมง/ทิศทาง
+function _anAiData() { return (AN_ALL && AN_ALL.length) ? AN_ALL : (AN_FD || []); }
 function _anTopCoinsForMarket() {
   const ok = ['BTC','ETH','SOL','BNB','XRP'];
   const cnt = {};
-  (AN_FD || []).forEach(t => { if (ok.indexOf(t.coin) !== -1) cnt[t.coin] = (cnt[t.coin] || 0) + 1; });
+  _anAiData().forEach(t => { if (ok.indexOf(t.coin) !== -1) cnt[t.coin] = (cnt[t.coin] || 0) + 1; });
   const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
   return [...new Set([...top, 'BTC', 'ETH', 'SOL'])].slice(0, 5);
 }
@@ -7866,7 +7887,7 @@ async function runAnAI() {
   res.innerHTML = '';
   const _anCoins = _anTopCoinsForMarket();
   const _mkt = await fetchMarketContextPublic(_anCoins);   // v46: ดึง Market Context สาธารณะ (ไม่ต้อง login)
-  const prompt = buildForecastPrompt(AN_FD, SW_ALL, _mkt);
+  const prompt = buildForecastPrompt(_anAiData(), SW_ALL, _mkt);   // v53: ข้อมูลก่อนกรอง
   try {
     const text = await callAIProxy(prompt, 1200, { pub: true });   // v46: Analytics ไม่ต้อง login
     load.style.display = 'none';
@@ -8593,7 +8614,7 @@ async function runMobAI() {
   // ✅ v24: ใช้ buildForecastPrompt แทน buildWhalePrompt — รวม Forecast + Confidence %
   const _anCoins = _anTopCoinsForMarket();
   const _mkt = await fetchMarketContextPublic(_anCoins);   // v46: ดึง Market Context สาธารณะ (ไม่ต้อง login)
-  const prompt = buildForecastPrompt(AN_FD, SW_ALL, _mkt);
+  const prompt = buildForecastPrompt(_anAiData(), SW_ALL, _mkt);   // v53: ข้อมูลก่อนกรอง
   try {
     const text = await callAIProxy(prompt, 1200, { pub: true });   // v46: Analytics ไม่ต้อง login
     // Render with basic markdown bold support
@@ -12771,7 +12792,7 @@ function fcSubTab(tab) {
         window.google.visualization.Query.setResponse = null;
       reject(new Error('GViz Timeout GID ' + gid));
       _wdGvizFlush();
-    }, 25000);
+    }, 60000);   // v53: 25s → 60s — GViz อ่านทั้งชีต (Small Whale สูงสุด 50,000 แถว) ก้อนใหญ่ขึ้น
 
     window.google = window.google || {};
     window.google.visualization = window.google.visualization || {};

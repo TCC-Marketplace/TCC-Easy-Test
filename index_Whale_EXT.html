@@ -3531,7 +3531,7 @@ html{
     <!-- Filter + Load bar -->
     <div class="an-filter-bar">
       <span style="font-family:var(--mono);font-size:11px;color:var(--b);font-weight:700;">🐋 Whale Analytics</span>
-      <select id="anCoin"><option value="ALL">ทุกเหรียญ</option><option value="BTC">BTC</option><option value="ETH">ETH</option><option value="SOL">SOL</option><option value="BNB">BNB</option><option value="XRP">XRP</option></select>
+      <select id="anCoin"><option value="ALL">ทุกเหรียญ</option><option value="BTC">BTC</option><option value="ETH">ETH</option><option value="SOL">SOL</option><option value="BNB">BNB</option><option value="XRP">XRP</option><option value="HYPE">HYPE</option></select>
       <select id="anDir"><option value="ALL">ทั้งหมด</option><option value="LONG">LONG เท่านั้น</option><option value="SHORT">SHORT เท่านั้น</option></select>
       <select id="anMkt"><option value="ALL">PERPS + SPOT</option><option value="PERPS">PERPS เท่านั้น</option><option value="SPOT">SPOT เท่านั้น</option></select>
       <select id="anDay"><option value="ALL">ทุกวัน</option><option value="1">จันทร์</option><option value="2">อังคาร</option><option value="3">พุธ</option><option value="4">พฤหัส</option><option value="5">ศุกร์</option><option value="6">เสาร์</option><option value="0">อาทิตย์</option></select>
@@ -4724,7 +4724,7 @@ html{
       <!-- Main Grid: Donut + Asset Table -->
       <div class="wd-main-grid">
         <div class="wd-sent-card">
-          <div class="wd-sent-title">Overall Sentiment</div>
+          <div class="wd-sent-title">Overall Sentiment (by USD)</div>
           <div class="wd-donut-wrap">
             <canvas id="wdBigDonut" width="100" height="100"></canvas>
             <div class="wd-donut-lbl"><div class="wd-donut-pct" id="wdBigPct">—%</div><div class="wd-donut-dir">LONG</div></div>
@@ -4741,8 +4741,8 @@ html{
           <table class="wd-tbl">
             <thead><tr>
               <th>Asset</th>
-              <th>Big Whale Sentiment</th>
-              <th>Small Whale Sentiment</th>
+              <th>Big Whale Sentiment (USD)</th>
+              <th>Small Whale Sentiment (USD)</th>
               <th style="text-align:right;">Action Base</th>
             </tr></thead>
             <tbody id="wdAssetTbody">
@@ -4767,7 +4767,7 @@ html{
       <!-- Charts Row 2 -->
       <div class="wd-charts-row">
         <div class="wd-chart-card">
-          <div class="wd-chart-ttl">Long vs Short by Hour</div>
+          <div class="wd-chart-ttl">Long vs Short by Hour (USD K)</div>
           <div class="wd-legend">
             <div class="wd-legend-item"><div class="wd-legend-dot" style="background:#00e676;"></div>Long</div>
             <div class="wd-legend-item"><div class="wd-legend-dot" style="background:none;width:14px;height:3px;border-radius:0;margin-top:3px;border-bottom:2px dashed #ff3d57;"></div>Short</div>
@@ -4791,11 +4791,11 @@ html{
       <!-- Charts Row 4 -->
       <div class="wd-charts-row">
         <div class="wd-chart-card">
-          <div class="wd-chart-ttl">Big Whale: Long vs Short by Coin</div>
+          <div class="wd-chart-ttl">Big Whale: Long vs Short by Coin (USD K)</div>
           <div style="position:relative;height:160px;"><canvas id="wdBigCoinBar"></canvas></div>
         </div>
         <div class="wd-chart-card">
-          <div class="wd-chart-ttl">Small Whale: Long vs Short by Coin</div>
+          <div class="wd-chart-ttl">Small Whale: Long vs Short by Coin (USD K)</div>
           <div style="position:relative;height:160px;"><canvas id="wdSmallCoinBar"></canvas></div>
         </div>
       </div>
@@ -5399,6 +5399,9 @@ let anLoading = false;  // กันการเรียก loadSheetData() ซ
 let _mobAnTimer = null;  // debounce timer for renderMobileAnalytics
 let _mobAnCoin  = 'ALL'; // ✅ FIX: persistent filter state (ไม่ reset เมื่อ re-render)
 let _mobAnDir   = 'ALL';
+let _mobAnMkt   = 'ALL';   // v53: ตัวกรอง mobile ให้ครบเท่า desktop (ตลาด/วัน/ช่วงเวลา)
+let _mobAnDay   = 'ALL';
+let _mobAnHr    = 'ALL';
 
 // ✅ Small Whale context state (แยกจาก AN_ALL — ใช้เฉพาะ AI prompt)
 let SW_ALL = [];  // Small Whale data $10K–$99K (BTC/ETH/SOL/BNB/XRP)
@@ -7187,8 +7190,8 @@ async function loadSheetData() {
   try {
     // v53: เดิมไม่ส่ง rows → GAS ใช้ default 500 แถว (ครอบคลุมแค่ ~2–3 ชม. → Heatmap/Peak/รายวัน/L-S ไม่ครบ)
     //      ขอ 20000 (= เพดานชีต Whale Alerts ≈ 4 วัน) · GAS ตัดเองตาม READ_MAX_ROWS (เวอร์ชันเก่าตัดที่ 5000)
-    const url    = ALERT_CONFIG.appsScriptURL + '?action=getData&rows=20000';
-    const urlSm  = ALERT_CONFIG.appsScriptURL + '?action=getData&rows=5000';   // fallback ถ้าก้อนใหญ่ timeout
+    const url    = ALERT_CONFIG.appsScriptURL + '?action=getData&rows=40000';   // v53: = WHALE_MAX_ROWS (≈ 7.6 วัน)
+    const urlSm  = ALERT_CONFIG.appsScriptURL + '?action=getData&rows=10000';   // fallback ถ้าก้อนใหญ่ timeout
     const urlSW  = ALERT_CONFIG.appsScriptURL + '?action=getSWData&rows=1000';
 
     // ✅ Parallel fetch: Whale + Small Whale พร้อมกัน
@@ -7350,13 +7353,9 @@ function generateDemoData() {
   });
 }
 
-function anApplyFilters() {
-  const coin=document.getElementById('anCoin').value;
-  const dir =document.getElementById('anDir').value;
-  const mkt =document.getElementById('anMkt').value;
-  const day =document.getElementById('anDay').value;
-  const hr  =document.getElementById('anHour').value;
-  AN_FD = AN_ALL.filter(t=>{
+// v53: ตัวกรองชุดเดียวกันทั้ง desktop และ mobile (mobile เดิมมีแค่ เหรียญ/ทิศทาง และโหลดข้อมูลใหม่แล้วค่าที่เลือกไว้ไม่ตรงกับข้อมูลที่แสดง)
+function _anFilterRows(coin, dir, mkt, day, hr) {
+  return AN_ALL.filter(t=>{
     if(coin!=='ALL'&&t.coin!==coin) return false;
     if(dir!=='ALL'&&t.dir!==dir) return false;
     if(mkt!=='ALL'&&t.market!==mkt) return false;
@@ -7364,7 +7363,25 @@ function anApplyFilters() {
     if(hr!=='ALL'){const[a,b]=hr.split('-').map(Number);if(t.h<a||t.h>b)return false;}
     return true;
   });
+}
+function anApplyFilters() {
+  const mob = isMobile();
+  const val = (id, fb) => { const el = document.getElementById(id); return el ? el.value : fb; };
+  AN_FD = _anFilterRows(
+    mob ? _mobAnCoin : val('anCoin','ALL'),
+    mob ? _mobAnDir  : val('anDir','ALL'),
+    mob ? _mobAnMkt  : val('anMkt','ALL'),
+    mob ? _mobAnDay  : val('anDay','ALL'),
+    mob ? _mobAnHr   : val('anHour','ALL'));
   anRenderAll();
+}
+
+// v53: ช่วงวันที่ที่ข้อมูลครอบคลุม เช่น "4 วัน (19/10 → 22/10)"
+function anCoverageText(arr) {
+  const ds = (arr || []).map(t => t.date).filter(Boolean).sort();
+  if (!ds.length) return '';
+  const f = s => s.slice(8) + '/' + s.slice(5, 7);
+  return new Set(ds).size + ' วัน (' + f(ds[0]) + ' → ' + f(ds[ds.length - 1]) + ')';
 }
 
 function anRenderAll() {
@@ -8214,6 +8231,7 @@ function renderMobileAnalytics() {
   const ls   = sUsd>0 ? (lUsd/sUsd).toFixed(2) : '—';
   const lPct = tot>0 ? Math.round(lUsd/tot*100) : 0;
   const isLongBias = lUsd >= sUsd;
+  const topCoinM = Object.entries(coins).sort((a,b)=>b[1]-a[1])[0];   // v53: KPI เหรียญเด่น (เท่ากับ desktop)
 
   // ── Number formatters ──
   const fmtUsd = v => v>=1e9 ? '$'+(v/1e9).toFixed(2)+'B' : v>=1e6 ? '$'+(v/1e6).toFixed(2)+'M' : '$'+Math.round(v/1000).toLocaleString()+'K';
@@ -8228,15 +8246,15 @@ function renderMobileAnalytics() {
 
   // ── Build heatmap HTML separately (avoid nested backtick issue) ──
   let hmHtml = '<div></div>';
-  HOURS.forEach(h=>{ hmHtml += '<div style="font-size:7px;color:var(--t2);text-align:center;padding-bottom:2px;">'+h+'</div>'; });
+  HOURS.forEach(h=>{ hmHtml += '<div style="font-size:9px;color:var(--t1);text-align:center;padding-bottom:2px;">'+h+'</div>'; });
   DAYS.forEach(function(d){
-    hmHtml += '<div style="font-size:9px;color:var(--t1);font-weight:600;display:flex;align-items:center;">'+d.n+'</div>';
+    hmHtml += '<div style="font-size:11px;color:var(--t1);font-weight:600;display:flex;align-items:center;">'+d.n+'</div>';
     HOURS.forEach(function(h){
       var cnt = hmap[d.d][h]||0;
       var iv  = cnt/hmMax;
-      var bg  = cnt===0?'rgba(128,128,128,0.08)':iv<0.25?'rgba(41,182,246,.22)':iv<0.5?'rgba(41,182,246,.48)':iv<0.75?'rgba(41,182,246,.72)':'#29b6f6';
-      var tc2 = iv>=0.75?'#000':'transparent';
-      hmHtml += '<div title="'+d.n+' '+h+':00 — '+cnt+' trades" style="height:20px;border-radius:2px;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:'+tc2+';">'+(cnt||'')+'</div>';
+      var bg  = cnt===0?'rgba(128,128,128,0.14)':iv<0.25?'rgba(41,182,246,.22)':iv<0.5?'rgba(41,182,246,.48)':iv<0.75?'rgba(41,182,246,.72)':'#29b6f6';
+      var tc2 = cnt===0?'transparent':iv>=0.75?'#000':'var(--t0)';   // v53: แสดงเลขทุกเซลล์ (เดิมเฉพาะ ≥75%)
+      hmHtml += '<div title="'+d.n+' '+h+':00 — '+cnt+' trades" style="height:24px;border-radius:2px;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:'+tc2+';">'+(cnt||'')+'</div>';
     });
   });
 
@@ -8262,8 +8280,8 @@ function renderMobileAnalytics() {
     if (t.dir==='LONG'||t.dir==='BUY') wm[t.wallet].l+=t.usd;
     else wm[t.wallet].s+=t.usd;
   });
-  const topWallets = Object.entries(wm).sort((a,b)=>b[1].cnt-a[1].cnt).slice(0,5);
-  const topTrades  = [...AN_FD].sort((a,b)=>b.usd-a.usd).slice(0,5);
+  const topWallets = Object.entries(wm).sort((a,b)=>b[1].cnt-a[1].cnt).slice(0,10);   // v53: Top 10 (เดิม 5)
+  const topTrades  = [...AN_FD].sort((a,b)=>b.usd-a.usd).slice(0,10);
 
   // ── Build HTML ──
   wrap.innerHTML = `
@@ -8272,7 +8290,7 @@ function renderMobileAnalytics() {
     <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
       <div>
         <div style="font-family:var(--mono);font-size:14px;color:var(--b);font-weight:700;">🐋 Whale Analytics</div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--t2);margin-top:2px;">${AN_FD.length.toLocaleString()} รายการ ≥$100K · ${new Date().toLocaleDateString('th-TH')}</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--t2);margin-top:2px;">${AN_FD.length.toLocaleString()} รายการ ≥$100K · ${anCoverageText(AN_ALL) || new Date().toLocaleDateString('th-TH')}</div>
       </div>
       <button class="mob-an-load-btn" style="margin:0;padding:6px 12px;font-size:10px;" onclick="loadSheetData().then(()=>renderMobileAnalytics()).catch(()=>{})">🔄</button>
     </div>
@@ -8297,7 +8315,7 @@ function renderMobileAnalytics() {
       <div class="mob-kpi-card accent-b">
         <div class="mob-kpi-icon">⏰</div>
         <div class="mob-kpi-lbl">Peak Hour</div>
-        <div class="mob-kpi-val" style="color:var(--b);">${peak?peak[0]+':00':'—'}</div>
+        <div class="mob-kpi-val" style="color:var(--b);">${peak?String(peak[0]).padStart(2,'0')+':00 น.':'—'}</div>
         <div class="mob-kpi-sub">${peak?Number(peak[1]).toLocaleString()+' trades/ชม.':''}</div>
       </div>
       <div class="mob-kpi-card accent-g">
@@ -8311,6 +8329,18 @@ function renderMobileAnalytics() {
         <div class="mob-kpi-lbl">L/S Ratio</div>
         <div class="mob-kpi-val" style="color:${isLongBias?'var(--g)':'var(--r)'};">${ls}</div>
         <div class="mob-kpi-sub">${isLongBias?'🟢 Long bias':'🔴 Short bias'}</div>
+      </div>
+      <div class="mob-kpi-card accent-b">
+        <div class="mob-kpi-icon">🔢</div>
+        <div class="mob-kpi-lbl">จำนวน Trades</div>
+        <div class="mob-kpi-val" style="color:var(--b);">${AN_FD.length.toLocaleString()}</div>
+        <div class="mob-kpi-sub">Long ${lPct}% / Short ${100-lPct}% (USD)</div>
+      </div>
+      <div class="mob-kpi-card accent-y">
+        <div class="mob-kpi-icon">🏆</div>
+        <div class="mob-kpi-lbl">เหรียญเด่น</div>
+        <div class="mob-kpi-val" style="color:var(--y);">${topCoinM?topCoinM[0]:'—'}</div>
+        <div class="mob-kpi-sub">${topCoinM?topCoinM[1].toLocaleString()+' trades':''}</div>
       </div>
     </div>
 
@@ -8342,14 +8372,30 @@ function renderMobileAnalytics() {
       <div class="mob-chart-title">ช่วงเวลาที่ Whale Active มากสุด</div>
       <div class="mob-chart-desc">สีน้ำเงินเข้ม = มีกิจกรรมมาก · ใช้วางแผนว่าควรติดตามตลาดช่วงไหน</div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-        <div id="mobHeatmapGrid" style="min-width:420px;display:grid;grid-template-columns:26px repeat(24,1fr);gap:2px;">
+        <div id="mobHeatmapGrid" style="min-width:600px;display:grid;grid-template-columns:30px repeat(24,1fr);gap:2px;">
         </div>
       </div>
     </div>
 
+    <!-- ④.5 Volume ตามช่วงเวลา 15 นาที (v53: เท่ากับ desktop) -->
+    <div style="font-family:var(--mono);font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;padding:4px 0 2px;display:flex;align-items:center;gap:6px;flex-shrink:0;">
+      <span style="display:block;width:3px;height:12px;border-radius:2px;background:var(--g);"></span>⏱ Volume ตามช่วงเวลา (15 นาที)
+    </div>
+    <div class="mob-chart-card">
+      <div class="mob-chart-title">
+        ปริมาณ USD ตามช่วงเวลา
+        <div class="an-legend" style="margin:0;">
+          <span><span class="ldot" style="background:#00e676"></span>Long</span>
+          <span><span class="ldot" style="background:#ff3d57"></span>Short</span>
+        </div>
+      </div>
+      <div class="mob-chart-desc">USD (K) แยก Long/Short ในแต่ละช่วง 15 นาที — เลื่อนซ้าย–ขวาเพื่อดูทุกช่วง</div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div id="mobVolWrap" style="position:relative;height:160px;"><canvas id="mobVolChart"></canvas></div></div>
+    </div>
+
     <!-- ⑤ Charts: Day + Hour -->
     <div style="font-family:var(--mono);font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;padding:4px 0 2px;display:flex;align-items:center;gap:6px;flex-shrink:0;">
-      <span style="display:block;width:3px;height:12px;border-radius:2px;background:var(--b);"></span>📊 Volume รายวัน &amp; รายชั่วโมง
+      <span style="display:block;width:3px;height:12px;border-radius:2px;background:var(--b);"></span>📊 Volume รายวัน · รายชั่วโมง · ตามเหรียญ
     </div>
     <div class="mob-chart-card">
       <div class="mob-chart-title">
@@ -8367,10 +8413,21 @@ function renderMobileAnalytics() {
       <div class="mob-chart-desc">ชั่วโมงไหนที่ whale เทรดบ่อยที่สุด — ใช้กำหนดเวลาติดตามตลาด</div>
       <div style="position:relative;height:130px;"><canvas id="mobHourChart"></canvas></div>
     </div>
+    <div class="mob-chart-card">
+      <div class="mob-chart-title">
+        Long vs Short ตามเหรียญ
+        <div class="an-legend" style="margin:0;">
+          <span><span class="ldot" style="background:#00e676"></span>Long</span>
+          <span><span class="ldot" style="background:#ff3d57"></span>Short</span>
+        </div>
+      </div>
+      <div class="mob-chart-desc">มูลค่า USD (K) ฝั่ง Long/Short ของแต่ละเหรียญ — ดูว่าเหรียญไหน whale เอนเอียงทางไหน</div>
+      <div style="position:relative;height:150px;"><canvas id="mobLSChart"></canvas></div>
+    </div>
 
     <!-- ⑥ Top Wallets -->
     <div style="font-family:var(--mono);font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;padding:4px 0 2px;display:flex;align-items:center;gap:6px;flex-shrink:0;">
-      <span style="display:block;width:3px;height:12px;border-radius:2px;background:var(--b);"></span>🐳 Top Wallets (Whale บ่อย)
+      <span style="display:block;width:3px;height:12px;border-radius:2px;background:var(--b);"></span>🐳 Top Wallets (Whale บ่อย · Top 10)
     </div>
     <div class="mob-chart-card">
       <div class="mob-chart-desc" style="margin-bottom:10px;">Wallet ที่เทรดซ้ำบ่อยที่สุด — คลิกเพื่อดู Positions จริง</div>
@@ -8395,7 +8452,7 @@ function renderMobileAnalytics() {
 
     <!-- ⑦ Top Trades -->
     <div style="font-family:var(--mono);font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;padding:4px 0 2px;display:flex;align-items:center;gap:6px;flex-shrink:0;">
-      <span style="display:block;width:3px;height:12px;border-radius:2px;background:var(--y);"></span>💎 รายการใหญ่สุด (Top 5)
+      <span style="display:block;width:3px;height:12px;border-radius:2px;background:var(--y);"></span>💎 รายการใหญ่สุด (Top 10)
     </div>
     <div class="mob-chart-card">
       <div class="mob-chart-desc" style="margin-bottom:10px;">Whale trades มูลค่าสูงสุดในช่วงที่เลือก — ≥$100K</div>
@@ -8439,6 +8496,26 @@ function renderMobileAnalytics() {
           <div style="font-family:var(--mono);font-size:9px;color:var(--t2);margin-bottom:4px;">ทิศทาง</div>
           <select id="anDirMob" onchange="anApplyFiltersMob()" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--t0);font-family:var(--mono);font-size:11px;padding:7px 8px;border-radius:6px;outline:none;">
             ${[['ALL','ทั้งหมด'],['LONG','LONG'],['SHORT','SHORT']].map(([v,l])=>`<option value="${v}"${_mobAnDir===v?' selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;">
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--t2);margin-bottom:4px;">ตลาด</div>
+          <select id="anMktMob" onchange="anApplyFiltersMob()" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--t0);font-family:var(--mono);font-size:11px;padding:7px 4px;border-radius:6px;outline:none;">
+            ${[['ALL','PERPS+SPOT'],['PERPS','PERPS'],['SPOT','SPOT']].map(([v,l])=>`<option value="${v}"${_mobAnMkt===v?' selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--t2);margin-bottom:4px;">วัน</div>
+          <select id="anDayMob" onchange="anApplyFiltersMob()" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--t0);font-family:var(--mono);font-size:11px;padding:7px 4px;border-radius:6px;outline:none;">
+            ${[['ALL','ทุกวัน'],['1','จันทร์'],['2','อังคาร'],['3','พุธ'],['4','พฤหัส'],['5','ศุกร์'],['6','เสาร์'],['0','อาทิตย์']].map(([v,l])=>`<option value="${v}"${_mobAnDay===v?' selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--t2);margin-bottom:4px;">ช่วงเวลา</div>
+          <select id="anHourMob" onchange="anApplyFiltersMob()" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--t0);font-family:var(--mono);font-size:11px;padding:7px 4px;border-radius:6px;outline:none;">
+            ${[['ALL','ตลอดวัน'],['0-5','00–05 ดึก'],['6-8','06–08 เช้า'],['9-11','09–11 สาย'],['12-14','12–14 บ่าย'],['15-17','15–17 เย็น'],['18-23','18–23 ค่ำ']].map(([v,l])=>`<option value="${v}"${_mobAnHr===v?' selected':''}>${l}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -8580,20 +8657,64 @@ function renderMobileAnalytics() {
         });
       } catch(e) { console.warn('mobHour chart error:', e); }
     }
+
+    // ── v53: Volume ตามช่วง 15 นาที (เท่ากับ desktop anRenderVol) ──
+    const volEl = document.getElementById('mobVolChart');
+    if (volEl && volEl.parentElement) {
+      if (AN_CH.mobVol) { try { AN_CH.mobVol.destroy(); } catch(e){} AN_CH.mobVol = null; }
+      const vSlots = [...new Set(AN_FD.map(t=>t.s15).filter(Boolean))].sort();
+      const vL = {}, vS = {}; vSlots.forEach(s=>{ vL[s]=0; vS[s]=0; });
+      AN_FD.forEach(t=>{ if (vL[t.s15]===undefined) return; if (t.dir==='LONG'||t.dir==='BUY') vL[t.s15]+=t.usd; else vS[t.s15]+=t.usd; });
+      volEl.parentElement.style.width = 'max(100%,' + Math.max(320, vSlots.length*14) + 'px)';   // ช่วงเยอะ → เลื่อนแนวนอน
+      try {
+        AN_CH.mobVol = new Chart(volEl, {
+          type:'bar',
+          data:{labels:vSlots,datasets:[
+            {label:'Long', data:vSlots.map(s=>Math.round(vL[s]/1000)), backgroundColor:'rgba(0,230,118,.75)'},
+            {label:'Short',data:vSlots.map(s=>Math.round(vS[s]/1000)), backgroundColor:'rgba(255,61,87,.75)'},
+          ]},
+          options:{...chartDefaults,
+            scales:{
+              x:{ticks:{color:tc,font:{size:9,family:'IBM Plex Mono'},maxRotation:0,autoSkip:true,maxTicksLimit:24},grid:{display:false},border:{display:false}},
+              y:{ticks:{color:tc,font:{size:9,family:'IBM Plex Mono'},maxTicksLimit:5,callback:v=>'$'+v.toLocaleString()+'K'},grid:{color:gc},border:{display:false}}
+            }
+          }
+        });
+      } catch(e) { console.warn('mobVol chart error:', e); }
+    }
+
+    // ── v53: Long vs Short ตามเหรียญ (เท่ากับ desktop anRenderLS) ──
+    const lsEl = document.getElementById('mobLSChart');
+    if (lsEl && lsEl.parentElement) {
+      if (AN_CH.mobLS) { try { AN_CH.mobLS.destroy(); } catch(e){} AN_CH.mobLS = null; }
+      const lsCoins = [...new Set(AN_FD.map(t=>t.coin))].sort();
+      try {
+        AN_CH.mobLS = new Chart(lsEl, {
+          type:'bar',
+          data:{labels:lsCoins,datasets:[
+            {label:'Long', data:lsCoins.map(c=>Math.round(AN_FD.filter(t=>t.coin===c&&(t.dir==='LONG'||t.dir==='BUY')).reduce((s,t)=>s+t.usd,0)/1000)), backgroundColor:'rgba(0,230,118,.85)', borderRadius:4},
+            {label:'Short',data:lsCoins.map(c=>Math.round(AN_FD.filter(t=>t.coin===c&&(t.dir==='SHORT'||t.dir==='SELL')).reduce((s,t)=>s+t.usd,0)/1000)), backgroundColor:'rgba(255,61,87,.85)', borderRadius:4},
+          ]},
+          options:{...chartDefaults,
+            scales:{
+              x:{ticks:{color:tc,font:{size:11,family:'IBM Plex Mono'}},grid:{display:false},border:{display:false}},
+              y:{ticks:{color:tc,font:{size:9,family:'IBM Plex Mono'},maxTicksLimit:5,callback:v=>'$'+v.toLocaleString()+'K'},grid:{color:gc},border:{display:false}}
+            }
+          }
+        });
+      } catch(e) { console.warn('mobLS chart error:', e); }
+    }
   }, 300);
 }
 // ── Filter for mobile ──
 function anApplyFiltersMob() {
-  const coin = document.getElementById('anCoinMob')?.value||'ALL';
-  const dir  = document.getElementById('anDirMob')?.value||'ALL';
   // ✅ FIX: บันทึกค่าลง global state เพื่อไม่ให้หาย เมื่อ re-render
-  _mobAnCoin = coin;
-  _mobAnDir  = dir;
-  AN_FD = AN_ALL.filter(t=>{
-    if (coin!=='ALL'&&t.coin!==coin) return false;
-    if (dir!=='ALL'&&t.dir!==dir)   return false;
-    return true;
-  });
+  _mobAnCoin = document.getElementById('anCoinMob')?.value || 'ALL';
+  _mobAnDir  = document.getElementById('anDirMob')?.value  || 'ALL';
+  _mobAnMkt  = document.getElementById('anMktMob')?.value  || 'ALL';   // v53
+  _mobAnDay  = document.getElementById('anDayMob')?.value  || 'ALL';
+  _mobAnHr   = document.getElementById('anHourMob')?.value || 'ALL';
+  AN_FD = _anFilterRows(_mobAnCoin, _mobAnDir, _mobAnMkt, _mobAnDay, _mobAnHr);
   renderMobileAnalytics();
 }
 
@@ -12631,6 +12752,8 @@ function fcSubTab(tab) {
   const WD_SHEET_ID = '1U4nJ09BZFTnDn7e6y2CnF8quV4736VYmST-mKgFlj2E';
   const WD_BIG_GID   = '0';
   const WD_SMALL_GID = '1040890918';
+  const WD_SW_MIN_USD = 30000;                    // v53: ต้องตรงกับ SW_MIN_USD ใน GAS — ตัดแถว SW เก่า ($10K–$30K ก่อน v52) ให้เกณฑ์เดียวกันทั้งช่วงวันที่
+  const WD_GVIZ_QUERY = 'select A,B,C,D,F,K';    // v53: ดึงเฉพาะคอลัมน์ที่ใช้ (Timestamp,Wallet,Coin,Direction,USD Value,Hour) ลด payload ~70%
   const WD_MAJOR = ['BTC','ETH'];
 
   let wdBigRaw = [], wdSmallRaw = [];
@@ -12712,6 +12835,8 @@ function fcSubTab(tab) {
       b.classList.remove('active','active-all');
       if (b.dataset.coin === coin) b.classList.add(coin === 'all' ? 'active-all' : 'active');
     });
+    // v53: เลือกเหรียญแล้ว apply ทันที (เหมือน Quick Range) — เดิมต้องกด APPLY และกรองเฉพาะตาราง
+    if (wdBigRaw.length || wdSmallRaw.length) wdApplyFilter();
   };
 
   function wdBuildCoinPills(coins) {
@@ -12723,6 +12848,15 @@ function fcSubTab(tab) {
       b.onclick = () => wdSetCoinFilter(coin);
       c.appendChild(b);
     });
+    // v53: รีเฟรชข้อมูลแล้ว pill ถูกสร้างใหม่ → คงเหรียญที่เลือกไว้
+    if (wdActiveCoin !== 'all') {
+      if (coins.includes(wdActiveCoin)) {
+        c.querySelectorAll('.wd-coin-pill').forEach(b => {
+          b.classList.remove('active','active-all');
+          if (b.dataset.coin === wdActiveCoin) b.classList.add('active');
+        });
+      } else { wdActiveCoin = 'all'; }
+    }
   }
 
   /* ── โหลดข้อมูลผ่าน Apps Script (เหมือน loadSheetData หลัก) ── */
@@ -12730,8 +12864,9 @@ function fcSubTab(tab) {
     const baseURL = ALERT_CONFIG.appsScriptURL;   // v45: ใช้ค่าเดียวจาก ALERT_CONFIG
 
     const [rBig, rSmall] = await Promise.allSettled([
-      fetch(baseURL + '?action=getData&rows=3000',    { signal: AbortSignal.timeout(25000) }),
-      fetch(baseURL + '?action=getSWData&rows=3000',  { signal: AbortSignal.timeout(25000) }),
+      // v53: 3000 แถว (~11–15 ชม.) → ขอเต็มชีต (Big 40,000 · Small 50,000) · GAS ตัดเองตาม READ_MAX_ROWS
+      fetch(baseURL + '?action=getData&rows=40000',    { signal: AbortSignal.timeout(45000) }),
+      fetch(baseURL + '?action=getSWData&rows=50000',  { signal: AbortSignal.timeout(45000) }),
     ]);
 
     let bigRows = [], smallRows = [];
@@ -12753,6 +12888,23 @@ function fcSubTab(tab) {
 
   /* แปลง Apps Script row → format ที่ render ใช้ */
   function wdParseAppsRow(r) {
+    // v53 FIX: GAS getData/getSWData คืนแถวเป็น "array" [ts, wallet, coin, dir, size, usd, lev, action, market, price, hour, dow]
+    //          เดิม parser อ่านแบบ object (r.usd/r.timestamp) → ทุกแถวเป็น null → เส้นทาง Apps Script ได้ 0 แถวเสมอ
+    if (Array.isArray(r)) {
+      const ts = wdParseTS(String(r[0] == null ? '' : r[0]));
+      if (!ts || isNaN(ts.getTime())) return null;
+      const coin = String(r[2] || '').trim().toUpperCase();
+      const dir  = String(r[3] || '').trim().toUpperCase();
+      if (!coin || !dir) return null;
+      const hv = parseInt(r[10]);
+      return {
+        timestamp: ts,
+        wallet:    String(r[1] || '').trim(),
+        coin, direction: dir,
+        usdValue:  parseFloat(String(r[5] == null ? 0 : r[5]).replace(/[^0-9.\-]/g,'')) || 0,
+        hour:      isNaN(hv) ? wdBkkHour(ts) : hv,
+      };
+    }
     const usdRaw = String(r.usd || r['USD Value'] || r.usdValue || 0).replace(/[^0-9.\-]/g,'');
     // date="15/05/2025" ts="14:30" หรือ timestamp="15/05/2025 14:30:00"
     const tsRaw = r.timestamp || r.Timestamp
@@ -12819,7 +12971,7 @@ function fcSubTab(tab) {
     };
 
     const script = document.createElement('script');
-    script.src   = `https://docs.google.com/spreadsheets/d/${WD_SHEET_ID}/gviz/tq?tqx=out:json;reqId:wd_${Date.now()}&gid=${gid}`;
+    script.src   = `https://docs.google.com/spreadsheets/d/${WD_SHEET_ID}/gviz/tq?tqx=out:json;reqId:wd_${Date.now()}&gid=${gid}&tq=${encodeURIComponent(WD_GVIZ_QUERY)}`;
     script.onerror = () => {
       clearTimeout(timeout);
       if (window.google && window.google.visualization && window.google.visualization.Query)
@@ -12830,9 +12982,9 @@ function fcSubTab(tab) {
     document.head.appendChild(script);
   }
 
-  async function wdLoadCsvGViz(gid) {
+  async function wdLoadCsvGViz(gid, minUsd) {
     const raw = await wdLoadSheetGViz(gid);
-    return raw.map(wdParseRow).filter(r => r.timestamp && !isNaN(r.timestamp.getTime()) && r.coin && r.direction);
+    return raw.map(wdParseRow).filter(r => r.timestamp && !isNaN(r.timestamp.getTime()) && r.coin && r.direction && r.usdValue >= (minUsd || 0));
   }
 
   function wdParseTS(ts) {
@@ -12858,14 +13010,17 @@ function fcSubTab(tab) {
   }
 
   function wdParseRow(r) {
-    const usdRaw = (r['USD Value']||r['usd_value']||'0').toString().replace(/[^0-9.\-]/g,'');
+    // v53: fallback เป็นตัวอักษรคอลัมน์ (A,B,C,D,F,K) กรณี GViz ไม่คืน label
+    const usdRaw = (r['USD Value']||r['usd_value']||r['F']||'0').toString().replace(/[^0-9.\-]/g,'');
+    const ts = wdParseTS(r['Timestamp']||r['timestamp']||r['A']);
+    const hv = parseInt(r['Hour']||r['hour']||r['K']);
     return {
-      timestamp: wdParseTS(r['Timestamp']||r['timestamp']),
-      wallet:    (r['Wallet']||r['wallet']||'').trim(),
-      coin:      (r['Coin']||r['coin']||'').trim().toUpperCase(),
-      direction: (r['Direction']||r['direction']||'').trim().toUpperCase(),
+      timestamp: ts,
+      wallet:    (r['Wallet']||r['wallet']||r['B']||'').trim(),
+      coin:      (r['Coin']||r['coin']||r['C']||'').trim().toUpperCase(),
+      direction: (r['Direction']||r['direction']||r['D']||'').trim().toUpperCase(),
       usdValue:  parseFloat(usdRaw)||0,
-      hour:      parseInt(r['Hour']||r['hour']||0),
+      hour:      isNaN(hv) ? (ts ? wdBkkHour(ts) : 0) : hv,   // v53: เดิมช่อง Hour ว่าง → ตกที่ชั่วโมง 0
     };
   }
 
@@ -12875,27 +13030,43 @@ function fcSubTab(tab) {
   }
 
   /* ── Filter ── */
+  /* v53: วัน/ชั่วโมงตามเวลาไทย (UTC+7) — ไม่ขึ้นกับ timezone ของเบราว์เซอร์
+     เดิมใช้ getFullYear/getDate ของเครื่อง → ผู้ใช้นอกไทย (หรือเครื่องตั้ง TZ อื่น) ได้ขอบเขต "Today/Week" และกราฟรายวันคลาดเคลื่อน */
+  function wdBkkYMD(d) {
+    const t = new Date(d.getTime() + 7 * 3600000);
+    return t.getUTCFullYear() + '-' + String(t.getUTCMonth() + 1).padStart(2, '0') + '-' + String(t.getUTCDate()).padStart(2, '0');
+  }
+  function wdBkkHour(d) { return new Date(d.getTime() + 7 * 3600000).getUTCHours(); }
+
   function wdFilterDateRange(data, fromStr, toStr) {
     if (!fromStr && !toStr) return data;
-    const parseD = s => { if(!s) return null; const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d); };
-    const from = parseD(fromStr), to = parseD(toStr);
     return data.filter(r => {
       const t = r.timestamp;
       if (!t || isNaN(t.getTime())) return false;
-      const rd = new Date(t.getFullYear(), t.getMonth(), t.getDate());
-      if (from && rd < from) return false;
-      if (to   && rd > to)   return false;
+      const k = wdBkkYMD(t);                    // 'YYYY-MM-DD' เทียบเป็นสตริงได้ตรงลำดับวัน
+      if (fromStr && k < fromStr) return false;
+      if (toStr   && k > toStr)   return false;
       return true;
     });
   }
 
+  function wdIsLong(r)  { return r.direction === 'LONG'  || r.direction === 'BUY'; }
+  function wdIsShort(r) { return r.direction === 'SHORT' || r.direction === 'SELL'; }
+
+  // v53: Sentiment ถ่วงน้ำหนักด้วยมูลค่า USD — เดิมนับจำนวนรายการ (order $100K นับเท่ากับ $5M และไม่ตรงกับหน้า Analytics)
+  //      longs/shorts/total ยังเป็น "จำนวนรายการ" (ใช้เกณฑ์ข้อมูลไม่พอ total<5) · longUsd/shortUsd ใช้กับกราฟ
+  //      (เดิม BUY/SELL ของ SPOT ถูกนับเป็น Short ทั้งหมด → ตอนนี้ BUY=Long, SELL=Short)
   function wdCalcSent(data) {
     const coins = [...new Set(data.map(r => r.coin))].filter(Boolean).sort();
     const out = {};
     for (const coin of coins) {
       const cd = data.filter(r => r.coin === coin);
-      const longs = cd.filter(r => r.direction === 'LONG').length;
-      out[coin] = { longs, shorts: cd.length-longs, total: cd.length, longPct: cd.length ? longs/cd.length : 0 };
+      let longs = 0, lUsd = 0, sUsd = 0;
+      cd.forEach(r => { if (wdIsLong(r)) { longs++; lUsd += r.usdValue; } else { sUsd += r.usdValue; } });
+      const totUsd = lUsd + sUsd;
+      out[coin] = { longs, shorts: cd.length-longs, total: cd.length,
+                    longUsd: lUsd, shortUsd: sUsd, totalUsd: totUsd,
+                    longPct: totUsd > 0 ? lUsd/totUsd : (cd.length ? longs/cd.length : 0) };
     }
     return out;
   }
@@ -12923,10 +13094,13 @@ function fcSubTab(tab) {
 
   /* ── Render ── */
   function wdRenderSentiment(big, small, filterAsset) {
-    const bigL = big.filter(r => r.direction==='LONG').length, bigT = big.length;
-    const smL  = small.filter(r => r.direction==='LONG').length, smT = small.length;
-    const bigLP = bigT>0 ? Math.round(bigL/bigT*100) : 0;
-    const smLP  = smT>0  ? Math.round(smL/smT*100)  : 0;
+    // v53: สัดส่วน Long ตามมูลค่า USD (ถ้าไม่มีมูลค่า ใช้จำนวนรายการแทน)
+    const _lp = arr => {
+      let l = 0, t = 0; arr.forEach(r => { t += r.usdValue; if (wdIsLong(r)) l += r.usdValue; });
+      return t > 0 ? Math.round(l / t * 100) : (arr.length ? Math.round(arr.filter(wdIsLong).length / arr.length * 100) : 0);
+    };
+    const bigLP = _lp(big);
+    const smLP  = _lp(small);
     document.getElementById('wdBigPct').textContent   = bigLP + '%';
     document.getElementById('wdSmallPct').textContent = smLP  + '%';
     wdMakeDoughnut('wdBigDonut',   bigLP, 100-bigLP);
@@ -12972,14 +13146,14 @@ function fcSubTab(tab) {
       const h = r.hour;
       if (h>=0 && h<24) {
         hourVol[h] += r.usdValue;
-        if (r.direction==='LONG') hourL[h]++; else if (r.direction==='SHORT') hourS[h]++;
+        if (wdIsLong(r)) hourL[h] += r.usdValue; else if (wdIsShort(r)) hourS[h] += r.usdValue;   // v53: USD (เดิมนับรายการ)
       }
     }
     const hlbls = Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')+'h');
     wdMakeBar('wdHourChart', hlbls, hourVol.map(v=>Math.round(v/1000)), '#3b82f6', false);
     wdMakeLine('wdTrendChart', hlbls, [
-      { label:'Long',  data:hourL, borderColor:'#00e676', backgroundColor:'#00e67620', fill:true, tension:.35, pointRadius:2, borderWidth:2 },
-      { label:'Short', data:hourS, borderColor:'#ff3d57', backgroundColor:'#ff3d5720', fill:true, tension:.35, pointRadius:2, borderWidth:2, borderDash:[5,3] }
+      { label:'Long',  data:hourL.map(v=>Math.round(v/1000)), borderColor:'#00e676', backgroundColor:'#00e67620', fill:true, tension:.35, pointRadius:2, borderWidth:2 },
+      { label:'Short', data:hourS.map(v=>Math.round(v/1000)), borderColor:'#ff3d57', backgroundColor:'#ff3d5720', fill:true, tension:.35, pointRadius:2, borderWidth:2, borderDash:[5,3] }
     ]);
 
     const coinVol = {};
@@ -12991,13 +13165,13 @@ function fcSubTab(tab) {
     const wVol = {};
     for (const r of all) { if (r.wallet) wVol[r.wallet] = (wVol[r.wallet]||0)+r.usdValue; }
     const topW = Object.entries(wVol).sort((a,b)=>b[1]-a[1]).slice(0,8);
-    wdMakeBar('wdWalletChart', topW.map(w=>w[0].slice(0,6)+'…'), topW.map(w=>Math.round(w[1]/1000)), '#ce93d8', true);
+    wdMakeBar('wdWalletChart', topW.map(w=>w[0].slice(0,6)+'…'+w[0].slice(-4)), topW.map(w=>Math.round(w[1]/1000)), '#ce93d8', true);
 
     const dateVol = {};
     for (const r of all) {
       if (!r.timestamp) continue;
-      // ✅ ใช้ local date ไม่ใช่ UTC
-      const k = wdToYMD(r.timestamp);
+      // ✅ v53: ใช้วันที่ไทย (ไม่ใช่ local ของเบราว์เซอร์)
+      const k = wdBkkYMD(r.timestamp);
       dateVol[k] = (dateVol[k]||0)+r.usdValue;
     }
     const sortedDates = Object.keys(dateVol).sort();
@@ -13012,8 +13186,9 @@ function fcSubTab(tab) {
 
     const bigSent = wdCalcSent(big), smSent = wdCalcSent(small);
     const cc = [...new Set([...Object.keys(bigSent),...Object.keys(smSent)])].sort();
-    wdMakeGroupedBar('wdBigCoinBar',   cc, cc.map(c=>(bigSent[c]||{longs:0}).longs||0), cc.map(c=>(bigSent[c]||{shorts:0}).shorts||0));
-    wdMakeGroupedBar('wdSmallCoinBar', cc, cc.map(c=>(smSent[c] ||{longs:0}).longs||0), cc.map(c=>(smSent[c] ||{shorts:0}).shorts||0));
+    // v53: USD K (เดิมจำนวนรายการ) — ให้ตรงกับ Sentiment ด้านบน
+    wdMakeGroupedBar('wdBigCoinBar',   cc, cc.map(c=>Math.round(((bigSent[c]||{}).longUsd||0)/1000)), cc.map(c=>Math.round(((bigSent[c]||{}).shortUsd||0)/1000)));
+    wdMakeGroupedBar('wdSmallCoinBar', cc, cc.map(c=>Math.round(((smSent[c] ||{}).longUsd||0)/1000)), cc.map(c=>Math.round(((smSent[c] ||{}).shortUsd||0)/1000)));
   }
 
   /* ── Apply filter ── */
@@ -13031,6 +13206,11 @@ function fcSubTab(tab) {
         big = big.filter(r => (WD_MAJOR.includes(r.coin)?'MAJOR':'ALT') === fa);
         sm  = sm.filter(r  => (WD_MAJOR.includes(r.coin)?'MAJOR':'ALT') === fa);
       }
+      // v53 FIX: เดิมเหรียญที่เลือกกรองแค่ "ตาราง" — KPI/กราฟ/วงกลม Sentiment ยังเป็นทุกเหรียญ
+      if (wdActiveCoin !== 'all') {
+        big = big.filter(r => r.coin === wdActiveCoin);
+        sm  = sm.filter(r  => r.coin === wdActiveCoin);
+      }
       wdRenderSentiment(big, sm, fa);
       wdRenderCharts(big, sm);
       const total = big.length + sm.length;
@@ -13043,7 +13223,7 @@ function fcSubTab(tab) {
       let rangeLabel = '';
       if (fromStr || toStr) rangeLabel = ` · ${fmtDate(fromStr)} → ${fmtDate(toStr)}`;
       document.getElementById('wdStatusLbl').textContent =
-        `${total.toLocaleString()} records${rangeLabel}`;
+        `${total.toLocaleString()} records${rangeLabel}` + (window._wdLoadInfo ? ` · ${window._wdLoadInfo}` : '');
     } catch(e) {
       document.getElementById('wdStatusLbl').textContent = '❌ Error: ' + e.message;
     }
@@ -13127,6 +13307,40 @@ function fcSubTab(tab) {
   }
 
   /* ── Init ── */
+  /* v53: โหลดข้อมูลทั้งหมด — GViz ก่อน (อ่านทั้งชีต, เฉพาะคอลัมน์ที่ใช้) → Apps Script เป็น fallback (ใช้ได้แม้ชีตไม่ public)
+     เดิม: Apps Script ก่อน แต่ parser ผิดรูปแบบ (ได้ 0 แถวเสมอ) → เสียเวลารอ 2 request แล้วค่อยตกมา GViz */
+  let _wdLoading = false;
+  async function wdLoadAll() {
+    try {
+      const b = await wdLoadCsvGViz(WD_BIG_GID);
+      const s = await wdLoadCsvGViz(WD_SMALL_GID, WD_SW_MIN_USD);
+      if (b.length || s.length) return { big: b, small: s, via: 'GViz' };
+      console.warn('WD: GViz ไม่มีแถว → ลอง Apps Script');
+    } catch (e) { console.warn('WD: GViz ล้มเหลว → ลอง Apps Script', e); }
+    const g = await wdFetchViaAppsScript();
+    if (g.bigRows.length || g.smallRows.length) return { big: g.bigRows, small: g.smallRows, via: 'Apps Script' };
+    throw new Error('โหลดไม่สำเร็จ (GViz และ Apps Script)');
+  }
+
+  window.wdReload = async function (silent) {
+    if (_wdLoading) return;
+    _wdLoading = true;
+    const lbl = document.getElementById('wdStatusLbl');
+    if (!silent && lbl) lbl.textContent = 'กำลังโหลดข้อมูล...';
+    try {
+      const d = await wdLoadAll();
+      wdBigRaw = d.big; wdSmallRaw = d.small;
+      wdBuildCoinPills([...new Set([...d.big, ...d.small].map(r => r.coin))].filter(Boolean).sort());
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+      window._wdLoadInfo = d.via + ' · ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      await wdApplyFilter();
+    } catch (e) {
+      if (lbl && !silent) lbl.textContent = '❌ Load error: ' + e.message;   // รีเฟรชเงียบล้มเหลว → คงข้อมูลเดิมไว้
+      console.error('WD load error:', e);
+    }
+    _wdLoading = false;
+  };
+
   window.wdInit = async function() {
     document.getElementById('wdStatusLbl').textContent = 'กำลังโหลดข้อมูล...';
     wdSetQuick('week', false); // ✅ ตั้งวันที่ก่อน ยังไม่ apply (รอข้อมูลโหลดเสร็จก่อน)
@@ -13145,35 +13359,13 @@ function fcSubTab(tab) {
     }
     wdTickClock();
     setInterval(wdTickClock, 30000); // อัปเดตทุก 30 วินาที
-    try {
-      // ── Primary: Apps Script (เหมือน Analytics panel หลัก) ──
-      const { bigRows, smallRows } = await wdFetchViaAppsScript();
-
-      if (bigRows.length > 0 || smallRows.length > 0) {
-        wdBigRaw = bigRows; wdSmallRaw = smallRows;
-        const allCoins = [...new Set([...bigRows,...smallRows].map(r=>r.coin))].filter(Boolean).sort();
-        wdBuildCoinPills(allCoins);
-        document.getElementById('wdStatusLbl').textContent =
-          `✅ Loaded Big: ${bigRows.length} · Small: ${smallRows.length} records`;
-        await wdApplyFilter();
-        return;
-      }
-
-      // ── Fallback: GViz โดยตรง ──
-      document.getElementById('wdStatusLbl').textContent = 'Apps Script ไม่มีข้อมูล — ลอง GViz...';
-      const b = await wdLoadCsvGViz(WD_BIG_GID);
-      const s = await wdLoadCsvGViz(WD_SMALL_GID);
-      wdBigRaw = b; wdSmallRaw = s;
-      const allCoins = [...new Set([...b,...s].map(r=>r.coin))].filter(Boolean).sort();
-      wdBuildCoinPills(allCoins);
-      document.getElementById('wdStatusLbl').textContent =
-        `✅ GViz Loaded: ${(b.length+s.length).toLocaleString()} records`;
-      await wdApplyFilter();
-
-    } catch(e) {
-      document.getElementById('wdStatusLbl').textContent = '❌ Load error: ' + e.message;
-      console.error('WD init error:', e);
-    }
+    await wdReload(false);
+    // v53: รีเฟรชข้อมูลอัตโนมัติทุก 10 นาที (เดิมโหลดครั้งเดียวแล้วค้างจนกว่าจะรีเฟรชหน้า ทั้งที่ป้าย LIVE)
+    setInterval(function () {
+      const p = document.getElementById('fcWhaleDataPanel');
+      if (document.hidden || !p || p.offsetParent === null) return;   // ไม่โหลดเมื่อแท็บถูกซ่อน
+      wdReload(true);
+    }, 10 * 60 * 1000);
   };
 })();
 

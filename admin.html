@@ -381,7 +381,7 @@ tr:hover td{background:var(--bgh)}
     <p style="font-size:11px;color:var(--t2);text-align:center">
       ยังไม่มีบัญชี? <a href="javascript:void(0)" onclick="showLockState('signup')" style="color:var(--goldb)">สมัครสมาชิก</a>
     </p>
-    <p style="font-size:10px;color:var(--t3)">TCC Admin v4.1 · sync Main v6.4-COMM2 · Email+Password+OTP · GAS Backend</p>
+    <p style="font-size:10px;color:var(--t3)">TCC Admin v4.2 · sync Main v6.4-COMM2 · Easy v8.4-RZPNL · Email+Password+OTP · GAS Backend</p>
   </div>
 
   <!-- STATE: SIGNUP -->
@@ -483,7 +483,7 @@ tr:hover td{background:var(--bgh)}
       <div class="sb-sec">การเทรด</div>
       <div class="si" onclick="go('positions')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        <span class="lbl">Positions / Orders</span>
+        <span class="lbl">Positions / Orders (Futures-Contract)</span>
       </div>
       <div class="si" onclick="go('earncontracts')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -491,7 +491,7 @@ tr:hover td{background:var(--bgh)}
       </div>
       <div class="si" onclick="go('futures')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-        <span class="lbl">Futures Direct / Loans</span>
+        <span class="lbl">Futures-Direct / Loans</span>
       </div>
       <div class="sb-sec">รายงาน</div>
       <div class="si" onclick="go('revenue')">
@@ -501,6 +501,14 @@ tr:hover td{background:var(--bgh)}
       <div class="si" onclick="go('fundingfee')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
         <span class="lbl">Funding Fee Log</span>
+      </div>
+      <div class="si" onclick="go('ledger')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+        <span class="lbl">Commission Ledger</span>
+      </div>
+      <div class="si" onclick="go('reqlog')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        <span class="lbl">Request Log</span>
       </div>
       <div class="sb-sec">ระบบ</div>
       <div class="si" onclick="go('supportchat');schAdminInit()">
@@ -883,7 +891,7 @@ tr:hover td{background:var(--bgh)}
           </select>
         </div>
         <div class="tw">
-          <table><thead><tr><th>BNB ID</th><th>ชื่อ</th><th>ประเภท</th><th>Asset</th><th>จำนวน</th><th>Symbol/Network</th><th>หมายเหตุ</th><th>เวลา</th></tr></thead>
+          <table><thead><tr><th>BNB ID</th><th>ชื่อ</th><th>ประเภท</th><th>Asset</th><th>จำนวน</th><th>Symbol/Network</th><th>Account</th><th>Contract</th><th>หมายเหตุ</th><th>เวลา</th></tr></thead>
           <tbody id="txTb"></tbody></table>
           <div class="pg" id="txPg"></div>
         </div>
@@ -928,7 +936,8 @@ tr:hover td{background:var(--bgh)}
           <input class="fi" id="poQ" placeholder="🔍 BNB ID / ชื่อ / Symbol / Contract ID..." oninput="rpos(true)">
           <select class="fs" id="poTy" onchange="rpos(true);updatePosHead()">
             <option value="positions">Open Positions</option>
-            <option value="orders">Open Orders</option>
+            <option value="orders">Open Orders (Pending)</option>
+            <option value="orderhist">Order History (Filled/Cancelled)</option>
             <option value="history">Position History</option>
           </select>
         </div>
@@ -979,6 +988,7 @@ tr:hover td{background:var(--bgh)}
             <option value="ord">Futures Orders</option>
             <option value="loans">Loans</option>
             <option value="coins">Spot Coin Balances</option>
+            <option value="trades">Trades (Contract + Direct)</option>
           </select>
         </div>
         <div class="fb-act"><button class="fb-btn" onclick="exportCSV('futures')">⬇ CSV</button></div>
@@ -1019,7 +1029,7 @@ tr:hover td{background:var(--bgh)}
           <div class="sc gold"><div class="sc-lbl">Avg/รายการ</div><div class="sc-val" id="ff-avg">—</div><div class="sc-sub">USDT</div></div>
         </div>
         <div class="fb">
-          <input class="fi" id="ffQ" placeholder="🔍 BNB ID / Symbol..." oninput="rff(true)">
+          <input class="fi" id="ffQ" placeholder="🔍 BNB ID / Symbol / Contract ID..." oninput="rff(true)">
           <select class="fs" id="ffDt" onchange="rff(true)">
             <option value="all">ทุกช่วงเวลา</option>
             <option value="today">วันนี้</option>
@@ -1028,9 +1038,52 @@ tr:hover td{background:var(--bgh)}
           </select>
         </div>
         <div class="tw">
-          <table><thead><tr><th>BNB ID</th><th>ชื่อ</th><th>Symbol</th><th>จำนวน (USDT)</th><th>เวลา</th></tr></thead>
+          <table><thead><tr><th>BNB ID</th><th>ชื่อ</th><th>Symbol</th><th>Contract</th><th>จำนวน (USDT)</th><th>เวลา</th></tr></thead>
           <tbody id="ffTb"></tbody></table>
           <div class="pg" id="ffPg"></div>
+        </div>
+      </div>
+
+      <!-- ════ COMMISSION LEDGER [v4.2] — GAS adminGetCommissionLedger (finance / owner) ════ -->
+      <div class="panel" id="p-ledger">
+        <div class="sg sg-3">
+          <div class="sc green"><div class="sc-lbl">เข้า (+) รวม</div><div class="sc-val" id="cl-in">—</div><div class="sc-sub">USDT</div></div>
+          <div class="sc red"><div class="sc-lbl">ออก (−) รวม</div><div class="sc-val" id="cl-out">—</div><div class="sc-sub">USDT</div></div>
+          <div class="sc"><div class="sc-lbl">รายการ</div><div class="sc-val" id="cl-cnt">—</div><div class="sc-sub">ตามตัวกรอง</div></div>
+        </div>
+        <div class="fb">
+          <input class="fi" id="clQ" placeholder="🔍 BNB ID / Contract ID / Source UID / หมายเหตุ..." oninput="rledger(true)">
+          <select class="fs" id="clTy" onchange="rledger(true)"><option value="all">ทุกประเภท</option></select>
+          <select class="fs" id="clDt" onchange="rledger(true)">
+            <option value="all">ทุกช่วงเวลา</option><option value="today">วันนี้</option><option value="7d">7 วัน</option><option value="30d">30 วัน</option>
+          </select>
+        </div>
+        <div class="fb-act"><button class="fb-btn" onclick="exportCSV('ledger')">⬇ CSV</button></div>
+        <div class="tw">
+          <table><thead><tr><th>เวลา</th><th>BNB ID</th><th>ชื่อ</th><th>ประเภท</th><th>จำนวน</th><th>Contract</th><th>Source UID</th><th>หมายเหตุ</th></tr></thead>
+          <tbody id="clTb"></tbody></table>
+          <div class="pg" id="clPg"></div>
+        </div>
+      </div>
+
+      <!-- ════ REQUEST LOG [v4.2] — GAS adminGetRequestLog (ops / owner · อ่านอย่างเดียว) ════ -->
+      <div class="panel" id="p-reqlog">
+        <div class="sg sg-4">
+          <div class="sc"><div class="sc-lbl">ทั้งหมด</div><div class="sc-val" id="rl-all">—</div><div class="sc-sub">แถว (ล่าสุด 500)</div></div>
+          <div class="sc gold"><div class="sc-lbl">Pending</div><div class="sc-val" id="rl-pend">—</div><div class="sc-sub">ค้าง</div></div>
+          <div class="sc red"><div class="sc-lbl">Failed</div><div class="sc-val" id="rl-fail">—</div><div class="sc-sub">รายการ</div></div>
+          <div class="sc blue"><div class="sc-lbl">Uncertain</div><div class="sc-val" id="rl-unc">—</div><div class="sc-sub">ต้องตรวจมือ</div></div>
+        </div>
+        <div class="fb">
+          <input class="fi" id="rlQ" placeholder="🔍 BNB ID / Action / req_key / Error..." oninput="rreqlog(true)">
+          <select class="fs" id="rlSt" onchange="rreqlog(true)">
+            <option value="all">ทุกสถานะ</option><option value="pending">pending</option><option value="done">done</option><option value="failed">failed</option><option value="uncertain">uncertain</option>
+          </select>
+        </div>
+        <div class="tw">
+          <table><thead><tr><th>เวลา</th><th>BNB ID</th><th>Action</th><th>Status</th><th>req_key</th><th>Error</th></tr></thead>
+          <tbody id="rlTb"></tbody></table>
+          <div class="pg" id="rlPg"></div>
         </div>
       </div>
 
@@ -1102,6 +1155,19 @@ tr:hover td{background:var(--bgh)}
           <button class="fb-btn" onclick="openAdjSystemBalance()">⚙️ ปรับยอด System Balance</button>
           <button class="fb-btn" onclick="rsystem()">🔄 รีเฟรช</button>
         </div>
+        <div class="card" id="mainToolsCard" style="display:none">
+          <div class="ctitle">🛠️ Main Tools (เฉพาะ Owner · ผ่าน GAS Admin → GAS Main)</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:8px">รันเครื่องมือซ่อมข้อมูลของ GAS Main · ปุ่ม "ทดลอง" = dry-run ไม่เขียนข้อมูล · ปุ่ม "รันจริง" จะถามยืนยันก่อน</div>
+          <div class="fb-act" style="flex-wrap:wrap;gap:6px">
+            <input class="fi" id="mtUid" placeholder="BNB ID (ไม่ใส่ = ทั้งหมด)" style="max-width:200px">
+            <button class="fb-btn danger" onclick="runMainTool('repairFuturesRealizedPnl',false)">Futures Realized PNL (รันจริง)</button>
+            <button class="fb-btn" onclick="runMainTool('repairFuturesLiqPrices',true)">Futures Liq Price (ทดลอง)</button>
+            <button class="fb-btn danger" onclick="runMainTool('repairFuturesLiqPrices',false)">Futures Liq Price (รันจริง)</button>
+            <button class="fb-btn" onclick="runMainTool('auditEarnClaims',true)">Audit Earn Claims (ทดลอง)</button>
+            <button class="fb-btn danger" onclick="runMainTool('auditEarnClaims',false)">Audit Earn Claims (รันจริง)</button>
+          </div>
+          <pre id="mtOut" style="font-size:11px;color:var(--t2);white-space:pre-wrap;word-break:break-all;margin-top:8px"></pre>
+        </div>
         <div class="card">
           <div class="ctitle">📋 ข้อมูล System Stats (ดิบ)</div>
           <pre id="sysStatsRaw" style="font-size:11px;color:var(--t2);white-space:pre-wrap;word-break:break-all"></pre>
@@ -1131,7 +1197,7 @@ tr:hover td{background:var(--bgh)}
           </div>
           <div class="card">
             <div class="ctitle">📋 ข้อมูลระบบ</div>
-            <div class="dr"><div class="dk">Admin Version</div><div class="dv">v4.1 Admin Manager · sync Main v6.4-COMM2</div></div>
+            <div class="dr"><div class="dk">Admin Version</div><div class="dv">v4.2 Admin Manager · sync Main v6.4-COMM2 · Easy v8.4-RZPNL</div></div>
             <div class="dr"><div class="dk">เข้าระบบเมื่อ</div><div class="dv" id="loginAt">—</div></div>
             <div class="dr" id="adminMgrRow" style="display:none"><div class="dk">จัดการแอดมิน / สิทธิ์</div><div class="dv"><button class="ab vi" onclick="go('admins')">เปิดหน้าจัดการแอดมิน (owner)</button></div></div>
             <div class="dr"><div class="dk">Auto Refresh</div><div class="dv">ทุก 30 วินาที</div></div>
@@ -1250,7 +1316,8 @@ const D = {
   revenue:    [],  // built from members + GAS stats
   teamList:   [],  // GAS: adminGetTeamList
   systemStats:{},  // GAS: adminGetSystemStats
-  futPos:[], futOrd:[], loans:[], spotCoins:[], // v3: FuturesPositions / FuturesOrders / Loans / SpotCoinBalances
+  futPos:[], futOrd:[], loans:[], spotCoins:[], trades:[], ledger:[], reqLog:[], // v4.2: Trades / CommissionLedger / RequestLog
+   // v3: FuturesPositions / FuturesOrders / Loans / SpotCoinBalances
 };
 
 let pages = {};
@@ -1274,8 +1341,8 @@ const _ROLE_LABEL = { owner:'L4 Owner', finance:'L3 Finance', ops:'L2 Ops/Tradin
 const _KB_MENU = 'kbmenu', _KB_PERM = 'adminKbSession';
 const _ROLE_MENUS = {
   owner:   null, // ทุกเมนู
-  finance: ['dashboard','search','deposits','withdrawals','txlog','members','revenue','team','settings'],
-  ops:     ['dashboard','search','txlog','members','positions','earncontracts','futures','fundingfee','supportchat','settings'],
+  finance: ['dashboard','search','deposits','withdrawals','txlog','members','revenue','team','ledger','settings'],
+  ops:     ['dashboard','search','txlog','members','positions','earncontracts','futures','fundingfee','reqlog','supportchat','settings'],
   support: ['search','members','supportchat','settings'],
 };
 const _AUTH_NOTOKEN = ['adminSignup','adminLogin','adminVerifyOtp','adminRequestUnlock','adminUnlock','adminChangePassword','ping'];
@@ -1310,6 +1377,7 @@ function applyRoleUI(){
     while (n && !n.classList.contains('sb-sec')) { if (n.classList.contains('si') && n.style.display!=='none') any = true; n = n.nextElementSibling; }
     sec.style.display = any ? '' : 'none';
   });
+  const mtc = document.getElementById('mainToolsCard'); if (mtc) mtc.style.display = (_role==='owner') ? '' : 'none';   // [v4.2] Main Tools = owner เท่านั้น
   const mgr = document.getElementById('adminMgrRow');
   if (mgr) mgr.style.display = (_role==='owner') ? '' : 'none';
   const first = allow ? allow[0] : 'dashboard';
@@ -1517,13 +1585,14 @@ const pgTitles = {
   dashboard:'Dashboard — ภาพรวม', search:'ค้นหา BNB ID / Contract ID',
   deposits:'อนุมัติฝากเงิน',
   withdrawals:'อนุมัติถอนเงิน',   txlog:'รายการธุรกรรม (GAS)',
-  members:'สมาชิก (GAS — Members+Users)', positions:'Positions & Orders (GAS)',
+  members:'สมาชิก (GAS — Members+Users)', positions:'Positions & Orders — Futures-Contract (GAS)',
   earncontracts:'Earn Contracts (GAS)', revenue:'รายได้สมาชิก',
   fundingfee:'Funding Fee Log (GAS)', settings:'ตั้งค่า / API Config',
   team:'Team Management', system:'System Center & Reserve Fund',
-  futures:'Futures Direct / Loans / Spot Coins (GAS)',
+  futures:'Futures-Direct / Loans / Spot Coins (GAS)',
   supportchat:'แชทซัพพอร์ต (สมาชิก ↔ ทีมซัพพอร์ต)',
   kbmenu:'จัดการเมนูถามตอบ (FAQ)',
+  ledger:'Commission Ledger (GAS)', reqlog:'Request Log (GAS · อ่านอย่างเดียว)',
   admins:'จัดการแอดมิน / อนุมัติ / สิทธิ์',
 };
 
@@ -1538,7 +1607,7 @@ function go(id) {
   // lazy render
   const rmap = {deposits:rdep,withdrawals:rwd,txlog:rtx,members:rmem,
     positions:()=>{rpos();updatePosHead()},earncontracts:rec,
-    revenue:rrv,fundingfee:rff,team:rteam,system:rsystem,futures:()=>rfx(true),admins:radmins};
+    revenue:rrv,fundingfee:rff,team:rteam,system:rsystem,futures:()=>rfx(true),admins:radmins,ledger:()=>rledger(true),reqlog:()=>rreqlog(true)};
   if (rmap[id]) rmap[id]();
 }
 
@@ -1637,7 +1706,7 @@ async function loadAll() {
   const C = (a,p)=> can(a) ? gasAdminCall(a,p) : Promise.resolve(null);
   try {
     // โหลดทุก API พร้อมกัน — members + ข้อมูลอื่นๆ ทั้งหมดในคราวเดียว (ไม่มี race condition)
-    const [memRes, deps, wds, txs, pos, posH, ords, ec, fund, refs, team, sysStats, fPos, fOrd, lns, sCoins] =
+    const [memRes, deps, wds, txs, pos, posH, ords, ec, fund, refs, team, sysStats, fPos, fOrd, lns, sCoins, trd, cled, rlog] =
       await Promise.allSettled([
         C('adminGetMembers', { limit: 5000 }),
         C('adminGetDeposits', { status: 'all' }),
@@ -1655,6 +1724,9 @@ async function loadAll() {
         C('adminGetFuturesOrders'),
         C('adminGetLoans'),
         C('adminGetSpotCoins'),
+        C('adminGetTrades', { limit: 1000 }),   // [v4.2] Trades (position_id / contract_id)
+        C('adminGetCommissionLedger', { limit: 2000 }),   // [v4.2] finance / owner
+        C('adminGetRequestLog', { limit: 500 }),          // [v4.2] ops / owner
       ]);
 
     // map members (PascalCase legacy fields)
@@ -1699,6 +1771,9 @@ async function loadAll() {
     if (fOrd.value?.data)   D.futOrd    = fOrd.value.data;
     if (lns.value?.data)    D.loans     = lns.value.data;
     if (sCoins.value?.data) D.spotCoins = sCoins.value.data;
+    if (trd.value?.data)    D.trades    = trd.value.data;
+    if (cled.value?.data)   D.ledger    = cled.value.data;
+    if (rlog.value?.data)   D.reqLog    = rlog.value.data;
 
     // ── ตรวจ GAS call ล้มเหลวสำหรับ positions/orders — แจ้งเตือนทันที ──
     const posErr  = pos.status  === 'rejected' || !pos.value?.data;
@@ -1760,7 +1835,9 @@ function populateDynamicFilters() {
     'MP Topup','MP Withdraw','Commission Transfer','CommissionWithdraw','Correction','CommissionLedgerCorrection',
     'Withdraw Rejected','Withdraw Confirmed','Admin Adjustment',
     // ไฟล์หลัก v4 (v2.77-TXHIST) + type ที่ยังไม่ได้ใส่
-    'Contract PNL','ReferralFlat','ReferralTier','ReferralReserved','ProfitShareTeam'
+    'Contract PNL','ReferralFlat','ReferralTier','ReferralReserved','ProfitShareTeam',
+    // [v4.2] ตรงกับ TRANS_CATEGORY_TYPES ใน GAS Main v6.4
+    'Futures Direct Liquidation','Earn Claim PNL','ProfitShareLevelA','ProfitShareLevelB'
   ];
   const txTypesFromData = [...new Set(D.txlog.map(t => t.type).filter(Boolean))].sort();
   // รวมทั้งจากข้อมูลจริงและ fallback ที่รู้จาก GAS schema
@@ -2329,6 +2406,8 @@ function rtx(resetPage=false) {
       ||(t.asset||'').toLowerCase().includes(q)
       ||(t.note||'').toLowerCase().includes(q)
       ||(t.id||'').toLowerCase().includes(q)
+      ||String(t.contract_id||'').toLowerCase().includes(q)
+      ||String(t.account_type||'').toLowerCase().includes(q)
       ||(t.symbol||'').toLowerCase().includes(q);
     // 'Earn Claim' ครอบคลุมทั้ง 3 รูปแบบที่ GAS เขียนจริง: 'Earn Claim', 'Earn Claim (APT)', 'Earn Claim (Trade)'
     // ถ้าเทียบแบบ exact match เฉยๆ จะเห็นแค่รายการที่ type ตรงเป๊ะ 'Earn Claim' เท่านั้น ธุรกรรม claim จริงส่วนใหญ่หายไป
@@ -2350,11 +2429,13 @@ function rtx(resetPage=false) {
       <td style="font-size:11px">${t.asset||'USDT'}</td>
       <td class="mono" style="color:${col};font-weight:600">${amt}</td>
       <td style="font-size:11px">${t.symbol||'—'}</td>
+      <td style="font-size:11px">${t.account_type||'—'}</td>
+      <td class="mono" style="font-size:10px">${t.contract_id||'—'}</td>
       <td style="font-size:11px;color:var(--t2);max-width:160px;overflow:hidden;text-overflow:ellipsis">${t.note||'—'}</td>
       <td style="font-size:11px;color:var(--t2)">${fdt(t.created_at)}</td>
     </tr>`;
   }).join('')
-  : '<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--t3)">ไม่มีข้อมูล</td></tr>';
+  : '<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--t3)">ไม่มีข้อมูล</td></tr>';
   paginate('txPg',total,txPg,p=>{txPg=p;rtx()});
 }
 
@@ -2372,6 +2453,8 @@ function vTx(id) {
     <div class="dr"><div class="dk">Asset</div><div class="dv">${d.asset||'USDT'}</div></div>
     <div class="dr"><div class="dk">จำนวน</div><div class="dv" style="color:${col};font-weight:700">${amt}</div></div>
     <div class="dr"><div class="dk">Symbol/Network</div><div class="dv">${d.symbol||'—'}</div></div>
+    <div class="dr"><div class="dk">Account</div><div class="dv">${d.account_type||'—'}</div></div>
+    <div class="dr"><div class="dk">Contract ID</div><div class="dv mono" style="font-size:10px">${d.contract_id||'—'}</div></div>
     <div class="dr"><div class="dk">หมายเหตุ</div><div class="dv">${d.note||'—'}</div></div>
     <div class="dr"><div class="dk">เวลา</div><div class="dv">${fdt(d.created_at)}</div></div>
   `,[
@@ -2715,11 +2798,14 @@ function openAddMember() {
 //  POSITIONS
 // ══════════════════════════════════════════
 let posPg=1;
+// [v4.2 ORDHIST] OpenOrders ใน GAS (v6.1+) เก็บแถว Filled/Cancelled ไว้เป็นประวัติด้วย — "Open Orders" ต้องนับ/แสดงเฉพาะ Pending
+const _ordPending = o => { const st=String((o&&o.status)||'').trim().toLowerCase(); return !st||st==='pending'||st==='new'||st==='open'; };
 function updatePosHead() {
   const ty=document.getElementById('poTy')?.value||'positions';
   const heads={
     positions:`<tr><th>BNB ID</th><th>ชื่อ</th><th>Symbol</th><th>Side</th><th>Lev</th><th>Size</th><th>Entry Price</th><th>Unrealized PnL</th><th>Realized PnL</th><th>Status</th><th>Contract</th></tr>`,
     orders:`<tr><th>BNB ID</th><th>ชื่อ</th><th>Symbol</th><th>Side</th><th>Type</th><th>Size</th><th>Limit Price</th><th>TP</th><th>SL</th><th>Contract</th></tr>`,
+    orderhist:`<tr><th>BNB ID</th><th>ชื่อ</th><th>Symbol</th><th>Side</th><th>Type</th><th>Size</th><th>Price</th><th>Status</th><th>Contract</th><th>เวลา</th></tr>`,
     history:`<tr><th>BNB ID</th><th>ชื่อ</th><th>Symbol</th><th>Side</th><th>Lev</th><th>Size</th><th>Entry</th><th>Exit</th><th>Realized PnL</th><th>ROI %</th><th>Duration</th></tr>`,
   };
   document.getElementById('poHead').innerHTML = heads[ty]||heads.positions;
@@ -2748,14 +2834,14 @@ function rpos(resetPage=false) {
       ||String(p.order_id||'').toLowerCase().includes(q);
   };
 
-  const srcMap = { positions: D.positions, orders: D.orders, history: D.posHistory };
+  const srcMap = { positions: D.positions, orders: D.orders.filter(_ordPending), orderhist: D.orders.filter(o=>!_ordPending(o)), history: D.posHistory };
   const src = srcMap[ty] || D.positions;
   const data = src.filter(matchesQ);
 
   // ── การ์ดสรุปด้านบน — อิงตาม search query (q) เท่านั้น ไม่ผูกกับ tab (ty) ที่เลือกอยู่
   //    เพื่อไม่ให้ label "Open Positions"/"Open Orders" สลับความหมายกันตอนเปลี่ยน tab ────────
   const posMatch = D.positions.filter(matchesQ);
-  const ordMatch = D.orders.filter(matchesQ);
+  const ordMatch = D.orders.filter(o=>_ordPending(o)&&matchesQ(o));
   document.getElementById('po-cnt').textContent = fnumInt(posMatch.length);
   document.getElementById('po-ord').textContent = fnumInt(ordMatch.length);
   const totalMargin_entry = posMatch.reduce((s,p)=>{
@@ -2869,6 +2955,22 @@ function rpos(resetPage=false) {
         <td class="mono" style="color:${pnl>=0?'var(--g)':'var(--r)'}">${(pnl>=0?'+':'')+fnum(pnl)}</td>
         <td><span class="pill p-act">${p.status||'Active'}</span></td>
         <td class="mono" style="font-size:10px">${p.earn_contract_id||'—'}</td>
+      </tr>`;
+    }).join('');
+  } else if (ty === 'orderhist') {
+    bodyHtml = rows.map(p=>{
+      const username = p.member_name || memByUid[String(p.uid)] || '';
+      return `<tr style="cursor:pointer" onclick="vOrder('${p.order_id}')">
+        <td class="mono" style="color:var(--gold)">${p.uid||'—'}</td>
+        <td style="font-size:12px">${username||'—'}</td>
+        <td class="mono">${p.symbol||'—'}</td>
+        <td><span class="pill ${p.side==='long'||p.side==='Buy'?'p-ok':'p-no'}">${(p.side||'').toUpperCase()}</span></td>
+        <td>${p.order_type||'Limit'}</td>
+        <td class="mono">${fnum(p.size,4)}</td>
+        <td class="mono">${fnum(p.limit_price)}</td>
+        <td><span class="pill ${String(p.status||'').toLowerCase()==='filled'?'p-ok':'p-pend'}">${p.status||'—'}</span></td>
+        <td class="mono" style="font-size:10px">${p.contract_id||'—'}</td>
+        <td style="font-size:11px;color:var(--t2)">${fdt(p.updated_at||p.created_at)}</td>
       </tr>`;
     }).join('');
   } else if (ty === 'orders') {
@@ -3300,6 +3402,9 @@ function vEarnContract(contractId) {
     <div class="dr"><div class="dk">Drawdown</div><div class="dv" style="color:${parseFloat(dd)>=30?'var(--r)':parseFloat(dd)>=15?'var(--y)':'var(--g)'}">${dd}%</div></div>
     <div class="dr"><div class="dk">Status</div><div class="dv"><span class="pill ${c.status==='active'?'p-act':'p-frz'}">${c.status}</span></div></div>
     <div class="dr"><div class="dk">Mode</div><div class="dv">${(()=>{ const m=String(c.contract_mode||'trade').trim().toLowerCase()==='fixed'?'fixed':'trade'; return m==='fixed'?'<span class="pill" style="background:rgba(232,184,58,.18);color:var(--gold);border:1px solid var(--gold)">Fixed</span>':'<span class="pill p-act">Trade</span>'; })()}</div></div>
+    <div class="dr"><div class="dk">Tier</div><div class="dv">${String(c.contract_tier||'standard').toLowerCase()==='vip'?'<span class="pill" style="background:rgba(232,184,58,.18);color:var(--gold);border:1px solid var(--gold)">VIP</span>':'Standard'}</div></div>
+    <div class="dr"><div class="dk">Locked Profit (ล็อกถอน)</div><div class="dv mono">${fnum(parseFloat(c.locked_profit||0))} USDT</div></div>
+    <div class="dr"><div class="dk">APT Claimed สะสม</div><div class="dv mono">${fnum(parseFloat(c.apt_total_claimed||0))} USDT</div></div>
     <div class="dr"><div class="dk">เริ่มต้น</div><div class="dv">${startMs?new Date(startMs).toLocaleString('th-TH'):'—'}</div></div>
     <div class="dr"><div class="dk">ครบกำหนด</div><div class="dv">${endMs?new Date(endMs).toLocaleString('th-TH'):'—'}</div></div>
     <div class="dr"><div class="dk">เหลือเวลา</div><div class="dv mono" id="ec-countdown" style="font-weight:700;color:var(--goldb)">—</div></div>
@@ -4550,6 +4655,7 @@ function rff(resetPage=false) {
       ||(f.symbol||'').toLowerCase().includes(q)
       ||(f.asset||'').toLowerCase().includes(q)
       ||(f.id||'').toLowerCase().includes(q)
+      ||String(f.contract_id||'').toLowerCase().includes(q)
       ||String(Math.abs(parseFloat(f.amount||0)).toFixed(6)).includes(q);
     return matchQ&&checkDate(f.created_at,dt);
   });
@@ -4566,12 +4672,86 @@ function rff(resetPage=false) {
       <td class="mono" style="color:var(--gold)">${f.uid||'—'}</td>
       <td style="font-size:12px">${username||'—'}</td>
       <td class="mono">${f.symbol||'—'}</td>
+      <td class="mono" style="font-size:10px">${f.contract_id||'—'}</td>
       <td class="mono" style="color:var(--r)">-${fnum(Math.abs(parseFloat(f.amount||0)),6)}</td>
       <td style="font-size:11px;color:var(--t2)">${fdt(f.created_at)}</td>
     </tr>`;
   }).join('')
-  : '<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--t3)">ไม่มีข้อมูล</td></tr>';
+  : '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--t3)">ไม่มีข้อมูล</td></tr>';
   paginate('ffPg',total,ffPg,p=>{ffPg=p;rff()});
+}
+
+// ══════════════════════════════════════════
+//  [v4.2] COMMISSION LEDGER / REQUEST LOG / MAIN TOOLS
+// ══════════════════════════════════════════
+let clPg=1, rlPg=1;
+function rledger(resetPage=false) {
+  if(resetPage) clPg=1;
+  const q=(document.getElementById('clQ')?.value||'').toLowerCase();
+  const ty=document.getElementById('clTy')?.value||'all';
+  const dt=document.getElementById('clDt')?.value||'all';
+  const memByUid={}; D.members.forEach(m=>{ memByUid[String(m.BNB_ID)]=m.Name; });
+  const sel=document.getElementById('clTy');
+  if(sel){ const types=[...new Set(D.ledger.map(r=>r.type).filter(Boolean))].sort();
+    if(sel.options.length-1!==types.length){ const prev=sel.value; while(sel.options.length>1) sel.remove(1);
+      types.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=t; sel.appendChild(o); });
+      if(types.indexOf(prev)>-1) sel.value=prev; } }
+  const data=D.ledger.filter(r=>{
+    const nm=(memByUid[String(r.uid)]||'').toLowerCase();
+    return (!q||String(r.uid).toLowerCase().includes(q)||nm.includes(q)||String(r.contract_id||'').toLowerCase().includes(q)
+      ||String(r.source_uid||'').toLowerCase().includes(q)||String(r.note||'').toLowerCase().includes(q)||String(r.type||'').toLowerCase().includes(q))
+      &&(ty==='all'||r.type===ty)&&checkDate(r.created_at,dt);
+  });
+  let inn=0,out=0; data.forEach(r=>{ const a=parseFloat(r.amount)||0; if(a>=0) inn+=a; else out+=-a; });
+  document.getElementById('cl-in').textContent=fnum(inn,4);
+  document.getElementById('cl-out').textContent=fnum(out,4);
+  document.getElementById('cl-cnt').textContent=fnumInt(data.length);
+  const start=(clPg-1)*PG, rows=data.slice(start,start+PG);
+  document.getElementById('clTb').innerHTML=rows.length?rows.map(r=>{
+    const a=parseFloat(r.amount)||0;
+    return `<tr><td style="font-size:11px;color:var(--t2)">${fdt(r.created_at)}</td>
+      <td class="mono" style="color:var(--gold)">${_esc(r.uid)||'—'}</td>
+      <td style="font-size:12px">${_esc(memByUid[String(r.uid)])||'—'}</td>
+      <td style="font-size:12px">${_esc(r.type)||'—'}</td>
+      <td class="mono" style="color:${a>=0?'var(--g)':'var(--r)'};font-weight:600">${(a>=0?'+':'')+fnum(a,4)}</td>
+      <td class="mono" style="font-size:10px">${_esc(r.contract_id)||'—'}</td>
+      <td class="mono" style="font-size:11px">${_esc(r.source_uid)||'—'}</td>
+      <td style="font-size:11px;color:var(--t2);max-width:220px;overflow:hidden;text-overflow:ellipsis">${_esc(r.note)||'—'}</td></tr>`;
+  }).join(''):'<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--t3)">ไม่มีข้อมูล (ต้องมีสิทธิ์ Finance/Owner)</td></tr>';
+  paginate('clPg',data.length,clPg,p=>{clPg=p;rledger()});
+}
+function rreqlog(resetPage=false) {
+  if(resetPage) rlPg=1;
+  const q=(document.getElementById('rlQ')?.value||'').toLowerCase();
+  const st=document.getElementById('rlSt')?.value||'all';
+  const cnt=k=>D.reqLog.filter(r=>String(r.status||'').toLowerCase()===k).length;
+  document.getElementById('rl-all').textContent=fnumInt(D.reqLog.length);
+  document.getElementById('rl-pend').textContent=fnumInt(cnt('pending'));
+  document.getElementById('rl-fail').textContent=fnumInt(cnt('failed'));
+  document.getElementById('rl-unc').textContent=fnumInt(cnt('uncertain'));
+  const data=D.reqLog.filter(r=>(!q||String(r.uid||'').toLowerCase().includes(q)||String(r.action||'').toLowerCase().includes(q)
+      ||String(r.req_key||'').toLowerCase().includes(q)||String(r.error||'').toLowerCase().includes(q))
+    &&(st==='all'||String(r.status||'').toLowerCase()===st));
+  const start=(rlPg-1)*PG, rows=data.slice(start,start+PG);
+  const cls=s=>({done:'p-ok',failed:'p-no',uncertain:'p-frz',pending:'p-pend'}[String(s||'').toLowerCase()]||'p-pend');
+  document.getElementById('rlTb').innerHTML=rows.length?rows.map(r=>`<tr>
+      <td style="font-size:11px;color:var(--t2)">${fdt(r.created_at||r.updated_at)}</td>
+      <td class="mono" style="color:var(--gold)">${_esc(r.uid)||'—'}</td>
+      <td class="mono" style="font-size:11px">${_esc(r.action)||'—'}</td>
+      <td><span class="pill ${cls(r.status)}">${_esc(r.status)||'—'}</span></td>
+      <td class="mono" style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${_esc(r.req_key)||'—'}</td>
+      <td style="font-size:11px;color:var(--r);max-width:260px;overflow:hidden;text-overflow:ellipsis">${_esc(r.error)||''}</td></tr>`).join('')
+    :'<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--t3)">ไม่มีข้อมูล (ต้องมีสิทธิ์ Ops/Owner)</td></tr>';
+  paginate('rlPg',data.length,rlPg,p=>{rlPg=p;rreqlog()});
+}
+async function runMainTool(tool, dry) {
+  if (_role!=='owner') { toast('⛔ เฉพาะ Owner','er'); return; }
+  const uid=(document.getElementById('mtUid')?.value||'').trim();
+  if (!dry && !confirm('รัน '+tool+' แบบ "เขียนข้อมูลจริง"'+(uid?' ของ '+uid:' ทั้งระบบ')+' ?\nเครื่องมือนี้แก้ข้อมูลในชีต Main')) return;
+  const out=document.getElementById('mtOut'); if(out) out.textContent='⏳ กำลังรัน '+tool+'...';
+  const r=await gasWrite('adminRunMainTool',{ tool, dryRun:dry, confirm:!dry, ...(uid?{uid}:{}) });
+  if(out) out.textContent=JSON.stringify(r,null,2);
+  toast(r&&r.status==='ok'?'✅ '+tool+(dry?' (ทดลอง) เสร็จ':' เสร็จ'):'❌ '+((r&&r.message)||'ไม่สำเร็จ'), r&&r.status==='ok'?'ok':'er');
 }
 
 function vFunding(id) {
@@ -4581,6 +4761,7 @@ function vFunding(id) {
     <div class="dr"><div class="dk">BNB ID</div><div class="dv" style="color:var(--gold)">${f.uid||'—'}</div></div>
     <div class="dr"><div class="dk">ชื่อ</div><div class="dv">${memByUid[String(f.uid)]||'—'}</div></div>
     <div class="dr"><div class="dk">Symbol</div><div class="dv mono">${f.symbol||'—'}</div></div>
+    <div class="dr"><div class="dk">Contract ID</div><div class="dv mono" style="font-size:10px">${f.contract_id||'— (Direct / ก่อน v6)'}</div></div>
     <div class="dr"><div class="dk">จำนวน</div><div class="dv mono" style="color:var(--r);font-weight:700">-${fnum(Math.abs(parseFloat(f.amount||0)),6)} ${f.asset||'USDT'}</div></div>
     <div class="dr"><div class="dk">เวลา</div><div class="dv">${fdt(f.created_at)}</div></div>
   `,[{l:'ปิด',c:'can',fn:'cm()'}]);
@@ -5356,10 +5537,11 @@ async function doLiquidate(cid) {
 // ══════════════════════════════════════════
 let fxPg=1;
 const FX_DEF = {
-  pos:  {src:'futPos',  cols:['uid','symbol','side','position_side','mode','lev','entry_price','size','margin','liq_price','realized_pnl','status','opened_at']},
-  ord:  {src:'futOrd',  cols:['order_id','uid','symbol','order_type','side','position_side','size','margin','limit_price','reduce_only','status','created_at']},
+  pos:  {src:'futPos',  cols:['id','uid','symbol','side','position_side','mode','lev','entry_price','size','margin','liq_price','tp','sl','realized_pnl','roi','status','is_liquidated','opened_at','closed_at']},
+  ord:  {src:'futOrd',  cols:['order_id','uid','symbol','order_type','side','position_side','size','margin','limit_price','tp_price','sl_price','reduce_only','position_id','status','created_at']},
   loans:{src:'loans',   cols:['loan_id','uid','collateral_coin','collateral_amount','borrow_usdt','ltv_current','liq_price','interest_rate','status','created_at']},
   coins:{src:'spotCoins',cols:['uid','coin','balance','updated_at']},
+  trades:{src:'trades',cols:['id','uid','position_id','contract_id','symbol','dir','order_type','price','filled','fee','role','realized_pnl','status','created_at']},   // contract_id ว่าง = Direct / แถวเก่า
 };
 function rfx(reset){
   if(reset) fxPg=1;
@@ -5389,6 +5571,7 @@ function exportCSV(type) {
     withdrawals: { data:D.withdrawals, fields:['withdraw_id','uid','username','coin','network','amount','to_address','fee','status','txid','note','created_at'] },
     positions:   { data:D.positions,   fields:['id','uid','symbol','side','lev','entry_price','size','realized_pnl','status','earn_contract_id','opened_at'] },
     txlog:       { data:D.txlog,       fields:['id','uid','type','asset','amount','symbol','note','created_at'] },
+    ledger:      { data:D.ledger,      fields:['id','uid','type','amount','contract_id','source_uid','note','created_at'] },
     funding:     { data:D.funding,     fields:['id','uid','symbol','amount','asset','created_at'] },
     futures:     { data:(D[FX_DEF[document.getElementById('fxTy')?.value||'pos'].src]||[]), fields:FX_DEF[document.getElementById('fxTy')?.value||'pos'].cols },
     revenue:     { data:D.revenue,     fields:['BNB_ID','Name','Team','Trades','WinCount','RealizedPnl','UnrealizedPnl','WalletBalance','EarnBalance'] },

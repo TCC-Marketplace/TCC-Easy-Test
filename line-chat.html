@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- [TCC Easy v1] ปรับตามต้นแบบ line-chat v30: 9 ภาษา · Visitor · ห้องสนทนา · AI-think 2 วิ · โลโก้ระบบ · ไอคอน/อวาตาร์ 52px · ปุ่มภาษา · GUIDE สำรองจาก kb.js ของ TCC Easy -->
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -19,7 +20,7 @@ body{font-family:-apple-system,"Sarabun","Noto Sans Thai","Hiragino Sans",sans-s
 .screen.on{display:flex}
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
 svg{display:block}
-.avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;flex-shrink:0;text-transform:uppercase;width:66px;height:66px;font-size:26px;overflow:hidden}
+.avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;flex-shrink:0;text-transform:uppercase;width:52px;height:52px;font-size:21px;overflow:hidden}   /* [SIZE] 66→52 */
 .avatar img{width:100%;height:100%;object-fit:cover;display:block}
 .lhead .acts button.myav{width:40px;height:40px;padding:0;position:relative}
 .lhead .acts button.myav .avatar{width:36px;height:36px;font-size:15px}
@@ -27,27 +28,27 @@ svg{display:block}
 
 /* ===== List header ===== */
 .lhead{padding:calc(16px + env(safe-area-inset-top)) 20px 12px;display:flex;align-items:center;justify-content:space-between}
-.lhead h1{font-size:25px;font-weight:800;color:var(--tx);letter-spacing:.2px}
+.lhead h1{font-size:22px;font-weight:800;color:var(--tx);letter-spacing:.2px}
 .lhead .acts{display:flex;align-items:center;gap:6px}
 .lhead .acts button{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--tx);border-radius:50%}
 .lhead .acts button:active{background:var(--surface)}
 .lhead .acts button.act{color:var(--green)}
-.sbox{margin:6px 18px 10px;height:46px;border-radius:23px;background:var(--surface);display:flex;align-items:center;gap:10px;padding:0 16px;color:var(--tx2)}
+.sbox{margin:4px 16px 8px;height:40px;border-radius:20px;background:var(--surface);display:flex;align-items:center;gap:10px;padding:0 16px;color:var(--tx2)}
 .sbox input{flex:1;background:none;border:none;outline:none;color:var(--tx);font-size:16px;font-family:inherit;min-width:0}
 .sbox input::placeholder{color:#6d6d72}
 
 /* ===== List items ===== */
 .chatlist{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.item{display:flex;align-items:center;gap:14px;padding:11px 18px;cursor:pointer}
+.item{display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer}
 .item:active{background:var(--surface)}
-.avwrap{position:relative;width:66px;height:66px;flex-shrink:0}
-.pinb{position:absolute;right:-4px;bottom:-2px;width:26px;height:26px;border-radius:50%;background:var(--blue);border:2.5px solid var(--bg);display:flex;align-items:center;justify-content:center}
+.avwrap{position:relative;width:52px;height:52px;flex-shrink:0}
+.pinb{position:absolute;right:-3px;bottom:-2px;width:18px;height:18px;border-radius:50%;background:var(--blue);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center}
 .item .mid{flex:1;min-width:0;align-self:stretch;display:flex;flex-direction:column;justify-content:center}
-.item .nm{font-size:17px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.item .pv{font-size:15px;color:var(--tx2);margin-top:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
-.item .rt{display:flex;flex-direction:column;align-items:flex-end;gap:8px;align-self:stretch;padding-top:6px;min-width:52px}
-.item .tm{font-size:13px;color:var(--tx2);white-space:nowrap}
-.badge{background:var(--green);color:#fff;font-size:15px;font-weight:700;min-width:30px;height:30px;border-radius:15px;padding:0 8px;display:flex;align-items:center;justify-content:center}
+.item .nm{font-size:16px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .pv{font-size:14px;color:var(--tx2);margin-top:2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.item .rt{display:flex;flex-direction:column;align-items:flex-end;gap:6px;align-self:stretch;padding-top:2px;min-width:44px}
+.item .tm{font-size:12px;color:var(--tx2);white-space:nowrap}
+.badge{background:var(--green);color:#fff;font-size:12px;font-weight:700;min-width:20px;height:20px;border-radius:10px;padding:0 6px;display:flex;align-items:center;justify-content:center}
 .empty{padding:50px 24px;text-align:center;color:var(--tx2);font-size:15px;line-height:1.7;white-space:pre-line}
 
 /* ===== Bottom nav ===== */
@@ -55,7 +56,7 @@ svg{display:block}
 .nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;color:var(--tx2);padding:4px 0;position:relative}
 .nav button.on{color:var(--tx)}
 .nav .ic{position:relative}
-.nav .nb{position:absolute;top:-8px;left:20px;background:var(--red);color:#fff;font-size:12px;font-weight:700;min-width:22px;height:22px;border-radius:11px;padding:0 6px;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg)}
+.nav .nb{position:absolute;top:-6px;left:20px;background:var(--red);color:#fff;font-size:11px;font-weight:700;min-width:18px;height:18px;border-radius:9px;padding:0 5px;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg)}
 .nav .dot{position:absolute;top:-3px;right:-5px;width:11px;height:11px;border-radius:50%;background:var(--red);border:2px solid var(--bg)}
 
 /* ===== Chat ===== */
@@ -65,10 +66,11 @@ svg{display:block}
 .chead .back.hide{display:none}
 .chead .avatar{width:38px;height:38px;font-size:16px}
 .chead .nm{font-size:16px;font-weight:600}
-.chead .st{font-size:11px;color:var(--tx2);margin-top:1px;min-height:14px}
+.chead .st{font-size:12px;color:var(--tx2);margin-top:1px;min-height:14px}
+.chead #pprof{font-size:11px;min-height:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}   /* [PROFILE] ทีม·ประเทศ·Level·สถานะ·เบอร์ (แอดมินเห็นเท่านั้น) */
 .msgs{flex:1;overflow-y:auto;padding:10px 10px 14px;-webkit-overflow-scrolling:touch}
 .divider{text-align:center;margin:12px 0 8px}
-.divider span{display:inline-block;background:rgba(255,255,255,.12);color:#c7c7cc;font-size:11px;padding:3px 12px;border-radius:12px}
+.divider span{display:inline-block;background:rgba(255,255,255,.12);color:#c7c7cc;font-size:12px;padding:3px 12px;border-radius:12px}
 .row{display:flex;align-items:flex-end;gap:7px;margin-top:3px}
 .row.first{margin-top:10px}
 .row.me{justify-content:flex-end}
@@ -77,9 +79,9 @@ svg{display:block}
 .col{display:flex;flex-direction:column;max-width:70%}
 .row.me .col{align-items:flex-end}
 .bwrap{display:flex;align-items:flex-end;gap:5px}
-.meta{font-size:10px;color:var(--tx2);line-height:1.25;white-space:nowrap;text-align:right}
+.meta{font-size:11px;color:var(--tx2);line-height:1.25;white-space:nowrap;text-align:right}
 .row.other .meta{text-align:left}
-.pname{font-size:11px;color:var(--tx2);margin:0 0 3px 2px}
+.pname{font-size:12px;color:var(--tx2);margin:0 0 3px 2px}
 .bubble{padding:8px 13px;border-radius:18px;font-size:15px;line-height:1.45;word-break:break-word;white-space:pre-wrap;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;position:relative}
 .row.other .bubble{background:var(--surface2);color:#fff;border-top-left-radius:4px}
 .row.me .bubble{background:var(--green);color:#06130a;border-top-right-radius:4px}
@@ -97,6 +99,14 @@ svg{display:block}
 .aitag{font-size:10px;color:var(--green);margin:0 2px 3px;display:flex;align-items:center;gap:3px;font-weight:600}
 .aitag::before{content:"AI";background:var(--green);color:#06130a;border-radius:4px;padding:0 4px;font-size:9px;font-weight:800}
 .row.me .aitag{justify-content:flex-end}
+/* [AI-THINK] ฟองรอคำตอบ AI: จุด 3 จุดกระพริบ + ข้อความ "กำลังคิด..." */
+.bubble.think{display:flex;align-items:center;gap:9px;white-space:nowrap;color:var(--tx2);font-size:13px;padding:10px 14px}
+.think .dots{display:inline-flex;align-items:center;gap:4px}
+.think .dots i{display:block;width:6px;height:6px;border-radius:50%;background:var(--green);opacity:.25;animation:aiDot 1.2s infinite ease-in-out}
+.think .dots i:nth-child(2){animation-delay:.2s}
+.think .dots i:nth-child(3){animation-delay:.4s}
+@keyframes aiDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.think .dots i{animation:none;opacity:.7}}
 .aipill{display:none;border:1px solid var(--tx2);color:var(--tx2);border-radius:14px;padding:4px 11px;font-size:12px;font-weight:700;flex-shrink:0}
 .aipill.on{border-color:var(--green);color:var(--green)}
 .aipill.pause{border-color:#d9a400;color:#d9a400}
@@ -107,12 +117,12 @@ svg{display:block}
 .replybar .rb b{display:block;color:#fff}
 .replybar .x{font-size:20px;color:var(--tx2);padding:0 4px}
 
-.ibar{background:var(--bg);border-top:1px solid var(--line);padding:10px 8px calc(20px + env(safe-area-inset-bottom));display:flex;align-items:flex-end;gap:6px;flex-shrink:0}
-.ibar .ib{width:38px;height:40px;color:#a1a1a6;display:flex;align-items:center;justify-content:center}
-.ibar textarea{flex:1;border:1px solid var(--surface2);background:var(--surface);color:#fff;border-radius:20px;padding:9px 14px;font-size:15px;font-family:inherit;outline:none;resize:none;min-height:40px;max-height:112px;line-height:1.4;overflow-y:hidden;display:block}
+.ibar{background:var(--bg);border-top:1px solid var(--line);padding:8px 8px calc(10px + env(safe-area-inset-bottom));display:flex;align-items:flex-end;gap:4px;flex-shrink:0}
+.ibar .ib{width:40px;height:40px;color:#a1a1a6;display:flex;align-items:center;justify-content:center}
+.ibar textarea{flex:1;border:1px solid var(--surface2);background:var(--surface);color:#fff;border-radius:20px;padding:8px 14px;font-size:16px;font-family:inherit;outline:none;resize:none;min-height:40px;max-height:120px;line-height:1.4;overflow-y:hidden;display:block}
 .ibar textarea::placeholder{color:#6d6d72}
 .ibar textarea:focus{border-color:var(--green)}
-.sendb{width:38px;height:38px;border-radius:50%;background:var(--green);color:#06130a;display:none;align-items:center;justify-content:center}
+.sendb{width:40px;height:40px;border-radius:50%;background:var(--green);color:#06130a;display:none;align-items:center;justify-content:center}
 .sendb.on{display:flex}
 .sendb:active{transform:scale(.92)}
 
@@ -131,6 +141,14 @@ svg{display:block}
 .guide.open .gbody{display:block}
 .gcats{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .gcats::-webkit-scrollbar{display:none}
+/* [v3.9.1] เดสก์ท็อป: แถบหมวดเลื่อนซ้าย-ขวาได้ (ล้อเมาส์ · ลากด้วยเมาส์ · แถบเลื่อนบาง) */
+@media (hover:hover) and (pointer:fine){
+  .gcats{scrollbar-width:thin;scrollbar-color:var(--line) transparent;cursor:grab;padding-bottom:6px}
+  .gcats::-webkit-scrollbar{display:block;height:6px}
+  .gcats::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .gcats.dragging{cursor:grabbing;user-select:none}
+  .gcats.dragging .gcat{pointer-events:none}
+}
 .gcat{flex-shrink:0;border:1px solid var(--surface2);background:var(--surface);color:#fff;border-radius:16px;padding:6px 12px;font-size:13px;white-space:nowrap}
 .gcat.on{border-color:var(--green);color:var(--green);background:rgba(6,199,85,.12)}
 .gsubs{display:none;padding-top:0}
@@ -159,6 +177,92 @@ svg{display:block}
 .lg input{background:var(--surface);border:1px solid var(--line);border-radius:10px;color:var(--tx);font-size:16px;padding:12px;outline:none;font-family:inherit}
 .lg button{background:var(--green);color:#fff;font-size:16px;font-weight:600;border-radius:10px;padding:12px}
 .lg .err{color:var(--red);font-size:13px;min-height:18px}
+
+/* ===== Visitor + ปุ่มภาษา (เฟส 1) ===== */
+.chead .lang{display:none;flex-shrink:0;height:30px;padding:0 11px;border-radius:15px;background:var(--surface2);color:var(--tx);font-size:12px;font-weight:600;white-space:nowrap}
+.chead .lang.on{display:block}
+.vhint{display:none;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--line);font-size:12px;line-height:1.35;color:var(--tx2);flex-shrink:0}
+body.visitor .vhint{display:flex}
+.vhint span{flex:1;min-width:0}
+.vhint button{flex-shrink:0;background:var(--green);color:#fff;border-radius:14px;padding:6px 12px;font-size:12px;font-weight:600}
+body.visitor .ibar,body.visitor #replybar,body.visitor #stickers{display:none!important}
+body.visitor .guide{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+
+/* ===== Member หน้าแรก + ห้องสนทนา (เฟส 2) ===== */
+body.member .lhead .acts button:not(.myav),body.member .nav{display:none!important}   /* [MEMBER-AV] เหลือเฉพาะปุ่มรูปโปรไฟล์ของสมาชิก */
+.lhead .lang{display:none;flex-shrink:0;height:30px;padding:0 11px;border-radius:15px;background:var(--surface2);color:var(--tx);font-size:12px;font-weight:600;white-space:nowrap}
+body.member .lhead .lang{display:block}
+.sec{padding:10px 16px 4px;font-size:12px;font-weight:700;color:var(--tx2);letter-spacing:.2px}
+.item .nm .chip{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:10px;background:var(--surface2);color:var(--tx2);font-size:11px;font-weight:600;vertical-align:2px}
+.item .nm .chip.ok{background:rgba(6,199,85,.16);color:var(--green)}
+.item .nm .chip.warn{background:rgba(255,184,0,.16);color:#e0a800}
+.item .nm .chip.bad{background:rgba(255,69,58,.16);color:var(--red)}
+.rbar{display:none;align-items:center;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line);font-size:13px;line-height:1.35;color:var(--tx2);flex-shrink:0}
+.rbar span{flex:1;min-width:0}
+.rbar button{flex-shrink:0;background:var(--green);color:#fff;border-radius:16px;padding:8px 14px;font-size:13px;font-weight:600}
+.rbar button[hidden]{display:none}
+.rbar button:disabled{opacity:.6}
+body.room.ro .rbar{display:flex}
+body.room.ro .ibar,body.room.ro #replybar,body.room.ro #stickers{display:none!important}
+/* แอดมินที่มีสิทธิ์ดูแชทส่วนตัวแต่ไม่มีสิทธิ์ตอบ → ซ่อนช่องพิมพ์ ใช้แถบข้อความแทน */
+body.dmro .rbar{display:flex}
+body.dmro .ibar,body.dmro #replybar,body.dmro #stickers{display:none!important}
+/* Visitor อ่านห้อง: ใช้แถบ "เข้าสู่ระบบเพื่อขอเข้าห้อง" แทนแถบแนะนำเดิม */
+body.visitor.room .vhint{display:none}
+
+/* ===== แอดมิน: แท็บห้อง + จัดการห้อง (เฟส 3) ===== */
+.admtabs{display:none;gap:8px;padding:0 18px 10px;flex-shrink:0}
+body.admin .admtabs{display:flex}
+.admtabs button{flex:1;height:38px;border-radius:19px;background:var(--surface);color:var(--tx2);font-size:15px;font-weight:600}
+.admtabs button.on{background:var(--green);color:#fff}
+.tbadge{display:none;margin-left:6px;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--red);color:#fff;font-size:12px;font-weight:700;line-height:20px;vertical-align:1px}
+.tbadge.on{display:inline-block}
+.chead .mgb{display:none;flex-shrink:0;height:30px;padding:0 12px;border-radius:15px;background:var(--surface2);color:var(--tx);font-size:12px;font-weight:600;white-space:nowrap}
+body.admin.room .chead .mgb{display:block}
+.item.addroom .avatar{background:var(--green);font-size:26px;font-weight:400}
+.item.req{cursor:default}
+.btn-s{height:34px;padding:0 14px;border-radius:17px;font-size:13px;font-weight:600;background:var(--surface2);color:var(--tx);white-space:nowrap}
+.btn-s.ok{background:var(--green);color:#fff}
+.btn-s.bad{background:rgba(255,69,58,.16);color:var(--red)}
+.btn-s:disabled{opacity:.6}
+.req .btns{display:flex;gap:6px;flex-shrink:0}
+#mgOv{align-items:flex-end;z-index:22}
+.sheet{width:100%;max-height:88%;display:flex;flex-direction:column;background:var(--surface);border-radius:18px 18px 0 0;overflow:hidden}
+.sh-head{display:flex;align-items:flex-start;gap:10px;padding:16px 16px 8px}
+.sh-head>div{flex:1;min-width:0}
+.sh-title{font-size:18px;font-weight:700;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sh-sub{font-size:13px;color:var(--tx2);margin-top:3px}
+.sh-x{width:36px;height:36px;border-radius:50%;background:var(--surface2);color:var(--tx);font-size:16px;flex-shrink:0}
+.sheet .admtabs{display:flex;padding:6px 16px 10px}
+.sheet .admtabs button{height:34px;font-size:13px}
+.sh-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:150px}
+.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.mrow .avatar{width:44px;height:44px;font-size:17px}
+.mrow .mid{flex:1;min-width:0}
+.mrow .nm{font-size:15px;font-weight:600;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow .sub{font-size:12px;color:var(--tx2);margin-top:2px}
+.mrow .btns{display:flex;flex-wrap:wrap;gap:6px;width:100%;padding-left:56px}
+.sh-foot{display:flex;gap:10px;padding:10px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.sh-foot button{flex:1;height:42px;border-radius:21px;background:var(--surface2);color:var(--tx);font-size:14px;font-weight:600}
+.sh-foot button.danger{background:rgba(255,69,58,.16);color:var(--red)}
+#dlgOv{z-index:26;padding:20px}
+.dlg{width:100%;max-width:360px;background:var(--surface2);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.dlg-title{font-size:17px;font-weight:700;color:var(--tx)}
+.dlg-body{font-size:14px;line-height:1.5;color:var(--tx2);white-space:pre-line}
+.dlg input[type=text],.dlg textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;color:var(--tx);font-size:15px;padding:10px 12px;font-family:inherit;outline:none}
+.dlg textarea{resize:none;height:72px}
+.dlg label.chk{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--tx2);line-height:1.4}
+.dlg label.chk input{margin-top:3px;flex-shrink:0}
+.dlg-err{color:var(--red);font-size:13px}
+.rav{display:flex;align-items:center;gap:12px}   /* [ROOM-AV] ช่องรูปห้องในฟอร์มสร้าง/แก้ห้อง */
+.rav .avatar{width:56px;height:56px;font-size:22px;background-size:cover;background-position:center}
+.rav button{height:34px;padding:0 14px;border-radius:17px;background:var(--surface);color:var(--tx);font-size:13px;font-weight:600}
+.rav button.red{color:var(--red)}
+.dlg-btns{display:flex;gap:10px}
+.dlg-btns button{flex:1;height:42px;border-radius:21px;font-size:15px;font-weight:600;background:var(--surface);color:var(--tx)}
+.dlg-btns button.ok{background:var(--green);color:#fff}
+.dlg-btns button.danger{background:var(--red);color:#fff}
+.dlg-btns button:disabled{opacity:.6}
 </style>
 </head>
 <body>
@@ -179,6 +283,7 @@ svg{display:block}
   <div class="screen on" id="list">
     <div class="lhead">
       <h1>แชท</h1>
+      <button class="lang" id="langBtnL" type="button" aria-label="Language"></button>
       <div class="acts">
         <button id="bProfile" class="myav" aria-label="โปรไฟล์ซัพพอร์ต" style="display:none"><div id="myav"></div></button>
         <button id="bUnread" aria-label="เฉพาะที่ยังไม่อ่าน">
@@ -192,6 +297,7 @@ svg{display:block}
         </button>
       </div>
     </div>
+    <div class="admtabs" id="admTabs"><button id="tabDm" class="on" type="button">แชท</button><button id="tabRooms" type="button">ห้องสนทนา<span class="tbadge" id="tabRoomsN"></span></button></div>
     <div class="sbox">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
       <input id="search" placeholder="ค้นหา" autocomplete="off">
@@ -224,9 +330,13 @@ svg{display:block}
       <div style="flex:1;min-width:0">
         <div class="nm" id="pname"></div>
         <div class="st" id="pst"></div>
+        <div class="st" id="pprof" style="display:none"></div>
       </div>
+      <button class="mgb" id="mgBtn" type="button">จัดการห้อง</button>
+      <button class="lang" id="langBtn" type="button" aria-label="Language"></button>
       <button class="aipill" id="aiPill" aria-label="AI"></button>
     </div>
+    <div class="vhint" id="vhint"><span id="vhintTx"></span><button id="vhintBtn" type="button"></button></div>
     <div class="msgs" id="msgs"></div>
     <div class="replybar" id="replybar">
       <div class="rb" id="rbtxt"></div>
@@ -253,10 +363,21 @@ svg{display:block}
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 20.500V3.500L22 12z"/></svg>
       </button>
     </div>
+    <div class="rbar" id="rbar"><span id="rbarTx"></span><button id="rbarBtn" type="button" hidden></button></div>
     <input type="file" id="file" accept="image/*,video/mp4,video/webm,video/quicktime" style="display:none">
     <input type="file" id="avFile" accept="image/png,image/jpeg,image/webp" style="display:none">
   </div>
 
+  <div class="overlay" id="mgOv"><div class="sheet">
+    <div class="sh-head"><div><div class="sh-title" id="mgTitle"></div><div class="sh-sub" id="mgSub"></div></div><button class="sh-x" id="mgX" type="button" aria-label="ปิด">✕</button></div>
+    <div class="admtabs" id="mgTabs"></div>
+    <div class="sh-body" id="mgList"></div>
+    <div class="sh-foot"><button id="mgEdit" type="button">แก้ไขห้อง</button><button id="mgDel" class="danger" type="button">ลบห้อง</button></div>
+  </div></div>
+  <div class="overlay" id="dlgOv"><div class="dlg">
+    <div class="dlg-title" id="dlgTitle"></div><div class="dlg-body" id="dlgBody"></div><div class="dlg-err" id="dlgErr"></div>
+    <div class="dlg-btns"><button id="dlgNo" type="button"></button><button id="dlgOk" type="button"></button></div>
+  </div></div>
   <div class="overlay" id="menuOv"><div class="menu" id="menu"></div></div>
   <div class="overlay" id="viewer"><img id="vimg" alt=""></div>
   <div class="toast" id="toast"></div>
@@ -270,6 +391,16 @@ svg{display:block}
             (token = session token ของ GAS ที่ _tccGetToken() ให้) แล้ว Worker ออก chat token ให้
    แอดมิน : เปิด line-chat.html?mode=admin  (พิมพ์ ADMIN_KEY ครั้งแรก เก็บใน sessionStorage ของแท็บ)
             เปิดห้องตรงได้ด้วย  ?mode=admin&uid=<member id>&name=<ชื่อ>
+    Visitor: ยังไม่ล็อกอิน → แอปส่ง {type:"sc-init", visitor:true, lang, api?} · ไม่มีฝั่งแอดมิน · ไม่มีช่องพิมพ์ · เลือกถามได้เฉพาะเมนู FAQ
+             (GET /api/public/menu · POST /api/public/ask {qid,lang} — Worker ตอบจาก FAQ ตรง ไม่เก็บข้อความ ไม่เรียกโมเดล)
+    ข้อความ iframe → แอป: sc-need-init · sc-close (ปุ่มกลับ) · sc-login (ปุ่มเข้าสู่ระบบในโหมด Visitor) · sc-reset (โหมดเปลี่ยนกลางทาง ให้แอปโหลดใหม่)
+    ข้อความ แอป → iframe: sc-init · sc-visible {on}  (member: sc-init ใส่ chat:{token,me,exp_ms} ที่แลกจาก POST /api/me/chat-token ของ Worker หลัก)
+    ภาษา: ปุ่ม 🌐 ที่หัวห้อง (9 ภาษา) จำค่าที่เลือกไว้ใน localStorage "sc_lang" — ค่าที่เลือกเองชนะ lang ที่แอปส่งมา
+    แอดมินฝังในแอป (เฟส 3): แอปใส่ window.__SC_ADMIN=1 ไว้หัว srcdoc + ส่ง sc-init {chat:{token(role=admin),me,exp_ms}} (แลกจาก POST /api/admin/chat-token ของ Worker หลัก · root เท่านั้น) → ไม่ต้องกรอก ADMIN_KEY
+             แท็บ "ห้องสนทนา": สร้าง/แก้/ลบห้อง · คิวคำขอเข้าห้อง (อนุมัติ/ปฏิเสธ) · ในห้อง ปุ่ม "จัดการห้อง" = รออนุมัติ/สมาชิก/ถูกบล็อก/ทั้งระบบ (ถอดออก · บล็อก · ปลดบล็อก · บล็อก/ปลดบล็อกทั้งระบบ) · แอดมินกดค้างข้อความของสมาชิกในห้องเพื่อลบได้ — หน้าจอแอดมินเป็นภาษาไทยอย่างเดียว
+    Member หน้าแรก (เฟส 2): รายการ = ห้องคุยกับซัพพอร์ต/AI (ปักหมุด) + ห้องสนทนา จาก GET /api/rooms · ปุ่มกลับในห้อง → กลับรายการ
+             ห้องสนทนา: อ่านได้ทุกห้อง (ยกเว้นห้องส่วนตัว/ถูกบล็อก) · พิมพ์ได้เมื่อแอดมินอนุมัติ (แถบ #rbar แทนช่องพิมพ์ + ปุ่ม "ขอเข้าห้อง")
+             ห้องส่งได้: ข้อความ/สติกเกอร์/รูป/วิดีโอ (อัปโหลดด้วย /api/upload-sign?room=ID) · ชื่อผู้ส่งที่คนอื่นเห็นถูกย่อเป็น "ชื่อต้น*****" โดย Worker · ถ้า Worker ยังไม่มี /api/rooms จะถอยไปห้องซัพพอร์ตตรง ๆ แบบเฟส 1
    ===================================================================== */
 const DEFAULT_API = "https://line-chat-worker.tcc-team-developer.workers.dev";
 const SUPPORT_ID = "__support__";
@@ -278,77 +409,141 @@ const VIDEO_OK = ["video/mp4", "video/webm", "video/quicktime"];
 
 const STICKERS = ["😀","😂","🥰","😎","😭","😡","🥳","😴","👍","👏","🙏","💪","❤️","🔥","🎉","💰","📈","📉","🚀","🤝","☕","🍜","🐱","🐶"];
 const COLORS = ["#5b8c5a","#e17055","#0984e3","#6c5ce7","#d63031","#00b894","#e84393","#d9a400","#636e72","#00a5a8"];
+// [SYS-LOGO] โลโก้ระบบ (TCC) — ใช้เป็นรูปของ AI/ทีมซัพพอร์ตที่ไม่ได้ตั้งรูปเอง และของข้อความ AI ทุกข้อความ (PNG 160px "TCC AI ASSISTANCE" ฝังในไฟล์ ไม่ต้องโหลดจากภายนอก)
+const SYS_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAMAAAC8EZcfAAADAFBMVEV0VRxcFQBzVE6UYCa2oW7ZqlvizJbanT342DqhXRelcEbXmkjlplDlyHvwwWnez5AkJCQA//9/UB1/gX1VqqqAb2G/jD++oD2+tX7/VQDBezPDdB/NkT/hlz3ww2vf0GwAAAARBwIoGA9zRhOudimZlY+MVxhKOCo1JBdyVjCQioWRZy0cEglxamTPhzBHKRFxZFRURTVUNRVpOg2PdlCShXNpSSmkm5BmWU22hTCvpJavqqV6dG65ta+Ge2/49u/MljHOxbenaByXZBrZ1c5bUkqnayOHWyjMycRVS0OFa0g2KSPq5NjRpkvEuq6teBeaczPs6eTIeimDTBM8MimplnSriErSpjK2gxjj28/nx1HKmUa1llHv123Yt0745XN6YjmqVQDktU+ijGzw1VPOtm3Gt5VELCKYg1jiqkt7Uhf46Iy+fj5cQhp6PQEjDAf//wDHlBp/fwD9+q21pXHZtTb/AAD/qlW7lDX/fwDp2Yz+9Y/GqmnUx4nkyG2KTAzhjDGuZRnoxjdiPSOYVhKifEPCihnjujaSVBORVBWXVRGtZBiqqlXdw1KXVhSjXBXWxHfc0bjjlDnk17Pw56yaknHEeCb/f391OgR8cli/PwDquWR9RxCGSQ2qVVXLiDnPl1H89tWlXRO8fQS6o1bEey3LhzrbuHBXJgCkXBWiXBW7ciW6sZHBrYnrumPsumTou2WMTA+edBXJhjzOhTbRiDfJmVDSpRfVpVbgpzjouGztumX24VpBHQ1cPA+bWBO7diu7kBfCch7CeSvLhTrBjkLdkzzgnUfpslvsumU4GABZUj1qLAByRRFySiNjTUF/f3+VaSynZB2oZBi0bSKyayK3eCy6dCe9dCbVmEfeoUjewjrd1pjmqVDkp0zqtF3rvWX+9nz///8fHwA6BgB/AABnKgB+QwWIUQ6OViKTeGudhT6uZBitayiuaCG4ciuqjVW/vz/AfS/NjEXclz7cnkXZlUHdmUHYpljash7/fz/mrlXmqFTrtFryxGznx4flmBXgAAABAHRSTlMXEgoTBxP/GP+iCWKvEKQLBwFG/wP/FP//A1/NSNhF/wD///7+//7//////v///f////7+/////////////////v/8/v///v7///////7/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";
 
 // ---- เมนูไกด์ไลน์: ค่าด้านล่างเป็นเมนูสำรอง (ใช้เมื่อโหลดจาก Worker ไม่ได้) — เมนูจริงดึงจาก GET /api/kb/menu (loadGuide) ----
 // ไม่ต้องอัปเดตทุกครั้งที่แก้ FAQ · อยากให้สำรองตรงกับปัจจุบัน: node -e "import('./src/kb.js').then(m=>console.log(JSON.stringify(m.menuData())))" (โครงสร้างต้นไม้: หมวด → children → items)
 // ข้อความที่ส่งต้องตรงกับ q ของรหัสนั้นเป๊ะ (Worker ตรวจ) ไม่งั้นถูกปฏิบัติเป็นข้อความพิมพ์เอง
-let GUIDE = [{"id":"login","icon":"🔑","name":{"th":"เข้าสู่ระบบ","en":"Login","vi":"Đăng nhập","kh":"ចូលប្រព័ន្ធ","mm":"အကောင့်ဝင်ရန်","la":"ເຂົ້າລະບົບ"},"items":[{"id":"login_how","q":{"th":"วิธีเข้าสู่ระบบ / ตั้งรหัสผ่านครั้งแรก","en":"How do I log in / set my first password?","vi":"Đăng nhập / đặt mật khẩu lần đầu như thế nào?","kh":"តើចូលប្រព័ន្ធ / កំណត់ពាក្យសម្ងាត់លើកដំបូងយ៉ាងដូចម្តេច?","mm":"အကောင့်ဝင်ရန် / ပထမဆုံး စကားဝှက်သတ်မှတ်ရန် ဘယ်လိုလုပ်ရမလဲ။","la":"ເຂົ້າລະບົບ / ຕັ້ງລະຫັດຜ່ານຄັ້ງທຳອິດແນວໃດ?"}},{"id":"login_nophone","q":{"th":"ไม่พบเบอร์โทรในระบบ ทำอย่างไร","en":"My phone number is not found. What should I do?","vi":"Không tìm thấy số điện thoại trong hệ thống, phải làm sao?","kh":"រកមិនឃើញលេខទូរស័ព្ទក្នុងប្រព័ន្ធ តើត្រូវធ្វើយ៉ាងណា?","mm":"စနစ်ထဲတွင် ဖုန်းနံပါတ် မတွေ့ပါက ဘာလုပ်ရမလဲ။","la":"ບໍ່ພົບເບີໂທໃນລະບົບ ເຮັດແນວໃດ?"}},{"id":"login_locked","q":{"th":"ใส่รหัสผ่านผิด 5 ครั้งต้องทำอย่างไร","en":"What happens if I enter the wrong password 5 times?","vi":"Nhập sai mật khẩu 5 lần thì sao?","kh":"បើបញ្ចូលពាក្យសម្ងាត់ខុស 5 ដងត្រូវធ្វើយ៉ាងណា?","mm":"စကားဝှက် 5 ကြိမ် မှားထည့်ပါက ဘာဖြစ်မလဲ။","la":"ຖ້າໃສ່ລະຫັດຜ່ານຜິດ 5 ເທື່ອຈະເປັນແນວໃດ?"}},{"id":"login_remember","q":{"th":"ติ๊ก 'จำการเข้าสู่ระบบ' อยู่ได้นานแค่ไหน","en":"How long does 'Remember login' last?","vi":"'Ghi nhớ đăng nhập' duy trì được bao lâu?","kh":"'ចងចាំការចូលប្រព័ន្ធ' នៅបានរយៈពេលប៉ុន្មាន?","mm":"'အကောင့်ဝင်ထားမှုကို မှတ်ထားပါ' က ဘယ်လောက်ကြာအောင် ရှိနေမလဲ။","la":"ຕິກ 'ຈື່ການເຂົ້າລະບົບ' ຢູ່ໄດ້ດົນປານໃດ?"}}]},{"id":"wallet","icon":"💸","name":{"th":"ฝาก/ถอน","en":"Deposit / Withdraw","vi":"Nạp / Rút","kh":"ដាក់ / ដកប្រាក់","mm":"ငွေသွင်း / ငွေထုတ်","la":"ຝາກ / ຖອນ"},"items":[{"id":"deposit_how","q":{"th":"วิธีฝากเงิน / เติมเงิน และขั้นต่ำ","en":"How do I deposit, and what is the minimum?","vi":"Cách nạp tiền và mức tối thiểu?","kh":"របៀបដាក់ប្រាក់ និងចំនួនអប្បបរមា?","mm":"ငွေသွင်းနည်းနှင့် အနည်းဆုံးပမာဏ ဘယ်လောက်လဲ။","la":"ວິທີຝາກເງິນ ແລະຂັ້ນຕ່ຳເທົ່າໃດ?"}},{"id":"withdraw_how","q":{"th":"วิธีถอนเงิน และใช้เวลานานเท่าไร","en":"How do I withdraw, and how long does it take?","vi":"Cách rút tiền và mất bao lâu?","kh":"របៀបដកប្រាក់ និងប្រើពេលប៉ុន្មាន?","mm":"ငွေထုတ်နည်းနှင့် ဘယ်လောက်ကြာမလဲ။","la":"ວິທີຖອນເງິນ ແລະໃຊ້ເວລາດົນປານໃດ?"}},{"id":"withdraw_status","q":{"th":"ถอนเงินช้า / สถานะการถอนหมายถึงอะไร","en":"Withdrawal is slow / what do the withdrawal statuses mean?","vi":"Rút tiền chậm / các trạng thái rút tiền có nghĩa là gì?","kh":"ការដកប្រាក់យឺត / ស្ថានភាពនៃការដកប្រាក់មានន័យដូចម្តេច?","mm":"ငွေထုတ်ခြင်း နှောင့်နှေးပါက / ငွေထုတ်အခြေအနေများ၏ အဓိပ္ပာယ်","la":"ຖອນເງິນຊ້າ / ສະຖານະການຖອນໝາຍເຖິງຫຍັງ"}},{"id":"fee_withdraw","q":{"th":"ค่าธรรมเนียมและขั้นต่ำการถอน On-chain","en":"On-chain withdrawal fees and minimums","vi":"Phí và mức tối thiểu khi rút On-chain","kh":"ថ្លៃសេវា និងចំនួនអប្បបរមានៃការដកប្រាក់ On-chain","mm":"On-chain ငွေထုတ်ခြင်း၏ ကြေးနှင့် အနည်းဆုံးပမာဏ","la":"ຄ່າທຳນຽມ ແລະຂັ້ນຕ່ຳການຖອນ On-chain"}},{"id":"coins_networks","q":{"th":"เหรียญและเครือข่ายที่รองรับ","en":"Supported coins and networks","vi":"Các đồng coin và mạng lưới được hỗ trợ","kh":"រូបិយប័ណ្ណ និងបណ្តាញដែលគាំទ្រ","mm":"ပံ့ပိုးထားသော ဒင်္ဂါးများနှင့် ကွန်ရက်များ","la":"ເຫຼຽນ ແລະເຄືອຂ່າຍທີ່ຮອງຮັບ"}}]},{"id":"earn","icon":"📈","name":{"th":"Earn","en":"Earn","vi":"Earn","kh":"Earn","mm":"Earn","la":"Earn"},"items":[{"id":"earn_create","q":{"th":"สร้างสัญญา Earn อย่างไร","en":"How do I create an Earn contract?","vi":"Tạo hợp đồng Earn như thế nào?","kh":"តើបង្កើតកិច្ចសន្យា Earn យ៉ាងដូចម្តេច?","mm":"Earn စာချုပ် ဘယ်လို ဖန်တီးရမလဲ။","la":"ສ້າງສັນຍາ Earn ແນວໃດ?"}},{"id":"earn_plans","q":{"th":"แผน Earn มีอะไรบ้าง ผลตอบแทนเท่าไร","en":"What Earn plans are available and what are the returns?","vi":"Có những gói Earn nào và lợi nhuận bao nhiêu?","kh":"តើមានគម្រោង Earn អ្វីខ្លះ ហើយផលចំណេញប៉ុន្មាន?","mm":"Earn အစီအစဉ်များ ဘာတွေရှိပြီး အမြတ်ဘယ်လောက်လဲ။","la":"ແຜນ Earn ມີຫຍັງແດ່ ຜົນຕອບແທນເທົ່າໃດ?"}},{"id":"earn_claim","q":{"th":"รับเงินต้นคืนและเคลมกำไร Earn","en":"How do I get my principal back and claim Earn profit?","vi":"Nhận lại vốn gốc và nhận (claim) lợi nhuận Earn","kh":"ទទួលប្រាក់ដើមវិញ និងទាមទារប្រាក់ចំណេញ Earn","mm":"Earn ရင်းငွေပြန်ယူခြင်းနှင့် အမြတ် claim လုပ်ခြင်း","la":"ຮັບເງິນຕົ້ນຄືນ ແລະເຄລມກຳໄລ Earn"}},{"id":"earn_split","q":{"th":"การแบ่งกำไรเป็นอย่างไร","en":"How is the profit split?","vi":"Lợi nhuận được chia như thế nào?","kh":"តើការបែងចែកប្រាក់ចំណេញយ៉ាងដូចម្តេច?","mm":"အမြတ်ခွဲဝေမှု ဘယ်လိုလဲ။","la":"ການແບ່ງກຳໄລເປັນແນວໃດ?"}}]},{"id":"futures","icon":"📊","name":{"th":"Futures","en":"Futures","vi":"Futures","kh":"Futures","mm":"Futures","la":"Futures"},"items":[{"id":"fut_close","q":{"th":"ปิดออเดอร์ ตั้ง TP/SL ยกเลิกออเดอร์","en":"Closing orders, setting TP/SL and cancelling orders","vi":"Đóng lệnh, đặt TP/SL và hủy lệnh","kh":"បិទការបញ្ជា កំណត់ TP/SL និងលុបចោលការបញ្ជា","mm":"အော်ဒါပိတ်ခြင်း၊ TP/SL သတ်မှတ်ခြင်းနှင့် အော်ဒါပယ်ဖျက်ခြင်း","la":"ປິດອໍເດີ ຕັ້ງ TP/SL ແລະຍົກເລີກອໍເດີ"}},{"id":"fut_modes","q":{"th":"Futures แท็บ Contract กับ Direct ต่างกันอย่างไร","en":"What's the difference between the Contract and Direct tabs in Futures?","vi":"Tab Contract và Direct trong Futures khác nhau thế nào?","kh":"តើផ្ទាំង Contract និង Direct ក្នុង Futures ខុសគ្នាយ៉ាងដូចម្តេច?","mm":"Futures ရှိ Contract နှင့် Direct တက်ဘ် ဘာကွာသလဲ။","la":"ແທັບ Contract ແລະ Direct ໃນ Futures ແຕກຕ່າງກັນແນວໃດ?"}},{"id":"fut_funding","q":{"th":"Funding Fee คืออะไร คิดอย่างไร","en":"What is the Funding Fee and how is it charged?","vi":"Funding Fee là gì và được tính thế nào?","kh":"Funding Fee គឺជាអ្វី ហើយគិតយ៉ាងដូចម្តេច?","mm":"Funding Fee ဆိုတာ ဘာလဲ၊ ဘယ်လိုတွက်သလဲ။","la":"Funding Fee ແມ່ນຫຍັງ ຄິດແນວໃດ?"}}],"children":[{"id":"fut_contract","icon":"📋","name":{"th":"Futures · Contract","en":"Futures · Contract","vi":"Futures · Contract","kh":"Futures · Contract","mm":"Futures · Contract","la":"Futures · Contract"},"items":[{"id":"fut_open","q":{"th":"เปิดออเดอร์ Futures แท็บ Contract อย่างไร","en":"How do I open a Futures order (Contract tab)?","vi":"Mở lệnh Futures (tab Contract) như thế nào?","kh":"តើបើកការបញ្ជា Futures (ផ្ទាំង Contract) យ៉ាងដូចម្តេច?","mm":"Futures အော်ဒါ (Contract တက်ဘ်) ဘယ်လိုဖွင့်ရမလဲ။","la":"ເປີດອໍເດີ Futures (ແທັບ Contract) ແນວໃດ?"}},{"id":"fut_freeze","q":{"th":"สัญญาถูก Freeze / Auto-Liquidate คืออะไร","en":"What does a Frozen contract / Auto-Liquidate mean?","vi":"Hợp đồng bị Freeze / Auto-Liquidate nghĩa là gì?","kh":"កិច្ចសន្យាត្រូវបាន Freeze / Auto-Liquidate មានន័យដូចម្តេច?","mm":"စာချုပ် Freeze / Auto-Liquidate ဖြစ်ခြင်းဆိုတာ ဘာလဲ။","la":"ສັນຍາຖືກ Freeze / Auto-Liquidate ແມ່ນຫຍັງ?"}},{"id":"fut_c_pnl","q":{"th":"กำไรขาดทุนของ Contract ไปอยู่ที่ไหน","en":"Where do Contract profits and losses go?","vi":"Lãi lỗ của Contract đi đâu?","kh":"តើចំណេញខាតរបស់ Contract ទៅណា?","mm":"Contract ၏ အမြတ်အရှုံး ဘယ်သို့ရောက်သလဲ။","la":"ກຳໄລຂາດທຶນຂອງ Contract ໄປຢູ່ໃສ?"}}]},{"id":"fut_direct","icon":"⚡","name":{"th":"Futures · Direct","en":"Futures · Direct","vi":"Futures · Direct","kh":"Futures · Direct","mm":"Futures · Direct","la":"Futures · Direct"},"items":[{"id":"fut_direct_start","q":{"th":"เริ่มเทรดแท็บ Direct อย่างไร","en":"How do I start trading in the Direct tab?","vi":"Bắt đầu giao dịch ở tab Direct như thế nào?","kh":"តើចាប់ផ្តើមជួញដូរក្នុងផ្ទាំង Direct យ៉ាងដូចម្តេច?","mm":"Direct တက်ဘ်တွင် ကုန်သွယ်မှု ဘယ်လိုစရမလဲ။","la":"ເລີ່ມເທຣດແທັບ Direct ແນວໃດ?"}},{"id":"fut_direct_liq","q":{"th":"Direct ถูก Liq เมื่อไร มี Freeze ไหม","en":"When is a Direct position liquidated, and is there a Freeze?","vi":"Khi nào Position ở Direct bị Liq, có Freeze không?","kh":"តើ Position ក្នុង Direct ត្រូវ Liq នៅពេលណា មាន Freeze ឬទេ?","mm":"Direct တွင် Position ဘယ်အချိန် Liq ဖြစ်သလဲ၊ Freeze ရှိသလား။","la":"Direct ຖືກ Liq ເມື່ອໃດ ມີ Freeze ບໍ?"}}]}]},{"id":"history","icon":"🧾","name":{"th":"ประวัติ/รายการ","en":"History","vi":"Lịch sử","kh":"ប្រវត្តិ","mm":"မှတ်တမ်း","la":"ປະຫວັດ"},"items":[{"id":"hist_trades","q":{"th":"ดูประวัติเทรด ออเดอร์ และ Funding ได้ที่ไหน","en":"Where can I see my trade, order and Funding history?","vi":"Xem lịch sử giao dịch, lệnh và Funding ở đâu?","kh":"តើមើលប្រវត្តិជួញដូរ ការបញ្ជា និង Funding នៅឯណា?","mm":"ကုန်သွယ်မှု၊ အော်ဒါနှင့် Funding မှတ်တမ်းကို ဘယ်မှာကြည့်ရမလဲ။","la":"ເບິ່ງປະຫວັດເທຣດ ອໍເດີ ແລະ Funding ໄດ້ຢູ່ໃສ?"}},{"id":"hist_pnl","q":{"th":"ดู Realized PNL และ Daily PNL ได้อย่างไร","en":"How do I see Realized PNL and Daily PNL?","vi":"Xem Realized PNL và Daily PNL như thế nào?","kh":"តើមើល Realized PNL និង Daily PNL យ៉ាងដូចម្តេច?","mm":"Realized PNL နှင့် Daily PNL ကို ဘယ်လိုကြည့်ရမလဲ။","la":"ເບິ່ງ Realized PNL ແລະ Daily PNL ແນວໃດ?"}},{"id":"hist_money","q":{"th":"ดูประวัติเงินเข้า-ออก และค้นหารายการ","en":"How do I see money in/out history and search records?","vi":"Xem lịch sử tiền vào/ra và tìm kiếm giao dịch như thế nào?","kh":"តើមើលប្រវត្តិប្រាក់ចូល-ចេញ និងស្វែងរកកំណត់ត្រាយ៉ាងដូចម្តេច?","mm":"ငွေဝင်/ထွက် မှတ်တမ်းကို ကြည့်ပြီး ရှာဖွေနည်း","la":"ເບິ່ງປະຫວັດເງິນເຂົ້າ-ອອກ ແລະຄົ້ນຫາລາຍການແນວໃດ?"}},{"id":"hist_mismatch","q":{"th":"ตัวเลขหรือรายการไม่ตรง ต้องการให้ตรวจสอบ","en":"A number or record looks wrong and I want it checked","vi":"Số liệu hoặc giao dịch không khớp, tôi muốn được kiểm tra","kh":"លេខ ឬកំណត់ត្រាមិនត្រូវគ្នា ខ្ញុំចង់ឱ្យពិនិត្យ","mm":"ကိန်းဂဏန်း သို့မဟုတ် စာရင်း မကိုက်ညီ၊ စစ်ဆေးပေးစေလိုပါသည်","la":"ຕົວເລກ ຫຼືລາຍການບໍ່ກົງກັນ ຕ້ອງການໃຫ້ກວດສອບ"}}]},{"id":"loan","icon":"🏦","name":{"th":"สินเชื่อ","en":"Loan","vi":"Vay (Loan)","kh":"ប្រាក់កម្ចី","mm":"ချေးငွေ","la":"ສິນເຊື່ອ"},"items":[{"id":"loan_how","q":{"th":"สินเชื่อ (Loan) ทำงานอย่างไร ดอกเบี้ยเท่าไร","en":"How does the Loan work and what is the interest rate?","vi":"Khoản vay (Loan) hoạt động thế nào và lãi suất bao nhiêu?","kh":"តើប្រាក់កម្ចី (Loan) ដំណើរការយ៉ាងដូចម្តេច ហើយការប្រាក់ប៉ុន្មាន?","mm":"ချေးငွေ (Loan) ဘယ်လိုအလုပ်လုပ်ပြီး အတိုးနှုန်း ဘယ်လောက်လဲ။","la":"ສິນເຊື່ອ (Loan) ເຮັດວຽກແນວໃດ ດອກເບ້ຍເທົ່າໃດ?"}},{"id":"loan_ltv","q":{"th":"LTV, Margin Call และการบังคับขายของสินเชื่อ","en":"Loan LTV, Margin Call and forced liquidation","vi":"LTV, Margin Call và bán cưỡng chế của khoản vay","kh":"LTV, Margin Call និងការបង្ខំលក់នៃប្រាក់កម្ចី","mm":"ချေးငွေ၏ LTV, Margin Call နှင့် အတင်းအကျပ်ရောင်းချမှု","la":"LTV, Margin Call ແລະການບັງຄັບຂາຍຂອງສິນເຊື່ອ"}},{"id":"loan_repay","q":{"th":"ชำระคืนสินเชื่อได้เมื่อไร มีค่าธรรมเนียมไหม","en":"When can I repay the Loan, and is there a fee?","vi":"Khi nào có thể trả nợ khoản vay và có mất phí không?","kh":"តើអាចសងប្រាក់កម្ចីពេលណា ហើយមានថ្លៃសេវាទេ?","mm":"ချေးငွေကို ဘယ်အချိန် ပြန်ဆပ်နိုင်ပြီး ကြေးရှိပါသလား။","la":"ຊຳລະສິນເຊື່ອຄືນໄດ້ເມື່ອໃດ ມີຄ່າທຳນຽມບໍ?"}}]},{"id":"commission","icon":"🤝","name":{"th":"คอมมิชชั่น","en":"Commission","vi":"Hoa hồng","kh":"កម្រៃជើងសារ","mm":"ကော်မရှင်","la":"ຄອມມິດຊັນ"},"items":[{"id":"comm_source","q":{"th":"ค่าคอมมิชชั่นมาจากไหน ได้เท่าไร","en":"Where does commission come from and how much is it?","vi":"Hoa hồng đến từ đâu và được bao nhiêu?","kh":"តើកម្រៃជើងសារមកពីណា ហើយបានប៉ុន្មាន?","mm":"ကော်မရှင်က ဘယ်ကရပြီး ဘယ်လောက်ရမလဲ။","la":"ຄ່າຄອມມິດຊັນມາຈາກໃສ ໄດ້ເທົ່າໃດ?"}},{"id":"comm_referral","q":{"th":"ค่าแนะนำสมาชิกใหม่ได้เท่าไร","en":"How much is the referral fee for new members?","vi":"Phí giới thiệu thành viên mới là bao nhiêu?","kh":"តើថ្លៃណែនាំសមាជិកថ្មីបានប៉ុន្មាន?","mm":"အဖွဲ့ဝင်အသစ် မိတ်ဆက်ကြေး ဘယ်လောက်ရမလဲ။","la":"ຄ່າແນະນຳສະມາຊິກໃໝ່ໄດ້ເທົ່າໃດ?"}},{"id":"comm_claim","q":{"th":"โอน/เคลมค่าคอมมิชชั่นได้เมื่อไร","en":"When can I transfer / claim commission?","vi":"Khi nào có thể chuyển / nhận (claim) hoa hồng?","kh":"តើអាចផ្ទេរ / ទាមទារកម្រៃជើងសារបានពេលណា?","mm":"ကော်မရှင်ကို ဘယ်အချိန် လွှဲ / claim လုပ်နိုင်မလဲ။","la":"ໂອນ/ເຄລມຄ່າຄອມມິດຊັນໄດ້ເມື່ອໃດ?"}}]},{"id":"market","icon":"🛒","name":{"th":"Marketplace","en":"Marketplace","vi":"Marketplace","kh":"Marketplace","mm":"Marketplace","la":"Marketplace"},"items":[{"id":"mp_intro","q":{"th":"Marketplace คืออะไร เข้าใช้งานอย่างไร","en":"What is the Marketplace and how do I use it?","vi":"Marketplace là gì và truy cập như thế nào?","kh":"តើ Marketplace ជាអ្វី ហើយចូលប្រើយ៉ាងដូចម្តេច?","mm":"Marketplace ဆိုတာ ဘာလဲ၊ ဘယ်လို ဝင်သုံးရမလဲ။","la":"Marketplace ແມ່ນຫຍັງ ເຂົ້າໃຊ້ງານແນວໃດ?"}},{"id":"mp_wallet","q":{"th":"ฝาก/ถอนเงินใน Marketplace มีค่าธรรมเนียมไหม","en":"Are there fees for deposits / withdrawals in the Marketplace?","vi":"Nạp / rút tiền trong Marketplace có mất phí không?","kh":"តើការដាក់ / ដកប្រាក់ក្នុង Marketplace មានថ្លៃសេវាទេ?","mm":"Marketplace ထဲတွင် ငွေသွင်း / ငွေထုတ်ရန် ကြေးရှိပါသလား။","la":"ຝາກ/ຖອນເງິນໃນ Marketplace ມີຄ່າທຳນຽມບໍ?"}},{"id":"mp_ff","q":{"th":"Funding Free (FF) คืออะไร","en":"What is Funding Free (FF)?","vi":"Funding Free (FF) là gì?","kh":"តើ Funding Free (FF) ជាអ្វី?","mm":"Funding Free (FF) ဆိုတာ ဘာလဲ။","la":"Funding Free (FF) ແມ່ນຫຍັງ?"}},{"id":"mp_seller","q":{"th":"สมัครเป็นผู้ขาย (Seller) ใน Marketplace","en":"How do I become a Seller in the Marketplace?","vi":"Đăng ký làm người bán (Seller) trong Marketplace","kh":"ចុះឈ្មោះជាអ្នកលក់ (Seller) ក្នុង Marketplace","mm":"Marketplace တွင် ရောင်းသူ (Seller) အဖြစ် လျှောက်ထားခြင်း","la":"ສະໝັກເປັນຜູ້ຂາຍ (Seller) ໃນ Marketplace"}}]},{"id":"kyc","icon":"🪪","name":{"th":"KYC","en":"KYC","vi":"KYC","kh":"KYC","mm":"KYC","la":"KYC"},"items":[{"id":"kyc_how","q":{"th":"ต้อง KYC หรือไม่ และ KYC อย่างไร","en":"Is KYC required and how do I do it?","vi":"Có cần KYC không và KYC như thế nào?","kh":"តើត្រូវ KYC ឬទេ ហើយ KYC យ៉ាងដូចម្តេច?","mm":"KYC လုပ်ရန် လိုပါသလား၊ ဘယ်လိုလုပ်ရမလဲ။","la":"ຕ້ອງ KYC ບໍ ແລະ KYC ແນວໃດ?"}},{"id":"kyc_limits","q":{"th":"ลิมิตการฝากถอนขึ้นกับอะไร","en":"What do deposit and withdrawal limits depend on?","vi":"Hạn mức nạp rút phụ thuộc vào điều gì?","kh":"តើកម្រិតកំណត់នៃការដាក់ដកប្រាក់អាស្រ័យលើអ្វី?","mm":"ငွေသွင်း/ငွေထုတ် ကန့်သတ်ချက်သည် ဘာပေါ်မူတည်သလဲ။","la":"ລິມິດການຝາກຖອນຂຶ້ນກັບຫຍັງ?"}},{"id":"kyc_help","q":{"th":"ติดปัญหาในการยืนยันตัวตน ทำอย่างไร","en":"I have a problem with verification. What should I do?","vi":"Gặp vấn đề khi xác minh danh tính, phải làm sao?","kh":"ជួបបញ្ហាក្នុងការផ្ទៀងផ្ទាត់អត្តសញ្ញាណ តើត្រូវធ្វើយ៉ាងណា?","mm":"အတည်ပြုရာတွင် ပြဿနာရှိပါက ဘာလုပ်ရမလဲ။","la":"ຕິດບັນຫາໃນການຢືນຢັນຕົວຕົນ ເຮັດແນວໃດ?"}}]},{"id":"tcc","icon":"🏠","name":{"th":"ภาพรวม TCC","en":"About TCC","vi":"Giới thiệu TCC","kh":"អំពី TCC","mm":"TCC အကြောင်း","la":"ກ່ຽວກັບ TCC"},"items":[{"id":"tcc_what","q":{"th":"TCC (Trader Cafe Club) คืออะไร","en":"What is TCC (Trader Cafe Club)?","vi":"TCC (Trader Cafe Club) là gì?","kh":"តើ TCC (Trader Cafe Club) ជាអ្វី?","mm":"TCC (Trader Cafe Club) ဆိုတာ ဘာလဲ။","la":"TCC (Trader Cafe Club) ແມ່ນຫຍັງ?"}},{"id":"tcc_map","q":{"th":"TCC มีฟีเจอร์อะไรบ้าง และแต่ละอย่างใช้ทำอะไร","en":"What features does TCC have and what is each one for?","vi":"TCC có những tính năng nào và mỗi tính năng dùng để làm gì?","kh":"TCC មានមុខងារអ្វីខ្លះ ហើយនីមួយៗប្រើសម្រាប់អ្វី?","mm":"TCC တွင် လုပ်ဆောင်ချက်များ ဘာတွေရှိပြီး တစ်ခုချင်းစီက ဘာအတွက်လဲ။","la":"TCC ມີຟີເຈີຫຍັງແດ່ ແລະແຕ່ລະອັນໃຊ້ເຮັດຫຍັງ?"}},{"id":"tcc_vs","q":{"th":"TCC ต่างจากแพลตฟอร์มซื้อขายทั่วไปอย่างไร มีข้อดีอะไร","en":"How is TCC different from a typical trading platform, and what are its advantages?","vi":"TCC khác gì so với nền tảng giao dịch thông thường và có ưu điểm gì?","kh":"តើ TCC ខុសពីវេទិកាជួញដូរទូទៅយ៉ាងដូចម្តេច ហើយមានគុណសម្បត្តិអ្វីខ្លះ?","mm":"TCC သည် ပုံမှန်ကုန်သွယ်ရေးပလက်ဖောင်းများနှင့် ဘာကွာခြားပြီး အားသာချက်တွေ ဘာတွေလဲ။","la":"TCC ແຕກຕ່າງຈາກແພລດຟອມຊື້ຂາຍທົ່ວໄປແນວໃດ ແລະມີຂໍ້ດີຫຍັງ?"}},{"id":"tcc_risk","q":{"th":"TCC มีระบบควบคุมความเสี่ยงอย่างไร","en":"What risk controls does TCC have?","vi":"TCC có cơ chế kiểm soát rủi ro nào?","kh":"តើ TCC មានប្រព័ន្ធគ្រប់គ្រងហានិភ័យអ្វីខ្លះ?","mm":"TCC တွင် အန္တရာယ်ထိန်းချုပ်မှုစနစ် ဘာတွေရှိလဲ။","la":"TCC ມີລະບົບຄວບຄຸມຄວາມສ່ຽງແນວໃດ?"}},{"id":"tcc_start","q":{"th":"เริ่มใช้งาน TCC ต้องทำอะไรบ้าง","en":"What do I need to do to get started with TCC?","vi":"Tôi cần làm gì để bắt đầu dùng TCC?","kh":"តើត្រូវធ្វើអ្វីខ្លះដើម្បីចាប់ផ្តើមប្រើ TCC?","mm":"TCC ကို စတင်သုံးရန် ဘာတွေလုပ်ရမလဲ။","la":"ເລີ່ມໃຊ້ TCC ຕ້ອງເຮັດຫຍັງແດ່?"}}]},{"id":"whale","icon":"🐋","name":{"th":"Whale (วาฬ)","en":"Whale Tools","vi":"Whale (cá voi)","kh":"Whale (ត្រីបាឡែន)","mm":"Whale (ဝေလ်)","la":"Whale (ປາວານ)"},"items":[{"id":"whale_intro","q":{"th":"Whale Tracker (Whale EXT) คืออะไร มีอะไรให้ดูบ้าง","en":"What is Whale Tracker (Whale EXT) and what can I see there?","vi":"Whale Tracker (Whale EXT) là gì và có những gì để xem?","kh":"តើ Whale Tracker (Whale EXT) ជាអ្វី ហើយមានអ្វីខ្លះឱ្យមើល?","mm":"Whale Tracker (Whale EXT) ဆိုတာ ဘာလဲ၊ ဘာတွေကြည့်လို့ရလဲ။","la":"Whale Tracker (Whale EXT) ແມ່ນຫຍັງ ແລະ ມີຫຍັງໃຫ້ເບິ່ງແດ່?"}},{"id":"whale_feed","q":{"th":"อ่านหน้า Live Feed ของ Whale อย่างไร (Long/Short, Action, Mega Whale)","en":"How do I read the Whale Live Feed (Long/Short, Action, Mega Whale)?","vi":"Đọc Live Feed của Whale thế nào (Long/Short, Action, Mega Whale)?","kh":"តើអានទំព័រ Live Feed របស់ Whale យ៉ាងដូចម្តេច (Long/Short, Action, Mega Whale)?","mm":"Whale Live Feed ကို ဘယ်လိုဖတ်ရမလဲ (Long/Short, Action, Mega Whale)။","la":"ອ່ານໜ້າ Live Feed ຂອງ Whale ແນວໃດ (Long/Short, Action, Mega Whale)?"}},{"id":"whale","q":{"th":"วาฬแจ้งเตือน (Whale Alert / Whale Tracker) คืออะไร","en":"What is Whale Alert / Whale Tracker?","vi":"Whale Alert / Whale Tracker (cá voi) là gì?","kh":"តើ Whale Alert / Whale Tracker ជាអ្វី?","mm":"Whale Alert / Whale Tracker ဆိုတာ ဘာလဲ။","la":"Whale Alert / Whale Tracker (ປາວານ) ແມ່ນຫຍັງ?"}},{"id":"whale_analytics","q":{"th":"หน้า Analytics ของ Whale ดูอะไรได้บ้าง","en":"What can I see on the Whale Analytics page?","vi":"Trang Analytics của Whale có những gì?","kh":"តើអាចមើលអ្វីខ្លះនៅទំព័រ Analytics របស់ Whale?","mm":"Whale Analytics စာမျက်နှာတွင် ဘာတွေကြည့်လို့ရလဲ။","la":"ໜ້າ Analytics ຂອງ Whale ເບິ່ງຫຍັງໄດ້ແດ່?"}},{"id":"whale_data","q":{"th":"Whale Data คืออะไร ป้าย STRONG BUY / ACCUMULATING หมายถึงอะไร","en":"What is Whale Data and what do the STRONG BUY / ACCUMULATING labels mean?","vi":"Whale Data là gì và nhãn STRONG BUY / ACCUMULATING nghĩa là gì?","kh":"Whale Data ជាអ្វី ហើយស្លាក STRONG BUY / ACCUMULATING មានន័យដូចម្តេច?","mm":"Whale Data ဆိုတာ ဘာလဲ၊ STRONG BUY / ACCUMULATING အမှတ်အသားက ဘာကို ဆိုလိုလဲ။","la":"Whale Data ແມ່ນຫຍັງ ແລະປ້າຍ STRONG BUY / ACCUMULATING ໝາຍເຖິງຫຍັງ?"}},{"id":"whale_forecast","q":{"th":"Forecast (Master Signal) คืออะไร และต้องทำอย่างไรถึงจะเข้าใช้ได้","en":"What is Forecast (Master Signal) and how do I get access?","vi":"Forecast (Master Signal) là gì và làm sao để được truy cập?","kh":"Forecast (Master Signal) ជាអ្វី ហើយត្រូវធ្វើយ៉ាងណាដើម្បីចូលប្រើ?","mm":"Forecast (Master Signal) ဆိုတာ ဘာလဲ၊ ဘယ်လို ဝင်ရောက်သုံးရမလဲ။","la":"Forecast (Master Signal) ແມ່ນຫຍັງ ແລະຕ້ອງເຮັດແນວໃດຈຶ່ງເຂົ້າໃຊ້ໄດ້?"}},{"id":"whale_orderbook","q":{"th":"หน้า Order Book ของ Whale ดูอะไรได้","en":"What can I see on the Whale Order Book page?","vi":"Trang Order Book của Whale cho xem những gì?","kh":"តើអាចមើលអ្វីខ្លះនៅទំព័រ Order Book របស់ Whale?","mm":"Whale Order Book စာမျက်နှာတွင် ဘာတွေကြည့်လို့ရလဲ။","la":"ໜ້າ Order Book ຂອງ Whale ເບິ່ງຫຍັງໄດ້?"}},{"id":"whale_hunter","q":{"th":"Hunter (แผนที่ Liquidation) คืออะไร อ่านอย่างไร","en":"What is Hunter (the liquidation map) and how do I read it?","vi":"Hunter (bản đồ thanh lý) là gì và đọc thế nào?","kh":"Hunter (ផែនទី Liquidation) ជាអ្វី ហើយអានយ៉ាងដូចម្តេច?","mm":"Hunter (Liquidation မြေပုံ) ဆိုတာ ဘာလဲ၊ ဘယ်လိုဖတ်ရမလဲ။","la":"Hunter (ແຜນທີ່ Liquidation) ແມ່ນຫຍັງ ແລະອ່ານແນວໃດ?"}},{"id":"whale_limits","q":{"th":"ข้อมูล Whale ครอบคลุมเหรียญไหน และมีข้อจำกัดอะไรบ้าง","en":"Which coins does Whale data cover, and what are the limitations?","vi":"Dữ liệu Whale bao gồm những coin nào và có giới hạn gì?","kh":"ទិន្នន័យ Whale គ្របដណ្តប់រូបិយប័ណ្ណណាខ្លះ ហើយមានដែនកំណត់អ្វីខ្លះ?","mm":"Whale ဒေတာသည် ဒင်္ဂါးမည်သည်တို့ကို ဖုံးလွှမ်းသလဲ၊ ကန့်သတ်ချက်များ ဘာတွေရှိလဲ။","la":"ຂໍ້ມູນ Whale ຄຸມເຫຼຽນໃດແດ່ ແລະມີຂໍ້ຈຳກັດຫຍັງ?"}}]},{"id":"general","icon":"💬","name":{"th":"ทั่วไป / ความปลอดภัย","en":"General / Security","vi":"Chung / Bảo mật","kh":"ទូទៅ / សុវត្ថិភាព","mm":"အထွေထွေ / လုံခြုံရေး","la":"ທົ່ວໄປ / ຄວາມປອດໄພ"},"items":[{"id":"chat_media","q":{"th":"ส่งรูปหรือวิดีโอในแชทได้ไหม","en":"Can I send photos or videos in chat?","vi":"Có thể gửi ảnh hoặc video trong chat không?","kh":"តើអាចផ្ញើរូបភាព ឬវីដេអូក្នុងការជជែកបានទេ?","mm":"ချက်တင်တွင် ဓာတ်ပုံ သို့မဟုတ် ဗီဒီယို ပို့လို့ရပါသလား။","la":"ສົ່ງຮູບ ຫຼື ວິດີໂອໃນແຊັດໄດ້ບໍ?"}},{"id":"security_secrets","q":{"th":"ต้องให้รหัสผ่าน / OTP / seed phrase / private key กับทีมงานไหม","en":"Do I need to give my password / OTP / seed phrase / private key to the team?","vi":"Có cần đưa mật khẩu / OTP / seed phrase / private key cho đội ngũ không?","kh":"តើត្រូវផ្តល់ពាក្យសម្ងាត់ / OTP / seed phrase / private key ដល់ក្រុមការងារទេ?","mm":"စကားဝှက် / OTP / seed phrase / private key ကို အဖွဲ့အား ပေးရန် လိုပါသလား။","la":"ຕ້ອງໃຫ້ລະຫັດຜ່ານ / OTP / seed phrase / private key ກັບທີມງານບໍ?"}}]}];
+let GUIDE = [{"id":"login","icon":"🔑","name":{"th":"เข้าสู่ระบบ","en":"Login","vi":"Đăng nhập","kh":"ចូលប្រព័ន្ធ","mm":"အကောင့်ဝင်ရန်","la":"ເຂົ້າລະບົບ","ms":"Log masuk","id":"Login","zh":"登录"},"items":[{"id":"login_how","q":{"th":"วิธีเข้าสู่ระบบ / ตั้งรหัสผ่านครั้งแรก","en":"How do I log in / set my first password?","vi":"Đăng nhập / đặt mật khẩu lần đầu như thế nào?","kh":"តើចូលប្រព័ន្ធ / កំណត់ពាក្យសម្ងាត់លើកដំបូងយ៉ាងដូចម្តេច?","mm":"အကောင့်ဝင်ရန် / ပထမဆုံး စကားဝှက်သတ်မှတ်ရန် ဘယ်လိုလုပ်ရမလဲ။","la":"ເຂົ້າລະບົບ / ຕັ້ງລະຫັດຜ່ານຄັ້ງທຳອິດແນວໃດ?","ms":"Bagaimana saya log masuk / menetapkan kata laluan pertama saya?","id":"Bagaimana cara login / mengatur password pertama saya?","zh":"如何登录 / 设置首次密码？"}},{"id":"login_nophone","q":{"th":"ไม่พบเบอร์โทรในระบบ ทำอย่างไร","en":"My phone number is not found. What should I do?","vi":"Không tìm thấy số điện thoại trong hệ thống, phải làm sao?","kh":"រកមិនឃើញលេខទូរស័ព្ទក្នុងប្រព័ន្ធ តើត្រូវធ្វើយ៉ាងណា?","mm":"စနစ်ထဲတွင် ဖုန်းနံပါတ် မတွေ့ပါက ဘာလုပ်ရမလဲ။","la":"ບໍ່ພົບເບີໂທໃນລະບົບ ເຮັດແນວໃດ?","ms":"Nombor telefon saya tidak dijumpai. Apakah yang perlu saya lakukan?","id":"Nomor telepon saya tidak ditemukan. Apa yang harus saya lakukan?","zh":"提示找不到我的手机号码，该怎么办？"}},{"id":"login_locked","q":{"th":"ใส่รหัสผ่านผิด 5 ครั้งต้องทำอย่างไร","en":"What happens if I enter the wrong password 5 times?","vi":"Nhập sai mật khẩu 5 lần thì sao?","kh":"បើបញ្ចូលពាក្យសម្ងាត់ខុស 5 ដងត្រូវធ្វើយ៉ាងណា?","mm":"စကားဝှက် 5 ကြိမ် မှားထည့်ပါက ဘာဖြစ်မလဲ။","la":"ຖ້າໃສ່ລະຫັດຜ່ານຜິດ 5 ເທື່ອຈະເປັນແນວໃດ?","ms":"Apakah yang berlaku jika saya memasukkan kata laluan salah 5 kali?","id":"Apa yang terjadi jika saya salah memasukkan password 5 kali?","zh":"如果连续输错密码 5 次会怎样？"}},{"id":"login_remember","q":{"th":"ติ๊ก 'จำการเข้าสู่ระบบ' อยู่ได้นานแค่ไหน","en":"How long does 'Remember login' last?","vi":"'Ghi nhớ đăng nhập' duy trì được bao lâu?","kh":"'ចងចាំការចូលប្រព័ន្ធ' នៅបានរយៈពេលប៉ុន្មាន?","mm":"'အကောင့်ဝင်ထားမှုကို မှတ်ထားပါ' က ဘယ်လောက်ကြာအောင် ရှိနေမလဲ။","la":"ຕິກ 'ຈື່ການເຂົ້າລະບົບ' ຢູ່ໄດ້ດົນປານໃດ?","ms":"Berapa lama 'Remember login' bertahan?","id":"Berapa lama 'Remember login' berlaku?","zh":"“记住登录”可以保持多久？"}}]},{"id":"wallet","icon":"💸","name":{"th":"ฝาก/ถอน","en":"Deposit / Withdraw","vi":"Nạp / Rút","kh":"ដាក់ / ដកប្រាក់","mm":"ငွေသွင်း / ငွေထုတ်","la":"ຝາກ / ຖອນ","ms":"Deposit / Pengeluaran","id":"Deposit / Penarikan","zh":"充值 / 提现"},"items":[{"id":"deposit_how","q":{"th":"วิธีฝากเงิน / เติมเงิน และขั้นต่ำ","en":"How do I deposit, and what is the minimum?","vi":"Cách nạp tiền và mức tối thiểu?","kh":"របៀបដាក់ប្រាក់ និងចំនួនអប្បបរមា?","mm":"ငွေသွင်းနည်းနှင့် အနည်းဆုံးပမာဏ ဘယ်လောက်လဲ။","la":"ວິທີຝາກເງິນ ແລະຂັ້ນຕ່ຳເທົ່າໃດ?","ms":"Bagaimana saya membuat deposit dan berapakah minimumnya?","id":"Bagaimana cara deposit dan berapa minimumnya?","zh":"如何充值，最低充值金额是多少？"}},{"id":"withdraw_how","q":{"th":"วิธีถอนเงิน และใช้เวลานานเท่าไร","en":"How do I withdraw, and how long does it take?","vi":"Cách rút tiền và mất bao lâu?","kh":"របៀបដកប្រាក់ និងប្រើពេលប៉ុន្មាន?","mm":"ငွေထုတ်နည်းနှင့် ဘယ်လောက်ကြာမလဲ။","la":"ວິທີຖອນເງິນ ແລະໃຊ້ເວລາດົນປານໃດ?","ms":"Bagaimana saya membuat pengeluaran dan berapa lamakah ia mengambil masa?","id":"Bagaimana cara withdraw dan berapa lama prosesnya?","zh":"如何提现，需要多长时间？"}},{"id":"withdraw_status","q":{"th":"ถอนเงินช้า / สถานะการถอนหมายถึงอะไร","en":"Withdrawal is slow / what do the withdrawal statuses mean?","vi":"Rút tiền chậm / các trạng thái rút tiền có nghĩa là gì?","kh":"ការដកប្រាក់យឺត / ស្ថានភាពនៃការដកប្រាក់មានន័យដូចម្តេច?","mm":"ငွေထုတ်ခြင်း နှောင့်နှေးပါက / ငွေထုတ်အခြေအနေများ၏ အဓိပ္ပာယ်","la":"ຖອນເງິນຊ້າ / ສະຖານະການຖອນໝາຍເຖິງຫຍັງ","ms":"Pengeluaran perlahan / apakah maksud status pengeluaran?","id":"Penarikan lambat / apa arti status penarikan?","zh":"提现很慢 / 提现状态是什么意思？"}},{"id":"fee_withdraw","q":{"th":"ค่าธรรมเนียมและขั้นต่ำการถอน On-chain","en":"On-chain withdrawal fees and minimums","vi":"Phí và mức tối thiểu khi rút On-chain","kh":"ថ្លៃសេវា និងចំនួនអប្បបរមានៃការដកប្រាក់ On-chain","mm":"On-chain ငွေထုတ်ခြင်း၏ ကြေးနှင့် အနည်းဆုံးပမာဏ","la":"ຄ່າທຳນຽມ ແລະຂັ້ນຕ່ຳການຖອນ On-chain","ms":"Yuran dan minimum pengeluaran On-chain","id":"Biaya dan minimum penarikan On-chain","zh":"On-chain 提现手续费和最低限额"}},{"id":"coins_networks","q":{"th":"เหรียญและเครือข่ายที่รองรับ","en":"Supported coins and networks","vi":"Các đồng coin và mạng lưới được hỗ trợ","kh":"រូបិយប័ណ្ណ និងបណ្តាញដែលគាំទ្រ","mm":"ပံ့ပိုးထားသော ဒင်္ဂါးများနှင့် ကွန်ရက်များ","la":"ເຫຼຽນ ແລະເຄືອຂ່າຍທີ່ຮອງຮັບ","ms":"Syiling dan rangkaian yang disokong","id":"Koin dan jaringan yang didukung","zh":"支持的币种和网络"}},{"id":"wallet_deposit_address","q":{"th":"ที่อยู่ฝาก (เลขกระเป๋า) สร้างอย่างไร ใช้ซ้ำได้ไหม","en":"How is my deposit address (wallet address) created, and can I reuse it?","vi":"Địa chỉ nạp (địa chỉ ví) được tạo như thế nào và có dùng lại được không?","kh":"តើអាសយដ្ឋានដាក់ប្រាក់ (លេខកាបូប) ត្រូវបានបង្កើតយ៉ាងដូចម្តេច ហើយប្រើម្តងទៀតបានទេ?","mm":"အပ်ငွေလိပ်စာ (ပိုက်ဆံအိတ်လိပ်စာ) ကို ဘယ်လိုဖန်တီးသလဲ၊ ပြန်သုံးလို့ရပါသလား။","la":"ທີ່ຢູ່ຝາກ (ເລກກະເປົາ) ສ້າງແນວໃດ ໃຊ້ຊ້ຳໄດ້ບໍ?","ms":"Bagaimana alamat deposit (alamat dompet) saya dibuat, dan bolehkah saya menggunakannya semula?","id":"Bagaimana alamat deposit (alamat wallet) saya dibuat, dan apakah bisa dipakai ulang?","zh":"我的充值地址（钱包地址）是如何生成的，可以重复使用吗？"}},{"id":"wallet_create","q":{"th":"สร้างกระเป๋า (Wallet) ในแอปทำอย่างไร","en":"How do I create a Wallet in the app?","vi":"Tạo Wallet (ví) trong ứng dụng như thế nào?","kh":"តើបង្កើត Wallet (កាបូប) ក្នុងកម្មវិធីយ៉ាងដូចម្តេច?","mm":"အက်ပ်ထဲတွင် Wallet (ပိုက်ဆံအိတ်) ကို ဘယ်လိုဖန်တီးရမလဲ။","la":"ສ້າງ Wallet (ກະເປົາ) ໃນແອັບແນວໃດ?","ms":"Bagaimana saya membuat Wallet dalam aplikasi?","id":"Bagaimana cara membuat Wallet di aplikasi?","zh":"如何在应用中创建 Wallet？"}},{"id":"wallet_backup","q":{"th":"ลืม Wallet Password หรือ Private Key หาย กู้คืนได้ไหม และดู Private Key อีกครั้งได้อย่างไร","en":"If I forget my Wallet Password or lose my Private Key, can it be recovered, and how do I view the Private Key again?","vi":"Quên Wallet Password hoặc mất Private Key có khôi phục được không, và xem lại Private Key như thế nào?","kh":"ភ្លេច Wallet Password ឬបាត់ Private Key អាចសង្គ្រោះបានទេ ហើយមើល Private Key ម្តងទៀតយ៉ាងដូចម្តេច?","mm":"Wallet Password မေ့ သို့မဟုတ် Private Key ပျောက်ပါက ပြန်ရနိုင်ပါသလား၊ Private Key ကို ပြန်ကြည့်နည်းက ဘယ်လိုလဲ။","la":"ລືມ Wallet Password ຫຼື Private Key ເສຍ ກູ້ຄືນໄດ້ບໍ ແລະເບິ່ງ Private Key ອີກຄັ້ງແນວໃດ?","ms":"Jika saya lupa Wallet Password atau kehilangan Private Key, bolehkah ia dipulihkan, dan bagaimana saya melihat Private Key semula?","id":"Jika saya lupa Wallet Password atau kehilangan Private Key, apakah bisa dipulihkan, dan bagaimana cara melihat Private Key lagi?","zh":"如果忘记 Wallet Password 或丢失 Private Key，能找回吗？如何再次查看 Private Key？"}},{"id":"deposit_not_arrive","q":{"th":"ฝากเงินแล้วยังไม่เข้า ต้องตรวจอะไรก่อน","en":"My deposit has not arrived. What should I check first?","vi":"Nạp tiền rồi mà chưa thấy, cần kiểm tra gì trước?","kh":"ដាក់ប្រាក់ហើយនៅមិនទាន់ចូល ត្រូវពិនិត្យអ្វីមុន?","mm":"ငွေသွင်းပြီးသော်လည်း မဝင်သေးပါ၊ ဘာကို အရင်စစ်ရမလဲ။","la":"ຝາກເງິນແລ້ວຍັງບໍ່ເຂົ້າ ຕ້ອງກວດຫຍັງກ່ອນ?","ms":"Deposit saya belum sampai. Apakah yang perlu saya semak dahulu?","id":"Deposit saya belum masuk. Apa yang harus saya cek terlebih dahulu?","zh":"我的充值还没到账，应该先检查什么？"}}]},{"id":"earn","icon":"📈","name":{"th":"Earn","en":"Earn","vi":"Earn","kh":"Earn","mm":"Earn","la":"Earn","ms":"Earn","id":"Earn","zh":"Earn"},"items":[{"id":"earn_create","q":{"th":"สร้างสัญญา Earn อย่างไร","en":"How do I create an Earn contract?","vi":"Tạo hợp đồng Earn như thế nào?","kh":"តើបង្កើតកិច្ចសន្យា Earn យ៉ាងដូចម្តេច?","mm":"Earn စာချုပ် ဘယ်လို ဖန်တီးရမလဲ။","la":"ສ້າງສັນຍາ Earn ແນວໃດ?","ms":"Bagaimana saya membuat kontrak Earn?","id":"Bagaimana cara membuat kontrak Earn?","zh":"如何创建 Earn 合约？"}},{"id":"earn_plans","q":{"th":"แผน Earn มีอะไรบ้าง ผลตอบแทนเท่าไร","en":"What Earn plans are available and what are the returns?","vi":"Có những gói Earn nào và lợi nhuận bao nhiêu?","kh":"តើមានគម្រោង Earn អ្វីខ្លះ ហើយផលចំណេញប៉ុន្មាន?","mm":"Earn အစီအစဉ်များ ဘာတွေရှိပြီး အမြတ်ဘယ်လောက်လဲ။","la":"ແຜນ Earn ມີຫຍັງແດ່ ຜົນຕອບແທນເທົ່າໃດ?","ms":"Apakah pelan Earn yang tersedia dan berapakah pulangannya?","id":"Paket Earn apa saja yang tersedia dan berapa imbal hasilnya?","zh":"Earn 有哪些方案，收益是多少？"}},{"id":"earn_claim","q":{"th":"รับเงินต้นคืนและเคลมกำไร Earn","en":"How do I get my principal back and claim Earn profit?","vi":"Nhận lại vốn gốc và nhận (claim) lợi nhuận Earn","kh":"ទទួលប្រាក់ដើមវិញ និងទាមទារប្រាក់ចំណេញ Earn","mm":"Earn ရင်းငွေပြန်ယူခြင်းနှင့် အမြတ် claim လုပ်ခြင်း","la":"ຮັບເງິນຕົ້ນຄືນ ແລະເຄລມກຳໄລ Earn","ms":"Bagaimana saya mendapat semula prinsipal dan menuntut keuntungan Earn?","id":"Bagaimana cara menerima kembali pokok dan mengklaim profit Earn?","zh":"如何取回本金并领取 Earn 收益？"}},{"id":"earn_split","q":{"th":"การแบ่งกำไรเป็นอย่างไร","en":"How is the profit split?","vi":"Lợi nhuận được chia như thế nào?","kh":"តើការបែងចែកប្រាក់ចំណេញយ៉ាងដូចម្តេច?","mm":"အမြတ်ခွဲဝေမှု ဘယ်လိုလဲ။","la":"ການແບ່ງກຳໄລເປັນແນວໃດ?","ms":"Bagaimana keuntungan dibahagikan?","id":"Bagaimana profit dibagi?","zh":"收益是如何分配的？"}}]},{"id":"futures","icon":"📊","name":{"th":"Futures","en":"Futures","vi":"Futures","kh":"Futures","mm":"Futures","la":"Futures","ms":"Futures","id":"Futures","zh":"Futures"},"items":[{"id":"fut_close","q":{"th":"ปิดออเดอร์ ตั้ง TP/SL ยกเลิกออเดอร์","en":"Closing orders, setting TP/SL and cancelling orders","vi":"Đóng lệnh, đặt TP/SL và hủy lệnh","kh":"បិទការបញ្ជា កំណត់ TP/SL និងលុបចោលការបញ្ជា","mm":"အော်ဒါပိတ်ခြင်း၊ TP/SL သတ်မှတ်ခြင်းနှင့် အော်ဒါပယ်ဖျက်ခြင်း","la":"ປິດອໍເດີ ຕັ້ງ TP/SL ແລະຍົກເລີກອໍເດີ","ms":"Menutup pesanan, menetapkan TP/SL dan membatalkan pesanan","id":"Menutup order, mengatur TP/SL, dan membatalkan order","zh":"平仓、设置 TP/SL 和撤销订单"}},{"id":"fut_modes","q":{"th":"Futures แท็บ Contract กับ Direct ต่างกันอย่างไร","en":"What's the difference between the Contract and Direct tabs in Futures?","vi":"Tab Contract và Direct trong Futures khác nhau thế nào?","kh":"តើផ្ទាំង Contract និង Direct ក្នុង Futures ខុសគ្នាយ៉ាងដូចម្តេច?","mm":"Futures ရှိ Contract နှင့် Direct တက်ဘ် ဘာကွာသလဲ။","la":"ແທັບ Contract ແລະ Direct ໃນ Futures ແຕກຕ່າງກັນແນວໃດ?","ms":"Apakah perbezaan antara tab Contract dan Direct dalam Futures?","id":"Apa perbedaan antara tab Contract dan Direct di Futures?","zh":"Futures 中 Contract 和 Direct 标签有什么区别？"}},{"id":"fut_funding","q":{"th":"Funding Fee คืออะไร คิดอย่างไร","en":"What is the Funding Fee and how is it charged?","vi":"Funding Fee là gì và được tính thế nào?","kh":"Funding Fee គឺជាអ្វី ហើយគិតយ៉ាងដូចម្តេច?","mm":"Funding Fee ဆိုတာ ဘာလဲ၊ ဘယ်လိုတွက်သလဲ။","la":"Funding Fee ແມ່ນຫຍັງ ຄິດແນວໃດ?","ms":"Apakah Funding Fee dan bagaimana ia dikenakan?","id":"Apa itu Funding Fee dan bagaimana cara pengenaannya?","zh":"什么是 Funding Fee，如何收取？"}}],"children":[{"id":"fut_contract","icon":"📋","name":{"th":"Futures · Contract","en":"Futures · Contract","vi":"Futures · Contract","kh":"Futures · Contract","mm":"Futures · Contract","la":"Futures · Contract","ms":"Futures · Contract","id":"Futures · Contract","zh":"Futures · Contract"},"items":[{"id":"fut_open","q":{"th":"เปิดออเดอร์ Futures แท็บ Contract อย่างไร","en":"How do I open a Futures order (Contract tab)?","vi":"Mở lệnh Futures (tab Contract) như thế nào?","kh":"តើបើកការបញ្ជា Futures (ផ្ទាំង Contract) យ៉ាងដូចម្តេច?","mm":"Futures အော်ဒါ (Contract တက်ဘ်) ဘယ်လိုဖွင့်ရမလဲ။","la":"ເປີດອໍເດີ Futures (ແທັບ Contract) ແນວໃດ?","ms":"Bagaimana saya membuka pesanan Futures (tab Contract)?","id":"Bagaimana cara membuka order Futures (tab Contract)?","zh":"如何开立 Futures 订单（Contract 标签）？"}},{"id":"fut_freeze","q":{"th":"สัญญาถูก Freeze / Auto-Liquidate คืออะไร","en":"What does a Frozen contract / Auto-Liquidate mean?","vi":"Hợp đồng bị Freeze / Auto-Liquidate nghĩa là gì?","kh":"កិច្ចសន្យាត្រូវបាន Freeze / Auto-Liquidate មានន័យដូចម្តេច?","mm":"စာချုပ် Freeze / Auto-Liquidate ဖြစ်ခြင်းဆိုတာ ဘာလဲ။","la":"ສັນຍາຖືກ Freeze / Auto-Liquidate ແມ່ນຫຍັງ?","ms":"Apakah maksud kontrak Frozen / Auto-Liquidate?","id":"Apa arti kontrak Frozen / Auto-Liquidate?","zh":"合约 Frozen / Auto-Liquidate 是什么意思？"}},{"id":"fut_c_pnl","q":{"th":"กำไรขาดทุนของ Contract ไปอยู่ที่ไหน","en":"Where do Contract profits and losses go?","vi":"Lãi lỗ của Contract đi đâu?","kh":"តើចំណេញខាតរបស់ Contract ទៅណា?","mm":"Contract ၏ အမြတ်အရှုံး ဘယ်သို့ရောက်သလဲ။","la":"ກຳໄລຂາດທຶນຂອງ Contract ໄປຢູ່ໃສ?","ms":"Ke manakah untung rugi Contract pergi?","id":"Ke mana perginya untung rugi Contract?","zh":"Contract 的盈亏会去哪里？"}}]},{"id":"fut_direct","icon":"⚡","name":{"th":"Futures · Direct","en":"Futures · Direct","vi":"Futures · Direct","kh":"Futures · Direct","mm":"Futures · Direct","la":"Futures · Direct","ms":"Futures · Direct","id":"Futures · Direct","zh":"Futures · Direct"},"items":[{"id":"fut_direct_start","q":{"th":"เริ่มเทรดแท็บ Direct อย่างไร","en":"How do I start trading in the Direct tab?","vi":"Bắt đầu giao dịch ở tab Direct như thế nào?","kh":"តើចាប់ផ្តើមជួញដូរក្នុងផ្ទាំង Direct យ៉ាងដូចម្តេច?","mm":"Direct တက်ဘ်တွင် ကုန်သွယ်မှု ဘယ်လိုစရမလဲ။","la":"ເລີ່ມເທຣດແທັບ Direct ແນວໃດ?","ms":"Bagaimana saya mula berdagang dalam tab Direct?","id":"Bagaimana cara memulai trading di tab Direct?","zh":"如何在 Direct 标签开始交易？"}},{"id":"fut_direct_liq","q":{"th":"Direct ถูก Liq เมื่อไร มี Freeze ไหม","en":"When is a Direct position liquidated, and is there a Freeze?","vi":"Khi nào Position ở Direct bị Liq, có Freeze không?","kh":"តើ Position ក្នុង Direct ត្រូវ Liq នៅពេលណា មាន Freeze ឬទេ?","mm":"Direct တွင် Position ဘယ်အချိန် Liq ဖြစ်သလဲ၊ Freeze ရှိသလား။","la":"Direct ຖືກ Liq ເມື່ອໃດ ມີ Freeze ບໍ?","ms":"Bilakah kedudukan Direct dilikuidasi, dan adakah terdapat Freeze?","id":"Kapan posisi Direct dilikuidasi, dan apakah ada Freeze?","zh":"Direct 仓位何时会被强平，有 Freeze 吗？"}},{"id":"fut_open_direct","q":{"th":"เปิดออเดอร์ Futures แท็บ Direct ไม่ได้ ต้องตรวจอะไร","en":"I cannot open a Futures order in the Direct tab. What should I check?","vi":"Không mở được lệnh Futures ở tab Direct, cần kiểm tra gì?","kh":"បើកការបញ្ជា Futures ផ្ទាំង Direct មិនបាន ត្រូវពិនិត្យអ្វី?","mm":"Futures Direct တက်ဘ်တွင် အော်ဒါမဖွင့်နိုင်ပါ၊ ဘာတွေ စစ်ရမလဲ။","la":"ເປີດອໍເດີ Futures ແຖບ Direct ບໍ່ໄດ້ ຕ້ອງກວດຫຍັງ?","ms":"Saya tidak dapat membuka pesanan Futures dalam tab Direct. Apakah yang perlu saya semak?","id":"Saya tidak bisa membuka order Futures di tab Direct. Apa yang harus saya cek?","zh":"我无法在 Direct 标签开立 Futures 订单，应该检查什么？"}}]}]},{"id":"history","icon":"🧾","name":{"th":"ประวัติ/รายการ","en":"History","vi":"Lịch sử","kh":"ប្រវត្តិ","mm":"မှတ်တမ်း","la":"ປະຫວັດ","ms":"Sejarah","id":"Riwayat","zh":"历史记录"},"items":[{"id":"hist_trades","q":{"th":"ดูประวัติเทรด ออเดอร์ และ Funding ได้ที่ไหน","en":"Where can I see my trade, order and Funding history?","vi":"Xem lịch sử giao dịch, lệnh và Funding ở đâu?","kh":"តើមើលប្រវត្តិជួញដូរ ការបញ្ជា និង Funding នៅឯណា?","mm":"ကုန်သွယ်မှု၊ အော်ဒါနှင့် Funding မှတ်တမ်းကို ဘယ်မှာကြည့်ရမလဲ။","la":"ເບິ່ງປະຫວັດເທຣດ ອໍເດີ ແລະ Funding ໄດ້ຢູ່ໃສ?","ms":"Di manakah saya boleh melihat sejarah dagangan, pesanan dan Funding saya?","id":"Di mana saya bisa melihat riwayat trade, order, dan Funding saya?","zh":"在哪里可以查看我的交易、订单和 Funding 记录？"}},{"id":"hist_pnl","q":{"th":"ดู Realized PNL และ Daily PNL ได้อย่างไร","en":"How do I see Realized PNL and Daily PNL?","vi":"Xem Realized PNL và Daily PNL như thế nào?","kh":"តើមើល Realized PNL និង Daily PNL យ៉ាងដូចម្តេច?","mm":"Realized PNL နှင့် Daily PNL ကို ဘယ်လိုကြည့်ရမလဲ။","la":"ເບິ່ງ Realized PNL ແລະ Daily PNL ແນວໃດ?","ms":"Bagaimana saya melihat Realized PNL dan Daily PNL?","id":"Bagaimana cara melihat Realized PNL dan Daily PNL?","zh":"如何查看 Realized PNL 和 Daily PNL？"}},{"id":"hist_money","q":{"th":"ดูประวัติเงินเข้า-ออก และค้นหารายการ","en":"How do I see money in/out history and search records?","vi":"Xem lịch sử tiền vào/ra và tìm kiếm giao dịch như thế nào?","kh":"តើមើលប្រវត្តិប្រាក់ចូល-ចេញ និងស្វែងរកកំណត់ត្រាយ៉ាងដូចម្តេច?","mm":"ငွေဝင်/ထွက် မှတ်တမ်းကို ကြည့်ပြီး ရှာဖွေနည်း","la":"ເບິ່ງປະຫວັດເງິນເຂົ້າ-ອອກ ແລະຄົ້ນຫາລາຍການແນວໃດ?","ms":"Bagaimana saya melihat sejarah wang masuk/keluar dan mencari rekod?","id":"Bagaimana cara melihat riwayat uang masuk/keluar dan mencari catatan?","zh":"如何查看资金进出记录并搜索？"}},{"id":"hist_mismatch","q":{"th":"ตัวเลขหรือรายการไม่ตรง ต้องการให้ตรวจสอบ","en":"A number or record looks wrong and I want it checked","vi":"Số liệu hoặc giao dịch không khớp, tôi muốn được kiểm tra","kh":"លេខ ឬកំណត់ត្រាមិនត្រូវគ្នា ខ្ញុំចង់ឱ្យពិនិត្យ","mm":"ကိန်းဂဏန်း သို့မဟုတ် စာရင်း မကိုက်ညီ၊ စစ်ဆေးပေးစေလိုပါသည်","la":"ຕົວເລກ ຫຼືລາຍການບໍ່ກົງກັນ ຕ້ອງການໃຫ້ກວດສອບ","ms":"Nombor atau rekod kelihatan salah dan saya mahu ia disemak","id":"Angka atau catatan terlihat salah dan saya ingin memintanya dicek","zh":"某个数字或记录看起来不对，我想请人核查"}}]},{"id":"loan","icon":"🏦","name":{"th":"สินเชื่อ","en":"Loan","vi":"Vay (Loan)","kh":"ប្រាក់កម្ចី","mm":"ချေးငွေ","la":"ສິນເຊື່ອ","ms":"Pinjaman (Loan)","id":"Pinjaman (Loan)","zh":"借贷（Loan）"},"items":[{"id":"loan_how","q":{"th":"สินเชื่อ (Loan) ทำงานอย่างไร ดอกเบี้ยเท่าไร","en":"How does the Loan work and what is the interest rate?","vi":"Khoản vay (Loan) hoạt động thế nào và lãi suất bao nhiêu?","kh":"តើប្រាក់កម្ចី (Loan) ដំណើរការយ៉ាងដូចម្តេច ហើយការប្រាក់ប៉ុន្មាន?","mm":"ချေးငွေ (Loan) ဘယ်လိုအလုပ်လုပ်ပြီး အတိုးနှုန်း ဘယ်လောက်လဲ။","la":"ສິນເຊື່ອ (Loan) ເຮັດວຽກແນວໃດ ດອກເບ້ຍເທົ່າໃດ?","ms":"Bagaimana Loan berfungsi dan berapakah kadar faedahnya?","id":"Bagaimana cara kerja Loan dan berapa suku bunganya?","zh":"Loan 如何运作，利率是多少？"}},{"id":"loan_ltv","q":{"th":"LTV, Margin Call และการบังคับขายของสินเชื่อ","en":"Loan LTV, Margin Call and forced liquidation","vi":"LTV, Margin Call và bán cưỡng chế của khoản vay","kh":"LTV, Margin Call និងការបង្ខំលក់នៃប្រាក់កម្ចី","mm":"ချေးငွေ၏ LTV, Margin Call နှင့် အတင်းအကျပ်ရောင်းချမှု","la":"LTV, Margin Call ແລະການບັງຄັບຂາຍຂອງສິນເຊື່ອ","ms":"LTV Loan, Margin Call dan pelikuidan paksa","id":"LTV Loan, Margin Call, dan likuidasi paksa","zh":"Loan 的 LTV、Margin Call 和强制平仓"}},{"id":"loan_repay","q":{"th":"ชำระคืนสินเชื่อได้เมื่อไร มีค่าธรรมเนียมไหม","en":"When can I repay the Loan, and is there a fee?","vi":"Khi nào có thể trả nợ khoản vay và có mất phí không?","kh":"តើអាចសងប្រាក់កម្ចីពេលណា ហើយមានថ្លៃសេវាទេ?","mm":"ချေးငွေကို ဘယ်အချိန် ပြန်ဆပ်နိုင်ပြီး ကြေးရှိပါသလား။","la":"ຊຳລະສິນເຊື່ອຄືນໄດ້ເມື່ອໃດ ມີຄ່າທຳນຽມບໍ?","ms":"Bilakah saya boleh membayar balik Loan, dan adakah terdapat yuran?","id":"Kapan saya dapat melunasi Loan, dan apakah ada biaya?","zh":"什么时候可以偿还 Loan，有手续费吗？"}}]},{"id":"commission","icon":"🤝","name":{"th":"คอมมิชชั่น","en":"Commission","vi":"Hoa hồng","kh":"កម្រៃជើងសារ","mm":"ကော်မရှင်","la":"ຄອມມິດຊັນ","ms":"Komisen","id":"Komisi","zh":"佣金"},"items":[{"id":"comm_source","q":{"th":"ค่าคอมมิชชั่นมาจากไหน ได้เท่าไร","en":"Where does commission come from and how much is it?","vi":"Hoa hồng đến từ đâu và được bao nhiêu?","kh":"តើកម្រៃជើងសារមកពីណា ហើយបានប៉ុន្មាន?","mm":"ကော်မရှင်က ဘယ်ကရပြီး ဘယ်လောက်ရမလဲ။","la":"ຄ່າຄອມມິດຊັນມາຈາກໃສ ໄດ້ເທົ່າໃດ?","ms":"Dari manakah komisen datang dan berapakah jumlahnya?","id":"Dari mana komisi berasal dan berapa besarnya?","zh":"佣金从哪里来，是多少？"}},{"id":"comm_referral","q":{"th":"ค่าแนะนำสมาชิกใหม่ได้เท่าไร","en":"How much is the referral fee for new members?","vi":"Phí giới thiệu thành viên mới là bao nhiêu?","kh":"តើថ្លៃណែនាំសមាជិកថ្មីបានប៉ុន្មាន?","mm":"အဖွဲ့ဝင်အသစ် မိတ်ဆက်ကြေး ဘယ်လောက်ရမလဲ။","la":"ຄ່າແນະນຳສະມາຊິກໃໝ່ໄດ້ເທົ່າໃດ?","ms":"Berapakah yuran rujukan untuk ahli baharu?","id":"Berapa biaya referral untuk member baru?","zh":"推荐新会员的推荐费是多少？"}},{"id":"comm_claim","q":{"th":"โอน/เคลมค่าคอมมิชชั่นได้เมื่อไร","en":"When can I transfer / claim commission?","vi":"Khi nào có thể chuyển / nhận (claim) hoa hồng?","kh":"តើអាចផ្ទេរ / ទាមទារកម្រៃជើងសារបានពេលណា?","mm":"ကော်မရှင်ကို ဘယ်အချိန် လွှဲ / claim လုပ်နိုင်မလဲ။","la":"ໂອນ/ເຄລມຄ່າຄອມມິດຊັນໄດ້ເມື່ອໃດ?","ms":"Bilakah saya boleh memindahkan / menuntut komisen?","id":"Kapan saya dapat mentransfer / mengklaim komisi?","zh":"什么时候可以划转 / 领取佣金？"}}]},{"id":"market","icon":"🛒","name":{"th":"Marketplace","en":"Marketplace","vi":"Marketplace","kh":"Marketplace","mm":"Marketplace","la":"Marketplace","ms":"Marketplace","id":"Marketplace","zh":"Marketplace"},"items":[{"id":"mp_intro","q":{"th":"Marketplace คืออะไร เข้าใช้งานอย่างไร","en":"What is the Marketplace and how do I use it?","vi":"Marketplace là gì và truy cập như thế nào?","kh":"តើ Marketplace ជាអ្វី ហើយចូលប្រើយ៉ាងដូចម្តេច?","mm":"Marketplace ဆိုတာ ဘာလဲ၊ ဘယ်လို ဝင်သုံးရမလဲ။","la":"Marketplace ແມ່ນຫຍັງ ເຂົ້າໃຊ້ງານແນວໃດ?","ms":"Apakah Marketplace dan bagaimana saya menggunakannya?","id":"Apa itu Marketplace dan bagaimana cara memakainya?","zh":"什么是 Marketplace，如何使用？"}},{"id":"mp_wallet","q":{"th":"ฝาก/ถอนเงินใน Marketplace มีค่าธรรมเนียมไหม","en":"Are there fees for deposits / withdrawals in the Marketplace?","vi":"Nạp / rút tiền trong Marketplace có mất phí không?","kh":"តើការដាក់ / ដកប្រាក់ក្នុង Marketplace មានថ្លៃសេវាទេ?","mm":"Marketplace ထဲတွင် ငွေသွင်း / ငွေထုတ်ရန် ကြေးရှိပါသလား။","la":"ຝາກ/ຖອນເງິນໃນ Marketplace ມີຄ່າທຳນຽມບໍ?","ms":"Adakah terdapat yuran untuk deposit / pengeluaran dalam Marketplace?","id":"Apakah ada biaya untuk deposit / penarikan di Marketplace?","zh":"在 Marketplace 中充值 / 提现有手续费吗？"}},{"id":"mp_ff","q":{"th":"Funding Free (FF) คืออะไร","en":"What is Funding Free (FF)?","vi":"Funding Free (FF) là gì?","kh":"តើ Funding Free (FF) ជាអ្វី?","mm":"Funding Free (FF) ဆိုတာ ဘာလဲ။","la":"Funding Free (FF) ແມ່ນຫຍັງ?","ms":"Apakah Funding Free (FF)?","id":"Apa itu Funding Free (FF)?","zh":"什么是 Funding Free（FF）？"}},{"id":"mp_seller","q":{"th":"สมัครเป็นผู้ขาย (Seller) ใน Marketplace","en":"How do I become a Seller in the Marketplace?","vi":"Đăng ký làm người bán (Seller) trong Marketplace","kh":"ចុះឈ្មោះជាអ្នកលក់ (Seller) ក្នុង Marketplace","mm":"Marketplace တွင် ရောင်းသူ (Seller) အဖြစ် လျှောက်ထားခြင်း","la":"ສະໝັກເປັນຜູ້ຂາຍ (Seller) ໃນ Marketplace","ms":"Bagaimana saya menjadi Seller dalam Marketplace?","id":"Bagaimana cara menjadi Seller di Marketplace?","zh":"如何成为 Marketplace 的卖家（Seller）？"}}]},{"id":"kyc","icon":"🪪","name":{"th":"KYC","en":"KYC","vi":"KYC","kh":"KYC","mm":"KYC","la":"KYC","ms":"KYC","id":"KYC","zh":"KYC"},"items":[{"id":"kyc_how","q":{"th":"ต้อง KYC หรือไม่ และ KYC อย่างไร","en":"Is KYC required and how do I do it?","vi":"Có cần KYC không và KYC như thế nào?","kh":"តើត្រូវ KYC ឬទេ ហើយ KYC យ៉ាងដូចម្តេច?","mm":"KYC လုပ်ရန် လိုပါသလား၊ ဘယ်လိုလုပ်ရမလဲ။","la":"ຕ້ອງ KYC ບໍ ແລະ KYC ແນວໃດ?","ms":"Adakah KYC diperlukan dan bagaimana saya melakukannya?","id":"Apakah KYC wajib dan bagaimana cara melakukannya?","zh":"需要 KYC 吗，如何办理？"}},{"id":"kyc_limits","q":{"th":"ลิมิตการฝากถอนขึ้นกับอะไร","en":"What do deposit and withdrawal limits depend on?","vi":"Hạn mức nạp rút phụ thuộc vào điều gì?","kh":"តើកម្រិតកំណត់នៃការដាក់ដកប្រាក់អាស្រ័យលើអ្វី?","mm":"ငွေသွင်း/ငွေထုတ် ကန့်သတ်ချက်သည် ဘာပေါ်မူတည်သလဲ။","la":"ລິມິດການຝາກຖອນຂຶ້ນກັບຫຍັງ?","ms":"Apakah yang menentukan had deposit dan pengeluaran?","id":"Apa yang menentukan batas deposit dan penarikan?","zh":"充值和提现限额取决于什么？"}},{"id":"kyc_help","q":{"th":"ติดปัญหาในการยืนยันตัวตน ทำอย่างไร","en":"I have a problem with verification. What should I do?","vi":"Gặp vấn đề khi xác minh danh tính, phải làm sao?","kh":"ជួបបញ្ហាក្នុងការផ្ទៀងផ្ទាត់អត្តសញ្ញាណ តើត្រូវធ្វើយ៉ាងណា?","mm":"အတည်ပြုရာတွင် ပြဿနာရှိပါက ဘာလုပ်ရမလဲ။","la":"ຕິດບັນຫາໃນການຢືນຢັນຕົວຕົນ ເຮັດແນວໃດ?","ms":"Saya mempunyai masalah dengan pengesahan. Apakah yang perlu saya lakukan?","id":"Saya mengalami masalah dengan verifikasi. Apa yang harus saya lakukan?","zh":"验证出现问题，我该怎么办？"}}]},{"id":"tcc","icon":"🏠","name":{"th":"ภาพรวม TCC","en":"About TCC","vi":"Giới thiệu TCC","kh":"អំពី TCC","mm":"TCC အကြောင်း","la":"ກ່ຽວກັບ TCC","ms":"Tentang TCC","id":"Tentang TCC","zh":"关于 TCC"},"items":[{"id":"tcc_what","q":{"th":"TCC (Trader Cafe Club) คืออะไร","en":"What is TCC (Trader Cafe Club)?","vi":"TCC (Trader Cafe Club) là gì?","kh":"តើ TCC (Trader Cafe Club) ជាអ្វី?","mm":"TCC (Trader Cafe Club) ဆိုတာ ဘာလဲ။","la":"TCC (Trader Cafe Club) ແມ່ນຫຍັງ?","ms":"Apakah TCC (Trader Cafe Club)?","id":"Apa itu TCC (Trader Cafe Club)?","zh":"什么是 TCC（Trader Cafe Club）？"}},{"id":"tcc_map","q":{"th":"TCC มีฟีเจอร์อะไรบ้าง และแต่ละอย่างใช้ทำอะไร","en":"What features does TCC have and what is each one for?","vi":"TCC có những tính năng nào và mỗi tính năng dùng để làm gì?","kh":"TCC មានមុខងារអ្វីខ្លះ ហើយនីមួយៗប្រើសម្រាប់អ្វី?","mm":"TCC တွင် လုပ်ဆောင်ချက်များ ဘာတွေရှိပြီး တစ်ခုချင်းစီက ဘာအတွက်လဲ။","la":"TCC ມີຟີເຈີຫຍັງແດ່ ແລະແຕ່ລະອັນໃຊ້ເຮັດຫຍັງ?","ms":"Apakah ciri-ciri TCC dan untuk apa setiap satunya?","id":"Fitur apa saja yang dimiliki TCC dan untuk apa masing-masing?","zh":"TCC 有哪些功能，各有什么用途？"}},{"id":"tcc_vs","q":{"th":"TCC ต่างจากแพลตฟอร์มซื้อขายทั่วไปอย่างไร มีข้อดีอะไร","en":"How is TCC different from a typical trading platform, and what are its advantages?","vi":"TCC khác gì so với nền tảng giao dịch thông thường và có ưu điểm gì?","kh":"តើ TCC ខុសពីវេទិកាជួញដូរទូទៅយ៉ាងដូចម្តេច ហើយមានគុណសម្បត្តិអ្វីខ្លះ?","mm":"TCC သည် ပုံမှန်ကုန်သွယ်ရေးပလက်ဖောင်းများနှင့် ဘာကွာခြားပြီး အားသာချက်တွေ ဘာတွေလဲ။","la":"TCC ແຕກຕ່າງຈາກແພລດຟອມຊື້ຂາຍທົ່ວໄປແນວໃດ ແລະມີຂໍ້ດີຫຍັງ?","ms":"Apakah perbezaan TCC daripada platform dagangan biasa, dan apakah kelebihannya?","id":"Apa perbedaan TCC dari platform trading biasa, dan apa keunggulannya?","zh":"TCC 与普通交易平台有何不同，优势是什么？"}},{"id":"tcc_risk","q":{"th":"TCC มีระบบควบคุมความเสี่ยงอย่างไร","en":"What risk controls does TCC have?","vi":"TCC có cơ chế kiểm soát rủi ro nào?","kh":"តើ TCC មានប្រព័ន្ធគ្រប់គ្រងហានិភ័យអ្វីខ្លះ?","mm":"TCC တွင် အန္တရာယ်ထိန်းချုပ်မှုစနစ် ဘာတွေရှိလဲ။","la":"TCC ມີລະບົບຄວບຄຸມຄວາມສ່ຽງແນວໃດ?","ms":"Apakah kawalan risiko yang dimiliki TCC?","id":"Apa saja kontrol risiko yang dimiliki TCC?","zh":"TCC 有哪些风险控制措施？"}},{"id":"tcc_start","q":{"th":"เริ่มใช้งาน TCC ต้องทำอะไรบ้าง","en":"What do I need to do to get started with TCC?","vi":"Tôi cần làm gì để bắt đầu dùng TCC?","kh":"តើត្រូវធ្វើអ្វីខ្លះដើម្បីចាប់ផ្តើមប្រើ TCC?","mm":"TCC ကို စတင်သုံးရန် ဘာတွေလုပ်ရမလဲ။","la":"ເລີ່ມໃຊ້ TCC ຕ້ອງເຮັດຫຍັງແດ່?","ms":"Apakah yang perlu saya lakukan untuk bermula dengan TCC?","id":"Apa yang perlu saya lakukan untuk memulai dengan TCC?","zh":"开始使用 TCC 需要做什么？"}},{"id":"tcc_objective","q":{"th":"Trader Cafe Club ตั้งขึ้นเพื่ออะไร (วัตถุประสงค์องค์กร)","en":"Why was Trader Cafe Club established (organization objectives)?","vi":"Trader Cafe Club được thành lập để làm gì (mục tiêu tổ chức)?","kh":"តើ Trader Cafe Club បង្កើតឡើងដើម្បីអ្វី (គោលបំណងអង្គការ)?","mm":"Trader Cafe Club ကို ဘာအတွက် တည်ထောင်ထားတာလဲ (အဖွဲ့အစည်း ရည်ရွယ်ချက်)?","la":"Trader Cafe Club ຕັ້ງຂຶ້ນເພື່ອຫຍັງ (ຈຸດປະສົງຂອງອົງກອນ)?","ms":"Mengapakah Trader Cafe Club ditubuhkan (objektif organisasi)?","id":"Untuk apa Trader Cafe Club didirikan (tujuan organisasi)?","zh":"Trader Cafe Club 为何成立（组织宗旨）？"}},{"id":"tcc_services","q":{"th":"TCC มีบริการอะไรบ้าง (Our Services)","en":"What services does TCC offer (Our Services)?","vi":"TCC cung cấp những dịch vụ gì (Our Services)?","kh":"តើ TCC មានសេវាអ្វីខ្លះ (Our Services)?","mm":"TCC မှာ ဘယ်ဝန်ဆောင်မှုတွေ ရှိလဲ (Our Services)?","la":"TCC ມີບໍລິການຫຍັງແດ່ (Our Services)?","ms":"Apakah perkhidmatan TCC (Our Services)?","id":"Layanan apa saja yang ditawarkan TCC (Our Services)?","zh":"TCC 提供哪些服务（Our Services）？"}},{"id":"tcc_contact","q":{"th":"ติดต่อทีมงาน TCC ได้ทางไหน สำนักงานอยู่ที่ไหน","en":"How can I contact TCC and where is the office?","vi":"Liên hệ TCC bằng cách nào và văn phòng ở đâu?","kh":"តើអាចទាក់ទង TCC តាមរបៀបណា ហើយការិយាល័យនៅឯណា?","mm":"TCC ကို ဘယ်လိုဆက်သွယ်ရမလဲ၊ ရုံးက ဘယ်မှာလဲ?","la":"ຕິດຕໍ່ TCC ໄດ້ທາງໃດ ແລະຫ້ອງການຢູ່ໃສ?","ms":"Bagaimana menghubungi TCC dan di mana pejabatnya?","id":"Bagaimana menghubungi TCC dan di mana kantornya?","zh":"如何联系 TCC？办公室在哪里？"}}]},{"id":"whale","icon":"🐋","name":{"th":"Whale (วาฬ)","en":"Whale Tools","vi":"Whale (cá voi)","kh":"Whale (ត្រីបាឡែន)","mm":"Whale (ဝေလ်)","la":"Whale (ປາວານ)","ms":"Whale (ikan paus)","id":"Whale (paus)","zh":"Whale（鲸鱼）"},"items":[{"id":"whale_intro","q":{"th":"Whale Tracker (Whale EXT) คืออะไร มีอะไรให้ดูบ้าง","en":"What is Whale Tracker (Whale EXT) and what can I see there?","vi":"Whale Tracker (Whale EXT) là gì và có những gì để xem?","kh":"តើ Whale Tracker (Whale EXT) ជាអ្វី ហើយមានអ្វីខ្លះឱ្យមើល?","mm":"Whale Tracker (Whale EXT) ဆိုတာ ဘာလဲ၊ ဘာတွေကြည့်လို့ရလဲ။","la":"Whale Tracker (Whale EXT) ແມ່ນຫຍັງ ແລະ ມີຫຍັງໃຫ້ເບິ່ງແດ່?","ms":"Apakah Whale Tracker (Whale EXT) dan apa yang boleh saya lihat di sana?","id":"Apa itu Whale Tracker (Whale EXT) dan apa yang bisa saya lihat di sana?","zh":"什么是 Whale Tracker（Whale EXT），可以在里面看到什么？"}},{"id":"whale_feed","q":{"th":"อ่านหน้า Live Feed ของ Whale อย่างไร (Long/Short, Action, Mega Whale)","en":"How do I read the Whale Live Feed (Long/Short, Action, Mega Whale)?","vi":"Đọc Live Feed của Whale thế nào (Long/Short, Action, Mega Whale)?","kh":"តើអានទំព័រ Live Feed របស់ Whale យ៉ាងដូចម្តេច (Long/Short, Action, Mega Whale)?","mm":"Whale Live Feed ကို ဘယ်လိုဖတ်ရမလဲ (Long/Short, Action, Mega Whale)။","la":"ອ່ານໜ້າ Live Feed ຂອງ Whale ແນວໃດ (Long/Short, Action, Mega Whale)?","ms":"Bagaimana saya membaca Whale Live Feed (Long/Short, Action, Mega Whale)?","id":"Bagaimana cara membaca Whale Live Feed (Long/Short, Action, Mega Whale)?","zh":"如何阅读 Whale Live Feed（Long/Short、Action、Mega Whale）？"}},{"id":"whale","q":{"th":"วาฬแจ้งเตือน (Whale Alert / Whale Tracker) คืออะไร","en":"What is Whale Alert / Whale Tracker?","vi":"Whale Alert / Whale Tracker (cá voi) là gì?","kh":"តើ Whale Alert / Whale Tracker ជាអ្វី?","mm":"Whale Alert / Whale Tracker ဆိုတာ ဘာလဲ။","la":"Whale Alert / Whale Tracker (ປາວານ) ແມ່ນຫຍັງ?","ms":"Apakah Whale Alert / Whale Tracker?","id":"Apa itu Whale Alert / Whale Tracker?","zh":"什么是 Whale Alert / Whale Tracker？"}},{"id":"whale_analytics","q":{"th":"หน้า Analytics ของ Whale ดูอะไรได้บ้าง","en":"What can I see on the Whale Analytics page?","vi":"Trang Analytics của Whale có những gì?","kh":"តើអាចមើលអ្វីខ្លះនៅទំព័រ Analytics របស់ Whale?","mm":"Whale Analytics စာမျက်နှာတွင် ဘာတွေကြည့်လို့ရလဲ။","la":"ໜ້າ Analytics ຂອງ Whale ເບິ່ງຫຍັງໄດ້ແດ່?","ms":"Apakah yang boleh saya lihat pada halaman Whale Analytics?","id":"Apa saja yang bisa saya lihat di halaman Whale Analytics?","zh":"在 Whale Analytics 页面可以看到什么？"}},{"id":"whale_data","q":{"th":"Whale Data คืออะไร ป้าย STRONG BUY / ACCUMULATING หมายถึงอะไร","en":"What is Whale Data and what do the STRONG BUY / ACCUMULATING labels mean?","vi":"Whale Data là gì và nhãn STRONG BUY / ACCUMULATING nghĩa là gì?","kh":"Whale Data ជាអ្វី ហើយស្លាក STRONG BUY / ACCUMULATING មានន័យដូចម្តេច?","mm":"Whale Data ဆိုတာ ဘာလဲ၊ STRONG BUY / ACCUMULATING အမှတ်အသားက ဘာကို ဆိုလိုလဲ။","la":"Whale Data ແມ່ນຫຍັງ ແລະປ້າຍ STRONG BUY / ACCUMULATING ໝາຍເຖິງຫຍັງ?","ms":"Apakah Whale Data dan apakah maksud label STRONG BUY / ACCUMULATING?","id":"Apa itu Whale Data dan apa arti label STRONG BUY / ACCUMULATING?","zh":"什么是 Whale Data，STRONG BUY / ACCUMULATING 标签是什么意思？"}},{"id":"whale_forecast","q":{"th":"Forecast (Master Signal) คืออะไร และต้องทำอย่างไรถึงจะเข้าใช้ได้","en":"What is Forecast (Master Signal) and how do I get access?","vi":"Forecast (Master Signal) là gì và làm sao để được truy cập?","kh":"Forecast (Master Signal) ជាអ្វី ហើយត្រូវធ្វើយ៉ាងណាដើម្បីចូលប្រើ?","mm":"Forecast (Master Signal) ဆိုတာ ဘာလဲ၊ ဘယ်လို ဝင်ရောက်သုံးရမလဲ။","la":"Forecast (Master Signal) ແມ່ນຫຍັງ ແລະຕ້ອງເຮັດແນວໃດຈຶ່ງເຂົ້າໃຊ້ໄດ້?","ms":"Apakah Forecast (Master Signal) dan bagaimana saya mendapat akses?","id":"Apa itu Forecast (Master Signal) dan bagaimana cara mendapat aksesnya?","zh":"什么是 Forecast（Master Signal），如何获得使用权限？"}},{"id":"whale_orderbook","q":{"th":"หน้า Order Book ของ Whale ดูอะไรได้","en":"What can I see on the Whale Order Book page?","vi":"Trang Order Book của Whale cho xem những gì?","kh":"តើអាចមើលអ្វីខ្លះនៅទំព័រ Order Book របស់ Whale?","mm":"Whale Order Book စာမျက်နှာတွင် ဘာတွေကြည့်လို့ရလဲ။","la":"ໜ້າ Order Book ຂອງ Whale ເບິ່ງຫຍັງໄດ້?","ms":"Apakah yang boleh saya lihat pada halaman Whale Order Book?","id":"Apa saja yang bisa saya lihat di halaman Whale Order Book?","zh":"在 Whale Order Book 页面可以看到什么？"}},{"id":"whale_hunter","q":{"th":"Hunter (แผนที่ Liquidation) คืออะไร อ่านอย่างไร","en":"What is Hunter (the liquidation map) and how do I read it?","vi":"Hunter (bản đồ thanh lý) là gì và đọc thế nào?","kh":"Hunter (ផែនទី Liquidation) ជាអ្វី ហើយអានយ៉ាងដូចម្តេច?","mm":"Hunter (Liquidation မြေပုံ) ဆိုတာ ဘာလဲ၊ ဘယ်လိုဖတ်ရမလဲ။","la":"Hunter (ແຜນທີ່ Liquidation) ແມ່ນຫຍັງ ແລະອ່ານແນວໃດ?","ms":"Apakah Hunter (peta pelikuidan) dan bagaimana saya membacanya?","id":"Apa itu Hunter (peta likuidasi) dan bagaimana cara membacanya?","zh":"什么是 Hunter（强平地图），如何阅读？"}},{"id":"whale_limits","q":{"th":"ข้อมูล Whale ครอบคลุมเหรียญไหน และมีข้อจำกัดอะไรบ้าง","en":"Which coins does Whale data cover, and what are the limitations?","vi":"Dữ liệu Whale bao gồm những coin nào và có giới hạn gì?","kh":"ទិន្នន័យ Whale គ្របដណ្តប់រូបិយប័ណ្ណណាខ្លះ ហើយមានដែនកំណត់អ្វីខ្លះ?","mm":"Whale ဒေတာသည် ဒင်္ဂါးမည်သည်တို့ကို ဖုံးလွှမ်းသလဲ၊ ကန့်သတ်ချက်များ ဘာတွေရှိလဲ။","la":"ຂໍ້ມູນ Whale ຄຸມເຫຼຽນໃດແດ່ ແລະມີຂໍ້ຈຳກັດຫຍັງ?","ms":"Syiling apakah yang diliputi data Whale, dan apakah batasannya?","id":"Koin apa saja yang dicakup data Whale, dan apa batasannya?","zh":"Whale 数据覆盖哪些币种，有哪些限制？"}}]},{"id":"spot","icon":"📊","name":{"th":"เทรด สปอต์","en":"Trade Spot","vi":"Giao dịch Spot","kh":"ជួញដូរ Spot","mm":"Spot ကုန်သွယ်ခြင်း","la":"ເທຣດ Spot","ms":"Dagangan Spot","id":"Trading Spot","zh":"Spot 现货交易"},"items":[{"id":"spot_how","q":{"th":"เทรด Spot เริ่มต้นอย่างไร","en":"How do I start trading Spot?","vi":"Bắt đầu giao dịch Spot như thế nào?","kh":"តើចាប់ផ្តើមជួញដូរ Spot យ៉ាងដូចម្តេច?","mm":"Spot ကို ဘယ်လိုစတင်ကုန်သွယ်ရမလဲ။","la":"ເລີ່ມເທຣດ Spot ແນວໃດ?","ms":"Bagaimana untuk mula berdagang Spot?","id":"Bagaimana cara memulai trading Spot?","zh":"如何开始 Spot 现货交易？"}},{"id":"spot_order_types","q":{"th":"Spot มีคำสั่งแบบไหนบ้าง (Market / Limit / Stop)","en":"What order types does Spot have (Market / Limit / Stop)?","vi":"Spot có những loại lệnh nào (Market / Limit / Stop)?","kh":"តើ Spot មានប្រភេទបញ្ជាអ្វីខ្លះ (Market / Limit / Stop)?","mm":"Spot တွင် အော်ဒါအမျိုးအစား ဘာတွေရှိလဲ (Market / Limit / Stop)။","la":"Spot ມີຄຳສັ່ງແບບໃດແດ່ (Market / Limit / Stop)?","ms":"Apakah jenis pesanan dalam Spot (Market / Limit / Stop)?","id":"Apa saja jenis order di Spot (Market / Limit / Stop)?","zh":"Spot 有哪些订单类型（Market / Limit / Stop）？"}},{"id":"spot_fee","q":{"th":"ค่าธรรมเนียมเทรด Spot เท่าไร หักอย่างไร","en":"How much is the Spot trading fee and how is it charged?","vi":"Phí giao dịch Spot là bao nhiêu và tính như thế nào?","kh":"តើថ្លៃសេវាជួញដូរ Spot ប៉ុន្មាន ហើយកាត់យ៉ាងដូចម្តេច?","mm":"Spot ကုန်သွယ်ကော်ကြေး ဘယ်လောက်၊ ဘယ်လိုကောက်ခံလဲ။","la":"ຄ່າທຳນຽມເທຣດ Spot ເທົ່າໃດ ແລະຫັກແນວໃດ?","ms":"Berapakah yuran dagangan Spot dan bagaimana ia dikenakan?","id":"Berapa biaya trading Spot dan bagaimana cara pengenaannya?","zh":"Spot 交易手续费是多少，如何收取？"}},{"id":"spot_balance","q":{"th":"ดูยอด USDT และเหรียญที่ถืออยู่ใน Spot ได้ที่ไหน","en":"Where can I see my USDT and coin balances in Spot?","vi":"Xem số dư USDT và coin trong Spot ở đâu?","kh":"តើមើលសមតុល្យ USDT និងកាក់ក្នុង Spot នៅឯណា?","mm":"Spot ရှိ USDT နှင့် coin လက်ကျန်ကို ဘယ်မှာကြည့်ရမလဲ။","la":"ເບິ່ງຍອດ USDT ແລະເຫຼຽນທີ່ຖືໃນ Spot ໄດ້ຢູ່ໃສ?","ms":"Di manakah saya boleh melihat baki USDT dan syiling saya dalam Spot?","id":"Di mana saya bisa melihat saldo USDT dan koin saya di Spot?","zh":"在哪里可以查看我在 Spot 中的 USDT 和币种余额？"}},{"id":"spot_insufficient","q":{"th":"ซื้อหรือขายไม่ได้ ขึ้นว่ายอด Spot ไม่พอ ต้องทำอย่างไร","en":"I can't buy or sell and it says my Spot balance is insufficient. What should I do?","vi":"Không mua hoặc bán được, báo số dư Spot không đủ, phải làm sao?","kh":"ទិញ ឬលក់មិនបាន ឡើងថាសមតុល្យ Spot មិនគ្រប់ តើត្រូវធ្វើយ៉ាងណា?","mm":"ဝယ်/ရောင်းမရဘဲ Spot လက်ကျန်မလောက်ဟု ပြနေသည်၊ ဘာလုပ်ရမလဲ။","la":"ຊື້ ຫຼືຂາຍບໍ່ໄດ້ ຂຶ້ນວ່າຍອດ Spot ບໍ່ພໍ ຕ້ອງເຮັດແນວໃດ?","ms":"Saya tidak dapat membeli atau menjual dan ia menyatakan baki Spot tidak mencukupi. Apakah yang perlu saya lakukan?","id":"Saya tidak bisa membeli atau menjual dan muncul pesan saldo Spot tidak cukup. Apa yang harus saya lakukan?","zh":"我无法买入或卖出，提示 Spot 余额不足，该怎么办？"}},{"id":"spot_history","q":{"th":"ดูประวัติการเทรด Spot ได้ที่ไหน","en":"Where can I see my Spot trade history?","vi":"Xem lịch sử giao dịch Spot ở đâu?","kh":"តើមើលប្រវត្តិជួញដូរ Spot នៅឯណា?","mm":"Spot ကုန်သွယ်မှတ်တမ်းကို ဘယ်မှာကြည့်ရမလဲ။","la":"ເບິ່ງປະຫວັດການເທຣດ Spot ໄດ້ຢູ່ໃສ?","ms":"Di manakah saya boleh melihat sejarah dagangan Spot saya?","id":"Di mana saya bisa melihat riwayat trading Spot saya?","zh":"在哪里可以查看我的 Spot 交易记录？"}},{"id":"spot_transfer","q":{"th":"โอนเงินระหว่าง Spot กับ Futures หรือกระเป๋าอื่นทำอย่างไร","en":"How do I transfer funds between Spot and Futures or other wallets?","vi":"Chuyển tiền giữa Spot và Futures hoặc ví khác như thế nào?","kh":"តើផ្ទេរប្រាក់រវាង Spot និង Futures ឬកាបូបផ្សេងយ៉ាងដូចម្តេច?","mm":"Spot နှင့် Futures သို့မဟုတ် အခြားပိုက်ဆံအိတ်များအကြား ငွေကို ဘယ်လိုလွှဲရမလဲ။","la":"ໂອນເງິນລະຫວ່າງ Spot ກັບ Futures ຫຼືກະເປົາອື່ນແນວໃດ?","ms":"Bagaimana saya memindahkan dana antara Spot dan Futures atau dompet lain?","id":"Bagaimana cara mentransfer dana antara Spot dan Futures atau dompet lain?","zh":"如何在 Spot 与 Futures 或其他钱包之间划转资金？"}}]},{"id":"general","icon":"💬","name":{"th":"ทั่วไป / ความปลอดภัย","en":"General / Security","vi":"Chung / Bảo mật","kh":"ទូទៅ / សុវត្ថិភាព","mm":"အထွေထွေ / လုံခြုံရေး","la":"ທົ່ວໄປ / ຄວາມປອດໄພ","ms":"Umum / Keselamatan","id":"Umum / Keamanan","zh":"常规 / 安全"},"items":[{"id":"chat_media","q":{"th":"ส่งรูปหรือวิดีโอในแชทได้ไหม","en":"Can I send photos or videos in chat?","vi":"Có thể gửi ảnh hoặc video trong chat không?","kh":"តើអាចផ្ញើរូបភាព ឬវីដេអូក្នុងការជជែកបានទេ?","mm":"ချက်တင်တွင် ဓာတ်ပုံ သို့မဟုတ် ဗီဒီယို ပို့လို့ရပါသလား။","la":"ສົ່ງຮູບ ຫຼື ວິດີໂອໃນແຊັດໄດ້ບໍ?","ms":"Bolehkah saya menghantar foto atau video dalam sembang?","id":"Bisakah saya mengirim foto atau video di chat?","zh":"可以在聊天中发送照片或视频吗？"}},{"id":"security_secrets","q":{"th":"ต้องให้รหัสผ่าน / OTP / seed phrase / private key กับทีมงานไหม","en":"Do I need to give my password / OTP / seed phrase / private key to the team?","vi":"Có cần đưa mật khẩu / OTP / seed phrase / private key cho đội ngũ không?","kh":"តើត្រូវផ្តល់ពាក្យសម្ងាត់ / OTP / seed phrase / private key ដល់ក្រុមការងារទេ?","mm":"စကားဝှက် / OTP / seed phrase / private key ကို အဖွဲ့အား ပေးရန် လိုပါသလား။","la":"ຕ້ອງໃຫ້ລະຫັດຜ່ານ / OTP / seed phrase / private key ກັບທີມງານບໍ?","ms":"Perlukah saya memberikan kata laluan / OTP / seed phrase / private key kepada pasukan?","id":"Apakah saya perlu memberikan password / OTP / seed phrase / private key kepada tim?","zh":"我需要把密码 / OTP / 助记词 / 私钥提供给团队吗？"}},{"id":"no_advice","q":{"th":"AI แนะนำได้ไหมว่าควรซื้อหรือขายเหรียญอะไร ราคาจะขึ้นหรือลง","en":"Can the AI tell me which coin to buy or sell, or whether the price will go up or down?","vi":"AI có thể khuyên nên mua hay bán coin nào, giá sẽ tăng hay giảm không?","kh":"តើ AI អាចណែនាំថាគួរទិញ ឬលក់កាក់អ្វី ឬតម្លៃនឹងឡើង ឬចុះបានទេ?","mm":"AI က ဘယ် coin ကို ဝယ်/ရောင်းသင့်သလဲ၊ ဈေးတက်မလား ကျမလား ပြောပေးနိုင်သလား။","la":"AI ແນະນຳໄດ້ບໍວ່າຄວນຊື້ ຫຼືຂາຍເຫຼຽນໃດ ລາຄາຈະຂຶ້ນ ຫຼືລົງ?","ms":"Bolehkah AI memberitahu saya syiling mana untuk dibeli atau dijual, atau sama ada harga akan naik atau turun?","id":"Bisakah AI memberi tahu koin mana yang harus dibeli atau dijual, atau apakah harga akan naik atau turun?","zh":"AI 可以告诉我该买卖哪个币，或价格会涨还是会跌吗？"}}]}];
 
 // ================= Config =================
 const $ = s => document.querySelector(s);
 const P = new URLSearchParams(location.search);
-const IS_ADMIN = P.get("mode") === "admin";
+const EMBED_ADMIN = window.__SC_ADMIN === 1;   // แอปหลักฝังโหมดแอดมิน (ใส่ธงก่อนสคริปต์นี้) → ใช้ chat token ที่แอปแลกให้ ไม่ใช้ ADMIN_KEY
+const IS_ADMIN = P.get("mode") === "admin" || EMBED_ADMIN;
+if (IS_ADMIN) document.body.classList.add("admin");
 const IN_FRAME = window.parent !== window;
 let API = DEFAULT_API;
 let chatToken = "", tokenExp = 0, adminKey = "";
 let me = { id: "", name: "" };
+// [PERMS] สิทธิ์แอดมินแบบแบ่งระดับ: null = ทุกสิทธิ์ (root / ADMIN_KEY) · Set = สิทธิ์ที่ Worker หลักออกให้ใน token (Worker ตรวจซ้ำทุกคำสั่ง — ที่นี่แค่ซ่อนปุ่มที่ไม่มีสิทธิ์)
+let ADM_PM = null, ADM_LEVEL = "";
+const canDo = p => !IS_ADMIN || ADM_PM === null || ADM_PM.has(p);
+const canMembers = () => canDo("memberApprove") || canDo("memberBlock") || canDo("globalBlock");
+const canMg = () => canMembers() || canDo("roomEdit") || canDo("roomDelete");
 const fixedPeer = IS_ADMIN ? null : { id: SUPPORT_ID, name: "", color: "#d9a400" };
 const onBack = IS_ADMIN ? null : () => { try { parent.postMessage({ type: "sc-close" }, "*"); } catch (_) { } };
 
-// ================= i18n (ลำดับ: th, en, vi, kh, mm, la — ตรงกับ TCC_I18N ของแอปหลัก) =================
-const LANG_IDX = { th: 0, en: 1, vi: 2, kh: 3, mm: 4, la: 5 };
-const LOCALES = { th: "th-TH", en: "en-GB", vi: "vi-VN", kh: "km-KH", mm: "my-MM", la: "lo-LA" };
+// ================= i18n (ลำดับ: th, en, vi, kh, mm, la, ms, id, zh — ตรงกับ TCC_I18N ของแอปหลัก) =================
+const LANG_IDX = { th: 0, en: 1, vi: 2, kh: 3, mm: 4, la: 5, ms: 6, id: 7, zh: 8 };
+const LOCALES = { th: "th-TH", en: "en-GB", vi: "vi-VN", kh: "km-KH", mm: "my-MM", la: "lo-LA", ms: "ms-MY", id: "id-ID", zh: "zh-CN" };
 let LANG = "th";
 const I18N = {
-  ph:       ["พิมพ์ข้อความ", "Type a message", "Nhập tin nhắn", "វាយសារ", "မက်ဆေ့ချ်ရိုက်ပါ", "ພິມຂໍ້ຄວາມ"],
-  typing:   ["กำลังพิมพ์...", "Typing...", "Đang nhập...", "កំពុងវាយ...", "ရိုက်နေသည်...", "ກຳລັງພິມ..."],
-  read:     ["อ่านแล้ว", "Read", "Đã xem", "បានអាន", "ဖတ်ပြီး", "ອ່ານແລ້ວ"],
-  today:    ["วันนี้", "Today", "Hôm nay", "ថ្ងៃនេះ", "ဒီနေ့", "ມື້ນີ້"],
-  yday:     ["เมื่อวาน", "Yesterday", "Hôm qua", "ម្សិលមិញ", "မနေ့က", "ມື້ວານ"],
-  reply:    ["ตอบกลับ", "Reply", "Trả lời", "ឆ្លើយតប", "ပြန်ရန်", "ຕອບກັບ"],
-  copy:     ["คัดลอก", "Copy", "Sao chép", "ចម្លង", "ကူးယူ", "ສຳເນົາ"],
-  copied:   ["คัดลอกแล้ว", "Copied", "Đã sao chép", "បានចម្លង", "ကူးယူပြီး", "ສຳເນົາແລ້ວ"],
-  openLink: ["เปิดลิงก์ภายนอก?", "Open this external link?", "Mở liên kết bên ngoài?", "បើកតំណខាងក្រៅ?", "ပြင်ပလင့်ခ်ကို ဖွင့်မလား?", "ເປີດລິ້ງພາຍນອກບໍ?"],
-  unsend:   ["ยกเลิกการส่ง", "Unsend", "Thu hồi", "ដកសារវិញ", "ပြန်ရုပ်သိမ်း", "ຍົກເລີກການສົ່ງ"],
-  youUns:   ["คุณยกเลิกการส่งข้อความ", "You unsent a message", "Bạn đã thu hồi tin nhắn", "អ្នកបានដកសារវិញ", "သင် မက်ဆေ့ချ်ကို ပြန်ရုပ်သိမ်းခဲ့သည်", "ເຈົ້າໄດ້ຍົກເລີກຂໍ້ຄວາມ"],
-  theyUns:  ["{n} ยกเลิกการส่งข้อความ", "{n} unsent a message", "{n} đã thu hồi tin nhắn", "{n} បានដកសារវិញ", "{n} မက်ဆေ့ချ်ကို ပြန်ရုပ်သိမ်းခဲ့သည်", "{n} ໄດ້ຍົກເລີກຂໍ້ຄວາມ"],
-  replyTo:  ["ตอบกลับ", "Replying to", "Trả lời", "ឆ្លើយតបទៅ", "ပြန်ကြားနေသည့်သူ", "ຕອບກັບ"],
-  you:      ["คุณ", "You", "Bạn", "អ្នក", "သင်", "ເຈົ້າ"],
-  self:     ["ตัวเอง", "yourself", "chính mình", "ខ្លួនឯង", "ကိုယ်တိုင်", "ຕົນເອງ"],
-  msg:      ["ข้อความ", "Message", "Tin nhắn", "សារ", "မက်ဆေ့ချ်", "ຂໍ້ຄວາມ"],
-  img:      ["🖼️ รูปภาพ", "🖼️ Photo", "🖼️ Ảnh", "🖼️ រូបភាព", "🖼️ ဓာတ်ပုံ", "🖼️ ຮູບພາບ"],
-  vid:      ["🎬 วิดีโอ", "🎬 Video", "🎬 Video", "🎬 វីដេអូ", "🎬 ဗီဒီယို", "🎬 ວິດີໂອ"],
-  sendFail: ["ส่งไม่สำเร็จ", "Failed to send", "Gửi không thành công", "ផ្ញើមិនបានសម្រេច", "ပို့မရပါ", "ສົ່ງບໍ່ສຳເລັດ"],
-  bigImg:   ["รูปใหญ่เกินไป", "Photo is too large", "Ảnh quá lớn", "រូបភាពធំពេក", "ဓာတ်ပုံ ကြီးလွန်းသည်", "ຮູບໃຫຍ່ເກີນໄປ"],
-  bigVid:   ["วิดีโอใหญ่เกิน 25MB", "Video exceeds 25MB", "Video vượt quá 25MB", "វីដេអូធំជាង 25MB", "ဗီဒီယို 25MB ကျော်နေသည်", "ວິດີໂອໃຫຍ່ເກີນ 25MB"],
-  badType:  ["ไม่รองรับไฟล์ชนิดนี้", "Unsupported file type", "Không hỗ trợ loại tệp này", "មិនគាំទ្រប្រភេទឯកសារនេះ", "ဤဖိုင်အမျိုးအစားကို မထောက်ပံ့ပါ", "ບໍ່ຮອງຮັບໄຟລ໌ປະເພດນີ້"],
-  badImg:   ["เปิดรูปไม่ได้", "Can't open this photo", "Không mở được ảnh", "មិនអាចបើករូបភាពបាន", "ဓာတ်ပုံကို ဖွင့်မရပါ", "ເປີດຮູບບໍ່ໄດ້"],
-  support:  ["ทีมซัพพอร์ต", "Support team", "Đội hỗ trợ", "ក្រុមគាំទ្រ", "ပံ့ပိုးရေးအဖွဲ့", "ທີມຊ່ວຍເຫຼືອ"],
-  upl:      ["กำลังอัปโหลด", "Uploading", "Đang tải lên", "កំពុងផ្ទុកឡើង", "တင်နေသည်", "ກຳລັງອັບໂຫຼດ"],
-  authFail: ["ยืนยันตัวตนไม่ผ่าน กรุณาเข้าสู่ระบบแอปใหม่", "Sign-in check failed. Please log in to the app again", "Xác thực thất bại. Vui lòng đăng nhập lại ứng dụng", "ការផ្ទៀងផ្ទាត់បរាជ័យ សូមចូលកម្មវិធីម្តងទៀត", "အတည်ပြုမှု မအောင်မြင်ပါ။ အက်ပ်သို့ ပြန်လည်ဝင်ပါ", "ການຢືນຢັນບໍ່ຜ່ານ ກະລຸນາເຂົ້າສູ່ລະບົບແອັບອີກຄັ້ງ"],
-  fromApp:  ["เปิดแชทจากในแอปเท่านั้น", "Open this chat from inside the app", "Hãy mở trò chuyện từ trong ứng dụng", "សូមបើកការជជែកពីក្នុងកម្មវិធី", "အက်ပ်အတွင်းမှသာ ချတ်ကို ဖွင့်ပါ", "ກະລຸນາເປີດແຊັດຈາກໃນແອັບ"],
-  aiLabel:  ["ผู้ช่วย AI", "AI assistant", "Trợ lý AI", "ជំនួយការ AI", "AI လက်ထောက်", "ຜູ້ຊ່ວຍ AI"],
-  guide:    ["ปัญหาที่พบบ่อย", "Common problems", "Vấn đề thường gặp", "បញ្ហាដែលតែងតែជួប", "မကြာခဏ ကြုံရသော ပြဿနာများ", "ບັນຫາທີ່ພົບເລື້ອຍໆ"],
-  empty:    ["ยังไม่มีข้อความ ส่งข้อความถึงทีมซัพพอร์ตได้เลย", "No messages yet. Send a message to the support team", "Chưa có tin nhắn. Hãy nhắn cho đội hỗ trợ", "មិនទាន់មានសារ។ ផ្ញើសារទៅក្រុមគាំទ្រ", "မက်ဆေ့ချ် မရှိသေးပါ။ ပံ့ပိုးရေးအဖွဲ့ထံ ပို့ပါ", "ຍັງບໍ່ມີຂໍ້ຄວາມ ສົ່ງຫາທີມຊ່ວຍເຫຼືອໄດ້ເລີຍ"],
+  ph:       ["พิมพ์ข้อความ", "Type a message", "Nhập tin nhắn", "វាយសារ", "မက်ဆေ့ချ်ရိုက်ပါ", "ພິມຂໍ້ຄວາມ","Taip mesej","Ketik pesan","输入消息"],
+  typing:   ["กำลังพิมพ์...", "Typing...", "Đang nhập...", "កំពុងវាយ...", "ရိုက်နေသည်...", "ກຳລັງພິມ...","Sedang menaip...","Sedang mengetik...","正在输入..."],
+  thinking: ["กำลังคิด...", "Thinking...", "Đang suy nghĩ...", "កំពុងគិត...", "စဉ်းစားနေသည်...", "ກຳລັງຄິດ...","Sedang berfikir...","Sedang berpikir...","正在思考..."],
+  read:     ["อ่านแล้ว", "Read", "Đã xem", "បានអាន", "ဖတ်ပြီး", "ອ່ານແລ້ວ","Dibaca","Dibaca","已读"],
+  today:    ["วันนี้", "Today", "Hôm nay", "ថ្ងៃនេះ", "ဒီနေ့", "ມື້ນີ້","Hari ini","Hari ini","今天"],
+  yday:     ["เมื่อวาน", "Yesterday", "Hôm qua", "ម្សិលមិញ", "မနေ့က", "ມື້ວານ","Semalam","Kemarin","昨天"],
+  reply:    ["ตอบกลับ", "Reply", "Trả lời", "ឆ្លើយតប", "ပြန်ရန်", "ຕອບກັບ","Balas","Balas","回复"],
+  copy:     ["คัดลอก", "Copy", "Sao chép", "ចម្លង", "ကူးယူ", "ສຳເນົາ","Salin","Salin","复制"],
+  copied:   ["คัดลอกแล้ว", "Copied", "Đã sao chép", "បានចម្លង", "ကူးယူပြီး", "ສຳເນົາແລ້ວ","Disalin","Tersalin","已复制"],
+  openLink: ["เปิดลิงก์ภายนอก?", "Open this external link?", "Mở liên kết bên ngoài?", "បើកតំណខាងក្រៅ?", "ပြင်ပလင့်ခ်ကို ဖွင့်မလား?", "ເປີດລິ້ງພາຍນອກບໍ?","Buka pautan luaran ini?","Buka tautan eksternal ini?","打开此外部链接？"],
+  unsend:   ["ยกเลิกการส่ง", "Unsend", "Thu hồi", "ដកសារវិញ", "ပြန်ရုပ်သိမ်း", "ຍົກເລີກການສົ່ງ","Tarik balik","Batalkan kirim","撤回"],
+  youUns:   ["คุณยกเลิกการส่งข้อความ", "You unsent a message", "Bạn đã thu hồi tin nhắn", "អ្នកបានដកសារវិញ", "သင် မက်ဆေ့ချ်ကို ပြန်ရုပ်သိမ်းခဲ့သည်", "ເຈົ້າໄດ້ຍົກເລີກຂໍ້ຄວາມ","Anda telah menarik balik mesej","Anda membatalkan pengiriman pesan","您撤回了一条消息"],
+  theyUns:  ["{n} ยกเลิกการส่งข้อความ", "{n} unsent a message", "{n} đã thu hồi tin nhắn", "{n} បានដកសារវិញ", "{n} မက်ဆေ့ချ်ကို ပြန်ရုပ်သိမ်းခဲ့သည်", "{n} ໄດ້ຍົກເລີກຂໍ້ຄວາມ","{n} telah menarik balik mesej","{n} membatalkan pengiriman pesan","{n} 撤回了一条消息"],
+  replyTo:  ["ตอบกลับ", "Replying to", "Trả lời", "ឆ្លើយតបទៅ", "ပြန်ကြားနေသည့်သူ", "ຕອບກັບ","Membalas kepada","Membalas ke","回复"],
+  you:      ["คุณ", "You", "Bạn", "អ្នក", "သင်", "ເຈົ້າ","Anda","Anda","您"],
+  self:     ["ตัวเอง", "yourself", "chính mình", "ខ្លួនឯង", "ကိုယ်တိုင်", "ຕົນເອງ","diri sendiri","diri sendiri","自己"],
+  msg:      ["ข้อความ", "Message", "Tin nhắn", "សារ", "မက်ဆေ့ချ်", "ຂໍ້ຄວາມ","Mesej","Pesan","消息"],
+  img:      ["🖼️ รูปภาพ", "🖼️ Photo", "🖼️ Ảnh", "🖼️ រូបភាព", "🖼️ ဓာတ်ပုံ", "🖼️ ຮູບພາບ","🖼️ Foto","🖼️ Foto","🖼️ 图片"],
+  vid:      ["🎬 วิดีโอ", "🎬 Video", "🎬 Video", "🎬 វីដេអូ", "🎬 ဗီဒီယို", "🎬 ວິດີໂອ","🎬 Video","🎬 Video","🎬 视频"],
+  sendFail: ["ส่งไม่สำเร็จ", "Failed to send", "Gửi không thành công", "ផ្ញើមិនបានសម្រេច", "ပို့မရပါ", "ສົ່ງບໍ່ສຳເລັດ","Gagal dihantar","Gagal terkirim","发送失败"],
+  bigImg:   ["รูปใหญ่เกินไป", "Photo is too large", "Ảnh quá lớn", "រូបភាពធំពេក", "ဓာတ်ပုံ ကြီးလွန်းသည်", "ຮູບໃຫຍ່ເກີນໄປ","Foto terlalu besar","Foto terlalu besar","图片过大"],
+  bigVid:   ["วิดีโอใหญ่เกิน 25MB", "Video exceeds 25MB", "Video vượt quá 25MB", "វីដេអូធំជាង 25MB", "ဗီဒီယို 25MB ကျော်နေသည်", "ວິດີໂອໃຫຍ່ເກີນ 25MB","Video melebihi 25MB","Video melebihi 25MB","视频超过 25MB"],
+  badType:  ["ไม่รองรับไฟล์ชนิดนี้", "Unsupported file type", "Không hỗ trợ loại tệp này", "មិនគាំទ្រប្រភេទឯកសារនេះ", "ဤဖိုင်အမျိုးအစားကို မထောက်ပံ့ပါ", "ບໍ່ຮອງຮັບໄຟລ໌ປະເພດນີ້","Jenis fail tidak disokong","Jenis file tidak didukung","不支持此文件类型"],
+  badImg:   ["เปิดรูปไม่ได้", "Can't open this photo", "Không mở được ảnh", "មិនអាចបើករូបភាពបាន", "ဓာတ်ပုံကို ဖွင့်မရပါ", "ເປີດຮູບບໍ່ໄດ້","Tidak dapat membuka foto ini","Tidak dapat membuka foto ini","无法打开此图片"],
+  support:  ["ทีมซัพพอร์ต", "Support team", "Đội hỗ trợ", "ក្រុមគាំទ្រ", "ပံ့ပိုးရေးအဖွဲ့", "ທີມຊ່ວຍເຫຼືອ","Pasukan sokongan","Tim dukungan","客服团队"],
+  upl:      ["กำลังอัปโหลด", "Uploading", "Đang tải lên", "កំពុងផ្ទុកឡើង", "တင်နေသည်", "ກຳລັງອັບໂຫຼດ","Sedang memuat naik","Sedang mengunggah","正在上传"],
+  authFail: ["ยืนยันตัวตนไม่ผ่าน กรุณาเข้าสู่ระบบแอปใหม่", "Sign-in check failed. Please log in to the app again", "Xác thực thất bại. Vui lòng đăng nhập lại ứng dụng", "ការផ្ទៀងផ្ទាត់បរាជ័យ សូមចូលកម្មវិធីម្តងទៀត", "အတည်ပြုမှု မအောင်မြင်ပါ။ အက်ပ်သို့ ပြန်လည်ဝင်ပါ", "ການຢືນຢັນບໍ່ຜ່ານ ກະລຸນາເຂົ້າສູ່ລະບົບແອັບອີກຄັ້ງ","Semakan log masuk gagal. Sila log masuk semula ke aplikasi","Pemeriksaan login gagal. Silakan login ulang ke aplikasi","登录验证失败，请重新登录应用"],
+  fromApp:  ["เปิดแชทจากในแอปเท่านั้น", "Open this chat from inside the app", "Hãy mở trò chuyện từ trong ứng dụng", "សូមបើកការជជែកពីក្នុងកម្មវិធី", "အက်ပ်အတွင်းမှသာ ချတ်ကို ဖွင့်ပါ", "ກະລຸນາເປີດແຊັດຈາກໃນແອັບ","Buka sembang ini dari dalam aplikasi","Buka obrolan ini dari dalam aplikasi","请从应用内打开此聊天"],
+  aiLabel:  ["ผู้ช่วย AI", "AI assistant", "Trợ lý AI", "ជំនួយការ AI", "AI လက်ထောက်", "ຜູ້ຊ່ວຍ AI","Pembantu AI","Asisten AI","AI 助手"],
+  guide:    ["ปัญหาที่พบบ่อย", "Common problems", "Vấn đề thường gặp", "បញ្ហាដែលតែងតែជួប", "မကြာခဏ ကြုံရသော ပြဿနာများ", "ບັນຫາທີ່ພົບເລື້ອຍໆ","Masalah lazim","Masalah umum","常见问题"],
+  empty:    ["ยังไม่มีข้อความ ส่งข้อความถึงทีมซัพพอร์ตได้เลย", "No messages yet. Send a message to the support team", "Chưa có tin nhắn. Hãy nhắn cho đội hỗ trợ", "មិនទាន់មានសារ។ ផ្ញើសារទៅក្រុមគាំទ្រ", "မက်ဆေ့ချ် မရှိသေးပါ။ ပံ့ပိုးရေးအဖွဲ့ထံ ပို့ပါ", "ຍັງບໍ່ມີຂໍ້ຄວາມ ສົ່ງຫາທີມຊ່ວຍເຫຼືອໄດ້ເລີຍ","Belum ada mesej. Hantar mesej kepada pasukan sokongan","Belum ada pesan. Kirim pesan ke tim dukungan","暂无消息，给客服团队发条消息吧"],
+  vGreet:   ["สวัสดีครับ 😊 ผมคือผู้ช่วย AI ของ TCC เลือกคำถามจากเมนูด้านล่างได้เลยครับ", "Hello! 😊 I'm TCC's AI assistant. Pick a question from the menu below.", "Xin chào! 😊 Mình là trợ lý AI của TCC. Hãy chọn một câu hỏi trong menu bên dưới nhé.", "សួស្តី! 😊 ខ្ញុំជាជំនួយការ AI របស់ TCC។ សូមជ្រើសរើសសំណួរពីម៉ឺនុយខាងក្រោម។", "မင်္ဂလာပါ 😊 ကျွန်ုပ်သည် TCC ၏ AI လက်ထောက်ဖြစ်ပါသည်။ အောက်ပါမီနူးမှ မေးခွန်းတစ်ခု ရွေးပါ။", "ສະບາຍດີ! 😊 ຂ້ອຍແມ່ນຜູ້ຊ່ວຍ AI ຂອງ TCC. ເລືອກຄຳຖາມຈາກເມນູດ້ານລຸ່ມໄດ້ເລີຍ.","Helo! 😊 Saya pembantu AI TCC. Pilih soalan daripada menu di bawah.","Halo! 😊 Saya asisten AI TCC. Pilih pertanyaan dari menu di bawah.","您好！😊 我是 TCC 的 AI 助手，请从下方菜单选择问题。"],
+  vHint:    ["คุยกับเจ้าหน้าที่ได้เมื่อเข้าสู่ระบบสมาชิก", "Log in as a member to chat with our staff", "Đăng nhập thành viên để trò chuyện với nhân viên", "ចូលជាសមាជិក ដើម្បីជជែកជាមួយបុគ្គលិក", "ဝန်ထမ်းများနှင့် စကားပြောရန် အဖွဲ့ဝင်အဖြစ် ဝင်ရောက်ပါ", "ເຂົ້າສູ່ລະບົບສະມາຊິກເພື່ອລົມກັບເຈົ້າໜ້າທີ່","Log masuk sebagai ahli untuk berbual dengan kakitangan kami","Login sebagai anggota untuk mengobrol dengan staf kami","登录会员账号即可与工作人员聊天"],
+  vLogin:   ["เข้าสู่ระบบ", "Log in", "Đăng nhập", "ចូលប្រព័ន្ធ", "အကောင့်ဝင်ရန်", "ເຂົ້າລະບົບ","Log masuk","Login","登录"],
+  vFail:    ["ขออภัย ตอบไม่ได้ในตอนนี้ กรุณาลองใหม่อีกครั้ง", "Couldn't get an answer right now. Please try again.", "Hiện chưa thể trả lời. Vui lòng thử lại.", "មិនអាចឆ្លើយបានពេលនេះ។ សូមព្យាយាមម្តងទៀត។", "ယခု အဖြေမရနိုင်ပါ။ ထပ်ကြိုးစားပါ။", "ຕອບບໍ່ໄດ້ໃນຕອນນີ້. ກະລຸນາລອງໃໝ່.","Maaf, tidak dapat menjawab sekarang. Sila cuba lagi.","Maaf, belum bisa menjawab saat ini. Silakan coba lagi.","抱歉，暂时无法回答，请稍后再试。"],
+  listTitle: ["แชท", "Chats", "Trò chuyện", "ជជែក", "ချတ်", "ແຊັດ","Sembang","Obrolan","聊天"],
+  search:   ["ค้นหา", "Search", "Tìm kiếm", "ស្វែងរក", "ရှာဖွေရန်", "ຄົ້ນຫາ","Cari","Cari","搜索"],
+  roomsHead: ["ห้องสนทนา", "Chat rooms", "Phòng trò chuyện", "បន្ទប់ជជែក", "စကားဝိုင်းများ", "ຫ້ອງສົນທະນາ","Bilik sembang","Ruang obrolan","聊天室"],
+  stJoined: ["เข้าร่วมแล้ว", "Joined", "Đã tham gia", "បានចូលរួម", "ဝင်ပြီး", "ເຂົ້າຮ່ວມແລ້ວ","Telah menyertai","Sudah bergabung","已加入"],
+  stPending: ["รออนุมัติ", "Pending", "Chờ duyệt", "រង់ចាំអនុម័ត", "အတည်ပြုရန် စောင့်ဆိုင်း", "ລໍຖ້າອະນຸມັດ","Menunggu kelulusan","Menunggu persetujuan","待审批"],
+  stView:   ["อ่านอย่างเดียว", "Read only", "Chỉ xem", "អានតែប៉ុណ្ណោះ", "ဖတ်ရန်သာ", "ອ່ານຢ່າງດຽວ","Baca sahaja","Hanya baca","仅可阅读"],
+  stPrivate: ["ห้องส่วนตัว", "Private", "Riêng tư", "ឯកជន", "ကိုယ်ပိုင်", "ສ່ວນຕົວ","Peribadi","Pribadi","私密"],
+  stBlocked: ["ถูกบล็อก", "Blocked", "Bị chặn", "ត្រូវបានរារាំង", "ပိတ်ပင်ခံရ", "ຖືກບລັອກ","Disekat","Diblokir","已被屏蔽"],
+  membersN: ["{n} สมาชิก", "{n} members", "{n} thành viên", "{n} សមាជិក", "အဖွဲ့ဝင် {n} ဦး", "{n} ສະມາຊິກ","{n} ahli","{n} anggota","{n} 位成员"],
+  noRooms:  ["ยังไม่มีห้องสนทนา", "No chat rooms yet", "Chưa có phòng trò chuyện", "មិនទាន់មានបន្ទប់ជជែក", "စကားဝိုင်း မရှိသေးပါ", "ຍັງບໍ່ມີຫ້ອງສົນທະນາ","Belum ada bilik sembang","Belum ada ruang obrolan","暂无聊天室"],
+  noMatch:  ["ไม่พบรายการ", "Nothing found", "Không tìm thấy", "រកមិនឃើញ", "မတွေ့ပါ", "ບໍ່ພົບ","Tiada yang ditemui","Tidak ditemukan","未找到结果"],
+  startChat: ["เริ่มแชทเลย", "Start chatting", "Bắt đầu trò chuyện", "ចាប់ផ្តើមជជែក", "စကားပြောရန် စတင်ပါ", "ເລີ່ມແຊັດເລີຍ","Mulakan sembang","Mulai mengobrol","开始聊天"],
+  stk:      ["สติกเกอร์", "Sticker", "Nhãn dán", "ស្ទីកគ័រ", "စတစ်ကာ", "ສະຕິກເກີ","Pelekat","Stiker","贴纸"],
+  barRead:  ["อ่านอย่างเดียว — ขอเข้าห้องเพื่อพิมพ์ข้อความ", "Read only — request to join to send messages", "Chỉ xem — hãy xin vào phòng để nhắn tin", "អានតែប៉ុណ្ណោះ — សូមស្នើចូលបន្ទប់ដើម្បីផ្ញើសារ", "ဖတ်ရန်သာ — မက်ဆေ့ချ်ပို့ရန် အခန်းဝင်ခွင့် တောင်းပါ", "ອ່ານຢ່າງດຽວ — ຂໍເຂົ້າຫ້ອງເພື່ອພິມຂໍ້ຄວາມ","Baca sahaja — mohon sertai bilik untuk menghantar mesej","Hanya baca — ajukan permintaan bergabung untuk mengirim pesan","仅可阅读 — 申请加入聊天室后才能发送消息"],
+  barPending: ["ส่งคำขอแล้ว รอแอดมินอนุมัติ ระหว่างนี้อ่านได้อย่างเดียว", "Request sent — waiting for admin approval. You can read in the meantime.", "Đã gửi yêu cầu — đang chờ quản trị viên duyệt. Bạn vẫn có thể xem.", "បានផ្ញើសំណើ — រង់ចាំអ្នកគ្រប់គ្រងអនុម័ត។ អ្នកអាចអានបានក្នុងពេលនេះ។", "တောင်းဆိုမှု ပို့ပြီး — အက်ဒမင် အတည်ပြုရန် စောင့်ဆိုင်းနေသည်။ ယခုအတွင်း ဖတ်၍ရသည်။", "ສົ່ງຄຳຂໍແລ້ວ — ລໍຖ້າແອດມິນອະນຸມັດ. ຕອນນີ້ອ່ານໄດ້ຢ່າງດຽວ.","Permohonan dihantar — menunggu kelulusan admin. Anda boleh membaca buat sementara waktu.","Permintaan terkirim — menunggu persetujuan admin. Sementara itu Anda dapat membaca.","申请已提交 — 等待管理员审批，期间仅可阅读。"],
+  barBlocked: ["คุณถูกบล็อกจากห้องนี้", "You have been blocked from this room", "Bạn đã bị chặn khỏi phòng này", "អ្នកត្រូវបានរារាំងពីបន្ទប់នេះ", "ဤအခန်းမှ သင့်ကို ပိတ်ပင်ထားသည်", "ທ່ານຖືກບລັອກຈາກຫ້ອງນີ້","Anda telah disekat daripada bilik ini","Anda telah diblokir dari ruang ini","您已被此聊天室屏蔽"],
+  barPrivate: ["ห้องส่วนตัว — ขอเข้าห้องเพื่อดูและร่วมสนทนา", "Private room — request to join to view and chat", "Phòng riêng tư — hãy xin vào phòng để xem và trò chuyện", "បន្ទប់ឯកជន — សូមស្នើចូលដើម្បីមើល និងជជែក", "ကိုယ်ပိုင်အခန်း — ကြည့်ရှုပြီး စကားပြောရန် ဝင်ခွင့်တောင်းပါ", "ຫ້ອງສ່ວນຕົວ — ຂໍເຂົ້າຫ້ອງເພື່ອເບິ່ງ ແລະ ສົນທະນາ","Bilik peribadi — mohon sertai untuk melihat dan berbual","Ruang pribadi — ajukan permintaan bergabung untuk melihat dan mengobrol","私密聊天室 — 申请加入后才能查看并参与聊天"],
+  roomGone: ["ห้องนี้ถูกลบแล้ว", "This room has been deleted", "Phòng này đã bị xóa", "បន្ទប់នេះត្រូវបានលុបហើយ", "ဤအခန်းကို ဖျက်လိုက်ပါပြီ", "ຫ້ອງນີ້ຖືກລຶບແລ້ວ","Bilik ini telah dipadam","Ruang ini telah dihapus","此聊天室已被删除"],
+  barVisitor: ["อ่านอย่างเดียว — เข้าสู่ระบบเพื่อขอเข้าห้องและร่วมสนทนา", "Read only — log in to request to join and chat", "Chỉ xem — hãy đăng nhập để xin vào phòng và trò chuyện", "អានតែប៉ុណ្ណោះ — សូមចូលប្រព័ន្ធដើម្បីស្នើចូលបន្ទប់ និងជជែក", "ဖတ်ရန်သာ — အကောင့်ဝင်ပြီး အခန်းဝင်ခွင့်တောင်းကာ စကားပြောပါ", "ອ່ານຢ່າງດຽວ — ເຂົ້າລະບົບເພື່ອຂໍເຂົ້າຫ້ອງ ແລະ ສົນທະນາ","Baca sahaja — log masuk untuk memohon menyertai dan berbual","Hanya baca — login untuk mengajukan permintaan bergabung dan mengobrol","仅可阅读 — 登录后可申请加入并参与聊天"],
+  vRowPv:   ["เลือกถามจากเมนูคำถามที่พบบ่อย", "Pick a question from the FAQ menu", "Chọn câu hỏi từ menu câu hỏi thường gặp", "ជ្រើសរើសសំណួរពីម៉ឺនុយសំណួរញឹកញាប់", "မကြာခဏမေးသောမေးခွန်းမီနူးမှ ရွေးပါ", "ເລືອກຄຳຖາມຈາກເມນູຄຳຖາມທີ່ພົບເລື້ອຍ","Pilih soalan daripada menu Soalan Lazim","Pilih pertanyaan dari menu FAQ","请从常见问题菜单中选择问题"],
+  btnJoin:  ["ขอเข้าห้อง", "Request to join", "Xin vào phòng", "ស្នើចូលបន្ទប់", "အခန်းဝင်ခွင့်တောင်းရန်", "ຂໍເຂົ້າຫ້ອງ","Mohon sertai","Minta bergabung","申请加入"],
+  joinSent: ["ส่งคำขอแล้ว", "Request sent", "Đã gửi yêu cầu", "បានផ្ញើសំណើ", "တောင်းဆိုမှု ပို့ပြီး", "ສົ່ງຄຳຂໍແລ້ວ","Permohonan dihantar","Permintaan terkirim","申请已提交"],
 };
-const T = k => (I18N[k] || [k])[LANG_IDX[LANG]] || (I18N[k] || [k])[0];
+const T = k => (I18N[k] || [k])[LANG_IDX[LANG]] || (I18N[k] || [k])[1] || (I18N[k] || [k])[0];
 function setLang(l) {
   if (IS_ADMIN || !Object.prototype.hasOwnProperty.call(LANG_IDX, l) || l === LANG) return;
   LANG = l; applyI18n();
 }
 function applyI18n() {
   $("#input").placeholder = T("ph");
-  if (peer && !IS_ADMIN) { peer.name = T("support"); $("#pname").textContent = peer.name; renderMsgs(false); }
-  paintGuide();
+  if (peer && !IS_ADMIN) { if (peer.kind !== "room") { peer.name = VISITOR ? T("aiLabel") : T("support"); $("#pname").textContent = peer.name; } renderMsgs(false); }
+  paintGuide(); paintLangBits();
+  if (MEMBER_LIST) {
+    $(".lhead h1").textContent = T("listTitle"); $("#search").placeholder = T("search");
+    if ($("#list").classList.contains("on")) renderMemberList();
+    if (peer && peer.kind === "room") { paintRoomBar(); $("#pst").textContent = roomStatusLine(); }
+  }
+}
+// ---- ภาษา: ปุ่ม 🌐 (สมาชิก/Visitor) · จำค่าที่เลือกเองไว้ ชนะ lang ที่แอปส่งมา ----
+const LANG_KEY = "sc_lang";
+const LANG_NATIVE = { th: "ไทย", en: "English", vi: "Tiếng Việt", kh: "ខ្មែរ", mm: "မြန်မာ", la: "ລາວ", ms: "Bahasa Melayu", id: "Bahasa Indonesia", zh: "简体中文" };
+const storedLang = () => { try { return localStorage.getItem(LANG_KEY) || ""; } catch (_) { return ""; } };
+function paintLangBits() {
+  const lb = $("#langBtn"); if (!lb) return;
+  lb.classList.toggle("on", !IS_ADMIN);
+  lb.textContent = "🌐 " + LANG_NATIVE[LANG];
+  const lb2 = $("#langBtnL"); if (lb2) lb2.textContent = lb.textContent;
+  $("#vhintTx").textContent = T("vHint"); $("#vhintBtn").textContent = T("vLogin");
+}
+function pickLang() {
+  showMenu(Object.keys(LANG_NATIVE).map(k => [LANG_NATIVE[k] + (k === LANG ? "  ✓" : ""), () => { try { localStorage.setItem(LANG_KEY, k); } catch (_) { } setLang(k); }]));
 }
 
 // ---- ยืนยันตัวตน ----
 let initResolve = null, loginP = null, memberAvatar = "";
+let MEMBER_LIST = false, roomsCache = [], supportInfo = null, supAv = "", listBusy = false, roomSt = { status: "", locked: "", members: 0, readable: 1 };   // Member หน้าแรก + ห้องสนทนา (เฟส 2)
+let VISITOR = false, bootInit = null, vN = 0, vBusy = false, vSaved = null;   // Visitor: ไม่ล็อกอิน · ข้อความเก็บในหน้านี้เท่านั้น (id เล็ก ๆ ของฝั่งนี้)
 window.addEventListener("message", ev => {
   const d = ev.data;
-  if (IS_ADMIN || !d || d.type !== "sc-init" || ev.source !== window.parent) return;
-  if (d.lang) setLang(d.lang);
+  if ((IS_ADMIN && !EMBED_ADMIN) || !d || d.type !== "sc-init" || ev.source !== window.parent) return;   // แอดมินแบบ standalone ไม่รับ init จากภายนอก · แบบฝังรับจากแอปแม่เท่านั้น
+  if (d.lang && !storedLang()) setLang(d.lang);
   if (initResolve) { const r = initResolve; initResolve = null; r(d); }
+});
+// แอปเปลี่ยนภาษา (ปุ่ม 🌐 ที่ header ของแอป) → เปลี่ยนสดโดยไม่ต้องโหลดแชทใหม่
+window.addEventListener("message", ev => {
+  const d = ev.data;
+  if (!d || d.type !== "sc-lang" || ev.source !== window.parent || !Object.prototype.hasOwnProperty.call(LANG_IDX, d.lang)) return;
+  try { localStorage.setItem(LANG_KEY, d.lang); } catch (_) { }
+  setLang(d.lang);
 });
 function getInit() {
   return new Promise((res, rej) => {
@@ -374,8 +569,10 @@ window.addEventListener("message", ev => {
   PAUSED = !d.on;
   if (PAUSED) return;
   requestAnimationFrame(autoGrow);
-  if (peer) { pollChat(false); setTimeout(() => { const m = $("#msgs"); m.scrollTop = m.scrollHeight; }, 60); }
-  else if (IS_ADMIN && $("#list").classList.contains("on")) loadList();
+  if (VISITOR && !MEMBER_LIST) { setTimeout(() => { const m = $("#msgs"); m.scrollTop = m.scrollHeight; }, 60); }
+  else if (peer) { pollChat(false); setTimeout(() => { const m = $("#msgs"); m.scrollTop = m.scrollHeight; }, 60); }
+  else if (IS_ADMIN && $("#list").classList.contains("on")) { loadList(); loadAdminRooms(); }
+  else if (MEMBER_LIST && $("#list").classList.contains("on")) loadMemberList(false);
 });
 async function rawPost(path, body) {
   const r = await fetch(API + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -387,12 +584,19 @@ function login() {
   if (loginP) return loginP;
   loginP = (async () => {
     let d;
-    if (IS_ADMIN) {
+    if (IS_ADMIN && EMBED_ADMIN) {
+      const init = bootInit || await getInit(); bootInit = null;
+      if (init.api) API = String(init.api).replace(/\/+$/, "");
+      const hc = init.chat;
+      if (!(hc && hc.token && hc.me && hc.exp_ms > Date.now() + 60000)) { try { parent.postMessage({ type: "sc-reset" }, "*"); } catch (_) { } throw new Error(T("authFail")); }   // แอปแลก token แอดมินไม่ได้ (session หมด/ไม่ใช่ root) → ให้แอปโหลดใหม่เป็นโหมดอื่น
+      d = hc;
+    } else if (IS_ADMIN) {
       const key = adminKey || sessionStorage.getItem("sc_ak") || "";
       if (!key) throw new Error("no-key");
       d = await rawPost("/api/admin/session", { key });
     } else {
-      const init = await getInit();
+      const init = bootInit || await getInit(); bootInit = null;
+      if (init.visitor) { try { parent.postMessage({ type: "sc-reset" }, "*"); } catch (_) { } throw new Error(T("authFail")); }   // เซสชันสมาชิกหมดอายุกลางทาง → ให้แอปโหลดห้องใหม่เป็น Visitor
       if (init.api) API = String(init.api).replace(/\/+$/, "");
       memberAvatar = /^https:\/\//i.test(init.avatar || "") ? String(init.avatar) : "";
       const hc = init.chat;   // chat token ที่แอปแลกไว้แล้ว (เหมือนผลของ /api/session) → ไม่ต้องให้ Worker เรียก GAS ซ้ำ
@@ -403,6 +607,7 @@ function login() {
       }
     }
     chatToken = d.token; tokenExp = d.exp_ms; me = d.me;
+    if (IS_ADMIN) { ADM_PM = Array.isArray(d.pm) ? new Set(d.pm) : null; ADM_LEVEL = String(d.level || ""); applyAdminPerms(); }
     syncMyAvatar();
   })().finally(() => { loginP = null; });
   return loginP;
@@ -425,6 +630,54 @@ let pollChatTimer = null, pollListTimer = null, busyChat = false, lastTypingSent
 let usersCache = [];
 let onlyUnread = false;
 let aiSt = { avail: false, disabled: 0, paused: false };   // สถานะ AI ของห้องที่เปิดอยู่ (จาก GET /api/messages)
+let aiKnown = false;   // true = Worker ส่งสถานะ AI มาให้แล้ว (ใช้ตัดสินว่าข้อความที่พิมพ์เองจะมีคำตอบ AI ให้รอไหม)
+// [AI-THINK] ไอคอน "กำลังคิด..." ก่อนคำตอบ AI — เอฟเฟกต์ฝั่งแอปเท่านั้น ไม่แตะ Worker/ฐานข้อมูล (ข้อความ AI ยังถูกบันทึกทันทีเหมือนเดิม)
+const AI_THINK_MS = 2000;                              // กดคำถามจากเมนู → แสดงคำตอบเมื่อครบเวลานี้ (นับจากตอนกด ไม่ใช่หลังได้คำตอบ)
+const AI_THINK_MAX = { menu: 15000, typed: 25000 };    // ไม่มีคำตอบ AI ภายในเวลานี้ → เลิกแสดงไอคอน (กันค้าง)
+let AIQ = null, AIQ_TIMER = null;                      // สมาชิก: { base, qs:[{until,t0,max}] } · base = id ล่าสุดตอนกดส่ง · qs = คำถามที่รอคำตอบ (เรียงตามลำดับกด)
+let vThinking = false;                                 // Visitor: กำลังรอคำตอบจาก /api/public/ask
+const onSupportChat = () => !IS_ADMIN && !VISITOR && !!peer && peer.kind !== "room" && peer.id === SUPPORT_ID;
+function aiThinkReset() { AIQ = null; clearTimeout(AIQ_TIMER); }
+// เริ่มรอคำตอบ AI ของข้อความที่กำลังส่ง · menu (มี qid) = หน่วงครบ AI_THINK_MS · พิมพ์เอง = ไม่หน่วงเพิ่ม แสดงไอคอนระหว่าง AI คิดจริง
+function aiThinkBegin(type, extra) {
+  if (type !== "text" || !onSupportChat()) return null;
+  const menu = !!(extra && extra.qid);
+  if (!menu && (aiSt.disabled || aiSt.paused || (aiKnown && !aiSt.avail))) return null;   // AI ปิด/พัก/ไม่พร้อม → ไม่มีคำตอบ AI ให้รอ
+  if (AIQ && !aiThinkEval(sortedMsgs()).thinking) aiThinkReset();                        // เศษสถานะเก่าที่จบไปแล้ว
+  const now = Date.now();
+  const q = { until: menu ? now + AI_THINK_MS : now, t0: now, max: menu ? AI_THINK_MAX.menu : AI_THINK_MAX.typed };
+  if (!AIQ) AIQ = { base: lastId, qs: [] };
+  AIQ.qs.push(q);
+  return q;
+}
+function aiThinkCancel(q) {   // ส่งไม่สำเร็จ → เลิกรอ
+  if (!q || !AIQ) return;
+  AIQ.qs = AIQ.qs.filter(x => x !== q);
+  if (!AIQ.qs.length) aiThinkReset();
+}
+const sortedMsgs = () => [...msgs.values()].sort((a, b) => a.id - b.id);
+// คัดข้อความที่ "ยังไม่ถึงเวลาโชว์" ออกจากมุมมอง (msgs ยังเก็บครบ → poll รอบถัดไปไม่ทำให้ซ้ำ/หาย) แล้วบอกว่าต้องโชว์ไอคอนคิดไหม
+// จับคู่ข้อความ AI ลำดับที่ k กับคำถามลำดับที่ k · เมื่อมีข้อความถูกซ่อน ข้อความของอีกฝั่งที่ตามมาจะถูกซ่อนด้วย เพื่อรักษาลำดับ
+function aiThinkEval(arr) {
+  const now = Date.now(), qs = AIQ.qs, out = [];
+  let k = 0, held = 0, staff = false, wake = Infinity;
+  for (const m of arr) {
+    if (m.id > AIQ.base && m.id < 1e15 && !m.mine && !m.deleted) {
+      if (m.ai) {
+        const q = qs[k++];
+        if (q && q.until > now) wake = Math.min(wake, q.until);
+        if (held || (q && q.until > now)) { held++; continue; }
+      } else { staff = true; if (held) { held++; continue; } }   // เจ้าหน้าที่ตอบเอง → ไม่ต้องรอ AI ต่อ
+    }
+    out.push(m);
+  }
+  let waiting = false;
+  for (let i = k; i < qs.length; i++) {   // คำถามที่ยังไม่มีคำตอบ AI เข้ามา
+    const dl = qs[i].t0 + qs[i].max;
+    if (!staff && now < dl) { waiting = true; wake = Math.min(wake, dl); }
+  }
+  return { out, thinking: held > 0 || waiting, wake };
+}
 let PAUSED = false;   // host (แอป/แอดมิน) สั่งหยุดชั่วคราวตอนมุมมองนี้ถูกซ่อน: ไม่ poll ไม่ส่ง "อ่านแล้ว"
 
 // ================= Utils =================
@@ -449,8 +702,14 @@ function toast(t) {
   clearTimeout(toast._t); toast._t = setTimeout(() => el.style.display = "none", 2200);
 }
 function mkAvatar(el, name, color, id, url) {
+  if (!url && String(id) === SUPPORT_ID) url = SYS_LOGO;   // [SYS-LOGO] ทีมซัพพอร์ต/AI ที่ยังไม่มีรูปโปรไฟล์ → โลโก้ระบบ (รูปที่แอดมินตั้งไว้ยังชนะ)
   el.classList.add("avatar"); el.style.background = color || colorOf(id || name);
   el.textContent = (name || "?").trim().charAt(0);
+  if (url === SYS_LOGO) {   // ฝังในไฟล์ → ใส่ทันทีไม่ต้องรอโหลด (ไม่มีตัวอักษรวูบ)
+    const lg = document.createElement("img"); lg.alt = ""; lg.src = SYS_LOGO;
+    el.style.background = "transparent"; el.textContent = ""; el.appendChild(lg);
+    return;
+  }
   if (url && /^https:\/\//i.test(url)) {   // มีรูปโปรไฟล์ → ทับตัวอักษร · โหลดไม่ได้ก็กลับเป็นตัวอักษรเดิม
     const im = document.createElement("img");
     im.alt = ""; im.referrerPolicy = "no-referrer"; im.decoding = "async";   // [FIX-AV] ห้ามใส่ loading=lazy: img ที่ยังไม่อยู่ใน DOM จะไม่ถูกโหลดเลย → onload ไม่ทำงาน รูปจึงไม่ขึ้น
@@ -501,10 +760,45 @@ $("#viewer").addEventListener("click", () => $("#viewer").classList.remove("on")
 
 // ================= List =================
 function paintMyAv() {
-  const b = $("#bProfile"); if (!IS_ADMIN) { b.style.display = "none"; return; }
+  const b = $("#bProfile");
+  if (!IS_ADMIN) {   // [MEMBER-AV] สมาชิก (ไม่ใช่ Visitor) เปลี่ยนรูปตัวเองได้
+    if (VISITOR || !MEMBER_LIST) { b.style.display = "none"; return; }
+    b.style.display = "flex";
+    const el = $("#myav"); el.className = ""; el.style.background = ""; el.textContent = "";
+    mkAvatar(el, me.name || "?", "", me.id || me.name, myMemAv);
+    return;
+  }
+  if (!canDo("dmReply")) { b.style.display = "none"; return; }
   b.style.display = "flex";
   const el = $("#myav"); el.className = ""; el.style.background = ""; el.textContent = "";
   mkAvatar(el, T("support"), "#d9a400", SUPPORT_ID, supportAvatar);
+}
+let myMemAv = "";   // [MEMBER-AV] รูปโปรไฟล์ของสมาชิกเอง
+async function loadMyMemberAvatar() {
+  if (IS_ADMIN || VISITOR) return;
+  paintMyAv();
+  try { const d = await api("/api/me-avatar"); myMemAv = d.avatar || ""; paintMyAv(); } catch (_) { }
+}
+async function changeMemberAvatar(file) {
+  if (!file || !/^image\/(png|jpe?g|webp)$/i.test(file.type)) { toast(T("badType")); return; }
+  const blob = await cropSquare(file);
+  if (!blob) { toast(T("badImg")); return; }
+  toast(T("upl") + "...");
+  try {
+    const sg = await api("/api/me-avatar/sign", { method: "POST" });
+    const fd = new FormData();
+    Object.keys(sg.fields).forEach(k => fd.append(k, sg.fields[k]));
+    fd.append("file", blob);
+    const r = await fetch(sg.upload_url, { method: "POST", body: fd });
+    const cl = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((cl.error && cl.error.message) || "HTTP " + r.status);
+    const d = await api("/api/me-avatar/done", { method: "POST", body: { public_id: sg.fields.public_id, version: cl.version, format: cl.format } });
+    myMemAv = d.avatar || ""; paintMyAv(); toast("เปลี่ยนรูปโปรไฟล์แล้ว");
+  } catch (e) { toast(T("sendFail") + ": " + e.message); }
+}
+async function clearMemberAvatar() {
+  try { await api("/api/me-avatar/clear", { method: "POST" }); myMemAv = ""; paintMyAv(); toast("ลบรูปโปรไฟล์แล้ว"); }
+  catch (e) { toast(e.message); }
 }
 async function loadSupportProfile() {
   if (!IS_ADMIN) return;
@@ -547,21 +841,26 @@ async function clearSupportAvatar() {
   try { await api("/api/support-avatar/clear", { method: "POST" }); supportAvatar = ""; paintMyAv(); toast("ลบรูปโปรไฟล์แล้ว"); }
   catch (e) { toast(e.message); }
 }
-$("#bProfile").onclick = () => showMenu([
+$("#bProfile").onclick = () => IS_ADMIN ? showMenu([
   ["เปลี่ยนรูปโปรไฟล์ซัพพอร์ต", () => $("#avFile").click()],
   ...(supportAvatar ? [["ลบรูปโปรไฟล์", clearSupportAvatar, true]] : []),
+]) : showMenu([
+  ["เปลี่ยนรูปโปรไฟล์", () => $("#avFile").click()],
+  ...(myMemAv ? [["ลบรูปโปรไฟล์", clearMemberAvatar, true]] : []),
 ]);
-$("#avFile").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) changeSupportAvatar(f); });
+$("#avFile").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) (IS_ADMIN ? changeSupportAvatar(f) : changeMemberAvatar(f)); });
 
 function enterList() {
   peer = null; clearInterval(pollChatTimer);
+  document.body.classList.remove("dmro");
   show("list");
-  loadList(); loadSupportProfile();
+  loadList(); loadAdminRooms(); loadSupportProfile();
   clearInterval(pollListTimer);
-  pollListTimer = setInterval(() => { if (!document.hidden && !PAUSED && $("#list").classList.contains("on")) loadList(); }, 4000);
+  pollListTimer = setInterval(() => { if (!document.hidden && !PAUSED && $("#list").classList.contains("on")) { loadList(); loadAdminRooms(); } }, 4000);
 }
 async function loadList() {
-  try { usersCache = (await api("/api/users")).users; renderList(); }
+  if (!canDo("dmView")) return;   // [PERMS] ไม่มีสิทธิ์ดูแชทส่วนตัว → ไม่ดึงรายชื่อ
+  try { usersCache = (await api("/api/users")).users; if (admTab === "rooms") paintNavBadge(); else renderList(); }   // แท็บห้อง: ไม่วาดรายการแชททับ
   catch (e) { if (!usersCache.length) fatal(e.message); }
 }
 function previewOf(u) {
@@ -572,13 +871,25 @@ function previewOf(u) {
   if (u.last_type === "sticker") return "ส่งสติกเกอร์";
   return u.last_content || "";
 }
-const PIN_SVG = '<svg width="13" height="13" viewBox="0 0 16 16" fill="#fff"><path d="M9.5 1.500l5 5-1.600.8-2.300 2.300.3 3.200-1 1-3-3-4 4-.8-.8 4-4-3-3 1-1 3.200.3 2.300-2.300z"/></svg>';
+const PIN_SVG = '<svg width="10" height="10" viewBox="0 0 16 16" fill="#fff"><path d="M9.5 1.500l5 5-1.600.8-2.300 2.300.3 3.200-1 1-3-3-4 4-.8-.8 4-4-3-3 1-1 3.200.3 2.300-2.300z"/></svg>';
+// [BADGE] รายงานยอดข้อความค้างอ่านทั้งหมดให้แอปแม่ไปแสดงที่เมนู Chat (เฉพาะเมื่อยอดเปลี่ยน · Visitor ไม่ส่ง)
+let _unrep = -1;
+function reportUnread(n) {
+  if (VISITOR) return;
+  n = Math.max(0, n | 0); if (n === _unrep) return; _unrep = n;
+  try { parent.postMessage({ type: "sc-unread", n }, "*"); } catch (_) { }
+}
+const adminUnread = () => usersCache.reduce((s, u) => s + (u.unread || 0), 0) + (canDo("memberApprove") ? pendingQ.length : 0);
+function paintNavBadge() {
+  const total = usersCache.reduce((s, u) => s + (u.unread || 0), 0);
+  reportUnread(adminUnread());
+  const nb = $("#navBadge");
+  nb.style.display = total > 0 ? "flex" : "none"; nb.textContent = total > 99 ? "99+" : total;
+}
 function renderList() {
   const q = $("#search").value.trim().toLowerCase();
   const box = $("#chatlist"); box.innerHTML = "";
-  const total = usersCache.reduce((s, u) => s + (u.unread || 0), 0);
-  const nb = $("#navBadge");
-  nb.style.display = total > 0 ? "flex" : "none"; nb.textContent = total > 99 ? "99+" : total;
+  paintNavBadge();
 
   const arr = usersCache.filter(u => (!q || u.name.toLowerCase().includes(q) || String(u.id).toLowerCase().includes(q)) && (!onlyUnread || u.unread > 0));
   if (!arr.length) {
@@ -604,21 +915,428 @@ function renderList() {
     box.appendChild(it);
   });
 }
-$("#search").addEventListener("input", renderList);
+$("#search").addEventListener("input", () => (MEMBER_LIST ? renderMemberList() : renderAdminCurrent()));
 $("#bUnread").onclick = () => { onlyUnread = !onlyUnread; $("#bUnread").classList.toggle("act", onlyUnread); renderList(); toast(onlyUnread ? "แสดงเฉพาะที่ยังไม่อ่าน" : "แสดงทั้งหมด"); };
 $("#bNew").onclick = () => { $("#search").focus(); };
 $("#bMore").onclick = () => showMenu([["รีเฟรช", () => { loadList(); toast("รีเฟรชแล้ว"); }], [onlyUnread ? "แสดงทั้งหมด" : "แสดงเฉพาะที่ยังไม่อ่าน", () => $("#bUnread").click()]]);
 document.querySelectorAll(".nav button").forEach(b => b.onclick = () => { if (b.dataset.tab !== "chat") toast("ยังไม่เปิดใช้งานในหน้านี้"); });
+
+// ================= Member หน้าแรก + ห้องสนทนา (เฟส 2) =================
+function memberPreview(o) {
+  if (!o || o.last_at == null) return T("startChat");
+  if (o.last_deleted) return T("unsend");
+  if (o.last_type === "image") return T("img");
+  if (o.last_type === "video") return T("vid");
+  if (o.last_type === "sticker") return T("stk");
+  return o.last_content || "";
+}
+function roomChip(r) {
+  if (r.status === "approved") return ["ok", T("stJoined")];
+  if (r.status === "pending") return ["warn", T("stPending")];
+  if (r.status === "blocked") return ["bad", T("stBlocked")];
+  return ["", r.readable ? T("stView") : T("stPrivate")];
+}
+function itemRow(o) {
+  const it = document.createElement("div"); it.className = "item";
+  const wrap = document.createElement("div"); wrap.className = "avwrap";
+  const av = document.createElement("div"); mkAvatar(av, o.name, o.color, o.id, o.avatar || ""); wrap.appendChild(av);
+  if (o.pin && SHOW_PIN_BADGE) { const pb = document.createElement("div"); pb.className = "pinb"; pb.innerHTML = PIN_SVG; wrap.appendChild(pb); }
+  const mid = document.createElement("div"); mid.className = "mid";
+  const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = o.name;
+  if (o.chip) { const c = document.createElement("span"); c.className = ("chip " + o.chip[0]).trim(); c.textContent = o.chip[1]; nm.appendChild(c); }
+  const pv = document.createElement("div"); pv.className = "pv"; pv.textContent = o.preview;
+  mid.append(nm, pv);
+  const rt = document.createElement("div"); rt.className = "rt";
+  const tm = document.createElement("div"); tm.className = "tm"; tm.textContent = o.at ? listTime(o.at) : ""; rt.appendChild(tm);
+  if (o.unread > 0) { const b = document.createElement("div"); b.className = "badge"; b.textContent = o.unread > 99 ? "99+" : o.unread; rt.appendChild(b); }
+  it.append(wrap, mid, rt); it.onclick = o.onclick;
+  return it;
+}
+function renderMemberList() {
+  const q = $("#search").value.trim().toLowerCase();
+  const box = $("#chatlist"); box.innerHTML = "";
+  const sup = supportInfo || { unread: 0, last_at: null };
+  const supName = VISITOR ? T("aiLabel") : T("support");
+  let shown = 0;
+  if (!q || supName.toLowerCase().includes(q)) {
+    shown++;
+    box.appendChild(itemRow({ name: supName, color: "#d9a400", id: SUPPORT_ID, avatar: supAv, pin: true, preview: VISITOR ? T("vRowPv") : memberPreview(sup), at: VISITOR ? 0 : sup.last_at, unread: sup.unread,
+      onclick: VISITOR ? () => openVisitorAi() : () => openChat({ id: SUPPORT_ID, name: T("support"), color: "#d9a400", avatar: supAv }) }));
+  }
+  const rs = roomsCache.filter(r => !q || r.name.toLowerCase().includes(q));
+  if (!q || rs.length) {
+    const h = document.createElement("div"); h.className = "sec"; h.textContent = T("roomsHead"); box.appendChild(h);
+  }
+  rs.forEach(r => {
+    shown++;
+    box.appendChild(itemRow({ name: r.name, color: "", id: "room:" + r.id, avatar: r.avatar || "", chip: roomChip(r), preview: r.status === "blocked" ? T("barBlocked") : (r.last_at == null ? (r.descr || T("startChat")) : memberPreview(r)), at: r.last_at, unread: r.unread, onclick: () => openRoom(r) }));
+  });
+  if (!roomsCache.length && !q) { const e = document.createElement("div"); e.className = "empty"; e.textContent = T("noRooms"); box.appendChild(e); }
+  else if (!shown) { const e = document.createElement("div"); e.className = "empty"; e.textContent = T("noMatch"); box.appendChild(e); }
+}
+function startMemberHome() {
+  MEMBER_LIST = true; document.body.classList.add("member");
+  enterMemberList(true);
+}
+function enterMemberList(first) {
+  if (VISITOR && peer && peer.id === SUPPORT_ID) vSaved = msgs;   // Visitor กลับมาหน้ารายการ → เก็บบทสนทนา FAQ ไว้ใช้ต่อ
+  peer = null; clearInterval(pollChatTimer); aiThinkReset(); vThinking = false;
+  document.body.classList.remove("room", "ro", "dmro");
+  $(".lhead h1").textContent = T("listTitle"); $("#search").placeholder = T("search");
+  show("list");
+  if (roomsCache.length || supportInfo) renderMemberList();
+  loadMemberList(first);
+  if (first) loadMyMemberAvatar();   // [MEMBER-AV]
+  clearInterval(pollListTimer);
+  pollListTimer = setInterval(() => { if (!document.hidden && !PAUSED && $("#list").classList.contains("on")) loadMemberList(false); }, VISITOR ? 10000 : 4000);
+}
+async function loadMemberList(first) {
+  if (listBusy) return; listBusy = true;
+  try {
+    const d = VISITOR ? await visitorRooms() : await api("/api/rooms");
+    roomsCache = d.rooms || []; supportInfo = d.support || { unread: 0, last_at: null };
+    reportUnread((supportInfo.unread || 0) + roomsCache.reduce((s, r) => s + (r.status === "approved" ? (r.unread || 0) : 0), 0));
+    if ($("#list").classList.contains("on")) renderMemberList();
+  } catch (e) {
+    if (first) {   // Worker ยังไม่มี /api/rooms → ถอยไปห้องซัพพอร์ตตรง ๆ แบบเฟส 1 (เซสชันไม่ผ่าน = แจ้ง error ตามเดิม)
+      if (e.message === T("authFail")) fatal(e.message);
+      else { MEMBER_LIST = false; document.body.classList.remove("member"); clearInterval(pollListTimer); openChat({ id: SUPPORT_ID, name: T("support"), color: "#d9a400" }); }
+    }
+  } finally { listBusy = false; }
+}
+function openRoom(r) {
+  peer = { id: "room:" + r.id, kind: "room", roomId: r.id, name: r.name, color: "", avatar: r.avatar || "" };
+  msgs = new Map(); lastId = 0; lastUpd = 0; peerRead = 0; peerTyping = false; reportedRead = 0;
+  roomSt = { status: r.status, locked: "", members: r.members, readable: r.readable, pending: r.pending || 0 };
+  setReply(null); $("#stickers").classList.remove("on");
+  aiSt = { avail: false, disabled: 0, paused: false }; aiKnown = false; aiThinkReset(); paintAi();
+  guideReady = false; paintGuide();
+  paintHeadAv(); paintLangBits();
+  $("#pname").textContent = peer.name; $("#pst").textContent = roomStatusLine(); paintProf(null);
+  $("#msgs").innerHTML = ""; $("#input").value = ""; autoGrow();
+  $("#back").classList.remove("hide");
+  clearInterval(pollListTimer);
+  document.body.classList.remove("dmro"); document.body.classList.add("room");
+  paintRoomBar();
+  show("chat");
+  pollChat(true);
+  clearInterval(pollChatTimer);
+  pollChatTimer = setInterval(() => { if (!document.hidden && !PAUSED) pollChat(false); }, VISITOR ? 6000 : 3000);
+}
+function paintRoomBar() {
+  const st = roomSt.status, ro = (st !== "approved" && st !== "admin") || (st === "admin" && !canDo("roomPost"));
+  document.body.classList.toggle("ro", ro);
+  if (!ro) return;
+  let msg, btn = false;
+  if (st === "admin") msg = "คุณไม่มีสิทธิ์พิมพ์ในห้องในนามทีมงาน (อ่านได้อย่างเดียว)";
+  else if (st === "visitor") { msg = T("barVisitor"); btn = true; }
+  else if (st === "blocked" || roomSt.locked === "blocked") msg = T("barBlocked");
+  else if (st === "pending") msg = T("barPending");
+  else { msg = (roomSt.locked === "private" || !roomSt.readable) ? T("barPrivate") : T("barRead"); btn = true; }
+  $("#rbarTx").textContent = msg;
+  const b = $("#rbarBtn"); b.hidden = !btn; b.textContent = st === "visitor" ? T("vLogin") : T("btnJoin");
+}
+$("#rbarBtn").onclick = async () => {
+  if (!peer || peer.kind !== "room") return;
+  if (VISITOR) { try { parent.postMessage({ type: "sc-login" }, "*"); } catch (_) { } return; }   // Visitor: ไปเข้าสู่ระบบที่แอป
+  const b = $("#rbarBtn"); b.disabled = true;
+  try {
+    const d = await api(`/api/rooms/${peer.roomId}/join`, { method: "POST" });
+    roomSt.status = d.status; paintRoomBar(); toast(T("joinSent"));
+  } catch (e) { toast(e.message); }
+  finally { b.disabled = false; }
+};
+const roomStatusLine = () => T("membersN").replace("{n}", roomSt.members) + (IS_ADMIN && roomSt.pending ? " · " + roomSt.pending + " รออนุมัติ" : "");
+async function pollRoom(first) {
+  const pid = peer.id;
+  let d;
+  try { d = VISITOR ? await pubGet(`/api/public/rooms/${peer.roomId}/messages?after=${lastId}&upd=${lastUpd}`) : await api(`/api/rooms/${peer.roomId}/messages?after=${lastId}&upd=${lastUpd}`); }
+  catch (e) {
+    if (e.message === "ไม่พบห้อง") { toast(T("roomGone")); if (IS_ADMIN) { enterList(); setAdmTab("rooms"); } else enterMemberList(false); return; }   // ห้องถูกลบระหว่างเปิดอยู่
+    throw e;
+  }
+  if (!peer || peer.id !== pid) return;
+  let changed = first;
+  d.messages.forEach(m => {
+    const o = msgs.get(m.id);
+    if (!o || o.updated_at !== m.updated_at || o.deleted !== m.deleted) { msgs.set(m.id, m); changed = true; }
+    if (m.id > lastId) lastId = m.id;
+  });
+  lastUpd = Math.max(0, d.now - 2500);
+  if ((d.room.avatar || "") !== (peer.avatar || "")) { peer.avatar = d.room.avatar || ""; paintHeadAv(); }   // [ROOM-AV]
+  const nst = { status: d.room.status, locked: d.locked || "", members: d.room.members, readable: d.room.readable, pending: d.room.pending || 0 };
+  if (nst.locked) { if (msgs.size) { msgs = new Map(); changed = true; } lastId = 0; lastUpd = 0; }   // ถูกล็อก (ส่วนตัว/บล็อก) → ล้างที่ค้างอยู่ · ปลดแล้วโหลดใหม่ตั้งแต่ต้น
+  if (nst.status !== roomSt.status || nst.locked !== roomSt.locked || nst.members !== roomSt.members || nst.pending !== roomSt.pending) {
+    roomSt = nst; paintRoomBar(); $("#pst").textContent = roomStatusLine();
+  }
+  if (changed) renderMsgs(first);
+  reportRead();
+}
+
+// ================= แอดมิน: ห้องสนทนา (เฟส 3) =================
+let admTab = "dm", adminRooms = [], pendingQ = [], admBusy = false;
+// [PERMS] ซ่อน/แสดงส่วนของแอดมินตามสิทธิ์ (เรียกทุกครั้งที่แลก token ใหม่)
+function applyAdminPerms() {
+  if (!IS_ADMIN) return;
+  const dm = canDo("dmView");
+  $("#tabDm").style.display = dm ? "" : "none";
+  if (!dm && admTab === "dm") { admTab = "rooms"; $("#tabDm").classList.remove("on"); $("#tabRooms").classList.add("on"); }
+  $("#mgBtn").style.display = canMg() ? "" : "none";
+  paintMyAv();
+}
+const mg = { roomId: 0, tab: "pending", members: [], gblocks: [], loaded: false };
+const MG_TABS = [["pending", "รออนุมัติ"], ["approved", "สมาชิก"], ["blocked", "ถูกบล็อก"], ["global", "ทั้งระบบ"]];   // "ทั้งระบบ" = บล็อกทุกห้อง (แชทซัพพอร์ตไม่กระทบ)
+const renderAdminCurrent = () => (admTab === "rooms" ? renderAdminRooms() : renderList());
+function paintTabBadge() {
+  reportUnread(adminUnread());
+  const b = $("#tabRoomsN"); b.textContent = pendingQ.length > 99 ? "99+" : pendingQ.length; b.classList.toggle("on", pendingQ.length > 0);
+}
+function setAdmTab(t) {
+  if (t === "dm" && !canDo("dmView")) t = "rooms";
+  admTab = t;
+  $("#tabDm").classList.toggle("on", t === "dm"); $("#tabRooms").classList.toggle("on", t === "rooms");
+  $("#search").placeholder = t === "rooms" ? "ค้นหาห้อง / สมาชิกที่ขอเข้า" : "ค้นหา";
+  renderAdminCurrent();
+  if (t === "rooms") loadAdminRooms();
+}
+$("#tabDm").onclick = () => setAdmTab("dm");
+$("#tabRooms").onclick = () => setAdmTab("rooms");
+async function loadAdminRooms() {
+  if (!IS_ADMIN || admBusy) return; admBusy = true;
+  try {
+    const [r, q] = await Promise.all([api("/api/rooms"), canDo("memberApprove") ? api("/api/admin/rooms/pending") : Promise.resolve({ pending: [] })]);
+    adminRooms = r.rooms || []; pendingQ = q.pending || [];
+    paintTabBadge();
+    if ($("#list").classList.contains("on") && admTab === "rooms") renderAdminRooms();
+  } catch (e) { if (!adminRooms.length && /Not Found/i.test(e.message)) $("#admTabs").style.display = "none"; }   // Worker เก่าไม่มีระบบห้อง → ซ่อนแท็บ
+  finally { admBusy = false; }
+}
+function secHead(text) { const h = document.createElement("div"); h.className = "sec"; h.textContent = text; return h; }
+function renderAdminRooms() {
+  const q = $("#search").value.trim().toLowerCase();
+  const box = $("#chatlist"); box.innerHTML = "";
+  const add = document.createElement("div"); add.className = "item addroom";
+  const aw = document.createElement("div"); aw.className = "avwrap"; const aa = document.createElement("div"); mkAvatar(aa, "+", "", "addroom"); aw.appendChild(aa);
+  const am = document.createElement("div"); am.className = "mid"; const an = document.createElement("div"); an.className = "nm"; an.textContent = "สร้างห้องใหม่"; am.appendChild(an);
+  add.append(aw, am); add.onclick = createRoomDialog; if (canDo("roomCreate")) box.appendChild(add);
+  const pq = pendingQ.filter(p => !q || p.name.toLowerCase().includes(q) || p.room_name.toLowerCase().includes(q) || String(p.id).toLowerCase().includes(q));
+  if (pq.length) { box.appendChild(secHead("คำขอเข้าห้องที่รออนุมัติ (" + pq.length + ")")); pq.forEach(p => box.appendChild(reqRow(p))); }
+  const rs = adminRooms.filter(r => !q || r.name.toLowerCase().includes(q));
+  box.appendChild(secHead("ห้องทั้งหมด (" + rs.length + ")"));
+  rs.forEach(r => box.appendChild(itemRow({
+    name: r.name, color: "", id: "room:" + r.id, avatar: r.avatar || "", chip: r.pending > 0 ? ["warn", r.pending + " คำขอ"] : (r.readable ? null : ["", T("stPrivate")]),
+    preview: r.last_at == null ? (r.descr || T("startChat")) : memberPreview(r), at: r.last_at, unread: r.unread, onclick: () => openRoom(r),
+  })));
+  if (!adminRooms.length) { const e = document.createElement("div"); e.className = "empty"; e.textContent = canDo("roomCreate") ? "ยังไม่มีห้องสนทนา\nกด “สร้างห้องใหม่” เพื่อเริ่มต้น" : "ยังไม่มีห้องสนทนา"; box.appendChild(e); }
+}
+function reqRow(p) {
+  const it = document.createElement("div"); it.className = "item req";
+  const wrap = document.createElement("div"); wrap.className = "avwrap"; const av = document.createElement("div"); mkAvatar(av, p.name, "", p.id, p.avatar || ""); wrap.appendChild(av);
+  const mid = document.createElement("div"); mid.className = "mid";
+  const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = p.name;
+  const pv = document.createElement("div"); pv.className = "pv"; pv.textContent = "ขอเข้าห้อง “" + p.room_name + "” · " + listTime(p.requested_at);
+  mid.append(nm, pv);
+  const bt = document.createElement("div"); bt.className = "btns";
+  const ok = document.createElement("button"); ok.type = "button"; ok.className = "btn-s ok"; ok.textContent = "อนุมัติ";
+  const no = document.createElement("button"); no.type = "button"; no.className = "btn-s"; no.textContent = "ปฏิเสธ";
+  const act = async (action, msg) => {
+    ok.disabled = no.disabled = true;
+    try { await api(`/api/admin/rooms/${p.room_id}/members`, { method: "POST", body: { user: p.id, action } }); toast(msg); await loadAdminRooms(); }
+    catch (e) { toast(e.message); ok.disabled = no.disabled = false; }
+  };
+  ok.onclick = () => act("approve", "อนุมัติแล้ว"); no.onclick = () => act("reject", "ปฏิเสธแล้ว");
+  bt.append(ok, no); it.append(wrap, mid, bt);
+  return it;
+}
+
+// ---- กล่องข้อความกลาง (ฟอร์ม/ยืนยัน) — ไม่ใช้ confirm() เพราะ iframe ของแอปไม่อนุญาต modal ----
+function openDialog(o) {
+  $("#dlgTitle").textContent = o.title;
+  const body = $("#dlgBody"); body.innerHTML = "";
+  if (typeof o.body === "string") body.textContent = o.body; else if (o.body) body.appendChild(o.body);
+  $("#dlgErr").textContent = "";
+  const ok = $("#dlgOk"), no = $("#dlgNo");
+  ok.textContent = o.ok || "ตกลง"; no.textContent = "ยกเลิก"; ok.className = o.danger ? "danger" : "ok"; ok.disabled = false;
+  $("#dlgOv").classList.add("on");
+  const close = () => $("#dlgOv").classList.remove("on");
+  no.onclick = close;
+  ok.onclick = async () => {
+    ok.disabled = true; $("#dlgErr").textContent = "";
+    try { if (o.onOk) await o.onOk(); close(); }
+    catch (e) { $("#dlgErr").textContent = e.message || "ผิดพลาด"; ok.disabled = false; }
+  };
+  if (o.focus) setTimeout(() => o.focus.focus(), 50);
+}
+const askConfirm = (text, okLabel, danger, onOk) => openDialog({ title: "ยืนยัน", body: text, ok: okLabel, danger, onOk });
+function roomForm(room) {
+  const wrap = document.createElement("div"); wrap.style.cssText = "display:flex;flex-direction:column;gap:10px";
+  const name = document.createElement("input"); name.type = "text"; name.maxLength = 60; name.placeholder = "ชื่อห้อง"; name.value = room ? room.name : "";
+  const descr = document.createElement("textarea"); descr.maxLength = 200; descr.placeholder = "คำอธิบายห้อง (ไม่บังคับ)"; descr.value = room ? room.descr : "";
+  const lb = document.createElement("label"); lb.className = "chk";
+  const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = room ? room.readable === 1 : true;
+  const sp = document.createElement("span"); sp.textContent = "ให้สมาชิกที่ยังไม่ได้เข้าร่วมอ่านข้อความในห้องได้ (พิมพ์ไม่ได้จนกว่าจะอนุมัติ) · ปิดช่องนี้ = ห้องส่วนตัว เห็นเฉพาะคนที่อนุมัติแล้ว";
+  lb.append(cb, sp);
+  // [ROOM-AV] รูปห้อง: เลือกรูป → ย่อ 256px เก็บไว้ก่อน · อัปโหลดตอนกดบันทึก (undefined = ไม่เปลี่ยน · "" = ลบ · object = รูปใหม่)
+  const rav = document.createElement("div"); rav.className = "rav";
+  const pv = document.createElement("div");
+  const pick = document.createElement("button"); pick.type = "button"; pick.textContent = "เลือกรูปห้อง";
+  const del = document.createElement("button"); del.type = "button"; del.className = "red"; del.textContent = "ลบรูป";
+  const fin = document.createElement("input"); fin.type = "file"; fin.accept = "image/png,image/jpeg,image/webp"; fin.style.display = "none";
+  let blob = null, cleared = false, localUrl = "";
+  const paint = () => {
+    pv.className = ""; pv.style.background = ""; pv.style.backgroundImage = ""; pv.textContent = "";
+    if (localUrl) { pv.classList.add("avatar"); pv.style.backgroundImage = "url(" + localUrl + ")"; }
+    else mkAvatar(pv, (name.value || (room && room.name) || "ห").trim() || "ห", "", "room:" + (room ? room.id : "new"), cleared ? "" : (room && room.avatar) || "");
+    del.style.display = (localUrl || (!cleared && room && room.avatar)) ? "" : "none";
+  };
+  pick.onclick = () => fin.click();
+  fin.onchange = async () => {
+    const f = fin.files[0]; fin.value = ""; if (!f) return;
+    if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) { toast(T("badType")); return; }
+    const b = await cropSquare(f); if (!b) { toast(T("badImg")); return; }
+    if (localUrl) URL.revokeObjectURL(localUrl);
+    blob = b; cleared = false; localUrl = URL.createObjectURL(b); paint();
+  };
+  del.onclick = () => { if (localUrl) URL.revokeObjectURL(localUrl); blob = null; localUrl = ""; cleared = true; paint(); };
+  name.addEventListener("input", () => { if (!localUrl && !(room && room.avatar && !cleared)) paint(); });
+  rav.append(pv, pick, del, fin); paint();
+  wrap.append(rav, name, descr, lb);
+  const avatarPayload = async () => {
+    if (blob) {
+      const sg = await api("/api/admin/room-avatar/sign", { method: "POST" });
+      const fd = new FormData();
+      Object.keys(sg.fields).forEach(k => fd.append(k, sg.fields[k]));
+      fd.append("file", blob);
+      const r = await fetch(sg.upload_url, { method: "POST", body: fd });
+      const cl = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error((cl.error && cl.error.message) || "HTTP " + r.status);
+      return { public_id: sg.fields.public_id, version: cl.version, format: cl.format };
+    }
+    return cleared ? "" : undefined;
+  };
+  return { el: wrap, name, descr, cb, avatarPayload };
+}
+function createRoomDialog() {
+  const f = roomForm(null);
+  openDialog({ title: "สร้างห้องใหม่", body: f.el, ok: "สร้างห้อง", focus: f.name, onOk: async () => {
+    const nm = f.name.value.trim(); if (!nm) throw new Error("ต้องตั้งชื่อห้อง");
+    const av = await f.avatarPayload();   // [ROOM-AV]
+    await api("/api/admin/rooms", { method: "POST", body: { name: nm, descr: f.descr.value.trim(), readable: f.cb.checked, ...(av ? { avatar: av } : {}) } });
+    toast("สร้างห้องแล้ว"); await loadAdminRooms();
+  } });
+}
+function editRoomDialog(room) {
+  const f = roomForm(room);
+  openDialog({ title: "แก้ไขห้อง", body: f.el, ok: "บันทึก", focus: f.name, onOk: async () => {
+    const nm = f.name.value.trim(); if (!nm) throw new Error("ต้องตั้งชื่อห้อง");
+    const av = await f.avatarPayload();   // [ROOM-AV]
+    const d = await api(`/api/admin/rooms/${room.id}/update`, { method: "POST", body: { name: nm, descr: f.descr.value.trim(), readable: f.cb.checked, ...(av !== undefined ? { avatar: av } : {}) } });
+    toast("บันทึกแล้ว");
+    if (peer && peer.kind === "room" && peer.roomId === room.id) { peer.name = d.room.name; $("#pname").textContent = peer.name; roomSt.readable = d.room.readable; peer.avatar = d.room.avatar || ""; paintHeadAv(); }
+    await loadAdminRooms(); if ($("#mgOv").classList.contains("on")) paintMg();
+  } });
+}
+function deleteRoomDialog(room) {
+  askConfirm("ลบห้อง “" + room.name + "” ถาวร?\nข้อความและรายชื่อสมาชิกทั้งหมดในห้องจะหายและกู้คืนไม่ได้", "ลบห้อง", true, async () => {
+    await api(`/api/admin/rooms/${room.id}/delete`, { method: "POST" });
+    toast("ลบห้องแล้ว"); closeMg();
+    if (peer && peer.kind === "room" && peer.roomId === room.id) enterList();
+    await loadAdminRooms(); setAdmTab("rooms");
+  });
+}
+
+// ---- จัดการสมาชิกในห้อง ----
+const curRoom = () => adminRooms.find(r => r.id === mg.roomId) || (peer && peer.kind === "room" && peer.roomId === mg.roomId ? { id: peer.roomId, name: peer.name, descr: "", avatar: peer.avatar || "", readable: roomSt.readable } : null);
+const mgTabsAllowed = () => MG_TABS.filter(([k]) => k === "pending" ? canDo("memberApprove") : k === "global" ? canDo("globalBlock") : (canDo("memberApprove") || canDo("memberBlock")));
+async function openMg(roomId) {
+  const ts = mgTabsAllowed();
+  mg.roomId = roomId; mg.tab = ts.length ? ts[0][0] : "pending"; mg.members = []; mg.gblocks = []; mg.loaded = false;
+  $("#mgOv").classList.add("on"); paintMg();
+  try {
+    await mgLoad();
+    if (mg.tab === "pending" && !mg.members.some(m => m.status === "pending")) { const nx = ts.find(([k]) => k !== "pending"); if (nx) { mg.tab = nx[0]; paintMg(); } }
+  }
+  catch (e) { toast(e.message); }
+}
+function closeMg() { $("#mgOv").classList.remove("on"); }
+async function mgLoad() {
+  const [d, g] = await Promise.all([canMembers() ? api(`/api/admin/rooms/${mg.roomId}/members`) : Promise.resolve({ members: [] }), canDo("globalBlock") ? api("/api/admin/blocks") : Promise.resolve({ blocks: [] })]);
+  mg.members = d.members || []; mg.gblocks = g.blocks || []; mg.loaded = true; paintMg();
+}
+// บล็อก/ปลดบล็อกทั้งระบบ (ทุกห้อง)
+async function gAct(m, action) {
+  const run = async () => { await api("/api/admin/blocks", { method: "POST", body: { user: m.id, action } }); toast(action === "block" ? "บล็อกทั้งระบบแล้ว" : "ปลดบล็อกทั้งระบบแล้ว"); await mgLoad(); loadAdminRooms(); };
+  if (action === "block") askConfirm("บล็อก “" + m.name + "” ทั้งระบบ?\nจะอ่านและพิมพ์ในทุกห้องไม่ได้ (แชทกับซัพพอร์ตยังใช้ได้)", "ยืนยัน", true, run);
+  else { try { await run(); } catch (e) { toast(e.message); } }
+}
+async function mgAct(m, action, okMsg, confirmText, danger) {
+  const run = async () => { await api(`/api/admin/rooms/${mg.roomId}/members`, { method: "POST", body: { user: m.id, action } }); toast(okMsg); await mgLoad(); loadAdminRooms(); };
+  if (confirmText) askConfirm(confirmText, "ยืนยัน", danger, run);
+  else { try { await run(); } catch (e) { toast(e.message); } }
+}
+function paintMg() {
+  const room = curRoom(); if (!room) return;
+  const by = st => st === "global" ? mg.gblocks.map(b => ({ id: b.id, name: b.name, avatar: b.avatar, status: "global", requested_at: 0, decided_at: b.blocked_at })) : mg.members.filter(m => m.status === st);
+  $("#mgTitle").textContent = room.name;
+  if (!mg.loaded) { $("#mgSub").textContent = "กำลังโหลด…"; $("#mgTabs").innerHTML = ""; const e = document.createElement("div"); e.className = "empty"; e.textContent = "กำลังโหลด…"; $("#mgList").innerHTML = ""; $("#mgList").appendChild(e); return; }
+  $("#mgEdit").style.display = canDo("roomEdit") ? "" : "none"; $("#mgDel").style.display = canDo("roomDelete") ? "" : "none";
+  const allowed = mgTabsAllowed();
+  if (!allowed.some(([k]) => k === mg.tab)) mg.tab = allowed.length ? allowed[0][0] : "";
+  if (!allowed.length) { $("#mgSub").textContent = "คุณไม่มีสิทธิ์จัดการสมาชิกในห้องนี้"; $("#mgTabs").innerHTML = ""; $("#mgList").innerHTML = ""; return; }
+  $("#mgSub").textContent = by("approved").length + " สมาชิก · " + by("pending").length + " รออนุมัติ · " + by("blocked").length + " ถูกบล็อก · " + by("global").length + " ทั้งระบบ" + (room.readable ? "" : " · ห้องส่วนตัว");
+  const tabs = $("#mgTabs"); tabs.innerHTML = "";
+  allowed.forEach(([k, label]) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = mg.tab === k ? "on" : ""; b.textContent = label + " " + by(k).length;
+    b.onclick = () => { mg.tab = k; paintMg(); }; tabs.appendChild(b);
+  });
+  const box = $("#mgList"); box.innerHTML = "";
+  const rows = by(mg.tab);
+  if (!rows.length) { const e = document.createElement("div"); e.className = "empty"; e.textContent = { pending: "ไม่มีคำขอที่รออนุมัติ", approved: "ยังไม่มีสมาชิกที่อนุมัติแล้ว", blocked: "ไม่มีสมาชิกที่ถูกบล็อก", global: "ไม่มีสมาชิกที่ถูกบล็อกทั้งระบบ" }[mg.tab]; box.appendChild(e); return; }
+  rows.forEach(m => {
+    const r = document.createElement("div"); r.className = "mrow";
+    const av = document.createElement("div"); mkAvatar(av, m.name, "", m.id, m.avatar || "");
+    const mid = document.createElement("div"); mid.className = "mid";
+    const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = m.name;
+    const sub = document.createElement("div"); sub.className = "sub"; sub.textContent = m.id + " · " + listTime(m.decided_at || m.requested_at) + (m.gblocked ? " · ถูกบล็อกทั้งระบบ" : "");
+    mid.append(nm, sub);
+    const bt = document.createElement("div"); bt.className = "btns";
+    const mk = (label, cls, fn) => { const b = document.createElement("button"); b.type = "button"; b.className = "btn-s " + cls; b.textContent = label; b.onclick = fn; bt.appendChild(b); };
+    const cAp = canDo("memberApprove"), cBl = canDo("memberBlock"), cGb = canDo("globalBlock");
+    if (m.status === "global") {
+      if (cGb) mk("ปลดบล็อกทั้งระบบ", "ok", () => gAct(m, "unblock"));
+    } else if (m.status === "pending") {
+      if (cAp) mk("อนุมัติ", "ok", () => mgAct(m, "approve", "อนุมัติแล้ว"));
+      if (cAp) mk("ปฏิเสธ", "", () => mgAct(m, "reject", "ปฏิเสธแล้ว"));
+      if (cBl) mk("บล็อก", "bad", () => mgAct(m, "block", "บล็อกแล้ว", "บล็อก “" + m.name + "” จากห้องนี้?\nจะอ่านและพิมพ์ในห้องนี้ไม่ได้", true));
+    } else if (m.status === "approved") {
+      if (cAp) mk("ถอดออก", "", () => mgAct(m, "remove", "ถอดออกแล้ว", "ถอด “" + m.name + "” ออกจากห้อง?\nยังอ่านได้ตามเดิมถ้าห้องไม่เป็นส่วนตัว แต่ต้องขอเข้าห้องใหม่จึงจะพิมพ์ได้", true));
+      if (cBl) mk("บล็อก", "bad", () => mgAct(m, "block", "บล็อกแล้ว", "บล็อก “" + m.name + "” จากห้องนี้?\nจะอ่านและพิมพ์ในห้องนี้ไม่ได้", true));
+    } else {
+      if (cBl) mk("ปลดบล็อก", "ok", () => mgAct(m, "unblock", "ปลดบล็อกแล้ว"));
+    }
+    if (m.status !== "global" && cGb) mk(m.gblocked ? "ปลดบล็อกทั้งระบบ" : "บล็อกทั้งระบบ", m.gblocked ? "ok" : "bad", () => gAct(m, m.gblocked ? "unblock" : "block"));
+    r.append(av, mid, bt); box.appendChild(r);
+  });
+}
+$("#mgBtn").onclick = () => { if (peer && peer.kind === "room") openMg(peer.roomId); };
+$("#mgX").onclick = closeMg;
+$("#mgOv").addEventListener("click", e => { if (e.target.id === "mgOv") closeMg(); });
+$("#mgEdit").onclick = () => { const r = curRoom(); if (r) editRoomDialog(r); };
+$("#mgDel").onclick = () => { const r = curRoom(); if (r) deleteRoomDialog(r); };
 
 // ================= Chat =================
 function openChat(u) {
   peer = { id: String(u.id), name: u.name || String(u.id), color: u.color || "", avatar: avatarOf(u) };
   msgs = new Map(); lastId = 0; lastUpd = 0; peerRead = 0; peerTyping = false; reportedRead = 0;
   setReply(null); $("#stickers").classList.remove("on");
-  aiSt = { avail: false, disabled: 0, paused: false }; paintAi();
+  aiSt = { avail: false, disabled: 0, paused: false }; aiKnown = false; aiThinkReset(); paintAi();
   guideReady = false; paintGuide();
-  paintHeadAv();
-  $("#pname").textContent = peer.name; $("#pst").textContent = "";
+  paintHeadAv(); paintLangBits();
+  $("#pname").textContent = peer.name; $("#pst").textContent = ""; paintProf(null);
+  document.body.classList.remove("room", "ro");
+  const dmro = IS_ADMIN && !canDo("dmReply");   // [PERMS] ดูแชทได้แต่ตอบไม่ได้ → ซ่อนช่องพิมพ์
+  document.body.classList.toggle("dmro", dmro);
+  if (dmro) { $("#rbarTx").textContent = "คุณมีสิทธิ์ดูแชทเท่านั้น — ตอบกลับไม่ได้"; $("#rbarBtn").hidden = true; }
   $("#msgs").innerHTML = ""; $("#input").value = ""; autoGrow();
   $("#back").classList.toggle("hide", !!fixedPeer && !onBack);
   clearInterval(pollListTimer);
@@ -628,17 +1346,30 @@ function openChat(u) {
   clearInterval(pollChatTimer);
   pollChatTimer = setInterval(() => { if (!document.hidden && !PAUSED) pollChat(false); }, 2000);
 }
+// [PROFILE] แอดมินดูโปรไฟล์สมาชิกใต้ชื่อในหัวห้องแชทส่วนตัว (เบอร์โทรแสดงเฉพาะตรงนี้)
+function paintProf(p) {
+  const el = $("#pprof");
+  const parts = !IS_ADMIN || !p ? [] : [
+    [p.t, p.c].filter(Boolean).join(" · "),
+    [p.a && ("A: " + p.a), p.b && ("B: " + p.b)].filter(Boolean).join(" / "),
+    p.s, p.p && ("☎ " + p.p),
+  ].filter(Boolean);
+  el.textContent = parts.join("  |  "); el.title = el.textContent;
+  el.style.display = parts.length ? "" : "none";
+}
 function paintHeadAv() {
   const pav = $("#pav"); pav.className = ""; pav.style.background = ""; pav.textContent = "";
   mkAvatar(pav, peer.name, peer.color, peer.id, peer.avatar);
 }
-$("#back").onclick = () => { if (fixedPeer) { if (onBack) onBack(); } else enterList(); };
+$("#back").onclick = () => { if (MEMBER_LIST) enterMemberList(false); else if (fixedPeer) { if (onBack) onBack(); } else enterList(); };
 
 async function pollChat(first) {
   if (!peer || busyChat) return;
+  if (VISITOR && peer.kind !== "room") return;   // Visitor แชท FAQ เป็นข้อความในหน้านี้ ไม่มีอะไรให้ poll
   busyChat = true;
   const pid = peer.id;
   try {
+    if (peer.kind === "room") { await pollRoom(first); return; }
     const d = await api(`/api/messages?peer=${encodeURIComponent(pid)}&after=${lastId}&upd=${lastUpd}`);
     if (!peer || peer.id !== pid) return;
     let changed = first;
@@ -651,8 +1382,10 @@ async function pollChat(first) {
     if (d.peer_read !== peerRead) { peerRead = d.peer_read; changed = true; }
     if (typeof d.peer_avatar === "string") {
       const na = (IS_ADMIN && AV_MAP[peer.id]) || d.peer_avatar;
-      if (na !== (peer.avatar || "")) { peer.avatar = na; paintHeadAv(); changed = true; }
+      if (na !== (peer.avatar || "")) { peer.avatar = na; if (peer.id === SUPPORT_ID) supAv = na; paintHeadAv(); changed = true; }
     }
+    if (IS_ADMIN && "peer_profile" in d) paintProf(d.peer_profile);   // [PROFILE]
+    if (d.ai) aiKnown = true;
     if (d.ai && (d.ai.avail !== aiSt.avail || d.ai.disabled !== aiSt.disabled || d.ai.paused !== aiSt.paused)) { aiSt = d.ai; paintAi(); }
     if (d.typing !== peerTyping) { peerTyping = d.typing; $("#pst").textContent = d.typing ? T("typing") : ""; }
     if (changed) renderMsgs(first);
@@ -663,12 +1396,13 @@ async function pollChat(first) {
 }
 
 function reportRead() {
-  if (!peer || document.hidden || PAUSED) return;
+  if (!peer || document.hidden || PAUSED || VISITOR) return;
   let mx = 0;
   msgs.forEach(m => { if (!m.mine && m.id < 1e15 && m.id > mx) mx = m.id; });
   if (mx > reportedRead) {
     reportedRead = mx;
-    api("/api/read", { method: "POST", body: { peer: peer.id, last_id: mx } }).catch(() => { reportedRead = 0; });
+    const isRoom = peer.kind === "room";
+    api(isRoom ? `/api/rooms/${peer.roomId}/read` : "/api/read", { method: "POST", body: isRoom ? { last_id: mx } : { peer: peer.id, last_id: mx } }).catch(() => { reportedRead = 0; });
   }
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && !PAUSED) { reportRead(); if (peer) pollChat(false); } });
@@ -701,7 +1435,10 @@ function linkifyInto(parent, text) {
     a.target = "_blank"; a.rel = "noopener noreferrer nofollow";
     a.addEventListener("click", e => {
       if (e.detail > 1) { e.preventDefault(); return; }                    // ดับเบิลคลิก = เมนูข้อความ ไม่เปิดลิงก์ซ้ำ
-      if (IS_ADMIN && !confirm(T("openLink") + "\n\n" + href)) e.preventDefault();   // แอดมิน: ยืนยันก่อนเปิดลิงก์จากสมาชิก (กันฟิชชิง)
+      if (IS_ADMIN) {   // แอดมิน: ยืนยันก่อนเปิดลิงก์จากสมาชิก (กันฟิชชิง) — ใช้กล่องของเราเอง เพราะ confirm() ใช้ไม่ได้ใน iframe ที่แอปฝัง
+        e.preventDefault();
+        askConfirm(T("openLink") + "\n\n" + href, "เปิดลิงก์", false, async () => { window.open(href, "_blank", "noopener,noreferrer"); });
+      }
     });
     parent.appendChild(a);
     last = m.index + raw.length;
@@ -712,7 +1449,16 @@ function renderMsgs(forceBottom) {
   const box = $("#msgs");
   const near = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
   box.innerHTML = "";
-  const arr = [...msgs.values()].sort((a, b) => a.id - b.id);
+  let arr = sortedMsgs();
+  let thinking = false;   // [AI-THINK] โชว์ฟอง "กำลังคิด..." ท้ายแชทไหม
+  if (AIQ && !onSupportChat()) aiThinkReset();
+  if (AIQ) {
+    const r = aiThinkEval(arr);
+    arr = r.out; thinking = r.thinking;
+    clearTimeout(AIQ_TIMER);
+    if (thinking) AIQ_TIMER = setTimeout(() => renderMsgs(false), isFinite(r.wake) ? Math.max(30, r.wake - Date.now() + 30) : 1000);   // ปลุกตอนครบเวลาหน่วง/หมดเวลารอ
+    else AIQ = null;
+  } else if (VISITOR && vThinking && peer && peer.kind !== "room" && peer.id === SUPPORT_ID) thinking = true;
   let prevDay = null, prevKey = null;
 
   arr.forEach(m => {
@@ -723,20 +1469,22 @@ function renderMsgs(forceBottom) {
       const sp = document.createElement("span"); sp.textContent = dayLabel(m.created_at);
       dv.appendChild(sp); box.appendChild(dv); prevDay = dk; prevKey = null;
     }
-    const gk = (isMe ? "me" : "other") + (m.ai ? ":ai" : "");   // ข้อความ AI แยกกลุ่มจากข้อความเจ้าหน้าที่ เพื่อให้ป้ายถูกต้อง
+    const sdr = m.sender || null;   // ห้องสนทนา: ผู้ส่งแต่ละข้อความ · แชทส่วนตัว: ไม่มี → ใช้ peer
+    const sn = sdr ? sdr.name : peer.name;
+    const gk = (isMe ? "me" : "other" + (sdr ? ":" + sdr.uid : "")) + (m.ai ? ":ai" : "");   // ข้อความ AI แยกกลุ่มจากข้อความเจ้าหน้าที่ เพื่อให้ป้ายถูกต้อง
     const first = prevKey !== gk; prevKey = gk;
 
     const row = document.createElement("div");
     row.className = "row " + (isMe ? "me" : "other") + (first ? " first" : "");
 
     if (!isMe) {
-      if (first) { const av = document.createElement("div"); mkAvatar(av, peer.name, peer.color, peer.id, peer.avatar); row.appendChild(av); }
+      if (first) { const av = document.createElement("div"); if (sdr) mkAvatar(av, sdr.name, sdr.color, "u" + sdr.uid, sdr.avatar); else mkAvatar(av, peer.name, peer.color, peer.id, m.ai ? SYS_LOGO : peer.avatar); row.appendChild(av); }
       else { const ph = document.createElement("div"); ph.className = "ph"; row.appendChild(ph); }
     }
 
     const col = document.createElement("div"); col.className = "col";
     if (!isMe && first) {
-      const n = document.createElement("div"); n.className = "pname"; n.textContent = peer.name; col.appendChild(n);
+      const n = document.createElement("div"); n.className = "pname"; n.textContent = sn; col.appendChild(n);
     }
 
     if (m.ai && first && !m.deleted) { const tg = document.createElement("div"); tg.className = "aitag"; tg.textContent = T("aiLabel"); col.appendChild(tg); }
@@ -747,12 +1495,12 @@ function renderMsgs(forceBottom) {
 
     if (m.deleted) {
       bubble.classList.add("del");
-      bubble.textContent = isMe ? T("youUns") : T("theyUns").replace("{n}", peer.name);
+      bubble.textContent = isMe ? T("youUns") : T("theyUns").replace("{n}", sn);
     } else {
       if (m.reply_to) {
         const o = msgs.get(m.reply_to);
         const q = document.createElement("div"); q.className = "quote";
-        const qn = document.createElement("b"); qn.textContent = o ? (o.mine ? T("you") : peer.name) : T("msg");
+        const qn = document.createElement("b"); qn.textContent = o ? (o.mine ? T("you") : (o.sender ? o.sender.name : peer.name)) : T("msg");
         q.appendChild(qn); q.appendChild(document.createTextNode(previewText(o)));
         bubble.appendChild(q);
       }
@@ -787,6 +1535,24 @@ function renderMsgs(forceBottom) {
     col.appendChild(bw); row.appendChild(col); box.appendChild(row);
   });
 
+  if (thinking) {   // [AI-THINK] ฟองชั่วคราว (ไม่อยู่ใน msgs) — หายเองเมื่อคำตอบจริงถูกแสดง
+    const first = prevKey !== "other:ai";
+    const row = document.createElement("div"); row.className = "row other think-row" + (first ? " first" : "");
+    if (first) { const av = document.createElement("div"); mkAvatar(av, peer.name, peer.color, peer.id, SYS_LOGO); row.appendChild(av); }
+    else { const ph = document.createElement("div"); ph.className = "ph"; row.appendChild(ph); }
+    const col = document.createElement("div"); col.className = "col";
+    if (first) {
+      const n = document.createElement("div"); n.className = "pname"; n.textContent = peer.name; col.appendChild(n);
+      const tg = document.createElement("div"); tg.className = "aitag"; tg.textContent = T("aiLabel"); col.appendChild(tg);
+    }
+    const bw = document.createElement("div"); bw.className = "bwrap";
+    const b = document.createElement("div"); b.className = "bubble think"; b.setAttribute("role", "status"); b.setAttribute("aria-live", "polite");
+    const dots = document.createElement("span"); dots.className = "dots";
+    for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("i"));
+    const tx = document.createElement("span"); tx.textContent = T("thinking");
+    b.append(dots, tx); bw.appendChild(b); col.appendChild(bw); row.appendChild(col); box.appendChild(row);
+  }
+
   if (!arr.length && !IS_ADMIN) { const e = document.createElement("div"); e.className = "empty"; e.textContent = T("empty"); box.appendChild(e); }
   if (forceBottom || near) box.scrollTop = box.scrollHeight;
 }
@@ -795,6 +1561,24 @@ function renderMsgs(forceBottom) {
 let guideReady = false, guideCat = "", guideSub = "", guideAt = 0;
 const GUIDE_KEY = "sc_guide";
 const guideOn = () => !IS_ADMIN && !!peer && peer.id === SUPPORT_ID && GUIDE.length > 0;
+// [v3.9.1] เลื่อนแถบหมวดบนเดสก์ท็อป: ล้อเมาส์ (แนวตั้ง → แนวนอน) + ลากด้วยเมาส์ · มือถือยังปัดนิ้วได้ตามเดิม
+function enableHScroll(el) {
+  if (!el || el._hs) return; el._hs = 1;
+  el.addEventListener("wheel", e => {
+    if (el.scrollWidth <= el.clientWidth || e.deltaX) return;
+    el.scrollLeft += e.deltaY; e.preventDefault();
+  }, { passive: false });
+  let down = false, moved = false, sx = 0, sl = 0;
+  el.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse" || e.button !== 0) return; down = true; moved = false; sx = e.clientX; sl = el.scrollLeft; });
+  window.addEventListener("pointermove", e => {
+    if (!down) return;
+    const dx = e.clientX - sx;
+    if (!moved && Math.abs(dx) > 4) { moved = true; el.classList.add("dragging"); }
+    if (moved) el.scrollLeft = sl - dx;
+  });
+  const end = () => { if (!down) return; down = false; if (moved) setTimeout(() => el.classList.remove("dragging"), 0); };
+  window.addEventListener("pointerup", end); window.addEventListener("pointercancel", end);
+}
 function paintGuide() {
   const g = $("#guide"), on = guideOn();
   g.classList.toggle("on", on);
@@ -803,6 +1587,7 @@ function paintGuide() {
   if (!GUIDE.some(c => c.id === guideCat)) { guideCat = GUIDE[0].id; guideSub = ""; }
   const top = GUIDE.find(c => c.id === guideCat);
   const cats = $("#gcats"), keep = cats.scrollLeft;
+  enableHScroll(cats); enableHScroll($("#gsubs"));
   cats.innerHTML = "";
   GUIDE.forEach(c => {
     const b = document.createElement("button"); b.type = "button";
@@ -840,6 +1625,7 @@ function paintGuide() {
 // ดึงเมนูล่าสุดจาก Worker (แอดมินแก้เมนูแล้วสมาชิกเห็นทันทีที่เปิดห้อง/เปิดเมนู) · ล้มเหลว = ใช้เมนูสำรองที่ฝังไว้ ไม่แจ้ง error
 async function loadGuide() {
   if (IS_ADMIN) return;
+  if (VISITOR) return loadVisitorMenu();
   try {
     const d = await api("/api/kb/menu");
     if (d && Array.isArray(d.menu) && d.menu.length) { GUIDE = d.menu; guideAt = Date.now(); paintGuide(); }
@@ -859,15 +1645,88 @@ function guideStart() {
   setGuideOpen(st === "1" ? true : st === "0" ? false : msgs.size === 0, false);
 }
 function sendGuide(c, it) {
+  if (VISITOR) return visitorAsk(c, it);
   setGuideOpen(false, false);   // พับเมนูเพื่อให้เห็นคำตอบ (ไม่บันทึกเป็นความชอบของสมาชิก)
   sendMessage("text", it.q[LANG] || it.q.th, { qid: it.id, cat: c.id });
 }
 $("#gtog").onclick = () => { const o = !$("#guide").classList.contains("open"); setGuideOpen(o, true); if (o && Date.now() - guideAt > 60000) loadGuide(); };
 
+// ---- Visitor: ไม่ล็อกอิน · ถามได้เฉพาะเมนู FAQ · Worker ตอบตรงจาก FAQ (ไม่เก็บข้อความ ไม่เรียกโมเดล) ----
+function addLocal(o) {
+  const id = ++vN;
+  msgs.set(id, { id, deleted: 0, reply_to: null, created_at: Date.now(), updated_at: Date.now(), ...o });
+  renderMsgs(true);
+}
+async function loadVisitorMenu() {
+  try {
+    const r = await fetch(API + "/api/public/menu");
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d && Array.isArray(d.menu) && d.menu.length) { GUIDE = d.menu; guideAt = Date.now(); paintGuide(); }
+  } catch (_) { }   // ใช้เมนูสำรองที่ฝังไว้
+}
+async function visitorAsk(c, it) {
+  if (vBusy) return;
+  setGuideOpen(false, false);
+  addLocal({ mine: true, type: "text", content: it.q[LANG] || it.q.th });
+  vBusy = true; vThinking = true; renderMsgs(true);   // [AI-THINK] โชว์ "กำลังคิด..." ทันที
+  const hold = new Promise(res => setTimeout(res, AI_THINK_MS));   // เริ่มนับ 2 วิพร้อมการเรียก API (ไม่รอต่อกัน)
+  let text;
+  try {
+    const r = await fetch(API + "/api/public/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ qid: it.id, lang: LANG }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d || !d.text) throw new Error((d && d.error) || "HTTP " + r.status);
+    text = d.text;
+    await hold;   // API ตอบเร็วกว่า 2 วิ → รอให้ครบ · ช้ากว่า → แสดงทันที
+  } catch (_) { text = T("vFail"); }   // ผิดพลาด → แจ้งทันที ไม่ต้องรอครบเวลา
+  vThinking = false; vBusy = false;
+  addLocal({ mine: false, ai: 0, type: "text", content: text });
+}
+// Visitor: ห้องที่เปิดให้อ่าน (readable=1) แสดงอ่านอย่างเดียว · ชื่อผู้ส่งถูกย่อโดย Worker เสมอ · ไม่มีห้องให้อ่าน/Worker ปิดไว้ (VISITOR_ROOMS=off) → เปิดแชท FAQ ตรง ๆ เหมือนเดิม
+async function pubGet(path) {
+  const r = await fetch(API + path);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(r.status === 429 ? T("vFail") : (d.error || "HTTP " + r.status));
+  return d;
+}
+async function visitorRooms() {
+  const d = await pubGet("/api/public/rooms");
+  return { rooms: (d.rooms || []).map(r => ({ ...r, readable: 1 })), support: { unread: 0, last_at: null } };
+}
+async function startVisitor(init) {
+  VISITOR = true; document.body.classList.add("visitor");
+  if (init.api) API = String(init.api).replace(/\/+$/, "");
+  let d = null;
+  try { d = await visitorRooms(); } catch (_) { }
+  if (d && d.rooms.length) {
+    roomsCache = d.rooms; supportInfo = d.support;
+    MEMBER_LIST = true; document.body.classList.add("member");
+    enterMemberList(true);
+  } else openVisitorAi();
+}
+function openVisitorAi() {
+  peer = { id: SUPPORT_ID, name: T("aiLabel"), color: "#d9a400" };
+  peerRead = 0; peerTyping = false; reportedRead = 0;
+  setReply(null);
+  paintHeadAv(); paintLangBits();
+  $("#pname").textContent = peer.name; $("#pst").textContent = ""; paintProf(null);
+  document.body.classList.remove("room", "ro");
+  clearInterval(pollListTimer); clearInterval(pollChatTimer);
+  $("#msgs").innerHTML = "";
+  $("#back").classList.toggle("hide", !onBack && !MEMBER_LIST);
+  show("chat");
+  if (vSaved) { msgs = vSaved; renderMsgs(true); }
+  else { msgs = new Map(); lastId = 0; lastUpd = 0; addLocal({ mine: false, ai: 0, type: "text", content: T("vGreet") }); }
+  guideReady = true; paintGuide(); setGuideOpen(true, false);
+  loadVisitorMenu();
+}
+$("#langBtn").onclick = pickLang;
+$("#langBtnL").onclick = pickLang;
+$("#vhintBtn").onclick = () => { try { parent.postMessage({ type: "sc-login" }, "*"); } catch (_) { } };
+
 // ---- AI: สวิตช์รายห้อง (แอดมิน) · ไม่มีปุ่มคุยกับเจ้าหน้าที่ให้สมาชิกกดแล้ว — AI เป็นผู้ส่งต่อเองเท่านั้น ----
 function paintAi() {
   const pill = $("#aiPill");
-  if (!IS_ADMIN || !aiSt.avail) { pill.style.display = "none"; return; }
+  if (!IS_ADMIN || !aiSt.avail || !canDo("aiToggle")) { pill.style.display = "none"; return; }
   pill.style.display = "block";
   pill.className = "aipill " + (aiSt.disabled ? "" : aiSt.paused ? "pause" : "on");
   pill.textContent = aiSt.disabled ? "AI ปิด" : aiSt.paused ? "AI พัก" : "AI เปิด";
@@ -893,15 +1752,24 @@ function bindPress(el, m) {
   el.addEventListener("dblclick", () => openMenu(m));
 }
 function openMenu(m) {
-  const items = [[T("reply"), () => setReply(m)]];
+  const items = VISITOR ? [] : [[T("reply"), () => setReply(m)]];
   if (m.type === "text") items.push([T("copy"), async () => {
     try { await navigator.clipboard.writeText(m.content); toast(T("copied")); }
     catch (_) { const ta = document.createElement("textarea"); ta.value = m.content; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast(T("copied")); }
   }]);
+  if (IS_ADMIN && canDo("msgDelete") && !m.mine && peer && peer.kind === "room" && !m.deleted) {   // แอดมินลบข้อความของสมาชิกในห้อง
+    const rid = peer.roomId;
+    items.push(["ลบข้อความ (แอดมิน)", () => askConfirm("ลบข้อความนี้ของสมาชิก?\nสมาชิกทุกคนในห้องจะเห็นว่าข้อความถูกลบ", "ลบ", true, async () => {
+      await api(`/api/admin/rooms/${rid}/messages/${m.id}/delete`, { method: "POST" });
+      const o = msgs.get(m.id); if (o) { o.deleted = 1; o.content = ""; renderMsgs(false); }
+      toast("ลบข้อความแล้ว");
+    }), true]);
+  }
   if (m.mine) items.push([T("unsend"), async () => {
     try { await api(`/api/messages/${m.id}/unsend`, { method: "POST" }); const o = msgs.get(m.id); if (o) { o.deleted = 1; o.content = ""; renderMsgs(false); } }
     catch (e) { toast(e.message); }
   }, true]);
+  if (!items.length) return;
   showMenu(items);
 }
 
@@ -911,7 +1779,7 @@ function setReply(m) {
   const bar = $("#replybar");
   if (!m) { bar.classList.remove("on"); return; }
   const rb = $("#rbtxt"); rb.innerHTML = "";
-  const b = document.createElement("b"); b.textContent = T("replyTo") + " " + (m.mine ? T("self") : peer.name);
+  const b = document.createElement("b"); b.textContent = T("replyTo") + " " + (m.mine ? T("self") : (m.sender ? m.sender.name : peer.name));
   rb.appendChild(b); rb.appendChild(document.createTextNode(previewText(m)));
   bar.classList.add("on"); $("#input").focus();
 }
@@ -922,16 +1790,19 @@ async function sendMessage(type, content, extra) {
   if (!peer) return;
   const tid = 1e15 + (++tmpN);
   const temp = { id: tid, mine: true, type, content, reply_to: replyTo ? replyTo.id : null, deleted: 0, created_at: Date.now(), updated_at: 0 };
+  const tq = aiThinkBegin(type, extra);   // [AI-THINK] สมาชิก: เริ่มรอคำตอบ AI (เมนู = หน่วง 2 วิจากตอนกด · พิมพ์เอง = ไม่หน่วงเพิ่ม)
   msgs.set(tid, temp); renderMsgs(true);
   const rid = temp.reply_to;
   setReply(null);
   try {
-    const d = await api("/api/messages", { method: "POST", body: { to: peer.id, peer_name: peer.name, type, content, reply_to: rid, lang: IS_ADMIN ? undefined : LANG, qid: extra && extra.qid, cat: extra && extra.cat } });
+    const d = peer.kind === "room"
+      ? await api(`/api/rooms/${peer.roomId}/messages`, { method: "POST", body: { type, content, reply_to: rid } })
+      : await api("/api/messages", { method: "POST", body: { to: peer.id, peer_name: peer.name, type, content, reply_to: rid, lang: IS_ADMIN ? undefined : LANG, qid: extra && extra.qid, cat: extra && extra.cat } });
     msgs.delete(tid);
     msgs.set(d.id, { ...temp, id: d.id, created_at: d.created_at, updated_at: d.created_at });
     if (d.id > lastId) lastId = d.id;
     renderMsgs(true);
-  } catch (e) { msgs.delete(tid); renderMsgs(true); toast(T("sendFail") + ": " + e.message); }
+  } catch (e) { msgs.delete(tid); aiThinkCancel(tq); renderMsgs(true); toast(T("sendFail") + ": " + e.message); if (peer && peer.kind === "room") pollChat(false); }   // ห้อง: สิทธิ์อาจเปลี่ยน → ดึงสถานะใหม่
 }
 function sendText() {
   const t = $("#input").value.trim(); if (!t) return;
@@ -945,13 +1816,13 @@ function autoGrow() {
   // [FIX-INPUT] scrollHeight=0 ตอนหน้าแชทยังซ่อน (display:none) และ box-sizing:border-box ต้องบวกเส้นขอบ 2px — ไม่งั้นช่องพิมพ์หดเหลือแถบเล็ก+มีลูกศรเลื่อน
   const el = $("#input"); el.style.height = "auto";
   const sh = el.scrollHeight;
-  el.style.height = Math.max(40, Math.min(sh + 2, 112)) + "px";
-  el.style.overflowY = sh + 2 > 112 ? "auto" : "hidden";
+  el.style.height = Math.max(40, Math.min(sh + 2, 120)) + "px";
+  el.style.overflowY = sh + 2 > 120 ? "auto" : "hidden";
   $("#send").classList.toggle("on", !!el.value.trim());
 }
 $("#input").addEventListener("input", () => {
   autoGrow();
-  if (peer && Date.now() - lastTypingSent > 2500 && $("#input").value.trim()) {
+  if (peer && peer.kind !== "room" && Date.now() - lastTypingSent > 2500 && $("#input").value.trim()) {
     lastTypingSent = Date.now();
     api("/api/typing", { method: "POST", body: { peer: peer.id } }).catch(() => { });
   }
@@ -995,7 +1866,8 @@ function shrinkImage(file) {
 async function uploadBlob(blob, onProg) {
   const kind = blob.type.startsWith("video/") ? "video" : "image";
   // 1) ขอลายเซ็นจาก Worker  2) อัปโหลดตรงไป Cloudinary  3) ให้ Worker ยืนยันผล
-  const sg = await api("/api/upload-sign?peer=" + encodeURIComponent(peer.id) + "&kind=" + kind, { method: "POST" });
+  const dest = peer.kind === "room" ? "room=" + peer.roomId : "peer=" + encodeURIComponent(peer.id);   // ห้อง: ผูกไฟล์กับห้อง · ส่วนตัว: ผูกกับคู่สนทนา
+  const sg = await api("/api/upload-sign?" + dest + "&kind=" + kind, { method: "POST" });
   const fd = new FormData();
   Object.keys(sg.fields).forEach(k => fd.append(k, sg.fields[k]));
   fd.append("file", blob);
@@ -1031,14 +1903,16 @@ async function sendMedia(file) {
     if (!chatToken || Date.now() > tokenExp - 60000) await login();
     let lastDraw = 0;
     const up = await uploadBlob(blob, p => { temp.progress = p; const n = Date.now(); if (n - lastDraw > 250) { lastDraw = n; renderMsgs(false); } });
-    const d = await api("/api/messages", { method: "POST", body: { to: peer.id, peer_name: peer.name, type, content: up.content, reply_to: rid } });
+    const d = peer.kind === "room"
+      ? await api(`/api/rooms/${peer.roomId}/messages`, { method: "POST", body: { type, content: up.content, reply_to: rid } })
+      : await api("/api/messages", { method: "POST", body: { to: peer.id, peer_name: peer.name, type, content: up.content, reply_to: rid } });
     msgs.delete(tid);
     const done = { ...temp, id: d.id, content: up.content, created_at: d.created_at, updated_at: d.created_at };
     delete done.progress;
     msgs.set(d.id, done);
     if (d.id > lastId) lastId = d.id;
     renderMsgs(true);
-  } catch (e) { msgs.delete(tid); renderMsgs(true); toast(T("sendFail") + ": " + e.message); }
+  } catch (e) { msgs.delete(tid); renderMsgs(true); toast(T("sendFail") + ": " + e.message); if (peer && peer.kind === "room") pollChat(false); }   // ห้อง: สิทธิ์อาจเปลี่ยน → ดึงสถานะใหม่
 }
 $("#imgBtn").onclick = () => $("#file").click();
 $("#file").addEventListener("change", e => {
@@ -1053,9 +1927,19 @@ window.LineChat = { open: u => openChat(u), list: () => enterList() };
 // ================= Init =================
 function startAdmin() {
   enterList();
+  applyAdminPerms(); if (!canDo("dmView")) setAdmTab("rooms");
   try { parent.postMessage({ type: "sc-need-avatars" }, "*"); } catch (_) { }
-  const u = P.get("uid");
-  if (u) openChat({ id: u, name: P.get("name") || u });
+  // เปิดห้องตรงจากลิงก์ Telegram: standalone อ่านจาก URL หน้านี้ · ฝังในแอป อ่านค่าที่แอปแม่เก็บไว้ใน sessionStorage (tcc_open_chat · ใช้ครั้งเดียว · หมดอายุ 10 นาที)
+  let u = P.get("uid"), nm = P.get("name");
+  if (EMBED_ADMIN) {
+    u = ""; nm = "";
+    try {
+      const o = JSON.parse(window.parent.sessionStorage.getItem("tcc_open_chat") || "null");
+      if (o && o.uid && Date.now() - (o.t || 0) < 600000) { u = String(o.uid); nm = String(o.name || ""); }
+      window.parent.sessionStorage.removeItem("tcc_open_chat");
+    } catch (_) { }
+  }
+  if (u) openChat({ id: u, name: nm || u });
 }
 $("#lgBtn").onclick = async () => {
   const k = $("#lgKey").value.trim(); if (!k) return;
@@ -1066,7 +1950,9 @@ $("#lgBtn").onclick = async () => {
 $("#lgKey").addEventListener("keydown", e => { if (e.key === "Enter") $("#lgBtn").click(); });
 
 (async function init() {
-  if (IS_ADMIN) {
+  if (IS_ADMIN && EMBED_ADMIN) {
+    getInit().then(init => { bootInit = init; return login(); }).then(() => startAdmin()).catch(e => fatal(e.message));
+  } else if (IS_ADMIN) {
     if (sessionStorage.getItem("sc_ak")) {
       try { await login(); startAdmin(); return; } catch (_) { sessionStorage.removeItem("sc_ak"); }
     }
@@ -1074,7 +1960,11 @@ $("#lgKey").addEventListener("keydown", e => { if (e.key === "Enter") $("#lgBtn"
   } else if (!IN_FRAME) {
     fatal(T("fromApp"));
   } else {
-    openChat({ id: SUPPORT_ID, name: T("support"), color: "#d9a400" });
+    const sl = storedLang(); if (sl) setLang(sl);
+    getInit().then(init => {
+      if (init.visitor) startVisitor(init);
+      else { bootInit = init; startMemberHome(); }
+    }).catch(e => fatal(e.message));
   }
 })();
 </script>

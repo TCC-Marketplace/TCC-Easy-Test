@@ -626,7 +626,7 @@ let peer = null;
 let msgs = new Map();
 let lastId = 0, lastUpd = 0, peerRead = 0, peerTyping = false;
 let replyTo = null, tmpN = 0, reportedRead = 0;
-let pollChatTimer = null, pollListTimer = null, busyChat = false, lastTypingSent = 0;
+let pollChatTimer = null, pollListTimer = null, busyChat = false, lastTypingSent = 0, needFirst = false;   // needFirst: ห้องที่เพิ่งเปิดยังไม่เคยวาดสำเร็จ → โพลรอบถัดไปวาดซ้ำ
 let usersCache = [];
 let onlyUnread = false;
 let aiSt = { avail: false, disabled: 0, paused: false };   // สถานะ AI ของห้องที่เปิดอยู่ (จาก GET /api/messages)
@@ -734,12 +734,18 @@ function fatal(msg) {
 
 async function api(path, opt = {}, retry = true) {
   if (!chatToken || Date.now() > tokenExp - 60000) await login();
-  const r = await fetch(API + path, {
-    method: opt.method || "GET",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + chatToken },
-    body: opt.body ? JSON.stringify(opt.body) : undefined,
-  });
-  const d = await r.json().catch(() => ({}));
+  const ac = new AbortController(), tmo = setTimeout(() => ac.abort(), 25000);   // กันคำขอค้าง (busyChat ค้างทำให้ห้องว่างตลอด)
+  let r, d;
+  try {
+    r = await fetch(API + path, {
+      method: opt.method || "GET",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + chatToken },
+      body: opt.body ? JSON.stringify(opt.body) : undefined,
+      signal: ac.signal,
+    });
+    d = await r.json().catch(() => ({}));
+  } catch (e) { throw new Error(e && e.name === "AbortError" ? "timeout" : (e && e.message) || "network"); }
+  finally { clearTimeout(tmo); }
   if (r.status === 401 && retry) { chatToken = ""; return api(path, opt, false); }
   if (!r.ok) throw new Error(r.status === 401 ? T("authFail") : (d.error || "HTTP " + r.status));
   return d;
@@ -1342,6 +1348,7 @@ function openChat(u) {
   clearInterval(pollListTimer);
   show("chat");
   autoGrow(); requestAnimationFrame(autoGrow);
+  needFirst = true;
   pollChat(true);
   clearInterval(pollChatTimer);
   pollChatTimer = setInterval(() => { if (!document.hidden && !PAUSED) pollChat(false); }, 2000);
@@ -1372,6 +1379,7 @@ async function pollChat(first) {
     if (peer.kind === "room") { await pollRoom(first); return; }
     const d = await api(`/api/messages?peer=${encodeURIComponent(pid)}&after=${lastId}&upd=${lastUpd}`);
     if (!peer || peer.id !== pid) return;
+    first = first || needFirst;
     let changed = first;
     d.messages.forEach(m => {
       const o = msgs.get(m.id);
@@ -1389,6 +1397,7 @@ async function pollChat(first) {
     if (d.ai && (d.ai.avail !== aiSt.avail || d.ai.disabled !== aiSt.disabled || d.ai.paused !== aiSt.paused)) { aiSt = d.ai; paintAi(); }
     if (d.typing !== peerTyping) { peerTyping = d.typing; $("#pst").textContent = d.typing ? T("typing") : ""; }
     if (changed) renderMsgs(first);
+    if (peer && peer.id === pid) needFirst = false;
     if (first && !guideReady) { guideStart(); loadGuide(); }
     reportRead();
   } catch (e) { if (first) toast(e.message); }
@@ -1926,7 +1935,8 @@ window.LineChat = { open: u => openChat(u), list: () => enterList() };
 
 // ================= Init =================
 function startAdmin() {
-  enterList();
+  const hasDeep = !EMBED_ADMIN && !!P.get("uid");   // ลิงก์จาก Telegram: เปิดห้องก่อน ไม่ยิงโหลดรายการ/ห้องพร้อมกัน (โหลดตอนกดกลับ)
+  if (!hasDeep) enterList();
   applyAdminPerms(); if (!canDo("dmView")) setAdmTab("rooms");
   try { parent.postMessage({ type: "sc-need-avatars" }, "*"); } catch (_) { }
   // เปิดห้องตรงจากลิงก์ Telegram: standalone อ่านจาก URL หน้านี้ · ฝังในแอป อ่านค่าที่แอปแม่เก็บไว้ใน sessionStorage (tcc_open_chat · ใช้ครั้งเดียว · หมดอายุ 10 นาที)

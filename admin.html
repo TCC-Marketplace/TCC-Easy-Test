@@ -4747,7 +4747,7 @@ function rreqlog(resetPage=false) {
 async function runMainTool(tool, dry) {
   if (_role!=='owner') { toast('⛔ เฉพาะ Owner','er'); return; }
   const uid=(document.getElementById('mtUid')?.value||'').trim();
-  if (!dry && !confirm('รัน '+tool+' แบบ "เขียนข้อมูลจริง"'+(uid?' ของ '+uid:' ทั้งระบบ')+' ?\nเครื่องมือนี้แก้ข้อมูลในชีต Main')) return;
+  if (!dry && !(await customConfirm('รัน '+tool+' แบบ "เขียนข้อมูลจริง"'+(uid?' ของ '+uid:' ทั้งระบบ')+' ?\nเครื่องมือนี้แก้ข้อมูลในชีต Main',{title:'ยืนยันรัน Main Tool',danger:true,okLabel:'รันจริง'}))) return;
   const out=document.getElementById('mtOut'); if(out) out.textContent='⏳ กำลังรัน '+tool+'...';
   const r=await gasWrite('adminRunMainTool',{ tool, dryRun:dry, confirm:!dry, ...(uid?{uid}:{}) });
   if(out) out.textContent=JSON.stringify(r,null,2);

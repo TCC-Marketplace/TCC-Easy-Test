@@ -121,8 +121,8 @@ const API = (new URLSearchParams(location.search).get("api") || DEFAULT_API).rep
 // [KB v3.7] โหมดฝัง (?embed=1): หน้าแอดมินหลักเป็นผู้ยืนยันตัวตน/สิทธิ์ — ข้ามหน้าล็อกอิน แล้วขอ token ผู้แก้ไขจากหน้าแม่ผ่าน postMessage (ไม่เก็บ token ใน sessionStorage)
 const EMBED = new URLSearchParams(location.search).get("embed") === "1";
 const PARENT_ORIGIN = (() => { try { if (document.referrer) return new URL(document.referrer).origin; } catch (_) {} return location.origin; })();
-const LANGS = ["th", "en", "vi", "kh", "mm", "la"];
-const LNAME = { th: "ไทย", en: "English", vi: "Tiếng Việt", kh: "ខ្មែរ", mm: "မြန်မာ", la: "ລາວ" };
+const LANGS = ["th", "en", "vi", "kh", "mm", "la", "ms", "id", "zh"];   // ตรงกับ LANGS ใน kb.js / แอป (ลำดับห้ามสลับ)
+const LNAME = { th: "ไทย", en: "English", vi: "Tiếng Việt", kh: "ខ្មែរ", mm: "မြန်မာ", la: "ລາວ", ms: "Bahasa Melayu", id: "Bahasa Indonesia", zh: "中文 (简体)" };
 const ACT = { "cat.create": "เพิ่มหมวด", "cat.update": "แก้หมวด", "cat.delete": "ลบหมวด", "cat.move": "เลื่อนหมวด", "faq.create": "เพิ่มคำถาม", "faq.update": "แก้คำถาม", "faq.delete": "ลบคำถาม", "faq.move": "เลื่อนคำถาม", "editor.create": "เพิ่มผู้แก้ไข", "editor.enable": "เปิดสิทธิ์ผู้แก้ไข", "editor.disable": "ปิดสิทธิ์ผู้แก้ไข", "editor.reset": "รีเซ็ตรหัสผู้แก้ไข" };
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -301,7 +301,7 @@ function catDlg(errs) {
    <div><label class="l">ไอคอน (อีโมจิ)</label><input class="inp" data-c="icon" value="${esc(c.icon)}" maxlength="8"></div></div>
    <div class="g2"><div><label class="l">อยู่ใต้หมวด</label><select class="inp" data-c="parent_id" ${ownKids ? "disabled" : ""}><option value="">— หมวดหลัก —</option>${parents.map((p) => `<option value="${esc(p.id)}"${p.id === c.parent_id ? " selected" : ""}>${esc(nm(p, "th"))}</option>`).join("")}</select></div>
    <div class="checks" style="align-self:end"><label><input type="checkbox" data-c="visible" ${c.visible ? "checked" : ""}> แสดงให้สมาชิกเห็น</label></div></div>
-   <div><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><label class="l" style="margin:0;flex:1">ชื่อหมวด 6 ภาษา (ภาษาไทยจำเป็น · แสดงให้สมาชิกต้องครบ)</label><button class="btn sm" data-act="aicat" ${S._ai ? "disabled" : ""}>${S._ai ? "AI กำลังแปล…" : "ให้ AI แปลจากภาษาไทย"}</button></div>
+   <div><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><label class="l" style="margin:0;flex:1">ชื่อหมวด 9 ภาษา (ภาษาไทยจำเป็น · แสดงให้สมาชิกต้องครบ)</label><button class="btn sm" data-act="aicat" ${S._ai ? "disabled" : ""}>${S._ai ? "AI กำลังแปล…" : "ให้ AI แปลจากภาษาไทย"}</button></div>
     <div class="g2">${LANGS.map((l) => `<div><label class="l">${LNAME[l]}</label><input class="inp" data-c="name:${l}" value="${esc(c.name[l] || "")}" maxlength="60"></div>`).join("")}</div></div>
    <div><label class="l">คำสำคัญให้ระบบเลือกหมวดจากข้อความที่สมาชิกพิมพ์ (คั่นคำด้วย | · ไม่ต้องกรอกทุกภาษา)</label>
     <div class="g2">${LANGS.map((l, i) => `<div><label class="l">${LNAME[l]}</label><input class="inp" data-c="kw:${i}" value="${esc(c.kw[i] || "")}" placeholder="เช่น โปรโมชั่น|โปร" maxlength="400"></div>`).join("")}</div></div></div>
@@ -319,10 +319,10 @@ function faqDlg(errs) {
    <div class="ltabs">${LANGS.map((l) => `<button data-act="flang" data-v="${l}" class="${l === L ? "on" : ""}"><span class="dot ${f.review.includes(l) ? "r" : String(f.a[l] || "").trim() ? "f" : ""}"></span>${LNAME[l]}</button>`).join("")}</div>
    <div><label class="l">คำถาม (${LNAME[L]})</label><input class="inp" data-f="q" value="${esc(f.q[L] || "")}" maxlength="200"></div>
    <div><label class="l">คำตอบ (${LNAME[L]})</label><textarea class="inp" data-f="a" maxlength="3000">${esc(f.a[L] || "")}</textarea></div>
-   ${L === "th" ? `<div class="notice">กรอกภาษาไทยก่อน แล้วกด <b>ให้ AI ร่าง 5 ภาษา</b> · ตัวเลข ค่าธรรมเนียม และเปอร์เซ็นต์ต้องตรงกับฉบับไทย · ห้ามใส่ลิงก์และเลขกระเป๋า · อย่าใส่คำแนะนำให้ซื้อ/ขายหรือรับประกันกำไร</div>` : ""}
+   ${L === "th" ? `<div class="notice">กรอกภาษาไทยก่อน แล้วกด <b>ให้ AI ร่าง 8 ภาษา</b> · ตัวเลข ค่าธรรมเนียม และเปอร์เซ็นต์ต้องตรงกับฉบับไทย · ห้ามใส่ลิงก์และเลขกระเป๋า · อย่าใส่คำแนะนำให้ซื้อ/ขายหรือรับประกันกำไร</div>` : ""}
    ${rev ? `<div class="notice warn">ภาษานี้ AI ร่างให้ ยังไม่ผ่านการตรวจ — อ่านแล้วแก้ให้ถูกต้อง จากนั้นกด “ยืนยันว่าตรวจแล้ว” <button class="btn sm" data-act="okrev">ยืนยันว่าตรวจแล้ว (${LNAME[L]})</button></div>` : ""}
    ${warnNum ? `<div class="notice bad">ตัวเลขในภาษานี้ไม่ตรงกับฉบับไทย (${esc(nums(f.a[L]) || "ไม่มี")} ≠ ${esc(base || "ไม่มี")})</div>` : ""}
-   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" data-act="aifaq" ${S._ai ? "disabled" : ""}>${S._ai ? "AI กำลังแปล… (ประมาณครึ่งนาที)" : "ให้ AI ร่าง 5 ภาษา"}</button>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" data-act="aifaq" ${S._ai ? "disabled" : ""}>${S._ai ? "AI กำลังแปล… (ประมาณ 1 นาที)" : "ให้ AI ร่าง 8 ภาษา"}</button>
      ${f.review.length ? `<button class="btn" data-act="okall">ยืนยันว่าตรวจครบทุกภาษา (${f.review.length} ภาษารอตรวจ)</button>` : ""}
      <span class="muted" style="font-size:13px">สถานะตอนนี้: ${f.status === "published" ? "เผยแพร่แล้ว" : "ฉบับร่าง"}</span></div></div>
   <div class="df">${f.create ? "" : '<button class="btn dng" data-act="delfaq">ลบ</button>'}<span class="sp"></span><button class="btn" data-act="savefaq" data-st="draft">บันทึกเป็นฉบับร่าง</button><button class="btn pri" data-act="savefaq" data-st="published">บันทึกและเผยแพร่</button></div>`);

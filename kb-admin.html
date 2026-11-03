@@ -75,6 +75,8 @@ textarea.inp{resize:vertical;min-height:130px;line-height:1.6}
 /* dialog */
 dialog{width:min(780px,calc(100vw - 20px));max-height:92vh;padding:0;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--tx)}
 dialog::backdrop{background:rgba(0,0,0,.6)}
+#cfdlg{width:min(420px,calc(100vw - 32px))}
+#cfdlg .cfb{padding:20px 20px 8px}#cfdlg .cfb h3{margin:0 0 8px;font-size:16px;font-weight:600}#cfdlg .cfb p{margin:0;color:var(--mute);white-space:pre-wrap}
 .dh{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
 .dh h3{margin:0;font-size:15.5px;font-weight:600;flex:1}
 .db{padding:16px 18px;display:grid;gap:12px}
@@ -113,6 +115,7 @@ th{font-weight:500;color:var(--mute)}
 <body>
 <div id="app"></div>
 <dialog id="dlg"></dialog>
+<dialog id="cfdlg"><div class="cfb"><h3 id="cfT"></h3><p id="cfM"></p></div><div class="df"><span class="sp"></span><button class="btn" id="cfNo" type="button"></button><button class="btn pri" id="cfYes" type="button"></button></div></dialog>
 <div id="toast" class="hide" role="status"></div>
 <script>
 "use strict";
@@ -126,12 +129,29 @@ const LNAME = { th: "ไทย", en: "English", vi: "Tiếng Việt", kh: "ខ�
 const ACT = { "cat.create": "เพิ่มหมวด", "cat.update": "แก้หมวด", "cat.delete": "ลบหมวด", "cat.move": "เลื่อนหมวด", "faq.create": "เพิ่มคำถาม", "faq.update": "แก้คำถาม", "faq.delete": "ลบคำถาม", "faq.move": "เลื่อนคำถาม", "editor.create": "เพิ่มผู้แก้ไข", "editor.enable": "เปิดสิทธิ์ผู้แก้ไข", "editor.disable": "ปิดสิทธิ์ผู้แก้ไข", "editor.reset": "รีเซ็ตรหัสผู้แก้ไข" };
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const nums = (s) => (String(s || "").match(/\d+(?:[.,]\d+)*/g) || []).sort().join("|");
+// [v3.8] แปลงเลขท้องถิ่น (ไทย/เขมร/พม่า/ลาว/อารบิก-อินดิก/เต็มความกว้าง) → 0-9 — คำแปลที่ใช้เลขท้องถิ่นเคยถูกนับว่า "ไม่มีตัวเลข" จนบันทึกไม่ได้
+const DIGIT_RANGES = [0x0E50, 0x17E0, 0x1040, 0x0ED0, 0x0660, 0x06F0, 0xFF10];
+const normDigits = (s) => String(s == null ? "" : s).replace(/[\u0E50-\u0E59\u17E0-\u17E9\u1040-\u1049\u0ED0-\u0ED9\u0660-\u0669\u06F0-\u06F9\uFF10-\uFF19]/g, (c) => { const k = c.charCodeAt(0); for (const b of DIGIT_RANGES) if (k >= b && k <= b + 9) return String(k - b); return c; });
+const nums = (s) => (normDigits(s).match(/\d+(?:[.,]\d+)*/g) || []).sort().join("|");
 const nm = (c, l) => (c && c.name && (c.name[l] || c.name.th)) || (c ? c.id : "");
 
 const S = { tok: EMBED ? "" : sessionStorage.getItem("kbTok") || "", role: EMBED ? "editor" : sessionStorage.getItem("kbRole") || "", name: EMBED ? "" : sessionStorage.getItem("kbName") || "",
   cats: [], faq: [], editors: [], log: [], tab: "", sel: "", loginMode: "editor", err: "", busy: false, pv: { lang: "th", cat: "", sub: "", open: "" } };
-let FD = null, CD = null;   // ฟอร์มคำถาม / ฟอร์มหมวด ที่กำลังแก้
+let FD = null, CD = null;
+// [v3.8] กล่องยืนยันของระบบเอง (แทน browser confirm) — ใช้ <dialog> ตัวที่สองเพื่อซ้อนอยู่เหนือหน้าต่างแก้ไข
+function kbConfirm(message, o = {}) {
+  return new Promise((resolve) => {
+    const d = $("#cfdlg"), yes = $("#cfYes"), no = $("#cfNo");
+    $("#cfT").textContent = o.title || "ยืนยันการทำงาน"; $("#cfM").textContent = message;
+    yes.textContent = o.ok || "ตกลง"; no.textContent = o.cancel || "ยกเลิก";
+    yes.className = "btn " + (o.danger ? "dng" : "pri");
+    let done = false;
+    const fin = (v) => { if (done) return; done = true; yes.onclick = no.onclick = null; d.onclose = null; d.oncancel = null; if (d.open) d.close(); resolve(v); };
+    yes.onclick = () => fin(true); no.onclick = () => fin(false);
+    d.oncancel = (e) => { e.preventDefault(); fin(false); }; d.onclose = () => fin(false);
+    if (!d.open) d.showModal(); setTimeout(() => (o.danger ? no : yes).focus(), 30);
+  });
+}   // ฟอร์มคำถาม / ฟอร์มหมวด ที่กำลังแก้
 
 async function api(path, body) {
   const r = await fetch(API + path, { method: body === undefined ? "GET" : "POST", headers: { "Content-Type": "application/json", ...(S.tok ? { Authorization: "Bearer " + S.tok } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -342,17 +362,18 @@ async function saveCat() {
 }
 async function saveFaq(status) {
   const f = FD;
+  for (const l of LANGS) if (l !== "th") { if (f.q[l]) f.q[l] = normDigits(f.q[l]); if (f.a[l]) f.a[l] = normDigits(f.a[l]); }   // [v3.8] เลขท้องถิ่น → 0-9 ก่อนส่ง
   try { await api("/api/kb/admin/faq", { action: "save", create: f.create, faq: { id: f.id.trim(), cat_id: f.cat_id, menu: f.menu, visible: f.visible, status, q: f.q, a: f.a, review: f.review } });
     S.sel = f.cat_id; closeDlg(); toast(status === "published" ? "เผยแพร่แล้ว — สมาชิกเห็นภายใน 1 นาที" : "บันทึกฉบับร่างแล้ว", "ok"); await loadTab();
   } catch (e) { faqDlg(e.data && e.data.errors ? e.data.errors : [errText(e)]); }
 }
 async function aiFaq() {
   const f = FD; if (!String(f.q.th || "").trim() || !String(f.a.th || "").trim()) return toast("กรอกคำถามและคำตอบภาษาไทยก่อน", "bad");
-  if (LANGS.some((l) => l !== "th" && String(f.a[l] || "").trim()) && !confirm("ภาษาอื่นที่กรอกไว้แล้วจะถูกแทนที่ด้วยฉบับร่างจาก AI ต้องการทำต่อหรือไม่?")) return;
+  if (LANGS.some((l) => l !== "th" && String(f.a[l] || "").trim()) && !(await kbConfirm("ภาษาอื่นที่กรอกไว้แล้วจะถูกแทนที่ด้วยฉบับร่างจาก AI ต้องการทำต่อหรือไม่?", { title: "ให้ AI ร่างใหม่" }))) return;
   S._ai = true; faqDlg();
   try {
     const d = await api("/api/kb/admin/translate", { q: f.q.th, a: f.a.th });
-    const got = Object.keys(d.drafts); for (const l of got) { f.q[l] = d.drafts[l].q; f.a[l] = d.drafts[l].a; }
+    const got = Object.keys(d.drafts); for (const l of got) { f.q[l] = normDigits(d.drafts[l].q); f.a[l] = normDigits(d.drafts[l].a); }
     f.review = Array.from(new Set(f.review.concat(got))); const bad = got.filter((l) => !d.drafts[l].numOk);
     S._ai = false; faqDlg(); f.lang = got[0] || f.lang;
     toast(d.failed.length ? `AI แปลไม่สำเร็จ: ${d.failed.join(", ")} (กดอีกครั้งเพื่อลองใหม่)` : bad.length ? `ตัวเลขไม่ตรงในภาษา: ${bad.join(", ")} — ตรวจก่อนบันทึก` : "AI ร่างครบแล้ว — ตรวจทุกภาษาก่อนเผยแพร่", bad.length || d.failed.length ? "bad" : "ok");
@@ -386,7 +407,7 @@ document.addEventListener("click", async (ev) => {
   else if (a === "newsub") { CD = { create: true, id: "", icon: "", parent_id: id, visible: false, name: {}, kw: [] }; catDlg(); }
   else if (a === "editcat") { const c = S.cats.find((x) => x.id === id); CD = { create: false, id: c.id, icon: c.icon, parent_id: c.parent_id, visible: c.visible, name: { ...c.name }, kw: LANGS.map((_, i) => c.kw[i] || "") }; catDlg(); }
   else if (a === "savecat") saveCat();
-  else if (a === "delcat") { if (confirm("ลบหมวดนี้? (ต้องไม่มีคำถามหรือหมวดย่อยเหลืออยู่)")) try { await api("/api/kb/admin/cat", { action: "delete", id: CD.id }); closeDlg(); toast("ลบหมวดแล้ว", "ok"); await loadTab(); } catch (e) { toast(errText(e), "bad"); } }
+  else if (a === "delcat") { if (await kbConfirm("ลบหมวดนี้? (ต้องไม่มีคำถามหรือหมวดย่อยเหลืออยู่)", { title: "ลบหมวด", ok: "ลบ", danger: true })) try { await api("/api/kb/admin/cat", { action: "delete", id: CD.id }); closeDlg(); toast("ลบหมวดแล้ว", "ok"); await loadTab(); } catch (e) { toast(errText(e), "bad"); } }
   else if (a === "aicat") aiCat();
   else if (a === "newfaq") { FD = blankFaq(); faqDlg(); }
   else if (a === "editfaq") { const f = S.faq.find((x) => x.id === id); FD = { create: false, id: f.id, cat_id: f.cat_id, menu: f.menu, visible: f.visible, status: f.status, q: { ...f.q }, a: { ...f.a }, review: [...(f.review || [])], lang: "th" }; faqDlg(); }
@@ -395,14 +416,14 @@ document.addEventListener("click", async (ev) => {
   else if (a === "okall") { FD.review = []; faqDlg(); }
   else if (a === "aifaq") aiFaq();
   else if (a === "savefaq") saveFaq(b.dataset.st);
-  else if (a === "delfaq") { if (confirm("ลบคำถามนี้ถาวร?")) try { await api("/api/kb/admin/faq", { action: "delete", id: FD.id }); closeDlg(); toast("ลบแล้ว", "ok"); await loadTab(); } catch (e) { toast(errText(e), "bad"); } }
+  else if (a === "delfaq") { if (await kbConfirm("ลบคำถามนี้ถาวร?", { title: "ลบคำถาม", ok: "ลบ", danger: true })) try { await api("/api/kb/admin/faq", { action: "delete", id: FD.id }); closeDlg(); toast("ลบแล้ว", "ok"); await loadTab(); } catch (e) { toast(errText(e), "bad"); } }
   else if (a === "close") closeDlg();
   else if (a === "pvcat") { S.pv.cat = id; S.pv.sub = ""; S.pv.open = ""; render(); }
   else if (a === "pvsub") { S.pv.sub = id; S.pv.open = ""; render(); }
   else if (a === "pvq") { S.pv.open = S.pv.open === id ? "" : id; render(); }
   else if (a === "added") window.act_addEditor();
   else if (a === "toged") { try { await api("/api/kb/editors", { action: "toggle", id: Number(id), active: b.dataset.on === "1" }); await loadTab(); } catch (e) { toast(errText(e), "bad"); } }
-  else if (a === "resed") { if (confirm("รีเซ็ตรหัส? รหัสเดิมจะใช้ไม่ได้ทันที")) try { const d = await api("/api/kb/editors", { action: "reset", id: Number(id) }); showKey("รหัสใหม่", d.key); } catch (e) { toast(errText(e), "bad"); } }
+  else if (a === "resed") { if (await kbConfirm("รีเซ็ตรหัส? รหัสเดิมจะใช้ไม่ได้ทันที", { title: "รีเซ็ตรหัสผู้แก้ไข", ok: "รีเซ็ต", danger: true })) try { const d = await api("/api/kb/editors", { action: "reset", id: Number(id) }); showKey("รหัสใหม่", d.key); } catch (e) { toast(errText(e), "bad"); } }
   else if (a === "copykey") { try { await navigator.clipboard.writeText(b.dataset.k); toast("คัดลอกแล้ว", "ok"); } catch (_) { toast("คัดลอกไม่ได้ — ลากคลุมรหัสแล้วคัดลอกเอง", "bad"); } }
 });
 document.addEventListener("change", (ev) => { const t = ev.target; if (t.dataset.act === "pvlang") { S.pv.lang = t.value; render(); } });

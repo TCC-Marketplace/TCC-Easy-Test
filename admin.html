@@ -2648,7 +2648,7 @@ async function vMem(bid) {
   `,[
     {l:'📨 ส่งข้อความ',c:'ok',fn:`openSendMessage('${bid}','${(m.Name||'').replace(/'/g,"\\'")}')`},
     {l:'💬 แชท',c:'ok',fn:`schAdminOpenChat('${bid}','${(m.Name||'').replace(/'/g,"\\'")}')`},
-    {l:'💸 Distribute Profit',c:'pri',fn:`openDistributeProfit('${bid}')`},
+    ...(window.ALLOW_LEGACY_DISTRIBUTE ? [{l:'💸 Distribute Profit',c:'pri',fn:`openDistributeProfit('${bid}')`}] : []), // [v5.3] ซ่อนปุ่มเมื่อปิดใช้งาน (GAS ALLOW_LEGACY_DISTRIBUTE=false)
     {l:'✏️ แก้ไขข้อมูล',c:'ok',fn:`cm();eMem('${bid}')`},
     {l:'ปิด',c:'can',fn:'cm()'}
   ]);
@@ -4650,7 +4650,7 @@ function vRevMem(bid) {
     ${worstTrade.symbol?`<div class="dr"><div class="dk">Worst Trade</div><div class="dv mono" style="color:var(--r)">${worstTrade.symbol} ${fnum(worstTrade.realized_pnl)}</div></div>`:''}
   `,[
     {l:'ดูโปรไฟล์สมาชิก',c:'pri',fn:`vMem('${bid}')`},
-    {l:'💸 Distribute Profit',c:'ok',fn:`openDistributeProfit('${bid}')`},
+    ...(window.ALLOW_LEGACY_DISTRIBUTE ? [{l:'💸 Distribute Profit',c:'ok',fn:`openDistributeProfit('${bid}')`}] : []), // [v5.3] ซ่อนปุ่มเมื่อปิดใช้งาน
     {l:'ปิด',c:'can',fn:'cm()'}
   ]);
 }

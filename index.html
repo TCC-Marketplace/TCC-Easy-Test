@@ -33904,30 +33904,10 @@ async function loadDashboard() {
     _mergeDashEarnContracts(dash.earnContracts);
   }
 
-  // [NEW] ดึง funding_balance / team / system balances จาก Admin GAS (best-effort, ไม่ block dashboard)
-  if (typeof dbReadAdmin === 'function' && uid) {
-    _setAdminLoading(true);
-    Promise.allSettled([
-      dbReadAdmin('getFundingBalance', { uid }, 'fundbal_' + uid, CACHE_CONFIG.TTL_USER)
-        .then(r => {
-          const fb = r && (r.funding_balance !== undefined ? r.funding_balance : r);
-          const _fb = parseFloat(fb);
-          if (!isNaN(_fb)) {
-            fundingWalletBalance = _fb;
-            if (typeof updateOverviewBalances === 'function') updateOverviewBalances();
-          }
-        }),
-      dbReadAdmin('getTeamBalance', { uid, teamName: (USER_PROFILE && USER_PROFILE.team) || '' }, 'teambal_' + uid, CACHE_CONFIG.TTL_USER)
-        .then(r => { window._teamBalance = r; }),
-      dbReadAdmin('getSystemBalances', {}, 'sysbal', CACHE_CONFIG.TTL_USER)
-        .then(r => {
-          if (r && typeof sysWalletState !== 'undefined') {
-            Object.assign(sysWalletState, r);
-            if (typeof updateSysWalletDisplay === 'function') updateSysWalletDisplay();
-          }
-        }),
-    ]).finally(() => _setAdminLoading(false));
-  }
+  // [FIX-ADMIN-DEAD-CALLS] (2026-11-04) เดิมตรงนี้ยิง Admin GAS 3 ครั้ง (getFundingBalance / getTeamBalance / getSystemBalances)
+  // แต่ router ของ Admin ไม่มี action ชื่อนี้ (ชื่อจริง adminGet… และต้องใช้ admin token) + Main ก็จำกัด getTeamBalance/getSystemBalances ไว้ให้แอดมินเท่านั้น
+  // → ล้มเหลวเงียบทุกครั้งและโชว์ "Syncing balances…" ค้างจนกว่าจะ timeout · ไม่มีผลต่อยอด: funding_balance มาจาก dash.user (getDashboard) อยู่แล้ว
+  //   และ window._teamBalance ไม่มีที่ไหนอ่านต่อ · ยอด System Wallet ฝั่งสมาชิกเป็นค่าในแอปเอง (sysWalletState) ไม่ควรดึงยอดจริงของระบบมาให้สมาชิกเห็น
 
   return dash;
 }

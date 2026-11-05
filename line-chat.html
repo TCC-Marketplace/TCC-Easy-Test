@@ -28,6 +28,13 @@ svg{display:block}
 
 /* ===== List header ===== */
 .lhead{padding:calc(16px + env(safe-area-inset-top)) 20px 12px;display:flex;align-items:center;justify-content:space-between}
+.lt{display:flex;align-items:center;gap:2px}
+.lback{display:none;width:36px;height:40px;margin-left:-10px;align-items:center;justify-content:center;color:var(--tx);border-radius:50%}
+.lback:active{background:var(--surface)}
+body.member .lback{display:flex}   /* [FIX-BACK] ปุ่มกลับ Home ที่หน้ารายการแชท (สมาชิก/Visitor ในแอป) */
+.lload{padding:14px 20px;display:flex;flex-direction:column;gap:14px}
+.lload i{display:block;height:54px;border-radius:14px;background:var(--surface);opacity:.55;animation:lpulse 1.1s ease-in-out infinite alternate}
+@keyframes lpulse{to{opacity:.2}}
 .lhead h1{font-size:22px;font-weight:800;color:var(--tx);letter-spacing:.2px}
 .lhead .acts{display:flex;align-items:center;gap:6px}
 .lhead .acts button{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--tx);border-radius:50%}
@@ -282,7 +289,7 @@ body.admin.room .chead .mgb{display:block}
   <!-- Chat list -->
   <div class="screen on" id="list">
     <div class="lhead">
-      <h1>แชท</h1>
+      <div class="lt"><button class="lback" id="lBack" type="button" aria-label="กลับ"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4L7 13l9 9"/></svg></button><h1>แชท</h1></div>
       <button class="lang" id="langBtnL" type="button" aria-label="Language"></button>
       <div class="acts">
         <button id="bProfile" class="myav" aria-label="โปรไฟล์ซัพพอร์ต" style="display:none"><div id="myav"></div></button>
@@ -725,6 +732,7 @@ const avatarOf = u => (u && (AV_MAP[String(u.id)] || u.avatar)) || "";
 function show(id) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("on"));
   $("#" + id).classList.add("on");
+  if (!IS_ADMIN && IN_FRAME) { try { parent.postMessage({ type: "sc-screen", id }, "*"); } catch (_) { } }   // [FIX-BACK] ให้แอปรู้ว่าอยู่หน้าไหน (back ของเครื่อง: ห้อง→รายการ→ปิดแชท)
 }
 function fatal(msg) {
   show("list");
@@ -1369,6 +1377,12 @@ function paintHeadAv() {
   mkAvatar(pav, peer.name, peer.color, peer.id, peer.avatar);
 }
 $("#back").onclick = () => { if (MEMBER_LIST) enterMemberList(false); else if (fixedPeer) { if (onBack) onBack(); } else enterList(); };
+$("#lBack").onclick = () => { if (onBack) onBack(); };   // [FIX-BACK] หน้ารายการ → กลับ Home
+window.addEventListener("message", ev => {   // [FIX-BACK] ปุ่ม Back ของเครื่อง/เบราว์เซอร์ (แอปส่งมา) → ย้อนทีละชั้น
+  const d = ev.data;
+  if (IS_ADMIN || !d || d.type !== "sc-back" || ev.source !== window.parent) return;
+  if ($("#chat").classList.contains("on")) $("#back").click(); else if (onBack) onBack();
+});
 
 async function pollChat(first) {
   if (!peer || busyChat) return;
@@ -1971,6 +1985,8 @@ $("#lgKey").addEventListener("keydown", e => { if (e.key === "Enter") $("#lgBtn"
     fatal(T("fromApp"));
   } else {
     const sl = storedLang(); if (sl) setLang(sl);
+    $("#chatlist").innerHTML = '<div class="lload"><i></i><i></i><i></i></div>';   // [FIX-SLOW] โครงรายการระหว่างรอข้อมูล
+    try { parent.postMessage({ type: "sc-ready" }, "*"); } catch (_) { }   // [FIX-SLOW] หน้าแชทโหลดแล้ว → แอปซ่อน spinner
     getInit().then(init => {
       if (init.visitor) startVisitor(init);
       else { bootInit = init; startMemberHome(); }

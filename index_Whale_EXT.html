@@ -54,6 +54,20 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 .dot.off{background:var(--r);animation:none;}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 .hdr-r{display:flex;gap:8px;align-items:center;}
+/* ── WHALE i18n: language button + menu (own language switcher, independent of the main app) ── */
+.lang-btn{flex-shrink:0;height:26px;padding:0 10px;border-radius:13px;cursor:pointer;white-space:nowrap;
+  background:rgba(240,185,11,.1);color:#f0b90b;border:1px solid rgba(240,185,11,.28);
+  font:600 10px var(--mono);letter-spacing:.5px;transition:background .2s;}
+.lang-btn:hover{background:rgba(240,185,11,.2);}
+#wh-lang-menu{display:none;position:fixed;top:52px;right:10px;z-index:2000;min-width:160px;
+  background:var(--bg2);border:1px solid var(--b2);border-radius:12px;padding:6px;box-shadow:0 12px 32px rgba(0,0,0,.6);}
+#wh-lang-menu.open{display:block;}
+#wh-lang-menu button{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;
+  background:none;border:none;color:var(--t0);padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;text-align:left;font-family:var(--sans);}
+#wh-lang-menu button:hover{background:rgba(240,185,11,.1);}
+#wh-lang-menu button.on{color:#f0b90b;font-weight:700;}
+@media(max-width:800px){.lang-btn{height:24px;padding:0 7px;font-size:9px;}#wh-lang-menu{top:54px;right:8px;}}
+
 .pill{font-family:var(--mono);font-size:10px;padding:2px 9px;border-radius:20px;border:1px solid;}
 .pill-b{background:var(--bbg);color:var(--b);border-color:rgba(41,182,246,.2);}
 .pill-g{background:var(--gbg);color:var(--g);border-color:rgba(0,230,118,.2);}
@@ -3369,9 +3383,10 @@ html{
     <!-- Auth user badge (แสดงเมื่อ login แล้ว) -->
     <div id="authUserBadge">
       <span class="u-name" id="authBadgeName">—</span>
-      <button class="u-logout" onclick="authLogout()">ออก</button>
+      <button class="u-logout" onclick="authLogout()" data-i18n="hdr.logout">ออก</button>
     </div>
-    <button class="back-btn" onclick="tccGoBack()" title="กลับ Live Market">← Live Market</button>
+    <button class="back-btn" onclick="tccGoBack()" title="กลับ Live Market" data-i18n-title="hdr.back">← Live Market</button>
+    <button class="lang-btn" id="whLangBtn" type="button" aria-label="Language">🌐 TH</button>
     <div class="pill pill-b" id="pCnt">PERPS —</div>
     <div class="pill pill-b" id="sCnt">SPOT —</div>
     <div class="pill pill-g" id="clock">--:--:--</div>
@@ -4472,7 +4487,7 @@ html{
                    cursor:pointer;transition:all .15s;text-align:left;">
             <span id="msbConfBreakdownChev" style="font-size:11px;transition:transform .2s;">▶</span>
             📊 CONFIDENCE BREAKDOWN — รายละเอียดการวิเคราะห์
-            <span id="msbConfBreakdownBadge" style="margin-left:auto;font-size:9px;opacity:.7;font-weight:400;">คลิกเพื่ออ่าน</span>
+            <span id="msbConfBreakdownBadge" style="margin-left:auto;font-size:9px;opacity:.7;font-weight:400;" data-i18n="ai.clickRead">คลิกเพื่ออ่าน</span>
           </button>
           <div id="msbConfBreakdownBody" style="display:none;margin-top:4px;padding:10px 14px;border-radius:7px;
                border:1px solid rgba(206,147,216,.25);background:rgba(206,147,216,.04);
@@ -5240,6 +5255,117 @@ html{
   </div>
 </div>
 
+<!-- ═══ WHALE i18n v1 — 9 ภาษา (th en vi kh mm la ms id zh) · ลำดับเดียวกับไฟล์หลัก · ปุ่ม/ค่าภาษาเป็นของไฟล์นี้เอง ═══ -->
+<script id="wh-i18n">
+/* =====================================================================
+   WHALE i18n — โครงสร้างเหมือน TCC i18n ของไฟล์หลัก แต่แยกอิสระ (ไม่อ่าน ?lang= / tcc_lang / postMessage)
+   ลำดับภาษา (ห้ามสลับ): th en vi kh mm la ms id zh   ·   key → [th, en, vi, kh, mm, la, ms, id, zh]   (zh = จีนตัวย่อ zh-CN)
+   วิธีใช้
+     • JS        : whT('hdr.logout')  ·  whT('x.items',{n:3}) แทน {n} ในข้อความ
+     • HTML      : data-i18n="key" (ข้อความ) · data-i18n-ph="key" (placeholder) · data-i18n-title="key" (title)
+     • เพิ่มคำ   : Object.assign(WH_I18N, { 'page.key': [th,en,vi,kh,mm,la,ms,id,zh] })  แล้วเรียก whI18nCheck() ต้องได้ []
+     • หน้าที่วาดเอง : document.addEventListener('wh-lang', e => render())  (e.detail.lang)
+   ภาษา: จำใน localStorage "wh_lang" · ภาษาอังกฤษ = ฉบับสากลของศัพท์เทรด (Long/Short, Liquidation, Funding Rate, Open Interest)
+   ภาษาที่เลือกถูกส่งไปกับทุกคำขอ AI (callAIProxy → GAS) เพื่อให้ผลวิเคราะห์ตอบเป็นภาษาเดียวกัน
+   ===================================================================== */
+(function(){
+  var LANGS=['th','en','vi','kh','mm','la','ms','id','zh'], IDX={th:0,en:1,vi:2,kh:3,mm:4,la:5,ms:6,id:7,zh:8};
+  var HTML_LANG={th:'th',en:'en',vi:'vi',kh:'km',mm:'my',la:'lo',ms:'ms',id:'id',zh:'zh-CN'};
+  var NATIVE={th:'ไทย',en:'English',vi:'Tiếng Việt',kh:'ខ្មែរ',mm:'မြန်မာ',la:'ລາວ',ms:'Bahasa Melayu',id:'Bahasa Indonesia',zh:'简体中文'};
+  var KEY='wh_lang', cur='th';
+  function lsGet(k){try{return localStorage.getItem(k)||'';}catch(e){return '';}}
+  function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+  function has(l){return Object.prototype.hasOwnProperty.call(IDX,l);}
+  function $(id){return document.getElementById(id);}
+  function qa(s){return Array.prototype.slice.call(document.querySelectorAll(s));}
+
+  var D = window.WH_I18N = {
+    'lang.title':  ['ภาษา','Language','Ngôn ngữ','ភាសា','ဘာသာစကား','ພາສາ','Bahasa','Bahasa','语言'],
+    'hdr.logout':  ['ออก','Log out','Đăng xuất','ចាកចេញ','ထွက်ရန်','ອອກຈາກລະບົບ','Log keluar','Keluar','退出'],
+    'hdr.back':    ['กลับ Live Market','Back to Live Market','Quay lại Live Market','ត្រឡប់ទៅ Live Market','Live Market သို့ ပြန်သွားရန်','ກັບໄປ Live Market','Kembali ke Live Market','Kembali ke Live Market','返回 Live Market']
+  };
+
+  var s0=lsGet(KEY); if(has(s0)) cur=s0;
+
+  function whT(k,v){
+    var a=D[k], s=a?(a[IDX[cur]]||a[1]||a[0]):k;
+    if(v) s=String(s).replace(/\{(\w+)\}/g,function(m,n){return v[n]!=null?v[n]:m;});
+    return s;
+  }
+
+  function whApplyI18n(){
+    var de=document.documentElement; de.lang=HTML_LANG[cur]; de.setAttribute('data-lang',cur);
+    qa('[data-i18n]').forEach(function(e){ e.textContent=whT(e.getAttribute('data-i18n')); });
+    qa('[data-i18n-ph]').forEach(function(e){ e.placeholder=whT(e.getAttribute('data-i18n-ph')); });
+    qa('[data-i18n-title]').forEach(function(e){ e.title=whT(e.getAttribute('data-i18n-title')); });
+    var lb=$('whLangBtn'); if(lb){ lb.textContent='🌐 '+cur.toUpperCase(); lb.title=whT('lang.title'); }
+    qa('#wh-lang-menu button').forEach(function(b){ b.classList.toggle('on',b.getAttribute('data-l')===cur); });
+  }
+
+  function whSetLang(l){
+    if(!has(l)||l===cur) return;
+    cur=l; lsSet(KEY,l);
+    whApplyI18n();
+    try{ document.dispatchEvent(new CustomEvent('wh-lang',{detail:{lang:l}})); }catch(e){}
+  }
+
+  function buildMenu(){
+    var m=document.createElement('div'); m.id='wh-lang-menu';
+    m.innerHTML=LANGS.map(function(l){ return '<button type="button" data-l="'+l+'"><span>'+NATIVE[l]+'</span><b>'+l.toUpperCase()+'</b></button>'; }).join('');
+    m.addEventListener('click',function(ev){
+      var b=ev.target.closest('button[data-l]'); if(!b) return;
+      m.classList.remove('open'); whSetLang(b.getAttribute('data-l'));
+    });
+    document.body.appendChild(m);
+    document.addEventListener('click',function(ev){ if(!ev.target.closest('#wh-lang-menu,#whLangBtn')) m.classList.remove('open'); });
+    document.addEventListener('keydown',function(ev){ if(ev.key==='Escape') m.classList.remove('open'); });
+    return m;
+  }
+  function init(){
+    var menu=buildMenu(), btn=$('whLangBtn');
+    if(btn) btn.addEventListener('click',function(){ menu.classList.toggle('open'); });
+    whApplyI18n();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+
+  // ── ตัวตรวจ: ต้องได้ [] ──
+  function whI18nCheck(){
+    var errs=[], ph=function(s){return (String(s).match(/\{\w+\}/g)||[]).sort().join();};
+    Object.keys(D).forEach(function(k){
+      var a=D[k];
+      if(!Array.isArray(a)||a.length!==LANGS.length){ errs.push(k+': ต้องมี '+LANGS.length+' ค่า ('+LANGS.join(' ')+')'); return; }
+      a.forEach(function(s,i){
+        if(!String(s==null?'':s).trim()) errs.push(k+': ขาดภาษา '+LANGS[i]);
+        else if(ph(s)!==ph(a[0])) errs.push(k+': ตัวแปร {} ภาษา '+LANGS[i]+' ไม่ตรงกับฉบับไทย');
+      });
+    });
+    qa('[data-i18n],[data-i18n-ph],[data-i18n-title]').forEach(function(e){
+      ['data-i18n','data-i18n-ph','data-i18n-title'].forEach(function(at){
+        var k=e.getAttribute(at); if(k&&!D[k]) errs.push('HTML '+at+'="'+k+'": ไม่มี key ใน WH_I18N');
+      });
+    });
+    return errs;
+  }
+
+  window.WH_LANGS=LANGS; window.WH_LANG_NATIVE=NATIVE;
+  window.whT=whT; window.whLang=function(){return cur;};
+  window.whSetLang=whSetLang; window.whApplyI18n=whApplyI18n; window.whI18nCheck=whI18nCheck;
+  var _e=whI18nCheck(); if(_e.length&&window.console) console.warn('[WH i18n] '+_e.length+' รายการผิดพลาด',_e);
+})();
+</script>
+
+<script id="wh-i18n-ai">
+/* WHALE i18n — คำที่เกี่ยวกับกระบวนการ AI (ชุด 3a) */
+Object.assign(WH_I18N, {
+  'ai.authReq':   ['🔐 กรุณาเข้าสู่ระบบสมาชิก (แท็บ Forecast) เพื่อใช้ AI','🔐 Please log in as a member (Forecast tab) to use AI','🔐 Vui lòng đăng nhập tài khoản thành viên (tab Forecast) để dùng AI','🔐 សូមចូលជាសមាជិក (ផ្ទាំង Forecast) ដើម្បីប្រើ AI','🔐 AI ကို အသုံးပြုရန် အဖွဲ့ဝင်အဖြစ် အကောင့်ဝင်ပါ (Forecast တက်ဘ်)','🔐 ກະລຸນາເຂົ້າລະບົບສະມາຊິກ (ແທັບ Forecast) ເພື່ອໃຊ້ AI','🔐 Sila log masuk sebagai ahli (tab Forecast) untuk menggunakan AI','🔐 Silakan login sebagai anggota (tab Forecast) untuk menggunakan AI','🔐 请登录会员账号（Forecast 标签页）以使用 AI'],
+  'ai.analyzing': ['⏳ TCC AI กำลังวิเคราะห์ข้อมูลจาก TCC Data และสร้าง Forecast 1/3/6h...','⏳ TCC AI is analyzing TCC Data and building the 1/3/6h forecast...','⏳ TCC AI đang phân tích TCC Data và tạo dự báo 1/3/6h...','⏳ TCC AI កំពុងវិភាគទិន្នន័យ TCC Data និងបង្កើតការព្យាករណ៍ 1/3/6h...','⏳ TCC AI သည် TCC Data ကို ခွဲခြမ်းစိတ်ဖြာပြီး 1/3/6h ခန့်မှန်းချက် ဖန်တီးနေသည်...','⏳ TCC AI ກຳລັງວິເຄາະຂໍ້ມູນ TCC Data ແລະສ້າງ Forecast 1/3/6h...','⏳ TCC AI sedang menganalisis TCC Data dan membina ramalan 1/3/6h...','⏳ TCC AI sedang menganalisis TCC Data dan membuat prakiraan 1/3/6h...','⏳ TCC AI 正在分析 TCC Data 并生成 1/3/6 小时预测...'],
+  'ai.errTail':   [' · ตรวจสอบ Apps Script URL และ API Key',' · Check the Apps Script URL and API key',' · Kiểm tra URL Apps Script và API Key',' · សូមពិនិត្យ Apps Script URL និង API Key',' · Apps Script URL နှင့် API Key ကို စစ်ဆေးပါ',' · ກວດສອບ Apps Script URL ແລະ API Key',' · Semak URL Apps Script dan API Key',' · Periksa URL Apps Script dan API Key',' · 请检查 Apps Script URL 和 API Key'],
+  'ai.clickRead': ['คลิกเพื่ออ่าน','Click to read','Nhấp để đọc','ចុចដើម្បីអាន','ဖတ်ရန် နှိပ်ပါ','ກົດເພື່ອອ່ານ','Klik untuk baca','Klik untuk membaca','点击阅读'],
+  'ai.clickClose':['คลิกเพื่อปิด','Click to close','Nhấp để đóng','ចុចដើម្បីបិទ','ပိတ်ရန် နှိပ်ပါ','ກົດເພື່ອປິດ','Klik untuk tutup','Klik untuk menutup','点击关闭'],
+  'common.updated':['อัปเดต:','Updated:','Cập nhật:','ធ្វើបច្ចុប្បន្នភាព:','ပြင်ဆင်ပြီး:','ອັບເດດ:','Dikemas kini:','Diperbarui:','更新：']
+});
+(function(){ var e=whI18nCheck(); if(e.length&&window.console) console.warn('[WH i18n] '+e.length+' รายการผิดพลาด',e); })();
+</script>
 <script>
 // ════════════════════════════════════════════════════════════════
 // CONFIG
@@ -5736,7 +5862,7 @@ async function obFetchData() {
 
     obRenderAll();
     const ts = document.getElementById('obLastUpdate');
-    if (ts) ts.textContent = 'อัปเดต: ' + _bkkTimeStr()
+    if (ts) ts.textContent = whT('common.updated') + ' ' + _bkkTimeStr()
       + ' | OB: ' + obOkCount + '/' + OB_COINS.length + qualBadge
       + (d.errors&&d.errors.length?' ⚠'+d.errors.length+'err':'');
   } catch(e) {
@@ -7911,24 +8037,24 @@ async function _aiFlushQueue() {
   if (window._aiRunning) return;
   window._aiRunning = true;
   while (window._aiQueue.length > 0) {
-    const { prompt, maxTokens, resolve, reject, retry, pub, cacheSec } = window._aiQueue.shift();
+    const { prompt, maxTokens, resolve, reject, retry, pub, cacheSec, lang } = window._aiQueue.shift();
     try {
       const r = await fetch(ALERT_CONFIG.appsScriptURL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: pub ? 'aiAnalyzePublic' : 'aiAnalyze', prompt, maxTokens: maxTokens || 800, cacheSec: cacheSec || 0 }),   // v46: pub = Analytics (ไม่ต้อง login) · v48: cacheSec = ให้ GAS แคชคำตอบ (opt-in)
+        body: JSON.stringify({ action: pub ? 'aiAnalyzePublic' : 'aiAnalyze', prompt, maxTokens: maxTokens || 800, cacheSec: cacheSec || 0, lang: lang || 'th' }),   // v46: pub = Analytics (ไม่ต้อง login) · v48: cacheSec = ให้ GAS แคชคำตอบ (opt-in)
       });
       if (!r.ok) { reject(new Error('HTTP ' + r.status)); }
       else {
         const text = await r.text();
         let d;
         try { d = JSON.parse(text); } catch(e) { reject(new Error('Parse error: ' + text.slice(0,80))); continue; }
-        if (!d.ok) { reject(new Error(d.error === 'AUTH_REQUIRED' ? '🔐 กรุณาเข้าสู่ระบบสมาชิก (แท็บ Forecast) เพื่อใช้ AI' : (d.error || 'AI proxy error'))); }
+        if (!d.ok) { reject(new Error(d.error === 'AUTH_REQUIRED' ? whT('ai.authReq') : (d.error || 'AI proxy error'))); }
         else if (d.result && d.result.startsWith('⚠️ Rate Limit')) {
           // ── GAS reported rate-limit → re-queue with retry ──
           const r2 = retry || 0;
           if (r2 < _AI_MAX_RETRY) {
-            window._aiQueue.unshift({ prompt, maxTokens, resolve, reject, retry: r2 + 1, pub, cacheSec });
+            window._aiQueue.unshift({ prompt, maxTokens, resolve, reject, retry: r2 + 1, pub, cacheSec, lang });
             await new Promise(res => setTimeout(res, _AI_RETRY_MS));
           } else {
             resolve(d.result); // ส่งต่อ error message ให้ signal handler จัดการ
@@ -7950,7 +8076,7 @@ async function callAIProxy(prompt, maxTokens, opts) {
   const pub = !!(opts && opts.pub);   // v46: Analytics ใช้ action สาธารณะ (ไม่ต้อง login สมาชิก)
   const cacheSec = (opts && opts.cacheSec) ? Math.min(parseInt(opts.cacheSec, 10) || 0, 600) : 0;   // v48: opt-in แคชคำตอบฝั่ง GAS
   return new Promise((resolve, reject) => {
-    window._aiQueue.push({ prompt, maxTokens, resolve, reject, retry: 0, pub, cacheSec });
+    window._aiQueue.push({ prompt, maxTokens, resolve, reject, retry: 0, pub, cacheSec, lang: (typeof whLang === 'function' ? whLang() : 'th') });   // 3a: ภาษา ณ ตอนกด (ไม่เปลี่ยนกลางคิว)
     _aiFlushQueue();
   });
 }
@@ -9029,7 +9155,7 @@ async function runMobAI() {
   btn.disabled = true;
   btn.textContent = '⏳ กำลังวิเคราะห์ + สร้าง Forecast...';
   res.style.display = 'block';
-  res.innerHTML = '<div style="color:var(--t2);font-size:10px;padding:8px 0;">⏳ TCC AI กำลังวิเคราะห์ข้อมูลจาก TCC Data และสร้าง Forecast 1/3/6h...</div>';
+  res.innerHTML = '<div style="color:var(--t2);font-size:10px;padding:8px 0;">' + whT('ai.analyzing') + '</div>';
   // ✅ v24: ใช้ buildForecastPrompt แทน buildWhalePrompt — รวม Forecast + Confidence %
   const _anCoins = _anTopCoinsForMarket();
   const _mkt = await fetchMarketContextPublic(_anCoins);   // v46: ดึง Market Context สาธารณะ (ไม่ต้อง login)
@@ -9793,8 +9919,8 @@ ${newsText}
     if (timeEl) timeEl.textContent = '🕐 ' + _bkkTimeStr();
 
     // Parse DIRECTION and CONFIDENCE from response
-    const dirMatch  = aiText.match(/DIRECTION[:\s]*([A-Z]+)/i);
-    const confMatch = aiText.match(/CONFIDENCE[:\s]*(\d+)/i);
+    const dirMatch  = aiText.match(/DIRECTION[:：\s]*([A-Z]+)/i);
+    const confMatch = aiText.match(/CONFIDENCE[:：\s]*(\d+)/i);
     const direction = dirMatch ? dirMatch[1].toUpperCase() : 'NEUTRAL';
     let confidence  = confMatch ? Math.min(100, Math.max(0, parseInt(confMatch[1]))) : 50;
     // If fallback data, reduce confidence
@@ -10259,7 +10385,7 @@ async function fcRunAIForward(data, buckets, presetH) {
     if (time) time.textContent = '🕐 ' + _bkkTimeStr();
   } catch(e) {
     load.style.display = 'none';
-    res.textContent = '❌ AI Error: ' + e.message + ' · ตรวจสอบ Apps Script URL และ API Key';
+    res.textContent = '❌ AI Error: ' + e.message + whT('ai.errTail');
   }
 }
 
@@ -10960,7 +11086,7 @@ function msbParseForecasts(text) {
   const t = String(text || '');
   TFS.forEach(tf => {
     // v47: ทนรูปแบบ **FORECAST_1H:** / FORECAST_1H: [BEARISH] [81%] / BEARISH 81%
-    const rx = new RegExp('FORECAST_' + tf + '[*_:\\s\\[\\(]*(BULLISH|BEARISH|NEUTRAL)[^\\d\\n]{0,8}(\\d{1,3})\\s*%?', 'i');
+    const rx = new RegExp('FORECAST_' + tf + '[*_:：\\s\\[\\(（]*(BULLISH|BEARISH|NEUTRAL)[^\\d\\n]{0,8}(\\d{1,3})\\s*%?', 'i');
     const m  = t.match(rx);
     // v47: อ่านไม่ได้ → _missing (ไม่นับเป็นเสียงใน Time-Grid แทนการใส่ NEUTRAL 50% ปลอม)
     result[tf] = m
@@ -10974,8 +11100,8 @@ function msbParseForecasts(text) {
 // ok=false เมื่ออ่านไม่ได้ → caller ต้องถือว่า "ไม่มีข้อมูล" (HasData=false) ไม่ใช่ NEUTRAL 50%
 function msbParseDirConf(text) {
   const t = String(text || '');
-  const dirM  = t.match(/DIRECTION[*_:\s\[\(]*(BULLISH|BEARISH|NEUTRAL)/i);
-  const confM = t.match(/CONFIDENCE[*_:\s\[\(]*(\d{1,3})/i);
+  const dirM  = t.match(/DIRECTION[*_:：\s\[\(（]*(BULLISH|BEARISH|NEUTRAL)/i);
+  const confM = t.match(/CONFIDENCE[*_:：\s\[\(（]*(\d{1,3})/i);
   return {
     ok:   !!(dirM && confM),
     dir:  dirM  ? dirM[1].toUpperCase() : null,
@@ -11012,7 +11138,7 @@ function msbParseForecastReasons(text) {
   const result = {};
   TFS.forEach(tf => {
     // จับ: FORECAST_1H: BEARISH 81% (เหตุผล: ...) หรือ — เหตุผล...
-    const rxParen = new RegExp(`FORECAST_${tf}[^\\n]*?\\(เหตุผล:\\s*(.+?)\\)`, 'i');
+    const rxParen = new RegExp(`FORECAST_${tf}[^\\n]*?[(（][^:：()（）\\n]{1,24}[:：]\\s*(.+?)[)）]`, 'i');
     const rxDash  = new RegExp(`FORECAST_${tf}[^\\n]*?—\\s*(.+)`, 'i');
     const mP = text.match(rxParen);
     const mD = text.match(rxDash);
@@ -11207,7 +11333,7 @@ function msbToggleConfBreakdown() {
     btn.style.background = isOpen ? 'rgba(206,147,216,.07)' : 'rgba(206,147,216,.14)';
     btn.style.borderColor = isOpen ? 'rgba(206,147,216,.35)' : 'rgba(206,147,216,.6)';
   }
-  if (badge) badge.textContent = isOpen ? 'คลิกเพื่ออ่าน' : 'คลิกเพื่อปิด';
+  if (badge) badge.textContent = isOpen ? whT('ai.clickRead') : whT('ai.clickClose');
 }
 
 async function msbAnalyzeNews() {
@@ -11589,7 +11715,7 @@ async function msbSynthesize() {
   if (confBreakdownRow)  confBreakdownRow.style.display = 'none';
   if (confBreakdownBody) { confBreakdownBody.style.display = 'none'; confBreakdownBody.innerHTML = ''; }
   if (confBreakdownChev) confBreakdownChev.style.transform = 'rotate(0)';
-  if (confBreakdownBadge) confBreakdownBadge.textContent = 'คลิกเพื่ออ่าน';
+  if (confBreakdownBadge) confBreakdownBadge.textContent = whT('ai.clickRead');
   if (confBreakdownBtn)  { confBreakdownBtn.style.background = 'rgba(206,147,216,.07)'; confBreakdownBtn.style.borderColor = 'rgba(206,147,216,.35)'; }
 
   // ✅ v35 FIX: Data-Quality Aware Synthesis
@@ -11822,7 +11948,7 @@ FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [%] — [เหตุผล 1 ประ�
     if (synthLoad)   synthLoad.style.display = 'none';
     if (synthTime)   synthTime.textContent = '🕐 ' + _bkkTimeStr();
     const tsEl = document.getElementById('msbTimestamp');
-    if (tsEl) tsEl.textContent = 'อัปเดต: ' + _bkkTimeStr();
+    if (tsEl) tsEl.textContent = whT('common.updated') + ' ' + _bkkTimeStr();
 
     // ✅ v09: parse reasons จาก AI text แล้ว merge เข้า tfGrid
     const aiReasons = msbParseForecastReasons(text);
@@ -11845,14 +11971,14 @@ FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [%] — [เหตุผล 1 ประ�
         .replace(/^⏱️?\s*TIME-GRID FORECAST[^\n]*\n?/im, '')
         .replace(/^━+\s*TIME-GRID[^\n]*\n?/gim, '')
         .replace(/^━+\s*PRE-COMPUTED TIME-GRID[^\n]*\n?/gim, '')
-        .replace(/⏱️?\s*TIME-GRID FORECAST\s*\(ยืนยัน[^)]*\)\s*:?[^\n]*\n?/gim, '')
+        .replace(/⏱️?\s*TIME-GRID FORECAST\s*\([^)]*\)\s*:?[^\n]*\n?/gim, '')
         .replace(/^FORECAST\s+\d+H\s*:?[^\n]*\n?/gim, '')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
 
       // Step 2: แยก CONFIDENCE BREAKDOWN ออกมาเก็บไว้ใน drawer
       // หา section ที่ขึ้นต้นด้วย "1. 📊 CONFIDENCE BREAKDOWN" หรือ "CONFIDENCE BREAKDOWN"
-      const confBreakdownRx = /(\d+\.\s*📊\s*CONFIDENCE BREAKDOWN[\s\S]*?)(?=\n\n\d+\.\s*[📈🔗⚡⚠️]|\n\n\*\*|\n\nสรุป|$)/i;
+      const confBreakdownRx = /(\d+\.\s*📊\s*CONFIDENCE BREAKDOWN[\s\S]*?)(?=\n\n\d+\.\s*[📈🔗⚡⚠️]|\n\n\*\*|\n\n(?:สรุป|Summary|Tổng kết|សរុប|အနှစ်ချုပ်|ສະຫຼຸບ|Ringkasan|Kesimpulan|总结|小结)|$)/i;
       const confMatch = cleaned.match(confBreakdownRx);
 
       let confBreakdownText = '';
@@ -11862,7 +11988,7 @@ FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [%] — [เหตุผล 1 ประ�
         cleaned = cleaned.replace(confBreakdownRx, '').replace(/\n{3,}/g, '\n\n').trim();
       } else {
         // fallback: หาแบบ header ธรรมดา
-        const confAltRx = /(CONFIDENCE BREAKDOWN[\s\S]*?)(?=\n\n\d+\.|\n\nสรุป|$)/i;
+        const confAltRx = /(CONFIDENCE BREAKDOWN[\s\S]*?)(?=\n\n\d+\.|\n\n(?:สรุป|Summary|Tổng kết|សរុប|အနှစ်ချုပ်|ສະຫຼຸບ|Ringkasan|Kesimpulan|总结|小结)|$)/i;
         const altMatch = cleaned.match(confAltRx);
         if (altMatch) {
           confBreakdownText = altMatch[1].trim();
@@ -11882,7 +12008,7 @@ FORECAST_48H: [BULLISH/BEARISH/NEUTRAL] [%] — [เหตุผล 1 ประ�
             .replace(/BULLISH/g, '<span style="color:var(--g);font-weight:700;">BULLISH</span>')
             .replace(/BEARISH/g, '<span style="color:var(--r);font-weight:700;">BEARISH</span>')
             .replace(/NEUTRAL/g, '<span style="color:var(--y);font-weight:700;">NEUTRAL</span>');
-          if (confBreakdownBadge) confBreakdownBadge.textContent = 'คลิกเพื่ออ่าน';
+          if (confBreakdownBadge) confBreakdownBadge.textContent = whT('ai.clickRead');
         } else {
           confBreakdownRow.style.display = 'none';
         }
@@ -16619,7 +16745,7 @@ window.HistoryModule = (function () {
     const elUpd  = document.getElementById('histInfoUpdated');
     const elSrc  = document.getElementById('histInfoSource');
     const elCnt  = document.getElementById('histInfoCount');
-    if (elUpd) elUpd.textContent = cached?.lastUpdated ? 'อัปเดต: ' + _fmtTime(cached.lastUpdated) : '—';
+    if (elUpd) elUpd.textContent = cached?.lastUpdated ? whT('common.updated') + ' ' + _fmtTime(cached.lastUpdated) : '—';
     if (elSrc) elSrc.textContent = 'แหล่งข้อมูล: ' + (cached?.source || '—');
     if (elCnt) elCnt.textContent = allData.reduce((s, m) => s + m.candles.length, 0) + ' วัน';
 

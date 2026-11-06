@@ -1963,7 +1963,7 @@ function tcS5Referral(myId){
   const totalPayout = totalBonus + commBonus;
 
   // ── ลิงค์แนะนำ ──────────────────────────────────────────────────
-  const refLink = `https://tradercafeclubthai.tradercafeclub.workers.dev/?ref=${encodeURIComponent(myId)}#register`;
+  const refLink = `https://tradercafeclubthai.tradercafeclub.workers.dev/?ref=${encodeURIComponent(myId)}&lang=${_tccRefLang()}#register`;   // [REF-LANG]
 
   // ── คัดลอกลิงค์ ─────────────────────────────────────────────────
   const copyRefLink=()=>{
@@ -2834,8 +2834,18 @@ function showMsg(msg, dur = 2500) {
   setTimeout(() => t.classList.remove('show'), dur);
 }
 
+// ════════════════════════════════════════════════════════════════
+//  [REF-LANG] ลิงก์แนะนำตามภาษาหลักที่สมาชิกใช้อยู่ในระบบ
+//  index เก็บภาษาไว้ที่ localStorage 'tcc_lang' (origin เดียวกับหน้านี้/iframe) → ต่อ &lang=xx ท้ายลิงก์
+//  หน้าสมัครปลายทางอ่าน ?lang=xx อยู่แล้ว · ไม่มีค่า/ค่าไม่ถูกต้อง → th
+// ════════════════════════════════════════════════════════════════
+var _TCC_REF_LANGS = ['th','en','vi','kh','mm','la','ms','id','zh'];
+function _tccRefLang(){
+  try{ var l = (localStorage.getItem('tcc_lang')||'').toLowerCase(); if(_TCC_REF_LANGS.indexOf(l) > -1) return l; }catch(e){}
+  return 'th';
+}
 function buildRefLink(uid) {
-  return 'https://tradercafeclubthai.tradercafeclub.workers.dev/?ref=' + encodeURIComponent(uid) + '#register';
+  return 'https://tradercafeclubthai.tradercafeclub.workers.dev/?ref=' + encodeURIComponent(uid) + '&lang=' + _tccRefLang() + '#register';
 }
 
 // ════════════════════════════════

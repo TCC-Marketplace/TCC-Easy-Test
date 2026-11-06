@@ -3536,7 +3536,7 @@ html{
       <select id="anMkt"><option value="ALL">PERPS + SPOT</option><option value="PERPS">PERPS เท่านั้น</option><option value="SPOT">SPOT เท่านั้น</option></select>
       <select id="anDay"><option value="ALL">ทุกวัน</option><option value="1">จันทร์</option><option value="2">อังคาร</option><option value="3">พุธ</option><option value="4">พฤหัส</option><option value="5">ศุกร์</option><option value="6">เสาร์</option><option value="0">อาทิตย์</option></select>
       <select id="anHour"><option value="ALL">ตลอดวัน</option><option value="0-5">00–05 ดึก</option><option value="6-8">06–08 เช้า</option><option value="9-11">09–11 สาย</option><option value="12-14">12–14 บ่าย</option><option value="15-17">15–17 เย็น</option><option value="18-23">18–23 ค่ำ</option></select>
-      <button class="an-load-btn" id="anLoadBtn" onclick="loadSheetData()">🔄 โหลดจาก Sheet</button>
+      <button class="an-load-btn" id="anLoadBtn" onclick="loadSheetData({force:true})">🔄 โหลดจาก Sheet</button>
       <button class="an-load-btn" id="anApplyBtn" onclick="anApplyFilters()" style="background:var(--gbg);color:var(--g);border-color:rgba(0,230,118,.3);">✓ กรองข้อมูล</button>
       <span id="anDataInfo" style="font-family:var(--mono);font-size:9px;color:var(--t2);"></span>
     </div>
@@ -5453,6 +5453,7 @@ function desktopTab(tab) {
     document.getElementById('forecastPanel').style.display = 'none';
     obHidePanel();
     if (!anLoaded) loadSheetData();
+    else { loadSheetData(); if (window._anDirty) { window._anDirty = false; anApplyFilters(); } }   // v54: มีข้อมูลจาก cache/prefetch แล้ว → วาดทันที + delta เบื้องหลัง
   } else if (tab === 'forecast') {
     if (feedFilterGrp) feedFilterGrp.style.display = 'none';
     if (tblWrap)       tblWrap.style.display       = 'none';
@@ -7177,7 +7178,302 @@ function clearCoinFilter() {
 // ════════════════════════════════════════════════════════════════
 // ANALYTICS — ดึงข้อมูลจาก Google Sheet ผ่าน Apps Script
 // ════════════════════════════════════════════════════════════════
-async function loadSheetData() {
+// ════════════════════════════════════════════════════════════════
+// v54: ANALYTICS DATA LAYER — cache-first (IndexedDB) + delta sync + ทยอยโหลดย้อนหลังเบื้องหลัง
+//   เปิดมา → แสดงจาก cache ทันที → ขอเฉพาะแถวใหม่ (delta) → ค่อยๆ โหลดย้อนหลังทีละก้อนเก็บลง cache
+//   ไม่อ่านชีต 40,000 แถวทีเดียวอีกต่อไป · GAS ที่ยังเป็นเวอร์ชันเก่า (ไม่มี compact) → fallback ไปโหลดแบบเดิมอัตโนมัติ
+// ════════════════════════════════════════════════════════════════
+const AD_SCHEMA = 1;
+const AD_CFG = {
+  W: { act: 'getData',   cap: 40000, first: 1500, chunk: 4000, lo: 100000, hi: Infinity },   // Whale ≥$100K (= WHALE_MAX_ROWS)
+  S: { act: 'getSWData', cap: 50000, first: 1500, chunk: 4000, lo: 10000,  hi: 100000 },     // Small Whale (= SW_MAX_ROWS)
+};
+const _AD = { st: { W: null, S: null }, db: null, dbP: null, saveT: null, dirty: { W: false, S: false },
+              runP: null, lastSync: 0, lastPub: 0, pubT: null };
+window._anDirty = false; window._anBackfilling = false; window._anLoadFailed = false;
+
+const _adSleep = ms => new Promise(r => setTimeout(r, ms));
+const _adNewState = () => ({ rows: [], keys: new Set(), bfSkip: 0, done: false, newest: 0 });
+const _adKey = r => r[0] + '|' + r[1] + '|' + r[2] + '|' + r[3] + '|' + r[4];
+
+// ── IndexedDB (ถ้าใช้ไม่ได้ เช่น private mode → ทำงานแบบไม่มี cache ได้ปกติ) ──
+function _adOpenDB() {
+  if (_AD.dbP) return _AD.dbP;
+  _AD.dbP = new Promise(res => {
+    try {
+      if (!window.indexedDB) return res(null);
+      const rq = window.indexedDB.open('tccWhaleAn', 1);
+      rq.onupgradeneeded = () => { try { rq.result.createObjectStore('kv', { keyPath: 'k' }); } catch (e) {} };
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = rq.onblocked = () => res(null);
+    } catch (e) { res(null); }
+  });
+  return _AD.dbP;
+}
+const _adIdbGet = (db, k) => new Promise(res => { try { const rq = db.transaction('kv', 'readonly').objectStore('kv').get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); } catch (e) { res(null); } });
+const _adIdbPut = (db, v) => new Promise(res => { try { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v); tx.oncomplete = () => res(true); tx.onerror = tx.onabort = () => res(false); } catch (e) { res(false); } });
+
+async function _adInit() {
+  if (_AD.st.W) return;
+  _AD.st.W = _adNewState(); _AD.st.S = _adNewState();
+  const db = await _adOpenDB(); _AD.db = db;
+  if (!db) return;
+  for (const k of ['W', 'S']) {
+    const rec = await _adIdbGet(db, k);
+    if (!rec || rec.schema !== AD_SCHEMA || !Array.isArray(rec.rows)) continue;
+    const st = _AD.st[k];
+    st.rows = rec.rows; st.bfSkip = rec.bfSkip || 0; st.done = !!rec.done;
+    for (const r of st.rows) st.keys.add(_adKey(r));
+    st.newest = st.rows.length ? st.rows[st.rows.length - 1][7] : 0;
+  }
+}
+function _adSaveSoon(k) { _AD.dirty[k] = true; clearTimeout(_AD.saveT); _AD.saveT = setTimeout(_adSaveNow, 2000); }
+async function _adSaveNow() {
+  const db = _AD.db; if (!db) return;
+  for (const k of ['W', 'S']) {
+    if (!_AD.dirty[k]) continue;
+    _AD.dirty[k] = false;
+    const st = _AD.st[k];
+    await _adIdbPut(db, { k, schema: AD_SCHEMA, rows: st.rows, bfSkip: st.bfSkip, done: st.done, savedAt: Date.now() });
+  }
+}
+
+// ── แถวจาก GAS: [ts 'dd/MM/yyyy HH:mm:ss' (เวลา Bangkok), wallet, coin, dir, usd, lev, market] ──
+const _AD_TS_RE = /^(\d\d)\/(\d\d)\/(\d{4}) (\d\d):(\d\d):(\d\d)/;
+function _adEpoch(ts) {
+  const m = _AD_TS_RE.exec(String(ts || ''));
+  if (!m) return null;
+  const v = Date.UTC(+m[3], +m[2] - 1, +m[1], +m[4], +m[5], +m[6]) - 25200000;   // Bangkok = UTC+7
+  return isNaN(v) ? null : v;
+}
+function _adMerge(k, data) {
+  const cfg = AD_CFG[k], st = _AD.st[k];
+  let added = 0, needSort = false;
+  let lastEp = st.rows.length ? st.rows[st.rows.length - 1][7] : 0;
+  for (const d of (data || [])) {
+    const usd = Number(d[4]) || 0;
+    if (usd < cfg.lo || usd >= cfg.hi) continue;
+    const key = d[0] + '|' + d[1] + '|' + d[2] + '|' + d[3] + '|' + usd;
+    if (st.keys.has(key)) continue;
+    const ep = _adEpoch(d[0]);
+    if (ep === null) continue;
+    st.keys.add(key);
+    if (ep < lastEp) needSort = true; else lastEp = ep;
+    st.rows.push([d[0], d[1], d[2], d[3], usd, d[5], d[6], ep]);
+    added++;
+  }
+  if (!added) return 0;
+  if (needSort) st.rows.sort((a, b) => a[7] - b[7]);
+  if (st.rows.length > cfg.cap) {
+    const drop = st.rows.length - cfg.cap;
+    for (let i = 0; i < drop; i++) st.keys.delete(_adKey(st.rows[i]));
+    st.rows.splice(0, drop);
+  }
+  st.newest = st.rows[st.rows.length - 1][7];
+  _adSaveSoon(k);
+  return added;
+}
+
+async function _adFetch(k, rows, skip, ms) {
+  const u = ALERT_CONFIG.appsScriptURL + '?action=' + AD_CFG[k].act + '&compact=1&rows=' + rows + '&skip=' + skip;
+  const x = await fetch(u, { signal: AbortSignal.timeout(ms || 20000) });
+  if (!x.ok) throw new Error('HTTP ' + x.status);
+  const d = await x.json();
+  if (!d || !d.ok) throw new Error((d && d.error) || 'GAS error');
+  if (!d.compact) { const e = new Error('NO_COMPACT'); e.code = 'NO_COMPACT'; throw e; }   // GAS ยังเป็น v53 ที่ไม่รู้จัก compact
+  return d;
+}
+async function _adFetchRetry(k, rows, skip, tries) {
+  let err;
+  for (let i = 0; i < (tries || 2); i++) {
+    try { return await _adFetch(k, i === 0 ? rows : Math.max(500, Math.floor(rows / 2)), skip, i === 0 ? 20000 : 25000); }
+    catch (e) { err = e; if (e.code === 'NO_COMPACT') throw e; await _adSleep(600); }
+  }
+  throw err;
+}
+
+// ── delta: ขอเฉพาะก้อนล่าสุด แล้ว merge · ถ้ายังไม่ซ้อนทับกับ cache ก็ขอก้อนที่เก่ากว่าต่อ (สูงสุด 8 ก้อน) ──
+async function _adDelta(k) {
+  const cfg = AD_CFG[k], st = _AD.st[k];
+  const prevNewest = st.newest, had = st.rows.length > 0;
+  let skip = 0, overlap = false;
+  for (let g = 0; g < 8; g++) {
+    const d = await _adFetchRetry(k, skip === 0 ? (had ? 800 : cfg.first) : cfg.chunk, skip);
+    _adMerge(k, d.data);
+    skip += d.read;
+    if (!had) { st.bfSkip = skip; if (!d.more) st.done = true; _adSaveSoon(k); return; }
+    let oldest = null;
+    for (const r of d.data) { const ep = _adEpoch(r[0]); if (ep !== null && (oldest === null || ep < oldest)) oldest = ep; }
+    if ((oldest !== null && oldest <= prevNewest) || !d.more) { overlap = true; break; }
+  }
+  if (had && !overlap) {   // cache เก่าเกินไป (มีช่องว่าง) → ทิ้งข้อมูลเก่า เริ่มสะสมใหม่จากจุดนี้
+    st.rows = st.rows.filter(r => r[7] > prevNewest);
+    st.keys = new Set(st.rows.map(_adKey));
+    st.bfSkip = skip; st.done = false; _adSaveSoon(k);
+  }
+}
+
+// ── ทยอยโหลดย้อนหลังทีละก้อน (ต่อจาก bfSkip) — resume ได้ถ้าปิดหน้าไปก่อนครบ ──
+async function _adBackfill(k) {
+  const cfg = AD_CFG[k], st = _AD.st[k];
+  let fails = 0;
+  while (!st.done && fails < 3) {
+    if (st.rows.length >= cfg.cap) { st.done = true; break; }
+    try {
+      const d = await _adFetchRetry(k, cfg.chunk, st.bfSkip, 2);
+      _adMerge(k, d.data);
+      st.bfSkip += d.read;
+      if (!d.more || d.read === 0) st.done = true;
+      _adSaveSoon(k); fails = 0;
+      _adPublishSoon();
+      await _adSleep(250);
+    } catch (e) { if (e.code === 'NO_COMPACT') break; fails++; await _adSleep(1500 * fails); }
+  }
+  _adSaveSoon(k);
+}
+
+// ── แปลงแถว cache → object ที่ Analytics ใช้ (ไม่ใช้ Date/toLocaleString ต่อแถว — เร็วกว่าเดิมมาก) ──
+const _AD_DAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์'];
+function _adObj(r, sw) {
+  const ts = r[0], yy = ts.slice(6, 10), mm = ts.slice(3, 5), dd = ts.slice(0, 2), hs = ts.slice(11, 13), ms = ts.slice(14, 16);
+  const h = +hs, m = +ms, dow = new Date(Date.UTC(+yy, +mm - 1, +dd)).getUTCDay();
+  const s15 = hs + ':' + (m < 15 ? '00' : m < 30 ? '15' : m < 45 ? '30' : '45');
+  const coin = r[2] || 'BTC', dir = String(r[3] || 'LONG').toUpperCase();
+  if (sw) return { date: yy + '-' + mm + '-' + dd, dow, ts: hs + ':' + ms, h, m, s15, coin, dir, usd: r[4] };
+  return { date: yy + '-' + mm + '-' + dd, day: _AD_DAYS[dow], dow, ts: hs + ':' + ms, h, m, s15, coin, dir, usd: r[4],
+           lev: String(r[5] || '—'), market: String(r[6] || 'PERPS').toUpperCase(), wallet: String(r[1] || '—') };
+}
+function _anVisible() {
+  if (isMobile()) return mobCurrentTab === 'analytics';
+  const p = document.getElementById('analyticsPanel');
+  return !!(p && p.classList.contains('active'));
+}
+function _adInfo() {
+  const info = document.getElementById('anDataInfo');
+  if (!info) return;
+  const cov = anCoverageText(AN_ALL);
+  let t = `✅ Whale: ${AN_ALL.length.toLocaleString()} รายการ ≥$100K` + (cov ? ' · ' + cov : '');
+  if (SW_ALL.length) t += ` + SW: ${SW_ALL.length.toLocaleString()} รายการ`;
+  if (window._anBackfilling) t += ' · ⏬ กำลังโหลดย้อนหลัง...';
+  info.textContent = t;
+}
+function _adPublish() {
+  AN_ALL = _AD.st.W.rows.map(r => _adObj(r, false));
+  SW_ALL = _AD.st.S.rows.map(r => _adObj(r, true));
+  if (AN_ALL.length) anLoaded = true;
+  _anRecomputeFD();
+  _adInfo();
+  _AD.lastPub = Date.now();
+  if (_anVisible()) { window._anDirty = false; anRenderAll(); } else window._anDirty = true;   // ซ่อนอยู่ → ไม่ต้องวาดกราฟ วาดตอนเปิดแท็บ
+}
+function _adPublishSoon() {   // ระหว่าง backfill วาดใหม่ไม่ถี่เกิน ~4 วิ
+  if (_AD.pubT) return;
+  const wait = Math.max(0, 4000 - (Date.now() - _AD.lastPub));
+  _AD.pubT = setTimeout(() => { _AD.pubT = null; _adPublish(); }, wait);
+}
+
+// ── ข้อมูลสำรองเมื่อโหลดจาก Sheet ไม่ได้เลย (live feed / demo) — ไม่ set anLoaded ──
+function _adFallbackData() {
+  const info = document.getElementById('anDataInfo');
+  if (allTrades.length > 0) {
+    AN_ALL = allTrades.filter(t => t.usd >= 100000).map(t => ({
+      date: new Date().toISOString().slice(0, 10),
+      day: _AD_DAYS[new Date().getDay()], dow: new Date().getDay(), ts: t.time, h: parseInt(t.time.slice(0, 2)),
+      m: parseInt(t.time.slice(3, 5)), s15: t.time.slice(0, 5).replace(/:(\d)(\d)$/, (m, a, b) => ':' + (Math.floor(parseInt(a + b) / 15) * 15).toString().padStart(2, '0')),
+      coin: t.coin, dir: t.direction.toUpperCase(), usd: t.usd, lev: t.lev ? t.lev + 'x' : '—',
+      market: t.mkt.toUpperCase(), wallet: t.wallet,
+    }));
+    if (info) info.textContent = `⚠️ โหลดจาก Sheet ไม่สำเร็จ · แสดง Live feed ${AN_ALL.length} รายการ (กด 🔄 เพื่อลองใหม่)`;
+  } else {
+    AN_ALL = generateDemoData();
+    if (info) info.textContent = '⚠️ โหลดจาก Sheet ไม่สำเร็จ · (Demo data) กด 🔄 เพื่อลองใหม่';
+  }
+  AN_FD = [...AN_ALL];
+  anRenderAll();
+}
+
+// ── ตัวควบคุมการ sync: first = พร้อมแสดงผลแล้ว · delta = ดึงแถวใหม่เสร็จ · full = backfill ครบ ──
+function _adStartSync(prefetch) {
+  if (_AD.runP) return _AD.runP;
+  let resFirst, resDelta;
+  const run = { interactive: !prefetch,
+    first: new Promise(r => { resFirst = r; }), delta: new Promise(r => { resDelta = r; }), full: null };
+  _AD.runP = run;
+  run.full = (async () => {
+    window._loadSheetInProgress = true; window._anLoadFailed = false;
+    let firstDone = false;
+    const finishFirst = () => { if (!firstDone) { firstDone = true; window._loadSheetInProgress = false; resFirst(); } };
+    try {
+      await _adInit();
+      const hasCache = _AD.st.W.rows.length > 0;
+      if (hasCache) { _adPublish(); finishFirst(); }
+      const pW = _adDelta('W'), pS = _adDelta('S');
+      pS.catch(() => {});
+      let errW = null;
+      try { await pW; } catch (e) { errW = e; }
+      if (errW) {
+        if (!hasCache) {
+          if (errW.code === 'NO_COMPACT') {   // GAS ยังไม่ได้ Deploy v54 → ใช้ตัวโหลดแบบเดิมไปก่อน
+            window._loadSheetInProgress = false;
+            await _loadSheetDataLegacy();
+          } else if (run.interactive) {
+            window._anLoadFailed = true; _adFallbackData();
+            if (isMobile() && mobCurrentTab === 'analytics') renderMobileAnalytics();
+          }
+          finishFirst(); resDelta(); return;
+        }
+        finishFirst(); resDelta(); return;   // มี cache อยู่แล้ว → ใช้ต่อ ไม่ถือว่าล้มเหลว
+      }
+      _adPublish(); finishFirst();
+      try { await pS; } catch (e) {}
+      _adPublish(); resDelta();
+      _AD.lastSync = Date.now();
+      if (!_AD.st.W.done || !_AD.st.S.done) {
+        window._anBackfilling = true; _adInfo();
+        await Promise.all([_adBackfill('W'), _adBackfill('S')]);
+        window._anBackfilling = false;
+        clearTimeout(_AD.pubT); _AD.pubT = null;
+        _adPublish();
+        await _adSaveNow();
+      }
+    } catch (e) {
+      console.warn('AnData sync error:', e);
+    } finally {
+      window._anBackfilling = false; window._loadSheetInProgress = false;
+      finishFirst(); resDelta();
+      _AD.lastSync = Date.now(); _AD.runP = null;
+    }
+  })();
+  return run;
+}
+
+// opts: force = ปุ่ม "โหลดใหม่" (รอ delta) · waitFull = รอ backfill ครบ (Forecast/Mega ใช้) · prefetch = โหลดเงียบๆ ตอนเปิดหน้า
+async function loadSheetData(opts) {
+  opts = opts || {};
+  const btn = document.getElementById('anLoadBtn');
+  const fresh = anLoaded && !_AD.runP && !opts.force && (Date.now() - _AD.lastSync < 60000);
+  if (!fresh) {
+    const needWait = !anLoaded || !!opts.force;
+    if (btn && needWait) { btn.disabled = true; btn.textContent = '⏳ กำลังโหลด...'; }
+    try {
+      const run = _adStartSync(!!opts.prefetch);
+      if (!opts.prefetch) run.interactive = true;
+      if (needWait) await (opts.force ? run.delta : run.first);
+    } finally {
+      if (btn && needWait) { btn.disabled = false; btn.textContent = '🔄 โหลดใหม่'; }
+    }
+  }
+  if (opts.waitFull && _AD.runP) await Promise.race([_AD.runP.full, _adSleep(opts.maxWaitMs || 15000)]);
+}
+// โหลดเงียบๆ ล่วงหน้าตั้งแต่เปิดหน้า (ผู้ใช้เข้าแท็บ Analytics/Forecast จะเห็นข้อมูลทันที)
+(function () {
+  const go = () => setTimeout(() => { const run = () => { try { loadSheetData({ prefetch: true }).catch(() => {}); } catch (e) {} };
+    if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 6000 }); else run(); }, 3000);
+  if (document.readyState === 'complete') go(); else window.addEventListener('load', go);
+})();
+
+// (v53 เดิม — ใช้เป็น fallback เมื่อ GAS ยังไม่ได้ Deploy v54 เท่านั้น)
+async function _loadSheetDataLegacy() {
   if (window._loadSheetInProgress) return; // ป้องกัน double-call
   window._loadSheetInProgress = true;
   const btn  = document.getElementById('anLoadBtn');
@@ -7364,7 +7660,7 @@ function _anFilterRows(coin, dir, mkt, day, hr) {
     return true;
   });
 }
-function anApplyFilters() {
+function _anRecomputeFD() {
   const mob = isMobile();
   const val = (id, fb) => { const el = document.getElementById(id); return el ? el.value : fb; };
   AN_FD = _anFilterRows(
@@ -7373,8 +7669,8 @@ function anApplyFilters() {
     mob ? _mobAnMkt  : val('anMkt','ALL'),
     mob ? _mobAnDay  : val('anDay','ALL'),
     mob ? _mobAnHr   : val('anHour','ALL'));
-  anRenderAll();
 }
+function anApplyFilters() { _anRecomputeFD(); anRenderAll(); }
 
 // v53: ช่วงวันที่ที่ข้อมูลครอบคลุม เช่น "4 วัน (19/10 → 22/10)"
 function anCoverageText(arr) {
@@ -8072,6 +8368,7 @@ function mobTab(tab) {
     // ซ่อน HL banner (เป็นของ Forecast เท่านั้น)
     const b = document.getElementById('fcHlBanner'); if (b) b.style.display = 'none';
     renderMobileAnalytics();
+    if (anLoaded) { try { loadSheetData(); } catch (e) {} }   // v54: delta เบื้องหลัง (ข้ามเองถ้า sync ล่าสุด < 60 วิ)
   } else if (tab==='orderbook') {
     // Mobile Order Book: แสดง panel เต็มพื้นที่ใต้ nav
     if (obp) {
@@ -8199,6 +8496,7 @@ function renderMobileAnalytics() {
   }
 
   if (!anLoaded) {
+    const _failed = !!window._anLoadFailed;
     wrap.innerHTML = `
       <div style="padding:8px 0 4px;">
         <div style="font-family:var(--mono);font-size:14px;color:var(--b);font-weight:700;margin-bottom:4px;">🐋 Whale Analytics</div>
@@ -8206,16 +8504,16 @@ function renderMobileAnalytics() {
       </div>
       <div class="mob-chart-card" style="text-align:center;padding:40px 20px;">
         <div style="font-size:40px;margin-bottom:12px;">📊</div>
-        <div style="font-family:var(--mono);font-size:13px;color:var(--b);font-weight:700;margin-bottom:6px;">กำลังโหลดข้อมูล...</div>
-        <div style="font-size:10px;color:var(--t2);">ดึงข้อมูล Whale จาก TCC Data</div>
-        <div style="margin-top:16px;width:40px;height:4px;background:rgba(41,182,246,.15);border-radius:2px;margin-left:auto;margin-right:auto;overflow:hidden;">
+        <div style="font-family:var(--mono);font-size:13px;color:var(--b);font-weight:700;margin-bottom:6px;">${_failed ? '⚠️ โหลดข้อมูลไม่สำเร็จ' : 'กำลังโหลดข้อมูล...'}</div>
+        <div style="font-size:10px;color:var(--t2);">${_failed ? 'เซิร์ฟเวอร์ตอบช้าหรือไม่ตอบสนอง กดลองใหม่ได้เลย' : 'ดึงข้อมูล Whale จาก TCC Data'}</div>
+        <div style="margin-top:16px;width:40px;height:4px;display:${_failed ? 'none' : 'block'};background:rgba(41,182,246,.15);border-radius:2px;margin-left:auto;margin-right:auto;overflow:hidden;">
           <div style="width:40%;height:100%;background:var(--b);border-radius:2px;animation:shimmer 1.2s infinite;"></div>
         </div>
       </div>
-      <button class="mob-an-load-btn" onclick="loadSheetData().then(()=>renderMobileAnalytics()).catch(()=>{})">🔄 โหลดข้อมูลจาก TCC Data</button>
+      <button class="mob-an-load-btn" onclick="window._anLoadFailed=false;loadSheetData({force:true}).then(()=>renderMobileAnalytics()).catch(()=>{})">🔄 โหลดข้อมูลจาก TCC Data</button>
     `;
-    // Auto-trigger load if not already loading
-    if (!window._loadSheetInProgress) {
+    // Auto-trigger load if not already loading (ไม่วนซ้ำเมื่อโหลดล้มเหลว — ให้ผู้ใช้กดลองใหม่เอง)
+    if (!_failed && !window._loadSheetInProgress) {
       loadSheetData().then(() => { if (anLoaded && mobCurrentTab === 'analytics') renderMobileAnalytics(); }).catch(e => { console.warn('loadSheetData failed:', e); });
     }
     return;
@@ -8292,7 +8590,7 @@ function renderMobileAnalytics() {
         <div style="font-family:var(--mono);font-size:14px;color:var(--b);font-weight:700;">🐋 Whale Analytics</div>
         <div style="font-family:var(--mono);font-size:9px;color:var(--t2);margin-top:2px;">${AN_FD.length.toLocaleString()} รายการ ≥$100K · ${anCoverageText(AN_ALL) || new Date().toLocaleDateString('th-TH')}</div>
       </div>
-      <button class="mob-an-load-btn" style="margin:0;padding:6px 12px;font-size:10px;" onclick="loadSheetData().then(()=>renderMobileAnalytics()).catch(()=>{})">🔄</button>
+      <button class="mob-an-load-btn" style="margin:0;padding:6px 12px;font-size:10px;" onclick="window._anLoadFailed=false;loadSheetData({force:true}).then(()=>renderMobileAnalytics()).catch(()=>{})">🔄</button>
     </div>
 
     <!-- ② Description -->
@@ -9818,9 +10116,9 @@ async function fcRun(runAI = true) {
   }
 
   // FIX v11: Auto-load sheet ก่อนถ้ายังไม่ได้โหลด
-  if (!anLoaded) {
+  if (!anLoaded || window._anBackfilling) {
     document.getElementById('fcInfoSrc').textContent = '📥 กำลังโหลด Sheet...';
-    await loadSheetData().catch(() => {});
+    await loadSheetData({ waitFull: true, maxWaitMs: 15000 }).catch(() => {});
   }
 
   // Determine time range
@@ -12366,11 +12664,11 @@ async function msbRunAnalysis() {
   msbSetColDir('msbCVDDir', null);
 
   // ── FIX v14: Auto-load Sheet data ถ้ายังไม่ได้โหลด (เช่นเดียวกับ fcRun) ──
-  if (!anLoaded || AN_ALL.length === 0) {
+  if (!anLoaded || AN_ALL.length === 0 || window._anBackfilling) {
     document.getElementById('msbSubtitle').textContent = '📥 กำลังโหลด Sheet data...';
     const sheetStatusEl = document.getElementById('msbSheetResult');
     if (sheetStatusEl) { sheetStatusEl.className = 'msb-signal-result loading'; sheetStatusEl.textContent = '⏳ กำลังโหลดข้อมูล Historical Whale...'; }
-    await loadSheetData().catch(() => {});
+    await loadSheetData({ waitFull: true, maxWaitMs: 15000 }).catch(() => {});
   }
 
   // Also run chart data (fcRun will update the bucket charts below)

@@ -2296,7 +2296,7 @@ function tcS5Referral(myId){
   const totalPayout = totalBonus + commBonus;
 
   // ── ลิงค์แนะนำ ──────────────────────────────────────────────────
-  const refLink = `https://tradercafeclubthai.tradercafeclub.workers.dev/?ref=${encodeURIComponent(myId)}&lang=${_tccRefLang()}#register`;   // [REF-LANG]
+  const refLink = _tccCleanLink(`https://tradercafeclubthai.tradercafeclub.workers.dev/?ref=${encodeURIComponent(myId)}&lang=${_tccRefLang()}#register`);   // [REF-LANG][REF-AMP]
 
   // ── คัดลอกลิงค์ ─────────────────────────────────────────────────
   const copyRefLink=()=>{
@@ -3177,8 +3177,10 @@ function _tccRefLang(){
   try{ var l = (localStorage.getItem('tcc_lang')||'').toLowerCase(); if(_TCC_REF_LANGS.indexOf(l) > -1) return l; }catch(e){}
   return 'th';
 }
+// [REF-AMP] กัน &amp; หลุดเข้าลิงก์ (ลิงก์ที่ผ่าน HTML/innerHTML แล้วมือถือคัดลอกต่อ) → ลิงก์ต้องมี & ธรรมดาเสมอ
+function _tccCleanLink(l){ return String(l||'').replace(/&amp;/gi,'&').replace(/&#0*38;/g,'&').trim(); }
 function buildRefLink(uid) {
-  return 'https://tradercafeclubthai.tradercafeclub.workers.dev/?ref=' + encodeURIComponent(uid) + '&lang=' + _tccRefLang() + '#register';
+  return _tccCleanLink('https://tradercafeclubthai.tradercafeclub.workers.dev/?ref=' + encodeURIComponent(uid) + '&lang=' + _tccRefLang() + '#register');
 }
 
 // ════════════════════════════════
@@ -3284,7 +3286,7 @@ async function regSubmit() {
 }
 
 function copySuccessLink() {
-  const link = document.getElementById('successLink').textContent;
+  const link = _tccCleanLink(document.getElementById('successLink').textContent);
   if (navigator.clipboard) {
     navigator.clipboard.writeText(link).then(() => showMsg(tccT('m1.reg.copied')));
   } else {

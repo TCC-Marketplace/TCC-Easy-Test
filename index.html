@@ -3199,7 +3199,10 @@ const LANG_IDX={th:0,en:1,vi:2,kh:3,mm:4,la:5,ms:6,id:7,zh:8};
 let _L='th';
 try{_L=localStorage.getItem('tcc_lang')||'th';}catch(e){}
 // [URL-LANG] ลำดับ: ?lang=xx ในลิงก์ > ภาษาที่จำไว้ > th (ผู้รับลิงก์ที่ส่งต่อมาเห็นภาษาเดียวกับผู้ส่ง)
-try{var _q=(new URLSearchParams(location.search).get('lang')||'').toLowerCase();if(LANG_IDX.hasOwnProperty(_q)){_L=_q;try{localStorage.setItem('tcc_lang',_q);}catch(e){}}}catch(e){}
+// ถ้าสมาชิกกดเลือกภาษาเองแล้วในแท็บนี้ (sessionStorage tcc_lang_pick) ให้ภาษาที่เลือกชนะ ?lang= ที่ค้างอยู่ใน URL/ประวัติ (กันกลับเป็นไทยหลังรีโหลด/ย้อนหน้า)
+try{var _q=(new URLSearchParams(location.search).get('lang')||'').toLowerCase();var _picked='';try{_picked=sessionStorage.getItem('tcc_lang_pick')||'';}catch(e){}
+if(LANG_IDX.hasOwnProperty(_q)&&!LANG_IDX.hasOwnProperty(_picked)){_L=_q;try{localStorage.setItem('tcc_lang',_q);}catch(e){}}
+else if(LANG_IDX.hasOwnProperty(_picked)){_L=_picked;try{localStorage.setItem('tcc_lang',_picked);}catch(e){}}}catch(e){}
 if(!LANG_IDX.hasOwnProperty(_L))_L='th';
 // [URL-LANG] ใส่ ?lang=<ภาษาที่ใช้อยู่> ในแถบที่อยู่เสมอ → คัดลอก/ส่งต่อลิงก์จากเบราว์เซอร์แล้วการ์ดพรีวิวเป็นภาษาเดียวกัน (คง ?query อื่นและ #hash)
 window.tccSyncUrlLang=function(){try{var u=new URL(location.href);if(u.searchParams.get('lang')===_L)return;u.searchParams.set('lang',_L);history.replaceState(history.state,'',u.pathname+u.search+u.hash);}catch(e){}};
@@ -3230,6 +3233,7 @@ window.tccSetLang=function(lang){
   if(!LANG_IDX.hasOwnProperty(lang))return;
   _L=lang;
   try{localStorage.setItem('tcc_lang',lang);}catch(e){}
+  try{sessionStorage.setItem('tcc_lang_pick',lang);}catch(e){}
   tccSyncUrlLang();
   document.querySelectorAll('.tcc-lang-opt').forEach(el=>{el.classList.toggle('active',el.dataset.lang===lang);});
   tccApplyLang();

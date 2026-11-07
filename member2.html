@@ -1272,6 +1272,7 @@ function _tccRefLang(){
 }
 function _tccRefLinkWithLang(link){
   if(!link) return link;
+  link = String(link).replace(/&amp;/gi, '&').replace(/&#0*38;/g, '&').trim();   // [REF-AMP] กัน &amp; หลุดเข้าลิงก์ (ลิงก์ที่ผ่าน HTML/innerHTML แล้วมือถือคัดลอกต่อ)
   var h = link.indexOf('#');
   var base = h > -1 ? link.slice(0,h) : link;
   var hash = h > -1 ? link.slice(h) : '';

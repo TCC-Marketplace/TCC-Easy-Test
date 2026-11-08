@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TCC Admin Panel</title>
+<!-- [LOGO] ใส่ URL โลโก้จริงที่ const TCC_LOGO_URL (ใกล้ท้ายไฟล์) — favicon/โลโก้จะใช้รูปนั้นอัตโนมัติ · ถ้าว่างใช้ไอคอน TC สีทองในตัว -->
+<link id="tccFavicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231a1508'/%3E%3Cstop offset='1' stop-color='%232d2008'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)' stroke='%23c9a227' stroke-width='3'/%3E%3Ctext x='32' y='42' font-family='monospace' font-weight='700' font-size='28' text-anchor='middle' fill='%23e8b83a'%3ETC%3C/text%3E%3C/svg%3E">
+<link id="tccAppleIcon" rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a1508'/%3E%3Ctext x='32' y='42' font-family='monospace' font-weight='700' font-size='28' text-anchor='middle' fill='%23e8b83a'%3ETC%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#0a0c0f">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
@@ -49,7 +53,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 #sb{width:var(--sidebar-w);height:100%;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .2s}
 #sb.col{width:52px}
 .sb-hdr{height:var(--hdr-h);padding:0 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-shrink:0}
-.sb-logo{width:28px;height:28px;border-radius:7px;flex-shrink:0;background:linear-gradient(135deg,#1a1508,#2d2008);border:1px solid var(--goldbr);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:10px;color:var(--gold)}
+.sb-logo img{width:100%;height:100%;object-fit:contain;border-radius:6px;display:block}
+.sb-logo{overflow:hidden;width:28px;height:28px;border-radius:7px;flex-shrink:0;background:linear-gradient(135deg,#1a1508,#2d2008);border:1px solid var(--goldbr);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:10px;color:var(--gold)}
 .sb-brand{overflow:hidden}
 .sb-brand b{display:block;font-size:12px;font-weight:700;white-space:nowrap}
 .sb-brand span{display:block;font-size:9px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;font-family:var(--mono);white-space:nowrap}
@@ -446,7 +451,7 @@ tr:hover td{background:var(--bgh)}
   <!-- SIDEBAR -->
   <nav id="sb">
     <div class="sb-hdr">
-      <div class="sb-logo">TC</div>
+      <div class="sb-logo" id="sbLogo">TC</div>
       <div class="sb-brand"><b>TCC Admin</b><span>Control Panel</span></div>
     </div>
     <div class="sb-nav">
@@ -2402,7 +2407,16 @@ function vWd(idx) {
   const d=(window._wdData||[])[idx]; if(!d) return;
   const st=(d.status||'pending').toLowerCase();
   const addr=d.to_address||'';
-  const needsAdmin = st === 'awaiting_approval';
+  // [FIX-WD-MODAL] ใช้นิยามเดียวกับปุ่มในตาราง (awaiting_approval / needs_review / pending onchain เมื่อ AUTO_RUN ปิด)
+  const needsAdmin = wdNeedsAdmin(d);
+  const wk = _wdKind(d);
+  const adminNote = wk==='review'
+    ? '🔍 TX ถูกส่งออกไปแล้วแต่ยืนยันไม่ได้ — ตรวจ TxID บน block explorer ก่อน: ถึงปลายทางแล้ว → กด "ยืนยันโอนแล้ว" | ไม่ถึงจริง → กด "ปฏิเสธ/ยกเลิก (คืนเงิน)"'
+    : wk==='pending'
+    ? '⚠️ Bot ปิด AUTO_RUN — โอนจริงนอกระบบแล้วกด "ยืนยันโอนแล้ว" พร้อม TxID หรือกด "ปฏิเสธ/ยกเลิก" เพื่อคืนเงินให้สมาชิก (ระบบคืน amount+fee อัตโนมัติ)'
+    : '⚠️ Bot หยุดรอ Admin อนุมัติ (อาจเกิน daily limit หรือ per-tx limit) — กด Approve เพื่อปลดล็อกให้ Bot โอนต่อ หรือปฏิเสธเพื่อคืนเงิน';
+  const approveLabel = wk==='legacy' ? 'Approve (ปลดล็อก)' : 'ยืนยันโอนแล้ว';
+  const rejectLabel  = wk==='legacy' ? 'Reject' : 'ปฏิเสธ/ยกเลิก (คืนเงิน)';
   const qrRow = addr
     ? `<div class="dr"><div class="dk">QR Code</div><div class="dv"><img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(addr)}" style="background:#fff;padding:6px;border-radius:8px" alt="QR"></div></div>`
     : '';
@@ -2426,9 +2440,9 @@ function vWd(idx) {
     <div class="dr"><div class="dk">Tx Hash</div><div class="dv" style="font-size:10px;word-break:break-all">${d.txid||'—'}</div></div>
     ${balanceBlock}
     <div class="dr"><div class="dk">หมายเหตุ</div><div class="dv">${d.note||'—'}</div></div>
-    ${needsAdmin?`<div style="background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.25);border-radius:var(--rmd);padding:10px;margin-top:8px;font-size:11px;color:var(--y)">⚠️ Bot หยุดรอ Admin อนุมัติ (อาจเกิน daily limit หรือ per-tx limit) — กด Approve เพื่อปลดล็อกให้ทำงานต่อ</div>`:''}
+    ${needsAdmin?`<div style="background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.25);border-radius:var(--rmd);padding:10px;margin-top:8px;font-size:11px;color:var(--y)">${adminNote}</div>`:''}
   `,needsAdmin
-    ?[{l:'Approve',c:'ok',fn:`appWd(${idx})`},{l:'Reject',c:'no',fn:`rejWd(${idx})`},{l:'ปิด',c:'can',fn:'cm()'}]
+    ?[{l:approveLabel,c:'ok',fn:`appWd(${idx})`},{l:rejectLabel,c:'no',fn:`rejWd(${idx})`},{l:'ปิด',c:'can',fn:'cm()'}]
     :[{l:'ปิด',c:'can',fn:'cm()'}]);
 }
 
@@ -5837,6 +5851,18 @@ function exportCSV(type) {
     if (TGT !== '*' && ev.origin !== TGT) return;
     if (ev.data && ev.data.type === 'kbm-need-token') sendToken();
   });
+})();
+
+// [LOGO] ตั้ง URL โลโก้ (เช่น imgBB) ที่นี่ — ว่าง = ใช้ไอคอน TC ในตัว
+const TCC_LOGO_URL = '';
+(function applyTccLogo(){
+  if (!TCC_LOGO_URL) return;
+  try {
+    const f = document.getElementById('tccFavicon'); if (f) { f.removeAttribute('type'); f.href = TCC_LOGO_URL; }
+    const a = document.getElementById('tccAppleIcon'); if (a) a.href = TCC_LOGO_URL;
+    const el = document.getElementById('sbLogo');
+    if (el) { const im = new Image(); im.alt = 'TCC'; im.onload = () => { el.textContent=''; el.appendChild(im); }; im.src = TCC_LOGO_URL; }
+  } catch(e) {}
 })();
 </script>
 </body>

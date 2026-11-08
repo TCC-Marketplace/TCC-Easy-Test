@@ -53,7 +53,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 #sb{width:var(--sidebar-w);height:100%;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .2s}
 #sb.col{width:52px}
 .sb-hdr{height:var(--hdr-h);padding:0 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-shrink:0}
-.sb-logo img{width:100%;height:100%;object-fit:contain;border-radius:6px;display:block}
+.sb-logo img,.lk-badge img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+.sb-logo.has-logo,.lk-badge.has-logo{border-radius:50%;background:none;border:0;box-shadow:none;overflow:hidden}
+.lk-badge.has-logo{width:84px;height:84px;box-shadow:0 0 32px rgba(201,162,39,.25)}
 .sb-logo{overflow:hidden;width:28px;height:28px;border-radius:7px;flex-shrink:0;background:linear-gradient(135deg,#1a1508,#2d2008);border:1px solid var(--goldbr);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:10px;color:var(--gold)}
 .sb-brand{overflow:hidden}
 .sb-brand b{display:block;font-size:12px;font-weight:700;white-space:nowrap}
@@ -366,12 +368,11 @@ tr:hover td{background:var(--bgh)}
 
 <!-- LOCK SCREEN -->
 <div id="lock">
-  <div class="lk-badge">TC</div>
+  <div class="lk-badge" id="lkBadge">TC</div>
   <div class="lk-sub">Admin Control Panel</div>
 
   <!-- STATE: LOGIN -->
   <div class="lk-card" id="lk-login">
-    <img id="lkLogo" alt="TCC" style="display:none;width:64px;height:64px;object-fit:contain;margin:0 auto 10px;border-radius:12px">
     <h2>🔐 เข้าสู่ระบบ Admin</h2>
     <p>ระบบสำหรับผู้ดูแลระบบ TCC เท่านั้น<br>ทุกการเข้าใช้งานถูกบันทึก Log ไว้</p>
     <div class="lk-inp">
@@ -5864,9 +5865,12 @@ const TCC_FAVICON_URL = TCC_LOGO_URL; // แยกเป็นรูปอื่
     const a = document.getElementById('tccAppleIcon'); if (a) a.href = url;
   });
   load(TCC_LOGO_URL, (url) => {
-    const el = document.getElementById('sbLogo');
-    if (el) { const im = new Image(); im.alt = 'TCC'; im.src = url; el.textContent = ''; el.appendChild(im); }
-    const lk = document.getElementById('lkLogo'); if (lk) { lk.src = url; lk.style.display = 'block'; }
+    // โลโก้กลม: ใช้แทนไอคอน "TC" ทั้งแถบข้างและหน้า Login (หน้า Login มีโลโก้ชุดเดียว ไม่ซ้อนกัน)
+    ['sbLogo', 'lkBadge'].forEach((id) => {
+      const el = document.getElementById(id); if (!el) return;
+      const im = new Image(); im.alt = 'TCC'; im.src = url;
+      el.textContent = ''; el.classList.add('has-logo'); el.appendChild(im);
+    });
   });
 })();
 </script>

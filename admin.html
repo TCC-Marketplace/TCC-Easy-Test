@@ -371,6 +371,7 @@ tr:hover td{background:var(--bgh)}
 
   <!-- STATE: LOGIN -->
   <div class="lk-card" id="lk-login">
+    <img id="lkLogo" alt="TCC" style="display:none;width:64px;height:64px;object-fit:contain;margin:0 auto 10px;border-radius:12px">
     <h2>🔐 เข้าสู่ระบบ Admin</h2>
     <p>ระบบสำหรับผู้ดูแลระบบ TCC เท่านั้น<br>ทุกการเข้าใช้งานถูกบันทึก Log ไว้</p>
     <div class="lk-inp">
@@ -5853,16 +5854,20 @@ function exportCSV(type) {
   });
 })();
 
-// [LOGO] ตั้ง URL โลโก้ (เช่น imgBB) ที่นี่ — ว่าง = ใช้ไอคอน TC ในตัว
-const TCC_LOGO_URL = '';
+// [LOGO] URL โลโก้ (imgBB) — ใช้ทั้งโลโก้แถบข้าง/หน้า Login และ favicon · โหลดไม่ได้ = คงไอคอน TC ในตัว
+const TCC_LOGO_URL = 'https://i.ibb.co/7xc9KFL5/TCC-Small-1-Logo.png';
+const TCC_FAVICON_URL = TCC_LOGO_URL; // แยกเป็นรูปอื่นได้ถ้าต้องการ (แนะนำสี่เหลี่ยมจัตุรัส ≥ 64px)
 (function applyTccLogo(){
-  if (!TCC_LOGO_URL) return;
-  try {
-    const f = document.getElementById('tccFavicon'); if (f) { f.removeAttribute('type'); f.href = TCC_LOGO_URL; }
-    const a = document.getElementById('tccAppleIcon'); if (a) a.href = TCC_LOGO_URL;
+  const load = (url, ok) => { if (!url) return; try { const im = new Image(); im.onload = () => ok(url, im); im.src = url; } catch(e) {} };
+  load(TCC_FAVICON_URL, (url) => {
+    const f = document.getElementById('tccFavicon'); if (f) { f.removeAttribute('type'); f.href = url; }
+    const a = document.getElementById('tccAppleIcon'); if (a) a.href = url;
+  });
+  load(TCC_LOGO_URL, (url) => {
     const el = document.getElementById('sbLogo');
-    if (el) { const im = new Image(); im.alt = 'TCC'; im.onload = () => { el.textContent=''; el.appendChild(im); }; im.src = TCC_LOGO_URL; }
-  } catch(e) {}
+    if (el) { const im = new Image(); im.alt = 'TCC'; im.src = url; el.textContent = ''; el.appendChild(im); }
+    const lk = document.getElementById('lkLogo'); if (lk) { lk.src = url; lk.style.display = 'block'; }
+  });
 })();
 </script>
 </body>

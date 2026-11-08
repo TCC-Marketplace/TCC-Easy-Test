@@ -1762,6 +1762,7 @@ async function loadAll() {
 
     if (deps.value?.data)  D.deposits    = (deps.value.data||[]).map(x=>({...(x), _src: x._source || 'manual'}));
     if (wds.value?.data)   D.withdrawals = (wds.value.data||[]).map(x=>({_src:'gas',...x}));
+    if (wds.value && typeof wds.value.bot_auto_run === 'boolean') BOT_AUTO_RUN = wds.value.bot_auto_run; // [W7]
     if (txs.value?.data)   D.txlog       = txs.value.data;
     if (pos.value?.data)   D.positions   = pos.value.data;
     if (posH.value?.data)  D.posHistory  = posH.value.data;
@@ -1871,7 +1872,8 @@ function populateDynamicFilters() {
   const GAS_DEP_STATUSES = ['pending','approved','credited','unmatched','rejected'];
   const depStatusLabels = {
     pending:'รอ Approve (Manual)', approved:'อนุมัติแล้ว',
-    credited:'Credited (On-chain)', unmatched:'⚠️ Unmatched', rejected:'ปฏิเสธ'
+    credited:'Credited (On-chain)', unmatched:'⚠️ Unmatched', rejected:'ปฏิเสธ',
+    crediting:'⏳ Crediting (retry)', credit_review:'🔍 ตรวจมือ (credit_review)', below_min:'ต่ำกว่าขั้นต่ำ', unsupported_coin:'เหรียญไม่รองรับ'
   };
   const depStatusesFromData = [...new Set(D.deposits.map(d => (d.status||'').toLowerCase()).filter(Boolean))];
   const mergedDepStatuses = [...new Set([...GAS_DEP_STATUSES, ...depStatusesFromData])];
@@ -2088,7 +2090,7 @@ function rdep(resetPage=false) {
                   : st==='rejected' ? 'p-no'
                   : st==='unmatched' ? 'p-no'
                   : 'p-pend';
-    const stLabel = {approved:'Approved',credited:'Credited',rejected:'Rejected',unmatched:'⚠️ Unmatched',pending:'Pending'}[st]||st;
+    const stLabel = {approved:'Approved',credited:'Credited',rejected:'Rejected',unmatched:'⚠️ Unmatched',pending:'Pending',crediting:'⏳ Crediting',credit_review:'🔍 ตรวจมือ',below_min:'ต่ำกว่าขั้นต่ำ',unsupported_coin:'เหรียญไม่รองรับ'}[st]||st;
     const amtColor = parseFloat(d.amount||0)>0?'var(--g)':'var(--t2)';
     return `<tr style="cursor:pointer" onclick="vDep(${absIdx})">
       <td class="mono" style="color:var(--t3);width:40px">${start+i+1}</td>
@@ -2113,6 +2115,8 @@ function rdep(resetPage=false) {
       <td><span class="pill ${stPill}">${stLabel}</span></td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap">${(!isAuto && st==='pending')
         ?`<button class="ab ok" style="margin-right:4px" onclick="appDep(${absIdx})">✓ Approve</button><button class="ab no" onclick="rejDep(${absIdx})">✕</button>`
+        :(isAuto && st==='unmatched' && can('adminResolveDeposit'))
+        ?`<button class="ab ok" style="margin-right:4px" onclick="resolveDep(${absIdx})">🔗 Resolve</button><button class="ab vi" onclick="vDep(${absIdx})">รายละเอียด</button>`
         :`<button class="ab vi" onclick="vDep(${absIdx})">รายละเอียด</button>`}</td>
     </tr>`;
   }).join('')
@@ -2140,6 +2144,28 @@ async function doAppDep(idx) {
   } else {
     toast('⚠️ GAS: '+(res?.message||'เกิดข้อผิดพลาด'),'er');
   }
+  rdep(); renderDsDep(); updateBadges(); loadAll();
+}
+// [D9] แก้ unmatched ย้อนหลัง — ระบุ uid เจ้าของที่ถูกต้อง → Ledger เครดิตผ่านเส้นทางเดียวกับ auto-credit
+function resolveDep(idx) {
+  const d=(window._depData||[])[idx]; if(!d) return;
+  if (d._src!=='auto' || (d.status||'').toLowerCase()!=='unmatched') { toast('Resolve ได้เฉพาะ On-chain ที่เป็น Unmatched','er'); return; }
+  modal('🔗 Resolve Unmatched Deposit',
+    `<p style="margin-bottom:10px">ระบุ BNB ID (uid) เจ้าของที่ถูกต้อง — ระบบจะเครดิต <strong style="color:var(--g)">+${fnum(d.amount)} ${d.coin||'USDT'}</strong> (${d.network||''}) ให้ uid นี้ ผ่านเส้นทางเดียวกับ auto-credit</p>
+     <div class="dr"><div class="dk">To address</div><div class="dv" style="font-size:10px;word-break:break-all">${d.to_address||'—'}</div></div>
+     <div class="dr"><div class="dk">Tx ID</div><div class="dv" style="font-size:10px;word-break:break-all">${d.txid||'—'}</div></div>
+     <div class="mf"><label>uid ปลายทาง</label><input id="rsUid" placeholder="เช่น BNB ID ของสมาชิก"></div>
+     <div style="font-size:11px;color:var(--r);margin-top:6px">⚠️ ตรวจสอบ uid และธุรกรรมบน chain ให้แน่ใจก่อน — เครดิตแล้วย้อนไม่ได้ (กดซ้ำจะไม่เครดิตซ้ำ)</div>`,
+    [{l:'Resolve & Credit',c:'ok',fn:`doResolveDep(${idx})`},{l:'ยกเลิก',c:'can',fn:'cm()'}]);
+}
+async function doResolveDep(idx) {
+  const uid=(document.getElementById('rsUid')?.value||'').trim();
+  if (!uid) { toast('กรุณาระบุ uid','er'); return; }
+  cm();
+  const d=(window._depData||[])[idx]; if(!d) return;
+  const res = await gasWrite('adminResolveDeposit',{ tx_key: d.dedup_key || d.txid, uid });
+  if (res?.status==='ok') toast('✅ Resolve สำเร็จ: '+(res.message||''),'ok');
+  else toast('⚠️ '+(res?.message||'เกิดข้อผิดพลาด'),'er');
   rdep(); renderDsDep(); updateBadges(); loadAll();
 }
 function rejDep(idx) {
@@ -2184,7 +2210,8 @@ function vDep(idx) {
     ${extraOnchainRows}
     ${!isAuto?`<div class="dr"><div class="dk">หมายเหตุ</div><div class="dv">${d.note||'—'}</div></div>
     <div class="dr"><div class="dk">Admin Note</div><div class="dv">${d.admin_note||'—'}</div></div>`:''}
-    ${isAuto&&d.status==='unmatched'?`<div style="background:var(--rbg);border:1px solid rgba(246,70,93,.3);border-radius:var(--rmd);padding:10px;margin-top:8px;font-size:11px;color:var(--r)">⚠️ ระบบหา wallet เจ้าของไม่เจอ (ไม่มี DepositWallets ที่ assigned ตรงกับ address นี้) — เงินยังไม่ถูก credit ให้ใคร ต้องตรวจสอบด้วยมือ</div>`:''}
+    ${isAuto&&d.status==='unmatched'?`<div style="background:var(--rbg);border:1px solid rgba(246,70,93,.3);border-radius:var(--rmd);padding:10px;margin-top:8px;font-size:11px;color:var(--r)">⚠️ ระบบหา wallet เจ้าของไม่เจอ (ไม่มี DepositWallets ที่ assigned ตรงกับ address นี้) — เงินยังไม่ถูก credit ให้ใคร ใช้ปุ่ม 🔗 Resolve ที่ตารางเพื่อระบุ uid เจ้าของแล้วเครดิตย้อนหลัง</div>`:''}
+    ${isAuto&&['below_min','unsupported_coin','credit_review','crediting'].includes((d.status||'').toLowerCase())?`<div style="background:var(--rbg);border:1px solid rgba(246,70,93,.3);border-radius:var(--rmd);padding:10px;margin-top:8px;font-size:11px;color:var(--r)">สถานะ <b>${d.status}</b> — ระบบไม่เครดิตอัตโนมัติ: below_min=ต่ำกว่าขั้นต่ำ · unsupported_coin=เหรียญ/เครือข่ายที่ไม่รองรับ · crediting=รอ retry อัตโนมัติ · credit_review=ต้องตรวจยอดมือ</div>`:''}
   `,[{l:'ปิด',c:'can',fn:'cm()'}]);
 }
 
@@ -2199,6 +2226,7 @@ let wdPg=1;
 const WD_STATUS_LABEL = {
   pending:            { label: 'Pending (รอ Bot)',        pill: 'p-pend' },
   processing:         { label: '⚙️ Processing',           pill: 'p-pend' },
+  broadcasting:       { label: '📡 Broadcasting (รอ confirm)', pill: 'p-pend' },
   awaiting_approval:  { label: '⚠️ รอ Admin อนุมัติ',      pill: 'p-no'   },
   needs_review:       { label: '🔍 ตรวจ on-chain (TX ส่งแล้ว)', pill: 'p-no' },
   completed:          { label: 'Completed',               pill: 'p-ok'   },
@@ -2267,7 +2295,7 @@ function rwd(resetPage=false) {
     const st=(d.status||'pending').toLowerCase();
     const absIdx = start+i;
     const meta = WD_STATUS_LABEL[st] || { label: st, pill: 'p-pend' };
-    const needsAdmin = st === 'awaiting_approval' || st === 'needs_review' || (st === 'pending' && String(d.type||'onchain') === 'onchain'); // v3: onchain pending = รอ admin (เงินถูกหักตอน submit)
+    const needsAdmin = wdNeedsAdmin(d); // [W7] pending onchain = รอ admin เฉพาะเมื่อ Bot ปิด AUTO_RUN
     return `<tr style="cursor:pointer" onclick="vWd(${absIdx})">
       <td class="mono" style="color:var(--t3);width:40px">${start+i+1}</td>
       <td>
@@ -4855,9 +4883,11 @@ const fpx = (n) => {
   return v.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:d});
 };
 // ถอนที่ "รอ Admin ดำเนินการ" — นิยามเดียวกับปุ่มในตาราง (needsAdmin): awaiting_approval / needs_review / pending แบบ onchain
+// [W7] pending onchain นับว่า "รอ Admin" ต่อเมื่อ Bot ปิด AUTO_RUN เท่านั้น (เปิดอยู่ = Worker จัดการเอง — Admin กดจะชนกับ Worker)
+let BOT_AUTO_RUN = true; // ค่าเริ่มต้นปลอดภัย: ถือว่า Bot เปิดอยู่จนกว่าจะรู้ว่าปิด
 const wdNeedsAdmin = d => {
   const s = String(d.status||'').toLowerCase();
-  return s==='awaiting_approval' || s==='needs_review' || (s==='pending' && String(d.type||'onchain').toLowerCase()==='onchain');
+  return s==='awaiting_approval' || s==='needs_review' || (s==='pending' && BOT_AUTO_RUN===false && String(d.type||'onchain').toLowerCase()==='onchain');
 };
 // ยอดที่ติดป้าย USDT รวมเฉพาะเหรียญ USDT — เหรียญอื่นแยกแสดงเป็นข้อความต่อท้าย (ไม่เอาหน่วยต่างกันมาบวกกัน)
 const _coinOf = d => String(d.coin||d.token_symbol||'USDT').toUpperCase();

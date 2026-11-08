@@ -8109,11 +8109,16 @@ function clearCoinFilter() {
 // ════════════════════════════════════════════════════════════════
 const AD_SCHEMA = 1;
 const AD_CFG = {
-  W: { act: 'getData',   cap: 40000, first: 1500, chunk: 4000, lo: 100000, hi: Infinity },   // Whale ≥$100K (= WHALE_MAX_ROWS)
-  S: { act: 'getSWData', cap: 50000, first: 1500, chunk: 4000, lo: 10000,  hi: 100000 },     // Small Whale (= SW_MAX_ROWS)
+  W: { act: 'getData',   cap: 40000, first: 1500, chunk: 4000, lo: 100000, hi: Infinity, keepMs: 9 * 86400000 },   // Whale ≥$100K (= WHALE_MAX_ROWS) · keepMs = RETAIN_DAYS_W
+  S: { act: 'getSWData', cap: 50000, first: 1500, chunk: 4000, lo: 10000,  hi: 100000,   keepMs: 7 * 86400000 },   // Small Whale (= SW_MAX_ROWS) · keepMs = RETAIN_DAYS_S
 };
+// v19.13: D1 — อ่านข้อมูลจาก Worker (/api/trades) ก่อน · ไม่พร้อม/ยังไม่ complete/ผิดพลาด → fallback GAS เหมือนเดิม
+//   ⚠️ ตรวจ URL ให้ตรงกับ Worker ที่ deploy (name = tcc-whale-alert ใน wrangler.toml) · ตั้งเป็น '' เพื่อปิด D1
+const AD_D1_URL = 'https://tcc-whale-alert.tradercafeclub.workers.dev/api/trades';
+const AD_D1_CHUNK = 6000;          // = เพดาน rows ของ Worker
+const AD_D1_STALE_MS = 20 * 60000; // ข้อมูลล่าสุดใน D1 เก่ากว่านี้ → ขอ GAS ตรวจเพิ่ม 1 ก้อน (กัน D1 ค้างเงียบ ๆ)
 const _AD = { st: { W: null, S: null }, db: null, dbP: null, saveT: null, dirty: { W: false, S: false },
-              runP: null, lastSync: 0, lastPub: 0, pubT: null };
+              runP: null, lastSync: 0, lastPub: 0, pubT: null, d1Off: 0 };
 window._anDirty = false; window._anBackfilling = false; window._anLoadFailed = false;
 
 const _adSleep = ms => new Promise(r => setTimeout(r, ms));
@@ -8216,8 +8221,74 @@ async function _adFetchRetry(k, rows, skip, tries) {
   throw err;
 }
 
+// ════════ v19.13: D1 path (Worker /api/trades) ════════
+const _adD1On = () => !!AD_D1_URL && Date.now() > _AD.d1Off;
+const _adD1Down = () => { _AD.d1Off = Date.now() + 300000; };   // D1 มีปัญหา → ใช้ GAS 5 นาทีแล้วค่อยลองใหม่
+async function _adFetchD1(k, rows, cur) {   // cur = { after: epochMs } | { before: epochMs } | null (ล่าสุด)
+  let u = AD_D1_URL + '?tbl=' + k + '&rows=' + rows;
+  if (cur && cur.after != null) u += '&after=' + cur.after;
+  else if (cur && cur.before != null) u += '&before=' + cur.before;
+  const x = await fetch(u, { signal: AbortSignal.timeout(12000) });
+  if (!x.ok) throw new Error('D1 HTTP ' + x.status);
+  const d = await x.json();
+  if (!d || !d.ok || !d.compact || !Array.isArray(d.data)) throw new Error((d && d.error) || 'D1 error');
+  if (!d.complete) { const e = new Error('D1_INCOMPLETE'); e.code = 'D1_INCOMPLETE'; throw e; }   // ยังไม่ได้ /admin/backfill → ข้อมูลเก่าอาจไม่ครบ → ใช้ GAS
+  return d;
+}
+async function _adDeltaD1(k) {
+  const cfg = AD_CFG[k], st = _AD.st[k];
+  if (st.rows.length && Date.now() - st.newest > cfg.keepMs) {   // cache เก่ากว่าอายุข้อมูลใน D1 → มีช่องว่าง ทิ้งแล้วเริ่มใหม่
+    st.rows = []; st.keys = new Set(); st.bfSkip = 0; st.done = false; st.newest = 0; _adSaveSoon(k);
+  }
+  if (!st.rows.length) {
+    const d = await _adFetchD1(k, cfg.first, null);
+    _adMerge(k, d.data);
+    st.bfSkip = Math.max(0, st.rows.length - 200);   // เผื่อ fallback ไป GAS backfill ต่อ (ซ้อนทับเล็กน้อย ไม่เกิดช่องว่าง)
+    st.done = !d.more; _adSaveSoon(k);
+    return;
+  }
+  let after = st.newest;
+  for (let g = 0; g < 8; g++) {
+    const d = await _adFetchD1(k, AD_D1_CHUNK, { after });
+    _adMerge(k, d.data);
+    if (!d.more || !d.data.length) break;
+    const last = _adEpoch(d.data[d.data.length - 1][0]);
+    if (last === null || last <= after) break;
+    after = last;
+  }
+}
+async function _adBackfillD1(k) {   // ถอยหลังด้วย cursor เวลา (before = เวลาแถวเก่าสุดที่มี) — ไม่ใช้ skip
+  const cfg = AD_CFG[k], st = _AD.st[k];
+  let fails = 0;
+  while (!st.done && fails < 3) {
+    if (st.rows.length >= cfg.cap) { st.done = true; break; }
+    const before = st.rows.length ? st.rows[0][7] : null;
+    const d = await _adFetchD1(k, AD_D1_CHUNK, before === null ? null : { before });
+    const added = _adMerge(k, d.data);
+    st.bfSkip = Math.max(0, st.rows.length - 200);
+    if (!d.more || !d.data.length) st.done = true;
+    else if (!added) fails++;   // ก้อนนี้ไม่มีอะไรใหม่ (ไม่ควรเกิด) → กันวนไม่รู้จบ
+    else fails = 0;
+    _adSaveSoon(k); _adPublishSoon();
+    await _adSleep(30);
+  }
+}
+
 // ── delta: ขอเฉพาะก้อนล่าสุด แล้ว merge · ถ้ายังไม่ซ้อนทับกับ cache ก็ขอก้อนที่เก่ากว่าต่อ (สูงสุด 8 ก้อน) ──
-async function _adDelta(k) {
+async function _adDelta(k) {   // v19.13: D1 ก่อน → ไม่ได้ค่อยตกไป GAS
+  if (_adD1On()) {
+    try {
+      await _adDeltaD1(k);
+      const st = _AD.st[k];
+      if (Date.now() - st.newest > AD_D1_STALE_MS) {   // D1 อาจค้าง → ตรวจกับ GAS 1 ก้อนเล็ก (merge เฉพาะที่ขาด)
+        try { const g = await _adFetchRetry(k, 800, 0, 1); _adMerge(k, g.data); } catch (e) {}
+      }
+      return;
+    } catch (e) { _adD1Down(); }
+  }
+  return _adDeltaGas(k);
+}
+async function _adDeltaGas(k) {
   const cfg = AD_CFG[k], st = _AD.st[k];
   const prevNewest = st.newest, had = st.rows.length > 0;
   let skip = 0, overlap = false;
@@ -8238,7 +8309,14 @@ async function _adDelta(k) {
 }
 
 // ── ทยอยโหลดย้อนหลังทีละก้อน (ต่อจาก bfSkip) — resume ได้ถ้าปิดหน้าไปก่อนครบ ──
-async function _adBackfill(k) {
+async function _adBackfill(k) {   // v19.13: D1 ก่อน · ถ้า D1 ล้ม/ไม่ complete → GAS ต่อจาก bfSkip
+  if (_adD1On() && !_AD.st[k].done) {
+    try { await _adBackfillD1(k); } catch (e) { _adD1Down(); }
+  }
+  if (!_AD.st[k].done) await _adBackfillGas(k);
+  _adSaveSoon(k);
+}
+async function _adBackfillGas(k) {
   const cfg = AD_CFG[k], st = _AD.st[k];
   let fails = 0;
   while (!st.done && fails < 3) {

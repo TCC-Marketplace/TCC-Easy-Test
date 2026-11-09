@@ -2892,6 +2892,24 @@ const TCC_I18N = {
   'gerr_SELF_TRANSFER':['ไม่สามารถโอนหาตัวเองได้','You cannot transfer to yourself','Không thể chuyển cho chính mình','មិនអាចផ្ទេរទៅខ្លួនឯងបានទេ','ကိုယ့်ကိုယ်ကို ငွေလွှဲ၍မရပါ','ບໍ່ສາມາດໂອນຫາຕົວເອງໄດ້','Anda tidak boleh memindahkan kepada diri sendiri','Anda tidak dapat transfer ke diri sendiri','不能转账给自己'],
   'gerr_WITHDRAW_UNSUPPORTED':['ไม่รองรับการถอนเหรียญ/เครือข่ายนี้','Withdrawals of this coin/network are not supported','Không hỗ trợ rút đồng coin/mạng này','មិនគាំទ្រការដកកាក់/បណ្តាញនេះទេ','ဤဒင်္ဂါး/ကွန်ရက်ကို ထုတ်ယူခြင်း မထောက်ပံ့ပါ','ບໍ່ຮອງຮັບການຖອນຫຼຽນ/ເຄືອຂ່າຍນີ້','Pengeluaran syiling/rangkaian ini tidak disokong','Penarikan koin/jaringan ini tidak didukung','不支持该币种/网络的提现'],
   'gerr_WITHDRAW_MIN':['ยอดถอนขั้นต่ำของเครือข่าย {net} คือ {min} {coin}','Minimum withdrawal on the {net} network is {min} {coin}','Số tiền rút tối thiểu trên mạng {net} là {min} {coin}','ចំនួនដកអប្បបរមានៃបណ្តាញ {net} គឺ {min} {coin}','{net} ကွန်ရက်၏ အနည်းဆုံးထုတ်ယူမှုမှာ {min} {coin} ဖြစ်သည်','ຍອດຖອນຂັ້ນຕ່ຳຂອງເຄືອຂ່າຍ {net} ແມ່ນ {min} {coin}','Pengeluaran minimum rangkaian {net} ialah {min} {coin}','Penarikan minimum jaringan {net} adalah {min} {coin}','{net} 网络的最低提现额为 {min} {coin}'],
+  // [WD-SUSP] ข้อความระงับ/เงื่อนไขการถอน — gerr_WD_CLOSED_* = ข้อความ error จาก server (code WD_CLOSED_*) · wd_c1..wd_c7 = เงื่อนไขที่ระบบบังคับจริง · ลำดับภาษา: th,en,vi,km,my,lo,ms,id,zh (ควรให้เจ้าของภาษาตรวจ km/my/lo)
+  'gerr_WD_CLOSED_ALL':["การถอนทั้งหมดปิดชั่วคราว","All withdrawals are temporarily closed","Tất cả giao dịch rút tiền tạm thời đóng","ការដកទាំងអស់ត្រូវបានបិទជាបណ្តោះអាសន្ន","ငွေထုတ်ယူမှုအားလုံးကို ယာယီပိတ်ထားသည်","ການຖອນທັງໝົດຖືກປິດຊົ່ວຄາວ","Semua pengeluaran ditutup buat sementara waktu","Semua penarikan ditutup sementara","所有提现已暂时关闭"],
+  'gerr_WD_CLOSED_INTERNAL':["การโอนภายใน (Internal) ปิดชั่วคราว","Internal transfers are temporarily closed","Chuyển nội bộ (Internal) tạm thời đóng","ការផ្ទេរផ្ទៃក្នុង (Internal) ត្រូវបានបិទជាបណ្តោះអាសន្ន","ပြည်တွင်းလွှဲပြောင်းမှု (Internal) ကို ယာယီပိတ်ထားသည်","ການໂອນພາຍໃນ (Internal) ຖືກປິດຊົ່ວຄາວ","Pindahan dalaman (Internal) ditutup buat sementara waktu","Transfer internal (Internal) ditutup sementara","内部转账已暂时关闭"],
+  'gerr_WD_CLOSED_CRYPTO':["การถอน Crypto ปิดชั่วคราว","Crypto withdrawals are temporarily closed","Rút Crypto tạm thời đóng","ការដក Crypto ត្រូវបានបិទជាបណ្តោះអាសន្ន","Crypto ထုတ်ယူမှုကို ယာယီပိတ်ထားသည်","ການຖອນ Crypto ຖືກປິດຊົ່ວຄາວ","Pengeluaran Crypto ditutup buat sementara waktu","Penarikan Crypto ditutup sementara","加密货币提现已暂时关闭"],
+  'gerr_WD_CLOSED_NETWORK':["เครือข่าย {net} ปิดการถอนชั่วคราว","Withdrawals on the {net} network are temporarily closed","Rút qua mạng {net} tạm thời đóng","ការដកតាមបណ្តាញ {net} ត្រូវបានបិទជាបណ្តោះអាសន្ន","{net} ကွန်ရက်ဖြင့် ထုတ်ယူမှုကို ယာယီပိတ်ထားသည်","ການຖອນຜ່ານເຄືອຂ່າຍ {net} ຖືກປິດຊົ່ວຄາວ","Pengeluaran melalui rangkaian {net} ditutup buat sementara waktu","Penarikan melalui jaringan {net} ditutup sementara","{net} 网络的提现已暂时关闭"],
+  'gerr_WD_CLOSED_COUNTRY':["ไม่เปิดให้ถอนสำหรับพื้นที่ของบัญชีนี้","Withdrawals are not available for this account's region","Không hỗ trợ rút tiền cho khu vực của tài khoản này","មិនអនុញ្ញាតឱ្យដកសម្រាប់តំបន់នៃគណនីនេះទេ","ဤအကောင့်၏ ဒေသအတွက် ငွေထုတ်ယူခွင့် မရှိပါ","ບໍ່ເປີດໃຫ້ຖອນສຳລັບເຂດຂອງບັນຊີນີ້","Pengeluaran tidak tersedia untuk wilayah akaun ini","Penarikan tidak tersedia untuk wilayah akun ini","该账户所在地区暂不支持提现"],
+  'gerr_WD_CLOSED_ACCOUNT':["บัญชีนี้ถูกระงับการถอน กรุณาติดต่อฝ่ายสนับสนุน","Withdrawals are suspended for this account. Please contact support","Tài khoản này bị tạm ngừng rút tiền. Vui lòng liên hệ hỗ trợ","គណនីនេះត្រូវបានផ្អាកការដក។ សូមទាក់ទងផ្នែកគាំទ្រ","ဤအကောင့်၏ ငွေထုတ်ယူမှုကို ရပ်ဆိုင်းထားသည်။ ပံ့ပိုးကူညီရေးကို ဆက်သွယ်ပါ","ບັນຊີນີ້ຖືກລະງັບການຖອນ ກະລຸນາຕິດຕໍ່ຝ່າຍສະໜັບສະໜູນ","Pengeluaran digantung untuk akaun ini. Sila hubungi sokongan","Penarikan untuk akun ini ditangguhkan. Silakan hubungi dukungan","该账户已被暂停提现，请联系客服"],
+  'wd_cond_title':["เงื่อนไขการถอน","Withdrawal conditions","Điều kiện rút tiền","លក្ខខណ្ឌនៃការដក","ငွေထုတ်ယူမှု စည်းကမ်းချက်များ","ເງື່ອນໄຂການຖອນ","Syarat pengeluaran","Ketentuan penarikan","提现条件"],
+  'wd_open_ok':["เปิดให้ถอนตามเงื่อนไขด้านล่าง","Withdrawals are open under the conditions below","Cho phép rút tiền theo các điều kiện bên dưới","បើកឱ្យដកតាមលក្ខខណ្ឌខាងក្រោម","အောက်ပါစည်းကမ်းချက်များအတိုင်း ထုတ်ယူနိုင်သည်","ເປີດໃຫ້ຖອນຕາມເງື່ອນໄຂດ້ານລຸ່ມ","Pengeluaran dibuka mengikut syarat di bawah","Penarikan dibuka sesuai ketentuan di bawah","满足以下条件时可提现"],
+  'wd_open_partial':["ปิดบางประเภทชั่วคราว (ดูสถานะที่การ์ดด้านล่าง)","Some withdrawal types are temporarily closed (see the cards below)","Một số loại rút tiền tạm thời đóng (xem các thẻ bên dưới)","ប្រភេទការដកមួយចំនួនត្រូវបានបិទជាបណ្តោះអាសន្ន (មើលកាតខាងក្រោម)","ထုတ်ယူမှုအမျိုးအစား အချို့ကို ယာယီပိတ်ထားသည် (အောက်ပါကတ်များကို ကြည့်ပါ)","ບາງປະເພດການຖອນຖືກປິດຊົ່ວຄາວ (ເບິ່ງບັດດ້ານລຸ່ມ)","Sesetengah jenis pengeluaran ditutup buat sementara waktu (lihat kad di bawah)","Sebagian jenis penarikan ditutup sementara (lihat kartu di bawah)","部分提现类型暂时关闭（见下方卡片）"],
+  'wd_net_closed':["ปิดชั่วคราว","Temporarily closed","Tạm đóng","បិទជាបណ្តោះអាសន្ន","ယာယီပိတ်ထားသည်","ປິດຊົ່ວຄາວ","Ditutup sementara","Ditutup sementara","暂时关闭"],
+  'wd_c1':["ถอน Crypto ได้เฉพาะเหรียญและเครือข่ายที่แสดงในหน้าเลือกเครือข่าย","Crypto withdrawals are limited to the coins and networks shown on the network selection screen","Rút Crypto chỉ áp dụng cho các đồng coin và mạng hiển thị ở màn hình chọn mạng","ការដក Crypto គាំទ្រតែកាក់ និងបណ្តាញដែលបង្ហាញនៅទំព័រជ្រើសរើសបណ្តាញប៉ុណ្ណោះ","Crypto ထုတ်ယူမှုကို ကွန်ရက်ရွေးချယ်ရာစာမျက်နှာတွင် ပြထားသော ဒင်္ဂါးနှင့် ကွန်ရက်များအတွက်သာ ပြုလုပ်နိုင်သည်","ການຖອນ Crypto ຮອງຮັບສະເພາະຫຼຽນ ແລະ ເຄືອຂ່າຍທີ່ສະແດງຢູ່ໜ້າເລືອກເຄືອຂ່າຍ","Pengeluaran Crypto terhad kepada syiling dan rangkaian yang dipaparkan pada skrin pilihan rangkaian","Penarikan Crypto terbatas pada koin dan jaringan yang ditampilkan di layar pilihan jaringan","加密货币提现仅限网络选择页面所显示的币种和网络"],
+  'wd_c2':["การถอน Crypto มียอดขั้นต่ำและค่าธรรมเนียมตามเครือข่าย (ดูในหน้าเลือกเครือข่าย) ส่วนการโอนภายใน TCC ไม่มียอดขั้นต่ำและไม่มีค่าธรรมเนียม","Crypto withdrawals have a minimum amount and a fee that depend on the network (shown on the network screen). Internal TCC transfers have no minimum and no fee","Rút Crypto có số tiền tối thiểu và phí theo từng mạng (xem ở màn hình chọn mạng). Chuyển nội bộ TCC không có mức tối thiểu và không mất phí","ការដក Crypto មានចំនួនអប្បបរមា និងថ្លៃសេវាតាមបណ្តាញ (មើលនៅទំព័របណ្តាញ)។ ការផ្ទេរផ្ទៃក្នុង TCC គ្មានចំនួនអប្បបរមា និងគ្មានថ្លៃសេវាទេ","Crypto ထုတ်ယူမှုတွင် ကွန်ရက်အလိုက် အနည်းဆုံးပမာဏနှင့် ကြေးရှိသည် (ကွန်ရက်စာမျက်နှာတွင်ကြည့်ပါ)။ TCC ပြည်တွင်းလွှဲပြောင်းမှုတွင် အနည်းဆုံးပမာဏနှင့် ကြေးမရှိပါ","ການຖອນ Crypto ມີຍອດຂັ້ນຕ່ຳ ແລະ ຄ່າທຳນຽມຕາມເຄືອຂ່າຍ (ເບິ່ງໃນໜ້າເຄືອຂ່າຍ) ສ່ວນການໂອນພາຍໃນ TCC ບໍ່ມີຍອດຂັ້ນຕ່ຳ ແລະ ບໍ່ມີຄ່າທຳນຽມ","Pengeluaran Crypto mempunyai jumlah minimum dan yuran mengikut rangkaian (lihat pada skrin rangkaian). Pindahan dalaman TCC tiada minimum dan tiada yuran","Penarikan Crypto memiliki jumlah minimum dan biaya sesuai jaringan (lihat di layar jaringan). Transfer internal TCC tanpa minimum dan tanpa biaya","加密货币提现有按网络而定的最低金额和手续费（见网络页面）；TCC 内部转账无最低金额、无手续费"],
+  'wd_c3':["ที่อยู่ปลายทางต้องถูกต้องตามรูปแบบของเครือข่ายที่เลือก — หากส่งผิดเครือข่าย อาจสูญเสียทรัพย์สินถาวรและกู้คืนไม่ได้","The destination address must match the selected network's format. Sending to the wrong network may result in permanent loss","Địa chỉ nhận phải đúng định dạng của mạng đã chọn. Gửi sai mạng có thể mất tài sản vĩnh viễn","អាសយដ្ឋានទទួលត្រូវតែត្រឹមត្រូវតាមទម្រង់នៃបណ្តាញដែលបានជ្រើស។ ការផ្ញើខុសបណ្តាញអាចបាត់បង់ទ្រព្យសកម្មជាអចិន្ត្រៃយ៍","လက်ခံမည့်လိပ်စာသည် ရွေးထားသောကွန်ရက်၏ ပုံစံနှင့် ကိုက်ညီရမည်။ ကွန်ရက်မှားပို့ပါက ပိုင်ဆိုင်မှုကို အပြီးအပိုင် ဆုံးရှုံးနိုင်သည်","ທີ່ຢູ່ປາຍທາງຕ້ອງຖືກຕ້ອງຕາມຮູບແບບຂອງເຄືອຂ່າຍທີ່ເລືອກ ຖ້າສົ່ງຜິດເຄືອຂ່າຍອາດສູນເສຍຊັບສິນຖາວອນ","Alamat destinasi mesti sepadan dengan format rangkaian yang dipilih. Menghantar ke rangkaian yang salah boleh menyebabkan kehilangan aset secara kekal","Alamat tujuan harus sesuai dengan format jaringan yang dipilih. Salah jaringan dapat menyebabkan aset hilang permanen","收款地址必须符合所选网络的格式；发送到错误的网络可能导致资产永久丢失"],
+  'wd_c4':["ยอดคงเหลือในกระเป๋าที่ถอนต้องเพียงพอสำหรับจำนวนที่ถอนรวมค่าธรรมเนียม","Your wallet balance must cover the withdrawal amount plus the fee","Số dư ví phải đủ cho số tiền rút cộng với phí","សមតុល្យក្នុងកាបូបត្រូវគ្រប់គ្រាន់សម្រាប់ចំនួនដក បូកថ្លៃសេវា","ထုတ်ယူမည့်ပိုက်ဆံအိတ်ရှိ လက်ကျန်ငွေသည် ထုတ်ယူမည့်ပမာဏနှင့် ကြေးပေါင်းကို ဖုံးလွှမ်းရမည်","ຍອດຄົງເຫຼືອໃນກະເປົາຕ້ອງພຽງພໍສຳລັບຈຳນວນຖອນລວມຄ່າທຳນຽມ","Baki dompet mesti mencukupi untuk jumlah pengeluaran ditambah yuran","Saldo dompet harus cukup untuk jumlah penarikan ditambah biaya","钱包余额必须足够支付提现金额加手续费"],
+  'wd_c5':["โอนภายใน TCC ให้บัญชีของตัวเองไม่ได้","You cannot make an internal transfer to your own account","Không thể chuyển nội bộ cho chính tài khoản của mình","មិនអាចផ្ទេរផ្ទៃក្នុងទៅគណនីខ្លួនឯងបានទេ","ကိုယ့်အကောင့်သို့ ပြည်တွင်းလွှဲပြောင်း၍မရပါ","ບໍ່ສາມາດໂອນພາຍໃນຫາບັນຊີຂອງຕົນເອງໄດ້","Tidak boleh membuat pindahan dalaman ke akaun sendiri","Tidak dapat melakukan transfer internal ke akun sendiri","不能向自己的账户进行内部转账"],
+  'wd_c6':["บัญชี ประเภทการถอน เครือข่าย และประเทศของบัญชีต้องไม่ถูกระงับโดยระบบ","Your account, the withdrawal type, the network and your account's country must not be suspended by the system","Tài khoản, loại rút tiền, mạng và quốc gia của tài khoản không bị hệ thống tạm ngừng","គណនី ប្រភេទការដក បណ្តាញ និងប្រទេសរបស់គណនីមិនត្រូវបានប្រព័ន្ធផ្អាកឡើយ","အကောင့်၊ ထုတ်ယူမှုအမျိုးအစား၊ ကွန်ရက်နှင့် အကောင့်၏နိုင်ငံတို့ကို စနစ်မှ ရပ်ဆိုင်းထားခြင်းမရှိရမည်","ບັນຊີ ປະເພດການຖອນ ເຄືອຂ່າຍ ແລະ ປະເທດຂອງບັນຊີ ຕ້ອງບໍ່ຖືກລະບົບລະງັບ","Akaun, jenis pengeluaran, rangkaian dan negara akaun tidak boleh digantung oleh sistem","Akun, jenis penarikan, jaringan, dan negara akun tidak boleh ditangguhkan oleh sistem","账户、提现类型、网络及账户所在国家/地区不得被系统暂停"],
+  'wd_c7':["หลังส่งคำขอถอน Crypto ยอดที่ถอนและค่าธรรมเนียมจะถูกหักทันที และจะคืนให้หากรายการถูกปฏิเสธหรือส่งไม่สำเร็จ","After a Crypto withdrawal request is submitted, the amount and fee are deducted immediately and refunded if the request is rejected or fails","Sau khi gửi yêu cầu rút Crypto, số tiền và phí bị trừ ngay và sẽ được hoàn lại nếu yêu cầu bị từ chối hoặc thất bại","បន្ទាប់ពីដាក់សំណើដក Crypto ចំនួន និងថ្លៃសេវានឹងត្រូវកាត់ភ្លាមៗ ហើយនឹងត្រូវបង្វិលសងប្រសិនបើសំណើត្រូវបានបដិសេធ ឬបរាជ័យ","Crypto ထုတ်ယူမှုတောင်းဆိုပြီးပါက ပမာဏနှင့်ကြေးကို ချက်ချင်းနှုတ်ယူပြီး တောင်းဆိုမှုကို ပယ်ချခံရခြင်း သို့မဟုတ် မအောင်မြင်ပါက ပြန်အမ်းပေးမည်","ຫຼັງສົ່ງຄຳຂໍຖອນ Crypto ຈຳນວນເງິນ ແລະ ຄ່າທຳນຽມຈະຖືກຫັກທັນທີ ແລະ ຈະຄືນໃຫ້ຫາກລາຍການຖືກປະຕິເສດ ຫຼື ບໍ່ສຳເລັດ","Selepas permintaan pengeluaran Crypto dihantar, jumlah dan yuran ditolak serta-merta dan akan dikembalikan jika permintaan ditolak atau gagal","Setelah permintaan penarikan Crypto dikirim, jumlah dan biaya langsung dipotong dan akan dikembalikan jika permintaan ditolak atau gagal","提交加密货币提现申请后，金额和手续费将立即扣除，若申请被拒绝或失败将退还"],
   'gerr_NO_FREE_WALLET':['ไม่มีกระเป๋าว่างสำหรับ network {net} กรุณาติดต่อ Admin','No free wallet available for the {net} network, please contact Admin','Không còn ví trống cho mạng {net}, vui lòng liên hệ Admin','គ្មានកាបូបទំនេរសម្រាប់បណ្តាញ {net} សូមទាក់ទង Admin','{net} ကွန်ရက်အတွက် အလွတ်ပိုက်ဆံအိတ် မရှိပါ Admin ကို ဆက်သွယ်ပါ','ບໍ່ມີກະເປົາວ່າງສຳລັບ network {net} ກະລຸນາຕິດຕໍ່ Admin','Tiada dompet kosong untuk rangkaian {net}, sila hubungi Admin','Tidak ada dompet kosong untuk jaringan {net}, hubungi Admin','{net} 网络暂无空闲钱包，请联系管理员'],
   'gerr_BRIDGE_MIN':['จำนวนขั้นต่ำ {min} USDT','Minimum amount is {min} USDT','Số tiền tối thiểu là {min} USDT','ចំនួនអប្បបរមា {min} USDT','အနည်းဆုံးပမာဏမှာ {min} USDT ဖြစ်သည်','ຈຳນວນຂັ້ນຕ່ຳ {min} USDT','Jumlah minimum ialah {min} USDT','Jumlah minimum adalah {min} USDT','最低金额为 {min} USDT'],
   'gerr_BRIDGE_MAX':['จำนวนสูงสุด {max} USDT','Maximum amount is {max} USDT','Số tiền tối đa là {max} USDT','ចំនួនអតិបរមា {max} USDT','အများဆုံးပမာဏမှာ {max} USDT ဖြစ်သည်','ຈຳນວນສູງສຸດ {max} USDT','Jumlah maksimum ialah {max} USDT','Jumlah maksimum adalah {max} USDT','最高金额为 {max} USDT'],
@@ -4319,6 +4337,19 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .snd-net-card{margin:0 16px 12px;background:var(--bg3);border-radius:12px;padding:16px;border:1px solid var(--bl);cursor:pointer;transition:background .15s}
 .snd-net-card:hover{background:#2e333b}
 .snd-net-card.selected{border-color:var(--y)}
+/* [WD-SUSP] กล่องเงื่อนไข/สถานะการถอน + การ์ดที่ปิด */
+.wdp-box{margin:0 16px 12px;padding:12px 14px;border-radius:12px;background:var(--bg3);border:1px solid var(--bl)}
+.wdp-box.closed{border-color:rgba(246,70,93,.45)}
+.wdp-status{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:600;line-height:1.4;color:var(--t1)}
+.wdp-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;background:var(--g)}
+.wdp-box.closed .wdp-dot{background:var(--r)}
+.wdp-msg{font-size:12px;color:var(--t2);margin:6px 0 0 16px;line-height:1.5}
+.wdp-sum{font-size:12px;color:var(--t2);cursor:pointer;margin-top:10px}
+.wdp-conds{margin:8px 0 0;padding:0 0 0 18px;font-size:12px;color:var(--t2);line-height:1.55;max-height:30vh;overflow:auto}
+.wdp-conds li{margin-bottom:5px}
+.wdm-card.is-closed,.snd-net-card.is-closed{opacity:.45;cursor:not-allowed}
+.wdm-card.is-closed:hover,.snd-net-card.is-closed:hover{background:var(--bg3)}
+.snd-net-badge{font-size:11px;font-weight:600;color:var(--r);margin-left:8px}
 .snd-net-card-title{font-size:15px;font-weight:700;margin-bottom:10px}
 .snd-net-card-title b{font-family:var(--mono)}
 .snd-net-card-title span{font-size:13px;font-weight:400;color:var(--t2);margin-left:6px}
@@ -19110,8 +19141,87 @@ function astToggleHideZero() {
 
 // ── Open Withdraw Sheet ──
 function astOpenWithdrawSheet() {
+  renderWdPolicyBox(); // [WD-SUSP] แสดงเงื่อนไข (และสถานะล่าสุดที่มี) ทันที แล้วโหลดนโยบายสดมาอัปเดต
   document.getElementById('ast-overlay-deposit').classList.add('visible');
   document.getElementById('ast-sheet-withdraw').classList.add('open');
+  loadWithdrawPolicy(true).then(renderWdPolicyBox);
+}
+// ══════════════════════════════════════════
+// [WD-SUSP] นโยบายการถอน — แสดงเงื่อนไข/สถานะตอนกดถอน · ปิดการ์ด Internal / Crypto แยกกัน · ปิดเครือข่ายรายตัว
+//   ⚠️ เป็น UX เท่านั้น — server (submitWithdraw) ตัดสินจากประเภทที่ resolve จริง (address ในระบบ = Internal) เสมอ
+//   โหลดนโยบายไม่ได้ = ไม่บล็อกที่หน้าเว็บ (ปล่อยให้ server ตัดสิน) · เงื่อนไขที่แสดง = เฉพาะที่ระบบบังคับจริง (wd_c1..wd_c7)
+// ══════════════════════════════════════════
+let WD_POLICY = null, _wdPolicyAt = 0, _wdPolicyP = null;
+const WD_NET_CANON = { BSC: 'BSC', TRX: 'TRC', SOL: 'SOL' }; // id ในตาราง SND_NETWORKS → ชื่อ canonical ฝั่ง server
+function _wdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function loadWithdrawPolicy(force) {
+  if (!force && WD_POLICY && Date.now() - _wdPolicyAt < 20000) return Promise.resolve(WD_POLICY);
+  if (_wdPolicyP) return _wdPolicyP;
+  const uid = (typeof USER_PROFILE !== 'undefined' && USER_PROFILE && USER_PROFILE.uid) || '';
+  _wdPolicyP = dbCallRaw('getWithdrawPolicy', { uid })
+    .then(p => { if (p && p.internal && p.crypto) { WD_POLICY = p; _wdPolicyAt = Date.now(); } return WD_POLICY; })
+    .catch(() => WD_POLICY)
+    .finally(() => { _wdPolicyP = null; });
+  return _wdPolicyP;
+}
+function wdSideText(side) {
+  if (!side || side.open) return '';
+  const k = 'gerr_' + side.code;
+  return TCC_I18N[k] ? tccTF(k, { net: side.net || '' }) : tccT('wd_cond_title');
+}
+function wdNetClosedSide(net) {
+  if (!net || !WD_POLICY || !WD_POLICY.networks) return null;
+  const s = WD_POLICY.networks[WD_NET_CANON[net.id] || net.id];
+  return (s && !s.open) ? s : null;
+}
+function renderWdPolicyBox() {
+  const box = document.getElementById('wd-policy-box');
+  const p = WD_POLICY;
+  ['internal', 'crypto'].forEach(k => {
+    const el = document.getElementById('wdm-card-' + k); if (!el) return;
+    const sub = el.querySelector('.wdm-card-sub'); if (!sub) return;
+    if (sub.dataset.o === undefined) sub.dataset.o = sub.textContent;
+    const side = p && p[k], isClosed = !!(side && !side.open);
+    el.classList.toggle('is-closed', isClosed);
+    sub.textContent = isClosed ? wdSideText(side) : sub.dataset.o;
+    sub.style.color = isClosed ? 'var(--r)' : '';
+  });
+  if (!box) return;
+  const conds = [1, 2, 3, 4, 5, 6, 7].map(i => '<li>' + _wdEsc(tccT('wd_c' + i)) + '</li>').join('');
+  let status = '', note = '', closed = false;
+  if (p) {
+    const iC = !p.internal.open, cC = !p.crypto.open;
+    if (iC && cC) {
+      closed = true;
+      const txt = []; [p.internal, p.crypto].forEach(s => { const t = wdSideText(s); if (t && txt.indexOf(t) < 0) txt.push(t); });
+      status = txt.join(' · ');
+    } else status = (iC || cC) ? tccT('wd_open_partial') : tccT('wd_open_ok');
+    note = (iC ? p.internal.msg : '') || (cC ? p.crypto.msg : '') || p.internal.msg || p.crypto.msg || '';
+  }
+  box.className = 'wdp-box' + (closed ? ' closed' : '');
+  box.innerHTML =
+    (status ? '<div class="wdp-status"><span class="wdp-dot"></span><span>' + _wdEsc(status) + '</span></div>' : '') +
+    (note ? '<div class="wdp-msg">' + _wdEsc(note) + '</div>' : '') +
+    '<details open><summary class="wdp-sum">' + _wdEsc(tccT('wd_cond_title')) + '</summary><ol class="wdp-conds">' + conds + '</ol></details>';
+  box.style.display = 'block';
+}
+function astOpenSendMode(mode) {
+  const side = WD_POLICY && WD_POLICY[mode];
+  if (side && !side.open) { showToast(wdSideText(side)); return; }
+  astOpenSendCoinList();
+}
+// ก่อนเปิดหน้ายืนยัน: ถ้ามีประเภทใดปิดอยู่ → resolve ประเภทจริงของ address แล้วแจ้งชัด (server ยังตรวจซ้ำเสมอ)
+async function astConfirmWithdraw() {
+  const addr = (document.getElementById('snd-address-input')?.value || '').trim();
+  try {
+    const p = WD_POLICY || await loadWithdrawPolicy(false);
+    if (p && addr && (!p.internal.open || !p.crypto.open)) {
+      const c = await dbCallRaw('checkAddressInSystem', { address: addr });
+      const side = (c && c.found && c.uid) ? p.internal : p.crypto;
+      if (!side.open) { showToast(wdSideText(side)); return; }
+    }
+  } catch (e) { /* โหลด/ตรวจไม่ได้ → ให้ server ตัดสิน */ }
+  _astConfirmWithdrawCore();
 }
 function astCloseWithdrawSheet() {
   document.getElementById('ast-overlay-deposit').classList.remove('visible');
@@ -19452,12 +19562,14 @@ function sndValidate() {
   // [W4] ตรวจรูปแบบ address ตาม network ที่เลือก (BSC/TRX/SOL) — เครือข่ายอื่นคงเกณฑ์เดิม
   const _addrFmt = { BSC: /^0x[0-9a-fA-F]{40}$/, TRX: /^T[1-9A-HJ-NP-Za-km-z]{33}$/, SOL: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/ };
   const addrOk = addr.length > 10 && (!net || !_addrFmt[net.id] || _addrFmt[net.id].test(addr));
-  const ready = addrOk && amt >= minW && minW > 0 && net !== null && !insufficientBalance;
+  const _wdClosedNet = !!wdNetClosedSide(net); // [WD-SUSP]
+  const ready = addrOk && amt >= minW && minW > 0 && net !== null && !insufficientBalance && !_wdClosedNet;
   if (btn) {
     btn.classList.toggle('ready', ready);
     btn.disabled = !ready;
     if (!net) btn.textContent = 'Withdraw';
     else if (amt < minW && minW > 0) btn.textContent = `Min. ${minW} ${coin}`;
+    else if (_wdClosedNet) btn.textContent = tccT('wd_net_closed');
     else if (insufficientBalance) btn.textContent = tccT('not_available');
     else btn.textContent = 'Withdraw';
   }
@@ -19471,8 +19583,8 @@ function astOpenSendNetworkSheet() {
   const listEl = document.getElementById('snd-network-list');
   if (listEl) {
     listEl.innerHTML = nets.map(n => `
-      <div class="snd-net-card ${sndSelectedNetwork?.id === n.id ? 'selected' : ''}" onclick="astSelectSendNetwork('${n.id}')">
-        <div class="snd-net-card-title"><b>${n.name}</b><span>${n.sub}</span></div>
+      <div class="snd-net-card ${sndSelectedNetwork?.id === n.id ? 'selected' : ''} ${wdNetClosedSide(n) ? 'is-closed' : ''}" onclick="astSelectSendNetwork('${n.id}')">
+        <div class="snd-net-card-title"><b>${n.name}</b><span>${n.sub}</span>${wdNetClosedSide(n) ? `<span class="snd-net-badge">${tccT('wd_net_closed')}</span>` : ''}</div>
         <div class="snd-net-card-row">Fee <b style="color:var(--t1);margin:0 3px">${n.fee} ${sndSelectedCoin}</b> ( ≈ ${n.gas})</div>
         <div class="snd-net-card-row">Minimum withdrawal ${n.minW} ${sndSelectedCoin}</div>
         <div class="snd-net-card-row">Arrival time ≈ ${n.arrival}</div>
@@ -19488,6 +19600,7 @@ function astCloseSendNetworkSheet() {
 }
 function astSelectSendNetwork(netId) {
   const nets = getSndNetworks(sndSelectedCoin);
+  { const _cs = wdNetClosedSide(nets.find(n => n.id === netId)); if (_cs) { showToast(wdSideText(_cs)); return; } } // [WD-SUSP]
   sndSelectedNetwork = nets.find(n => n.id === netId) || null;
   if (sndSelectedNetwork) {
     const disp = document.getElementById('snd-network-display');
@@ -19512,7 +19625,7 @@ function astSelectSendNetwork(netId) {
 }
 
 // ── Confirm & Execute ──
-function astConfirmWithdraw() {
+function _astConfirmWithdrawCore() { // [WD-SUSP] เดิมชื่อ astConfirmWithdraw — ตอนนี้ astConfirmWithdraw (async) ตรวจนโยบายก่อนแล้วเรียกตัวนี้
   const addr = document.getElementById('snd-address-input')?.value.trim() || '';
   const amt = parseFloat(document.getElementById('snd-amount-input')?.value) || 0;
   const net = sndSelectedNetwork;
@@ -22394,13 +22507,14 @@ setTimeout(() => updateOverviewBalances(), 500);
       <span>Select Withdraw Method</span>
       <span onclick="astCloseWithdrawSheet()" style="width:28px;height:28px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t2);font-size:16px;line-height:1;flex-shrink:0">×</span>
     </div>
-    <div class="wdm-card" onclick="astOpenSendCoinList()">
+    <div id="wd-policy-box" class="wdp-box" style="display:none"></div>
+    <div class="wdm-card" id="wdm-card-internal" onclick="astOpenSendMode('internal')">
       <div class="wdm-card-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
       </div>
       <div><div class="wdm-card-title">Send to TCC members</div><div class="wdm-card-sub">Internal transfer — send to another member's deposit address</div></div>
     </div>
-    <div class="wdm-card" onclick="astOpenSendCoinList()">
+    <div class="wdm-card" id="wdm-card-crypto" onclick="astOpenSendMode('crypto')">
       <div class="wdm-card-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
       </div>
@@ -33280,7 +33394,7 @@ window.fpnlDownloadExcel = async function () {
 // [vx7-PERF] dbCallRaw wrapper: (1) รวม request อ่านที่เหมือนกันและกำลังบินอยู่ให้ใช้ promise เดียว
 // (เดิมปิด Position แล้วยิง getFuturesAccountSummary ซ้ำ 2 ชุด + boot ยิงซ้ำหลายจุด → GAS คิวยาวจน timeout)
 // (2) read action ที่ Timeout → retry 1 ครั้ง (cold start) ; write action ไม่ retry เพื่อกันทำรายการซ้ำ
-const _DB_READ_ACTIONS = new Set(['getDashboard','getFuturesAccountSummary','getFuturesLiqMap','getFuturesDailyPnl',
+const _DB_READ_ACTIONS = new Set(['getWithdrawPolicy','getDashboard','getFuturesAccountSummary','getFuturesLiqMap','getFuturesDailyPnl',
   'getFuturesPnlStats','getOpenOrders','getMyMessages','getMyTrades','getEarnContracts',
   // [PERF-BATCH] read-only ทั้งหมด → dedupe request ที่บินอยู่ + retry 1 ครั้งเมื่อ Timeout (cold start)
   'getOpenPositions','getOpenPositionsWithDD','getContractStatus','getContractStatusBatch',

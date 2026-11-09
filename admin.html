@@ -2751,7 +2751,7 @@ async function recallMessage(messageId, bid, isBroadcast) {
 function openSendMessage(bid, name) {
   modal(`📨 ส่งข้อความถึง ${name||bid}`,`
     <div class="mf"><label>หัวข้อ</label><input id="msg-title" placeholder="หัวข้อข้อความ"></div>
-    <div class="mf"><label>เนื้อหา</label><textarea id="msg-body" rows="5" placeholder="พิมพ์ข้อความที่ต้องการส่ง..." style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rmd);color:var(--t1);padding:8px;font-family:inherit;resize:vertical"></textarea></div>
+    <div class="mf"><label>เนื้อหา <small style="color:var(--t3);font-weight:400">🌐 ระบบแปลให้ 9 ภาษาอัตโนมัติ (สมาชิกเห็นตามภาษาของตน · ไม่มีภาษานั้นแสดงอังกฤษ)</small></label><textarea id="msg-body" rows="5" placeholder="พิมพ์ข้อความที่ต้องการส่ง..." style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rmd);color:var(--t1);padding:8px;font-family:inherit;resize:vertical"></textarea></div>
   `,[
     {l:'ส่งข้อความ',c:'pri',fn:`doSendMessage('${bid}')`},
     {l:'ยกเลิก',c:'can',fn:'cm()'}
@@ -2786,7 +2786,7 @@ function openBroadcast() {
       ⚠️ ข้อความนี้จะถูกส่งถึงสมาชิก <strong>ทุกคน</strong> ในระบบ (${D.members.length} คน) กรุณาตรวจสอบเนื้อหาก่อนส่ง
     </div>
     <div class="mf"><label>หัวข้อ</label><input id="bc-title" placeholder="หัวข้อประกาศ"></div>
-    <div class="mf"><label>เนื้อหา</label><textarea id="bc-body" rows="6" placeholder="พิมพ์ข้อความประกาศ..." style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rmd);color:var(--t1);padding:8px;font-family:inherit;resize:vertical"></textarea></div>
+    <div class="mf"><label>เนื้อหา <small style="color:var(--t3);font-weight:400">🌐 ระบบแปลให้ 9 ภาษาอัตโนมัติ (สมาชิกเห็นตามภาษาของตน · ไม่มีภาษานั้นแสดงอังกฤษ)</small></label><textarea id="bc-body" rows="6" placeholder="พิมพ์ข้อความประกาศ..." style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rmd);color:var(--t1);padding:8px;font-family:inherit;resize:vertical"></textarea></div>
   `,[
     {l:'📢 ส่ง Broadcast',c:'pri',fn:'doBroadcast()'},
     {l:'ยกเลิก',c:'can',fn:'cm()'}
@@ -2869,7 +2869,7 @@ async function openWdControl() {
   modal('🚫 ควบคุมการถอน (ระดับระบบ)', `
     ${owner?'':'<div style="background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.25);border-radius:var(--rmd);padding:9px;margin-bottom:12px;font-size:11px;color:var(--y)">ดูได้อย่างเดียว — เฉพาะ owner ที่แก้ระดับระบบได้ (ระงับรายสมาชิกใช้ปุ่ม 🚫 ในหน้าสมาชิก)</div>'}
     <div class="mf"><label>ทั้งระบบ</label>${_wdcSel('wdc-scope', c.sys_scope, !owner)}</div>
-    <div class="mf"><label>ข้อความถึงสมาชิก (ไม่บังคับ · สูงสุด 200 ตัวอักษร)</label><input id="wdc-msg" maxlength="200" value="${_esc(c.sys_msg)}" placeholder="เช่น ปิดปรับปรุงระบบ กลับมาเปิด 18:00" ${dis}></div>
+    <div class="mf"><label>ข้อความถึงสมาชิก (ไม่บังคับ · สูงสุด 200 ตัวอักษร) <small style="color:var(--t3);font-weight:400">🌐 ระบบแปลให้ 9 ภาษาอัตโนมัติ (สมาชิกเห็นตามภาษาของตน · ไม่มีภาษานั้นแสดงอังกฤษ)</small></label><input id="wdc-msg" maxlength="200" value="${_esc(c.sys_msg)}" placeholder="เช่น ปิดปรับปรุงระบบ กลับมาเปิด 18:00" ${dis}></div>
     <div class="mf"><label>ปิดเป็นรายเครือข่าย (เฉพาะ Crypto)</label><div>${netBox}</div></div>
     <div class="mf"><label>ประเทศที่จำกัด (คั่นด้วย , หรือขึ้นบรรทัดใหม่ — รหัส ISO หรือชื่อไทย/อังกฤษ)</label><textarea id="wdc-cty" rows="2" placeholder="เช่น US, KP, อิหร่าน" ${dis}>${_esc((c.countries||[]).join(', '))}</textarea></div>
     <div class="mf"><label>ถ้าสมาชิกไม่มีข้อมูลประเทศ (ใช้เมื่อมีรายการประเทศที่จำกัด)</label>
@@ -2918,7 +2918,7 @@ function openMemberWdBlock(bid) {
   modal(`🚫 ระงับ/เปิดการถอน — ${_esc(m.Name||bid)}`, `
     <div class="dr"><div class="dk">BNB ID</div><div class="dv" style="color:var(--gold)">${_esc(bid)}</div></div>
     <div class="mf"><label>สถานะการถอนของสมาชิก</label>${_wdcSel('mwd-scope', cur, false)}</div>
-    <div class="mf"><label>ข้อความถึงสมาชิก (ไม่บังคับ · สูงสุด 200 ตัวอักษร — สมาชิกเห็น)</label><input id="mwd-msg" maxlength="200" value="${_esc(m._wdMsg||'')}" placeholder="เช่น กรุณาติดต่อฝ่ายสนับสนุนเพื่อยืนยันตัวตน"></div>
+    <div class="mf"><label>ข้อความถึงสมาชิก (ไม่บังคับ · สูงสุด 200 ตัวอักษร — สมาชิกเห็น) <small style="color:var(--t3);font-weight:400">🌐 ระบบแปลให้ 9 ภาษาอัตโนมัติ (สมาชิกเห็นตามภาษาของตน · ไม่มีภาษานั้นแสดงอังกฤษ)</small></label><input id="mwd-msg" maxlength="200" value="${_esc(m._wdMsg||'')}" placeholder="เช่น กรุณาติดต่อฝ่ายสนับสนุนเพื่อยืนยันตัวตน"></div>
     <div class="mf"><label>เหตุผลภายใน (บังคับ — บันทึกใน AdminLog ไม่แสดงให้สมาชิก)</label><textarea id="mwd-reason" rows="2" placeholder="อย่างน้อย 5 ตัวอักษร"></textarea></div>
     <div class="mf"><label style="text-transform:none;font-size:12px;color:var(--t1)"><input type="checkbox" id="mwd-hold" style="width:auto;margin-right:6px" checked>พักรายการ on-chain ที่ค้างอยู่ของสมาชิกคนนี้ (เมื่อปิด All / Crypto)</label></div>
     <div style="font-size:11px;color:var(--t3);line-height:1.5">Internal = โอนหาสมาชิก TCC (สำเร็จทันที ไม่มีรายการค้าง) · Crypto = ถอน on-chain · ปุ่ม Freeze เดิมไม่เกี่ยวกับการถอน</div>

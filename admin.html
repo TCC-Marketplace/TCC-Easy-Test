@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- [WD-SUSP] 2026-11-09: ควบคุมการถอน (ระบบ/ประเภท/เครือข่าย/ประเทศ + รายสมาชิก) — ใช้คู่กับ GAS_tcc_Admin_main_nv2 + GAS_tcc_main_nv2 -->
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -1227,6 +1228,7 @@ tr:hover td{background:var(--bgh)}
             <div style="display:flex;flex-direction:column;gap:8px">
               <button class="mb pri" style="text-align:left" onclick="openBalAdj()">💰 ปรับ Balance สมาชิก (Manual)</button>
               <button class="mb can" style="text-align:left" onclick="openFreezeDialog()">🔒 Freeze / Unfreeze Account</button>
+              <button class="mb can" style="text-align:left" onclick="openWdControl()">🚫 ควบคุมการถอน (ระบบ · ประเภท · เครือข่าย · ประเทศ)</button>
               <button class="mb no" style="text-align:left" onclick="forceCloseAll()">⚠️ Force Close All Positions</button>
               <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:2px">
                 <div style="font-size:11px;color:var(--t2);margin-bottom:6px">📥 Export ข้อมูล</div>
@@ -1763,6 +1765,8 @@ async function loadAll() {
       _commissionBal:   m.commission_balance,
       _vipLevel:        m.vip_level,
       _verified:        m.verified,
+      _wdBlock:         m.wd_block||'',        // [WD-SUSP]
+      _wdMsg:           m.wd_public_msg||'',
       _email:           m.email,
       _hasUsersRow:     m._has_users_row,
     }));
@@ -2234,7 +2238,7 @@ const WD_STATUS_LABEL = {
   pending:            { label: 'Pending (รอ Bot)',        pill: 'p-pend' },
   processing:         { label: '⚙️ Processing',           pill: 'p-pend' },
   broadcasting:       { label: '📡 Broadcasting (รอ confirm)', pill: 'p-pend' },
-  awaiting_approval:  { label: '⚠️ รอ Admin อนุมัติ',      pill: 'p-no'   },
+  awaiting_approval:  { label: '⚠️ รอ Admin อนุมัติ / พักรายการ', pill: 'p-no'   }, // [WD-SUSP] hold จากการระงับการถอนใช้สถานะนี้
   needs_review:       { label: '🔍 ตรวจ on-chain (TX ส่งแล้ว)', pill: 'p-no' },
   completed:          { label: 'Completed',               pill: 'p-ok'   },
   failed:             { label: 'Failed/Rejected',          pill: 'p-no'   },
@@ -2619,13 +2623,14 @@ function rmem() {
       <td class="mono" style="font-size:10px;color:var(--t2)">${wallet?wallet+'…':'—'}</td>
       <td class="mono center" style="font-size:11px">${m['Level A']||0}/${m['Level B']||0}</td>
       <td class="mono" style="font-size:11px;color:var(--t2)">${m.ReferrerId||'—'}</td>
-      <td><span class="pill ${pc}">${s}</span></td>
+      <td><span class="pill ${pc}">${s}</span>${(m._wdBlock&&m._wdBlock!=='none')?` <span class="pill p-no" title="ระงับการถอน: ${m._wdBlock}">ระงับถอน:${m._wdBlock}</span>`:''}</td>
       <td onclick="event.stopPropagation()">
         <button class="ab vi" onclick="vMem('${m.BNB_ID}')">ดู</button>
         <button class="ab gl" onclick="eMem('${m.BNB_ID}')">แก้ไข</button>
         <button class="ab" onclick="adjBalance('${m.BNB_ID}')" style="border-color:rgba(240,185,11,.35);color:var(--y)">💰</button>
         <button class="ab" onclick="openSendMessage('${m.BNB_ID}','${(m.Name||'').replace(/'/g,"\\'")}')" style="border-color:rgba(59,130,246,.35);color:#3b82f6">📨</button>
         <button class="ab ${s==='Inactive'?'ok':'no'}" onclick="toggleFreeze('${m.BNB_ID}','${s}')">${s==='Inactive'?'🔓':'🔒'}</button>
+        <button class="ab" onclick="openMemberWdBlock('${m.BNB_ID}')" style="border-color:rgba(246,70,93,.35);color:var(--r)" title="ระงับ/เปิดการถอน">🚫</button>
       </td>
     </tr>`;
   }).join('')
@@ -2825,6 +2830,115 @@ function eMem(bid) {
       </select>
     </div>
   `,[{l:'บันทึก',c:'pri',fn:`doEMem('${bid}')`},{l:'ยกเลิก',c:'can',fn:'cm()'}]);
+}
+
+// ══════════════════════════════════════════
+// [WD-SUSP] ควบคุมการถอน — ระดับระบบ/ประเภท/เครือข่าย/ประเทศ (owner) + รายสมาชิก (finance/owner)
+//   ผู้บังคับใช้จริงคือ Main.submitWithdraw — ที่นี่ตั้งค่า + สั่ง hold รายการ on-chain ที่ค้าง (Bot เป็นผู้ย้ายสถานะ)
+// ══════════════════════════════════════════
+const WDC_SCOPES = [
+  ['none',     '✅ เปิดตามปกติ'],
+  ['all',      '⛔ ปิดการถอนทั้งหมด (Internal + Crypto)'],
+  ['internal', '⛔ ปิดเฉพาะ Internal (โอนภายใน TCC)'],
+  ['crypto',   '⛔ ปิดเฉพาะ Crypto (on-chain)'],
+];
+function _wdcSel(id, cur, dis) {
+  return `<select id="${id}" ${dis?'disabled':''}>`+WDC_SCOPES.map(o=>`<option value="${o[0]}" ${o[0]===cur?'selected':''}>${o[1]}</option>`).join('')+`</select>`;
+}
+function _wdcHoldText(h) {
+  if (!h) return '';
+  let s = `พบรายการ on-chain ค้าง ${h.scanned} · ถูกบล็อก ${h.blocked} · พักรายการแล้ว ${h.held}`;
+  if (h.failed && h.failed.length) s += ` · ไม่สำเร็จ ${h.failed.length}`;
+  if (h.remaining) s += ` · เหลืออีก ${h.remaining} (กด "พักรายการที่ค้าง" ซ้ำ)`;
+  if (h.bot_unsupported) s += ' — ⚠️ Withdraw Bot ยังไม่รองรับ holdWithdrawal จึงไม่ได้แตะรายการ';
+  return s;
+}
+
+async function openWdControl() {
+  if (!can('adminGetWithdrawControl')) { toast('⛔ สิทธิ์ของคุณใช้งานส่วนนี้ไม่ได้','er'); return; }
+  const r = await gasAdminCall('adminGetWithdrawControl', {}).catch(()=>null);
+  const c = r?.data;
+  if (!c) { toast('⚠️ โหลดค่าควบคุมการถอนไม่สำเร็จ','er'); return; }
+  const owner = can('adminSetWithdrawControl');
+  const dis = owner ? '' : 'disabled';
+  const netBox = ['BSC','TRC','SOL'].map(n=>`<label style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;text-transform:none;font-size:12px;color:var(--t1)"><input type="checkbox" id="wdc-net-${n}" ${c.nets.indexOf(n)>-1?'checked':''} ${dis} style="width:auto"> ${n}${n==='TRC'?' (Tron)':''}</label>`).join('');
+  const bl = (c.blocked_members||[]);
+  const blHtml = bl.length
+    ? bl.slice(0,8).map(b=>`<div style="font-size:11px;color:var(--t2);padding:2px 0">${_esc(b.name||'—')} <span class="mono">${_esc(b.uid)}</span> — <b style="color:var(--r)">${_esc(b.scope)}</b></div>`).join('') + (bl.length>8?`<div style="font-size:11px;color:var(--t3)">และอีก ${bl.length-8} ราย</div>`:'')
+    : '<div style="font-size:11px;color:var(--t3)">ไม่มี</div>';
+  modal('🚫 ควบคุมการถอน (ระดับระบบ)', `
+    ${owner?'':'<div style="background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.25);border-radius:var(--rmd);padding:9px;margin-bottom:12px;font-size:11px;color:var(--y)">ดูได้อย่างเดียว — เฉพาะ owner ที่แก้ระดับระบบได้ (ระงับรายสมาชิกใช้ปุ่ม 🚫 ในหน้าสมาชิก)</div>'}
+    <div class="mf"><label>ทั้งระบบ</label>${_wdcSel('wdc-scope', c.sys_scope, !owner)}</div>
+    <div class="mf"><label>ข้อความถึงสมาชิก (ไม่บังคับ · สูงสุด 200 ตัวอักษร)</label><input id="wdc-msg" maxlength="200" value="${_esc(c.sys_msg)}" placeholder="เช่น ปิดปรับปรุงระบบ กลับมาเปิด 18:00" ${dis}></div>
+    <div class="mf"><label>ปิดเป็นรายเครือข่าย (เฉพาะ Crypto)</label><div>${netBox}</div></div>
+    <div class="mf"><label>ประเทศที่จำกัด (คั่นด้วย , หรือขึ้นบรรทัดใหม่ — รหัส ISO หรือชื่อไทย/อังกฤษ)</label><textarea id="wdc-cty" rows="2" placeholder="เช่น US, KP, อิหร่าน" ${dis}>${_esc((c.countries||[]).join(', '))}</textarea></div>
+    <div class="mf"><label>ถ้าสมาชิกไม่มีข้อมูลประเทศ (ใช้เมื่อมีรายการประเทศที่จำกัด)</label>
+      <select id="wdc-cty-empty" ${dis}><option value="allow" ${c.country_empty==='allow'?'selected':''}>อนุญาตให้ถอนได้</option><option value="block" ${c.country_empty==='block'?'selected':''}>ปฏิเสธการถอน</option></select></div>
+    <div class="mf"><label>เหตุผล (บังคับ — บันทึกใน AdminLog)</label><textarea id="wdc-reason" rows="2" placeholder="อย่างน้อย 5 ตัวอักษร" ${dis}></textarea></div>
+    <div class="mf"><label style="text-transform:none;font-size:12px;color:var(--t1)"><input type="checkbox" id="wdc-hold" ${dis} style="width:auto;margin-right:6px">พักรายการ on-chain ที่ค้างอยู่ (pending) ที่ถูกบล็อก → ให้ Bot ตรวจและยกเลิก</label></div>
+    <div class="mf"><label>สมาชิกที่ถูกระงับรายบุคคล (${bl.length})</label>${blHtml}</div>
+    ${c.user_cols_ready?'':'<div style="font-size:11px;color:var(--t3)">ยังไม่มีคอลัมน์ wd_* ในชีต Users — ระบบเติมให้อัตโนมัติเมื่อระงับรายสมาชิกครั้งแรก (หรือรัน repairSheetColumns() ใน Main)</div>'}
+  `, owner
+    ? [{l:'บันทึก',c:'pri',fn:'doWdControlSave()'},{l:'พักรายการที่ค้าง',c:'can',fn:'doWdHoldOnly()'},{l:'ยกเลิก',c:'can',fn:'cm()'}]
+    : [{l:'พักรายการที่ค้าง',c:'can',fn:'doWdHoldOnly()'},{l:'ปิด',c:'can',fn:'cm()'}]);
+}
+
+async function doWdControlSave() {
+  const scope  = document.getElementById('wdc-scope')?.value || 'none';
+  const msg    = (document.getElementById('wdc-msg')?.value||'').trim();
+  const nets   = ['BSC','TRC','SOL'].filter(n=>document.getElementById('wdc-net-'+n)?.checked);
+  const cty    = (document.getElementById('wdc-cty')?.value||'').trim();
+  const empty  = document.getElementById('wdc-cty-empty')?.value || 'allow';
+  const hold   = !!document.getElementById('wdc-hold')?.checked;
+  const reason = (document.getElementById('wdc-reason')?.value||'').trim();
+  if (reason.length < 5) { toast('⚠️ ระบุเหตุผลอย่างน้อย 5 ตัวอักษร','er'); return; }
+  const summary = `ทั้งระบบ: ${scope}${nets.length?' · เครือข่ายที่ปิด: '+nets.join(','):''}${cty?' · จำกัดประเทศ: '+cty:''}`;
+  if (!(await customConfirm(summary+(hold?'\n\nและพักรายการ on-chain ที่ค้างอยู่ที่ถูกบล็อก':''), {title:'🚫 ยืนยันการตั้งค่าควบคุมการถอน', danger: scope!=='none'||nets.length>0||!!cty, okLabel:'ยืนยัน'}))) return;
+  cm();
+  const res = await gasWrite('adminSetWithdrawControl', { sys_scope: scope, sys_msg: msg, nets, countries: cty, country_empty: empty, reason, hold_pending: hold });
+  if (res?.status==='ok') {
+    toast('✅ '+(res.message||'บันทึกแล้ว'),'ok');
+    if (res.hold) setTimeout(()=>toast('🔎 '+_wdcHoldText(res.hold), res.hold.bot_unsupported||res.hold.failed?.length?'er':'ok'), 600);
+  } else toast('⚠️ '+(res?.message||'บันทึกไม่สำเร็จ'),'er');
+}
+
+async function doWdHoldOnly() {
+  const reason = (document.getElementById('wdc-reason')?.value||'').trim() || 'พักรายการตามนโยบายระงับการถอน';
+  if (!can('adminHoldSuspendedWithdrawals')) { toast('⛔ สิทธิ์ไม่พอ','er'); return; }
+  toast('🔄 กำลังตรวจรายการที่ค้าง...','');
+  const res = await gasWrite('adminHoldSuspendedWithdrawals', { reason });
+  if (res?.status==='ok') toast('🔎 '+_wdcHoldText(res.hold), res.hold.bot_unsupported||res.hold.failed?.length?'er':'ok');
+  else toast('⚠️ '+(res?.message||'ไม่สำเร็จ'),'er');
+}
+
+function openMemberWdBlock(bid) {
+  const m = D.members.find(x=>String(x.BNB_ID)===String(bid)); if (!m) return;
+  if (!can('adminSetMemberWithdrawBlock')) { toast('⛔ สิทธิ์ของคุณใช้งานส่วนนี้ไม่ได้','er'); return; }
+  const cur = m._wdBlock && m._wdBlock!=='' ? m._wdBlock : 'none';
+  modal(`🚫 ระงับ/เปิดการถอน — ${_esc(m.Name||bid)}`, `
+    <div class="dr"><div class="dk">BNB ID</div><div class="dv" style="color:var(--gold)">${_esc(bid)}</div></div>
+    <div class="mf"><label>สถานะการถอนของสมาชิก</label>${_wdcSel('mwd-scope', cur, false)}</div>
+    <div class="mf"><label>ข้อความถึงสมาชิก (ไม่บังคับ · สูงสุด 200 ตัวอักษร — สมาชิกเห็น)</label><input id="mwd-msg" maxlength="200" value="${_esc(m._wdMsg||'')}" placeholder="เช่น กรุณาติดต่อฝ่ายสนับสนุนเพื่อยืนยันตัวตน"></div>
+    <div class="mf"><label>เหตุผลภายใน (บังคับ — บันทึกใน AdminLog ไม่แสดงให้สมาชิก)</label><textarea id="mwd-reason" rows="2" placeholder="อย่างน้อย 5 ตัวอักษร"></textarea></div>
+    <div class="mf"><label style="text-transform:none;font-size:12px;color:var(--t1)"><input type="checkbox" id="mwd-hold" style="width:auto;margin-right:6px" checked>พักรายการ on-chain ที่ค้างอยู่ของสมาชิกคนนี้ (เมื่อปิด All / Crypto)</label></div>
+    <div style="font-size:11px;color:var(--t3);line-height:1.5">Internal = โอนหาสมาชิก TCC (สำเร็จทันที ไม่มีรายการค้าง) · Crypto = ถอน on-chain · ปุ่ม Freeze เดิมไม่เกี่ยวกับการถอน</div>
+  `,[{l:'บันทึก',c:'pri',fn:`doMemberWdBlockSave('${bid}')`},{l:'ยกเลิก',c:'can',fn:'cm()'}]);
+}
+
+async function doMemberWdBlockSave(bid) {
+  const scope  = document.getElementById('mwd-scope')?.value || 'none';
+  const msg    = (document.getElementById('mwd-msg')?.value||'').trim();
+  const reason = (document.getElementById('mwd-reason')?.value||'').trim();
+  const hold   = !!document.getElementById('mwd-hold')?.checked;
+  if (reason.length < 5) { toast('⚠️ ระบุเหตุผลอย่างน้อย 5 ตัวอักษร','er'); return; }
+  cm();
+  const res = await gasWrite('adminSetMemberWithdrawBlock', { uid: bid, scope, public_msg: msg, reason, hold_pending: hold });
+  if (res?.status==='ok') {
+    const m = D.members.find(x=>String(x.BNB_ID)===String(bid));
+    if (m) { m._wdBlock = scope==='none' ? '' : scope; m._wdMsg = scope==='none' ? '' : msg; try { rmem(); } catch(e){} }
+    toast('✅ '+(res.message||'บันทึกแล้ว'),'ok');
+    if (res.hold) setTimeout(()=>toast('🔎 '+_wdcHoldText(res.hold), res.hold.bot_unsupported||res.hold.failed?.length?'er':'ok'), 600);
+  } else toast('⚠️ '+(res?.message||'บันทึกไม่สำเร็จ'),'er');
 }
 
 async function doEMem(bid) {

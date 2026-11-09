@@ -2943,6 +2943,10 @@ async function openWdControl() {
   const netBox = ['BSC','TRC','SOL'].map(n=>`<label style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;text-transform:none;font-size:12px;color:var(--t1)"><input type="checkbox" id="wdc-net-${n}" ${c.nets.indexOf(n)>-1?'checked':''} ${dis} style="width:auto"> ${n}${n==='TRC'?' (Tron)':''}</label>`).join('');
   const bl = (c.blocked_members||[]);
   window._wdcBl = bl;
+  // [WD-COND] เงื่อนไขการถอน: ยังไม่เคยแก้ = แสดงค่ามาตรฐานให้แก้ต่อได้เลย
+  const _cc = c.conditions || {};
+  window._wdcCond = { owner: can('adminSetWithdrawConditions'), status: (_cc.custom && _cc.status) ? _cc.status : WDC_COND_DEFAULT.status, items: (_cc.custom && _cc.items && _cc.items.length) ? _cc.items.slice() : WDC_COND_DEFAULT.items.slice() };
+  setTimeout(_wdcCondRender, 0);
   const blHtml = bl.length
     ? `<input id="wdc-bl-q" oninput="_wdcRenderBl()" placeholder="ค้นหา BNB ID / ชื่อ" style="margin-bottom:6px"><div id="wdc-bl-list" style="max-height:220px;overflow-y:auto"></div>`
     : '<div style="font-size:11px;color:var(--t3)">ไม่มี</div>';
@@ -2955,6 +2959,13 @@ async function openWdControl() {
     <div class="mf"><label>ประเทศที่จำกัด (เลือกได้หลายประเทศ)</label>${_wdcCtyHtml(c.countries, !owner)}</div>
     <div class="mf"><label>ถ้าสมาชิกไม่มีข้อมูลประเทศ (ใช้เมื่อมีรายการประเทศที่จำกัด)</label>
       <select id="wdc-cty-empty" ${dis}><option value="allow" ${c.country_empty==='allow'?'selected':''}>อนุญาตให้ถอนได้</option><option value="block" ${c.country_empty==='block'?'selected':''}>ปฏิเสธการถอน</option></select></div>
+    <div class="mf" style="border:1px solid var(--bl);border-radius:var(--rmd);padding:10px;margin-top:4px"><label>📝 เงื่อนไขการถอน (แสดงในหน้า Select Withdraw Method) <small style="color:var(--t3);font-weight:400">🌐 บันทึกแล้วระบบแปลให้ 9 ภาษาอัตโนมัติ · ปุ่มบันทึกแยกจากปุ่ม "บันทึก" ด้านล่าง</small></label>
+      <div style="font-size:11px;color:var(--t3);margin:6px 0 3px">ข้อความสถานะ (บรรทัดหัวกล่อง)</div>
+      <input id="wdc-cond-status" maxlength="100" value="${_esc(window._wdcCond.status)}" ${dis}>
+      <div style="font-size:11px;color:var(--t3);margin:8px 0 3px">รายการเงื่อนไข (สูงสุด 12 ข้อ · ข้อละไม่เกิน 300 ตัวอักษร)</div>
+      <div id="wdc-cond-list"></div>
+      ${owner?`<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><button type="button" class="mb can" onclick="_wdcCondAdd()">+ เพิ่มข้อ</button><button type="button" class="mb can" onclick="_wdcCondDefault()">↺ ค่าเริ่มต้น</button><button type="button" class="mb pri" onclick="doWdCondSave()">💾 บันทึกเงื่อนไข</button></div>`:''}
+    </div>
     <div class="mf"><label>เหตุผล (บังคับ — บันทึกใน AdminLog)</label><textarea id="wdc-reason" rows="2" placeholder="อย่างน้อย 5 ตัวอักษร" ${dis}></textarea></div>
     <div class="mf"><label style="text-transform:none;font-size:12px;color:var(--t1)"><input type="checkbox" id="wdc-hold" ${dis} style="width:auto;margin-right:6px">พักรายการ on-chain ที่ค้างอยู่ (pending) ที่ถูกบล็อก → ให้ Bot ตรวจและยกเลิก</label></div>
     <div class="mf"><label>สมาชิกที่ถูกระงับรายบุคคล (${bl.length})</label>${blHtml}</div>
@@ -2962,6 +2973,36 @@ async function openWdControl() {
   `, owner
     ? [{l:'บันทึก',c:'pri',fn:'doWdControlSave()'},{l:'🧪 ตรวจสอบการบังคับใช้',c:'ok',fn:'cm();openWdSelfTest()'},{l:'พักรายการที่ค้าง',c:'can',fn:'doWdHoldOnly()'},{l:'ยกเลิก',c:'can',fn:'cm()'}]
     : [{l:'พักรายการที่ค้าง',c:'can',fn:'doWdHoldOnly()'},{l:'ปิด',c:'can',fn:'cm()'}]);
+}
+
+// [WD-COND] แก้ไขเงื่อนไขการถอนที่สมาชิกเห็นในหน้า Select Withdraw Method (AI แปล 9 ภาษาตอนบันทึกที่ GAS)
+const WDC_COND_DEFAULT = {"status": "เปิดให้ถอนตามเงื่อนไขด้านล่าง", "items": ["ถอน Crypto ได้เฉพาะเหรียญและเครือข่ายที่แสดงในหน้าเลือกเครือข่าย", "การถอน Crypto มียอดขั้นต่ำและค่าธรรมเนียมตามเครือข่าย (ดูในหน้าเลือกเครือข่าย) ส่วนการโอนภายใน TCC ไม่มียอดขั้นต่ำและไม่มีค่าธรรมเนียม", "ที่อยู่ปลายทางต้องถูกต้องตามรูปแบบของเครือข่ายที่เลือก — หากส่งผิดเครือข่าย อาจสูญเสียทรัพย์สินถาวรและกู้คืนไม่ได้", "ยอดคงเหลือในกระเป๋าที่ถอนต้องเพียงพอสำหรับจำนวนที่ถอนรวมค่าธรรมเนียม", "โอนภายใน TCC ให้บัญชีของตัวเองไม่ได้", "บัญชี ประเภทการถอน เครือข่าย และประเทศของบัญชีต้องไม่ถูกระงับโดยระบบ", "หลังส่งคำขอถอน Crypto ยอดที่ถอนและค่าธรรมเนียมจะถูกหักทันที และจะคืนให้หากรายการถูกปฏิเสธหรือส่งไม่สำเร็จ"]};
+function _wdcCondSync() {
+  const st = window._wdcCond; if (!st) return;
+  const its = document.querySelectorAll('.wdc-cond-it'); if (its.length || !st.items.length) st.items = Array.from(its).map(e=>e.value);
+  const sEl = document.getElementById('wdc-cond-status'); if (sEl) st.status = sEl.value;
+}
+function _wdcCondRender() {
+  const box = document.getElementById('wdc-cond-list'); const st = window._wdcCond; if (!box || !st) return;
+  const dis = st.owner ? '' : 'disabled';
+  box.innerHTML = st.items.map((t,i)=>`<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:6px"><span style="min-width:18px;color:var(--t3);font-size:12px;padding-top:8px">${i+1}.</span><textarea class="wdc-cond-it" rows="2" maxlength="300" style="flex:1" ${dis}>${_esc(t)}</textarea>${st.owner?`<div style="display:flex;flex-direction:column;gap:2px"><button type="button" class="mb can" onclick="_wdcCondMove(${i},-1)">↑</button><button type="button" class="mb can" onclick="_wdcCondMove(${i},1)">↓</button><button type="button" class="mb can" onclick="_wdcCondDel(${i})">🗑</button></div>`:''}</div>`).join('') || '<div style="font-size:11px;color:var(--t3)">ไม่มีข้อ (บันทึกว่างทั้งหมด = ใช้ค่ามาตรฐาน)</div>';
+}
+function _wdcCondAdd() { _wdcCondSync(); const st = window._wdcCond; if (st.items.length >= 12) { toast('⚠️ เพิ่มได้สูงสุด 12 ข้อ','er'); return; } st.items.push(''); _wdcCondRender(); const t = document.querySelectorAll('.wdc-cond-it'); if (t.length) t[t.length-1].focus(); }
+function _wdcCondDel(i) { _wdcCondSync(); window._wdcCond.items.splice(i,1); _wdcCondRender(); }
+function _wdcCondMove(i,d) { _wdcCondSync(); const a = window._wdcCond.items, j = i+d; if (j<0||j>=a.length) return; const t=a[i]; a[i]=a[j]; a[j]=t; _wdcCondRender(); }
+function _wdcCondDefault() { window._wdcCond.items = WDC_COND_DEFAULT.items.slice(); window._wdcCond.status = WDC_COND_DEFAULT.status; const sEl = document.getElementById('wdc-cond-status'); if (sEl) sEl.value = WDC_COND_DEFAULT.status; _wdcCondRender(); }
+async function doWdCondSave() {
+  _wdcCondSync();
+  const st = window._wdcCond;
+  const items = st.items.map(x=>String(x||'').trim()).filter(Boolean);
+  const status = String(st.status||'').trim();
+  // เท่ากับค่ามาตรฐานทั้งหมด → คืนค่ามาตรฐาน (คงคำแปลที่ตรวจแล้วในหน้าเว็บสมาชิก ไม่ให้ AI แปลทับ)
+  const isDef = status===WDC_COND_DEFAULT.status && items.length===WDC_COND_DEFAULT.items.length && items.every((x,i)=>x===WDC_COND_DEFAULT.items[i]);
+  const msg = isDef ? 'ข้อความตรงกับค่ามาตรฐาน — ระบบจะใช้คำแปลมาตรฐานเดิม' : 'บันทึกเงื่อนไขการถอน '+items.length+' ข้อ\nระบบจะให้ AI แปลเป็น 9 ภาษา (อาจใช้เวลาสักครู่) แล้วสมาชิกเห็นตามภาษาที่เลือก';
+  if (!(await customConfirm(msg, {title:'📝 ยืนยันเงื่อนไขการถอน', okLabel:'บันทึก'}))) return;
+  toast('⏳ กำลังแปลและบันทึก…');
+  const res = await gasWrite('adminSetWithdrawConditions', { status, items, reset: isDef });
+  if (res?.status==='ok') toast('✅ '+(res.message||'บันทึกแล้ว'), res.partial?'er':'ok'); else toast('⚠️ '+(res?.message||'บันทึกไม่สำเร็จ'),'er');
 }
 
 async function doWdControlSave() {

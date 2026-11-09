@@ -3227,7 +3227,7 @@ if(!LANG_IDX.hasOwnProperty(_L))_L='th';
 window.tccSyncUrlLang=function(){try{var u=new URL(location.href);if(u.searchParams.get('lang')===_L)return;u.searchParams.set('lang',_L);history.replaceState(history.state,'',u.pathname+u.search+u.hash);}catch(e){}};
 window.tccGasErr=function(json){try{if(!json||!json.code)return null;const k='gerr_'+json.code;if(!TCC_I18N[k])return null;return tccTF(k,json.params||{});}catch(_e){return null;}};
 window.tccMkGasError=function(json,fallback){const raw=(json&&json.error)||fallback;const e=new Error(window.tccGasErr(json)||raw);e.raw=raw;if(json&&json.code)e.code=json.code;return e;};
-window.tccT=function(k){const e=TCC_I18N[k];if(!e)return k;return e[LANG_IDX[_L]]||e[0]||k;};
+window.tccT=function(k){const e=TCC_I18N[k];if(!e)return k;return e[LANG_IDX[_L]]||e[0]||k;};window.tccHas=function(k){return !!TCC_I18N[k];}; // [WD-SUSP-UI] ให้โค้ดนอก IIFE เช็กคีย์ได้ (TCC_I18N เข้าถึงตรงไม่ได้)
 // [3LG i18n] tccTF: เหมือน tccT แต่แทนที่ placeholder แบบ {name} ด้วยค่าจาก object ที่ส่งมา
 // เช่น tccTF('gate_min_approved_transfer', {min:5, cur:1})
 window.tccTF=function(k, vals){
@@ -19189,7 +19189,7 @@ function loadWithdrawPolicy(force) {
 function wdSideText(side) {
   if (!side || side.open) return '';
   const k = 'gerr_' + side.code;
-  return TCC_I18N[k] ? tccTF(k, { net: side.net || '' }) : tccT('wd_cond_title');
+  return window.tccHas(k) ? tccTF(k, { net: side.net || '' }) : tccT('wd_cond_title');
 }
 function wdNetClosedSide(net) {
   if (!net || !WD_POLICY || !WD_POLICY.networks) return null;
@@ -35149,7 +35149,7 @@ async function saveWithdraw(data) {
     console.error('[saveWithdraw] Error:', err);
     // [WD-SUSP-UI] server ปฏิเสธเพราะระงับถอน -> ข้อความเข้าใจง่าย + รีเฟรชสถานะ/ซ่อนปุ่ม Send ทันที
     if ((err && typeof err.code === 'string' && err.code.indexOf('WD_CLOSED_') === 0) || /\[WD-SUSP/.test(String((err && (err.raw || err.message)) || ''))) {
-      showToast((err.code && TCC_I18N['gerr_' + err.code]) ? err.message : tccT('wd_susp_banner'));
+      showToast((err.code && window.tccHas('gerr_' + err.code)) ? err.message : tccT('wd_susp_banner'));
       try { loadWithdrawPolicy(true).then(() => { applyWdSendState(); renderWdPolicyBox(); }); } catch (_e) {}
       return null;
     }

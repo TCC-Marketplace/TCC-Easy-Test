@@ -2877,11 +2877,67 @@ function _wdcHoldText(h) {
   return s;
 }
 
+// [WD-UI] เลือกประเทศแบบดร็อปดาวน์หลายรายการ (ค่าที่ส่งไปเก็บเป็นรหัส ISO คั่นด้วย ,)
+const WDC_COUNTRIES = [["GR","กรีซ","Greece"],["GL","กรีนแลนด์","Greenland"],["GU","กวม","Guam"],["GP","กวาเดอลูป","Guadeloupe"],["KH","กัมพูชา","Cambodia"],["GT","กัวเตมาลา","Guatemala"],["QA","กาตาร์","Qatar"],["GH","กานา","Ghana"],["GA","กาบอง","Gabon"],["GY","กายอานา","Guyana"],["GN","กินี","Guinea"],["GW","กินี-บิสเซา","Guinea-Bissau"],["CD","คองโก - กินชาซา","Congo - Kinshasa"],["CG","คองโก - บราซซาวิล","Congo - Brazzaville"],["CR","คอสตาริกา","Costa Rica"],["KM","คอโมโรส","Comoros"],["KZ","คาซัคสถาน","Kazakhstan"],["KI","คิริบาส","Kiribati"],["CU","คิวบา","Cuba"],["KG","คีร์กีซสถาน","Kyrgyzstan"],["CW","คูราเซา","Curaçao"],["KW","คูเวต","Kuwait"],["GE","จอร์เจีย","Georgia"],["JO","จอร์แดน","Jordan"],["JM","จาเมกา","Jamaica"],["DJ","จิบูตี","Djibouti"],["CN","จีน","China"],["TD","ชาด","Chad"],["CL","ชิลี","Chile"],["SM","ซานมาริโน","San Marino"],["WS","ซามัว","Samoa"],["SA","ซาอุดีอาระเบีย","Saudi Arabia"],["EH","ซาฮาราตะวันตก","Western Sahara"],["SX","ซินต์มาร์เทน","Sint Maarten"],["ZW","ซิมบับเว","Zimbabwe"],["SY","ซีเรีย","Syria"],["SD","ซูดาน","Sudan"],["SS","ซูดานใต้","South Sudan"],["SR","ซูรินาเม","Suriname"],["JP","ญี่ปุ่น","Japan"],["PS","ดินแดนปาเลสไตน์","Palestinian Territories"],["TT","ตรินิแดดและโตเบโก","Trinidad & Tobago"],["TO","ตองกา","Tonga"],["TL","ติมอร์-เลสเต","Timor-Leste"],["TR","ตุรกี","Türkiye"],["TN","ตูนิเซีย","Tunisia"],["TV","ตูวาลู","Tuvalu"],["TJ","ทาจิกิสถาน","Tajikistan"],["VA","นครวาติกัน","Vatican City"],["NO","นอร์เวย์","Norway"],["NA","นามิเบีย","Namibia"],["NR","นาอูรู","Nauru"],["NI","นิการากัว","Nicaragua"],["NZ","นิวซีแลนด์","New Zealand"],["NC","นิวแคลิโดเนีย","New Caledonia"],["NU","นีอูเอ","Niue"],["BR","บราซิล","Brazil"],["IO","บริติชอินเดียนโอเชียนเทร์ริทอรี","British Indian Ocean Territory"],["BN","บรูไน","Brunei"],["BW","บอตสวานา","Botswana"],["BA","บอสเนียและเฮอร์เซโกวีนา","Bosnia & Herzegovina"],["BD","บังกลาเทศ","Bangladesh"],["BG","บัลแกเรีย","Bulgaria"],["BB","บาร์เบโดส","Barbados"],["BH","บาห์เรน","Bahrain"],["BS","บาฮามาส","Bahamas"],["BI","บุรุนดี","Burundi"],["BF","บูร์กินาฟาโซ","Burkina Faso"],["PK","ปากีสถาน","Pakistan"],["PA","ปานามา","Panama"],["PG","ปาปัวนิวกินี","Papua New Guinea"],["PY","ปารากวัย","Paraguay"],["PW","ปาเลา","Palau"],["FR","ฝรั่งเศส","France"],["FJ","ฟิจิ","Fiji"],["FI","ฟินแลนด์","Finland"],["PH","ฟิลิปปินส์","Philippines"],["BT","ภูฏาน","Bhutan"],["MN","มองโกเลีย","Mongolia"],["MS","มอนต์เซอร์รัต","Montserrat"],["ME","มอนเตเนโกร","Montenegro"],["MU","มอริเชียส","Mauritius"],["MR","มอริเตเนีย","Mauritania"],["MT","มอลตา","Malta"],["MD","มอลโดวา","Moldova"],["MV","มัลดีฟส์","Maldives"],["MK","มาซิโดเนียเหนือ","North Macedonia"],["MG","มาดากัสการ์","Madagascar"],["YT","มายอต","Mayotte"],["MQ","มาร์ตินีก","Martinique"],["MW","มาลาวี","Malawi"],["ML","มาลี","Mali"],["MY","มาเลเซีย","Malaysia"],["GI","ยิบรอลตาร์","Gibraltar"],["UG","ยูกันดา","Uganda"],["UA","ยูเครน","Ukraine"],["RW","รวันดา","Rwanda"],["RU","รัสเซีย","Russia"],["LU","ลักเซมเบิร์ก","Luxembourg"],["LV","ลัตเวีย","Latvia"],["LA","ลาว","Laos"],["LI","ลิกเตนสไตน์","Liechtenstein"],["LT","ลิทัวเนีย","Lithuania"],["LY","ลิเบีย","Libya"],["VU","วานูอาตู","Vanuatu"],["WF","วาลลิสและฟุตูนา","Wallis & Futuna"],["LK","ศรีลังกา","Sri Lanka"],["SJ","สฟาลบาร์และยานไมเอน","Svalbard & Jan Mayen"],["CH","สวิตเซอร์แลนด์","Switzerland"],["SE","สวีเดน","Sweden"],["AE","สหรัฐอาหรับเอมิเรตส์","United Arab Emirates"],["US","สหรัฐอเมริกา","United States"],["GB","สหราชอาณาจักร","United Kingdom"],["CF","สาธารณรัฐแอฟริกากลาง","Central African Republic"],["DO","สาธารณรัฐโดมินิกัน","Dominican Republic"],["SG","สิงคโปร์","Singapore"],["ES","สเปน","Spain"],["SK","สโลวะเกีย","Slovakia"],["SI","สโลวีเนีย","Slovenia"],["CK","หมู่เกาะคุก","Cook Islands"],["MP","หมู่เกาะนอร์เทิร์นมาเรียนา","Northern Mariana Islands"],["VG","หมู่เกาะบริติชเวอร์จิน","British Virgin Islands"],["PN","หมู่เกาะพิตแคร์น","Pitcairn Islands"],["FK","หมู่เกาะฟอล์กแลนด์","Falkland Islands"],["MH","หมู่เกาะมาร์แชลล์","Marshall Islands"],["UM","หมู่เกาะรอบนอกของสหรัฐอเมริกา","U.S. Outlying Islands"],["KY","หมู่เกาะเคย์แมน","Cayman Islands"],["TC","หมู่เกาะเติกส์และหมู่เกาะเคคอส","Turks & Caicos Islands"],["VI","หมู่เกาะเวอร์จินของสหรัฐอเมริกา","U.S. Virgin Islands"],["FO","หมู่เกาะแฟโร","Faroe Islands"],["CC","หมู่เกาะโคโคส (คีลิง)","Cocos (Keeling) Islands"],["SB","หมู่เกาะโซโลมอน","Solomon Islands"],["AX","หมู่เกาะโอลันด์","Åland Islands"],["AT","ออสเตรีย","Austria"],["AU","ออสเตรเลีย","Australia"],["AD","อันดอร์รา","Andorra"],["AF","อัฟกานิสถาน","Afghanistan"],["AW","อารูบา","Aruba"],["AR","อาร์เจนตินา","Argentina"],["AM","อาร์เมเนีย","Armenia"],["AZ","อาเซอร์ไบจาน","Azerbaijan"],["IT","อิตาลี","Italy"],["IN","อินเดีย","India"],["ID","อินโดนีเซีย","Indonesia"],["IQ","อิรัก","Iraq"],["IL","อิสราเอล","Israel"],["IR","อิหร่าน","Iran"],["GQ","อิเควทอเรียลกินี","Equatorial Guinea"],["EG","อียิปต์","Egypt"],["UZ","อุซเบกิสถาน","Uzbekistan"],["UY","อุรุกวัย","Uruguay"],["AS","อเมริกันซามัว","American Samoa"],["HN","ฮอนดูรัส","Honduras"],["HU","ฮังการี","Hungary"],["GD","เกรเนดา","Grenada"],["KP","เกาหลีเหนือ","North Korea"],["KR","เกาหลีใต้","South Korea"],["CX","เกาะคริสต์มาส","Christmas Island"],["NF","เกาะนอร์ฟอล์ก","Norfolk Island"],["BV","เกาะบูเว","Bouvet Island"],["GS","เกาะเซาท์จอร์เจียและหมู่เกาะเซาท์แซนด์วิช","South Georgia & South Sandwich Islands"],["HM","เกาะเฮิร์ดและหมู่เกาะแมกดอนัลด์","Heard & McDonald Islands"],["IM","เกาะแมน","Isle of Man"],["GG","เกิร์นซีย์","Guernsey"],["MO","เขตปกครองพิเศษมาเก๊าแห่งสาธารณรัฐประชาชนจีน","Macao SAR China"],["HK","เขตปกครองพิเศษฮ่องกงแห่งสาธารณรัฐประชาชนจีน","Hong Kong SAR China"],["KE","เคนยา","Kenya"],["CV","เคปเวิร์ด","Cape Verde"],["JE","เจอร์ซีย์","Jersey"],["CZ","เช็ก","Czechia"],["KN","เซนต์คิตส์และเนวิส","St. Kitts & Nevis"],["BL","เซนต์บาร์เธเลมี","St. Barthélemy"],["MF","เซนต์มาร์ติน","St. Martin"],["LC","เซนต์ลูเซีย","St. Lucia"],["VC","เซนต์วินเซนต์และเกรนาดีนส์","St. Vincent & Grenadines"],["SH","เซนต์เฮเลนา","St. Helena"],["RS","เซอร์เบีย","Serbia"],["ST","เซาตูเมและปรินซิปี","São Tomé & Príncipe"],["SL","เซียร์ราลีโอน","Sierra Leone"],["SC","เซเชลส์","Seychelles"],["SN","เซเนกัล","Senegal"],["DK","เดนมาร์ก","Denmark"],["TM","เติร์กเมนิสถาน","Turkmenistan"],["NP","เนปาล","Nepal"],["NL","เนเธอร์แลนด์","Netherlands"],["BQ","เนเธอร์แลนด์แคริบเบียน","Caribbean Netherlands"],["BJ","เบนิน","Benin"],["BY","เบลารุส","Belarus"],["BZ","เบลีซ","Belize"],["BE","เบลเยียม","Belgium"],["BM","เบอร์มิวดา","Bermuda"],["PE","เปรู","Peru"],["PR","เปอร์โตริโก","Puerto Rico"],["GF","เฟรนช์เกียนา","French Guiana"],["TF","เฟรนช์เซาเทิร์นเทร์ริทอรีส์","French Southern Territories"],["PF","เฟรนช์โปลินีเซีย","French Polynesia"],["MM","เมียนมา (พม่า)","Myanmar (Burma)"],["MX","เม็กซิโก","Mexico"],["DE","เยอรมนี","Germany"],["YE","เยเมน","Yemen"],["RE","เรอูนียง","Réunion"],["LB","เลบานอน","Lebanon"],["LS","เลโซโท","Lesotho"],["VN","เวียดนาม","Vietnam"],["VE","เวเนซุเอลา","Venezuela"],["EC","เอกวาดอร์","Ecuador"],["ET","เอธิโอเปีย","Ethiopia"],["ER","เอริเทรีย","Eritrea"],["SV","เอลซัลวาดอร์","El Salvador"],["SZ","เอสวาตีนี","Eswatini"],["EE","เอสโตเนีย","Estonia"],["HT","เฮติ","Haiti"],["GM","แกมเบีย","Gambia"],["CA","แคนาดา","Canada"],["CM","แคเมอรูน","Cameroon"],["PM","แซงปีแยร์และมีเกอลง","St. Pierre & Miquelon"],["ZM","แซมเบีย","Zambia"],["TZ","แทนซาเนีย","Tanzania"],["AI","แองกวิลลา","Anguilla"],["AO","แองโกลา","Angola"],["AQ","แอนตาร์กติกา","Antarctica"],["AG","แอนติกาและบาร์บูดา","Antigua & Barbuda"],["ZA","แอฟริกาใต้","South Africa"],["DZ","แอลจีเรีย","Algeria"],["AL","แอลเบเนีย","Albania"],["CI","โกตดิวัวร์","Côte d’Ivoire"],["HR","โครเอเชีย","Croatia"],["CO","โคลอมเบีย","Colombia"],["SO","โซมาเลีย","Somalia"],["DM","โดมินิกา","Dominica"],["TK","โตเกเลา","Tokelau"],["TG","โตโก","Togo"],["BO","โบลิเวีย","Bolivia"],["PT","โปรตุเกส","Portugal"],["PL","โปแลนด์","Poland"],["MZ","โมซัมบิก","Mozambique"],["MC","โมนาโก","Monaco"],["MA","โมร็อกโก","Morocco"],["RO","โรมาเนีย","Romania"],["OM","โอมาน","Oman"],["CY","ไซปรัส","Cyprus"],["TW","ไต้หวัน","Taiwan"],["TH","ไทย","Thailand"],["NG","ไนจีเรีย","Nigeria"],["NE","ไนเจอร์","Niger"],["FM","ไมโครนีเซีย","Micronesia"],["LR","ไลบีเรีย","Liberia"],["IS","ไอซ์แลนด์","Iceland"],["IE","ไอร์แลนด์","Ireland"]];
+const _WDC_CTY_IDX = (function(){ const m = {}; WDC_COUNTRIES.forEach(c => { [c[0], c[1], c[2], c[1].replace(/\s*\(.*\)\s*/,''), c[2].replace(/\s*\(.*\)\s*/,'')].forEach(n => { n = String(n).trim().toLowerCase(); if (n && !m[n]) m[n] = c[0]; }); }); return m; })();
+const _WDC_CTY_NAME = (function(){ const m = {}; WDC_COUNTRIES.forEach(c => m[c[0]] = c); return m; })();
+window._wdcCty = { sel: new Set(), extra: [], dis: false };
+function _wdcCtyHtml(saved, dis) {
+  const st = window._wdcCty = { sel: new Set(), extra: [], dis: !!dis };
+  (saved || []).forEach(t => {
+    const code = _WDC_CTY_IDX[String(t).trim().toLowerCase()];
+    if (code) st.sel.add(code); else if (String(t).trim()) st.extra.push(String(t).trim()); // ค่าที่ไม่รู้จักเก็บไว้ ไม่ทำหาย
+  });
+  setTimeout(() => { _wdcCtyRender(); _wdcCtyChips(); }, 0);
+  const bs = 'width:100%;text-align:left;background:var(--bg3,#1e242b);border:1px solid var(--border);color:var(--t1);padding:10px 12px;border-radius:var(--rmd);font:inherit;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;'+(dis?'opacity:.6;cursor:not-allowed':'cursor:pointer');
+  return `<button type="button" id="wdc-cty-btn" style="${bs}" ${dis?'disabled':''} onclick="_wdcCtyToggle()"><span id="wdc-cty-label">—</span><span style="color:var(--t3)">▾</span></button>
+    <div id="wdc-cty-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+    <div id="wdc-cty-panel" style="display:none;margin-top:8px;border:1px solid var(--border);border-radius:var(--rmd);padding:8px">
+      <input id="wdc-cty-q" oninput="_wdcCtyRender()" placeholder="ค้นหาประเทศ (ไทย / English / รหัส)" style="margin-bottom:6px">
+      <div id="wdc-cty-list" style="max-height:200px;overflow-y:auto"></div>
+    </div>`;
+}
+function _wdcCtyToggle() {
+  const p = document.getElementById('wdc-cty-panel'); if (!p || window._wdcCty.dis) return;
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  if (p.style.display === 'block') { _wdcCtyRender(); document.getElementById('wdc-cty-q')?.focus(); }
+}
+function _wdcCtyRender() {
+  const box = document.getElementById('wdc-cty-list'); if (!box) return;
+  const q = (document.getElementById('wdc-cty-q')?.value || '').trim().toLowerCase();
+  const st = window._wdcCty, top = box.scrollTop;
+  const arr = WDC_COUNTRIES.filter(c => !q || c[0].toLowerCase().includes(q) || c[1].toLowerCase().includes(q) || c[2].toLowerCase().includes(q));
+  box.innerHTML = arr.length ? arr.map(c => `<label style="display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:12px;color:var(--t1);text-transform:none;cursor:pointer"><input type="checkbox" style="width:auto" ${st.sel.has(c[0])?'checked':''} onchange="_wdcCtyPick('${c[0]}',this.checked)"><span>${_esc(c[1])} <small style="color:var(--t3)">${_esc(c[2])} · ${c[0]}</small></span></label>`).join('') : '<div style="font-size:11px;color:var(--t3);padding:6px">ไม่พบประเทศ</div>';
+  box.scrollTop = top;
+}
+function _wdcCtyPick(code, on) {
+  const st = window._wdcCty; if (on) st.sel.add(code); else st.sel.delete(code);
+  _wdcCtyChips();
+}
+function _wdcCtyDrop(code) { if (window._wdcCty.dis) return; window._wdcCty.sel.delete(code); _wdcCtyRender(); _wdcCtyChips(); }
+function _wdcCtyDropExtra(i) { if (window._wdcCty.dis) return; window._wdcCty.extra.splice(i, 1); _wdcCtyChips(); }
+function _wdcCtyChips() {
+  const st = window._wdcCty, chips = document.getElementById('wdc-cty-chips'), lb = document.getElementById('wdc-cty-label');
+  const n = st.sel.size + st.extra.length;
+  if (lb) lb.textContent = n ? `เลือกแล้ว ${n} ประเทศ` : 'เลือกประเทศ (ยังไม่จำกัด)';
+  if (!chips) return;
+  const cs = 'display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(246,70,93,.12);border:1px solid rgba(246,70,93,.4);color:var(--t1)';
+  const x = (fn) => st.dis ? '' : `<span style="cursor:pointer;color:var(--r)" onclick="${fn}">✕</span>`;
+  chips.innerHTML = [...st.sel].map(c => `<span style="${cs}">${_esc(_WDC_CTY_NAME[c][1])} (${c})${x(`_wdcCtyDrop('${c}')`)}</span>`).join('')
+    + st.extra.map((t, i) => `<span style="${cs}">${_esc(t)}${x(`_wdcCtyDropExtra(${i})`)}</span>`).join('');
+}
+function _wdcCtyValue() { const st = window._wdcCty; return [...st.sel, ...st.extra].join(','); }
+
 async function openWdControl() {
   if (!can('adminGetWithdrawControl')) { toast('⛔ สิทธิ์ของคุณใช้งานส่วนนี้ไม่ได้','er'); return; }
+  const _T = '🚫 ควบคุมการถอน (ระดับระบบ)';
+  const _tok = (window._wdcTok = (window._wdcTok||0) + 1);
+  // [WD-UI] เปิดแผงทันที (แสดงสถานะกำลังโหลด) — เดิมรอ GAS เงียบ ๆ จนเหมือนกดแล้วไม่ตอบสนอง
+  modal(_T, '<div style="padding:26px 6px;text-align:center;font-size:13px;color:var(--t2)">⏳ กำลังโหลดค่าควบคุมการถอน…</div>', [{l:'ยกเลิก',c:'can',fn:'cm()'}]);
   const r = await gasAdminCall('adminGetWithdrawControl', {}).catch(()=>null);
   const c = r?.data;
-  if (!c) { toast('⚠️ โหลดค่าควบคุมการถอนไม่สำเร็จ','er'); return; }
+  if (_tok !== window._wdcTok || document.getElementById('mTit')?.textContent !== _T) return; // ผู้ใช้ปิด/เปิดอย่างอื่นไปแล้ว
+  if (!c) { modal(_T, '<div style="padding:22px 6px;text-align:center;font-size:13px;color:var(--r)">⚠️ โหลดค่าควบคุมการถอนไม่สำเร็จ'+(r&&r.message?'<br><small>'+_esc(r.message)+'</small>':'')+'</div>', [{l:'ลองใหม่',c:'pri',fn:'openWdControl()'},{l:'ปิด',c:'can',fn:'cm()'}]); return; }
   const owner = can('adminSetWithdrawControl');
   const dis = owner ? '' : 'disabled';
   const netBox = ['BSC','TRC','SOL'].map(n=>`<label style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;text-transform:none;font-size:12px;color:var(--t1)"><input type="checkbox" id="wdc-net-${n}" ${c.nets.indexOf(n)>-1?'checked':''} ${dis} style="width:auto"> ${n}${n==='TRC'?' (Tron)':''}</label>`).join('');
@@ -2896,7 +2952,7 @@ async function openWdControl() {
     <div class="mf"><label>ทั้งระบบ</label>${_wdcSel('wdc-scope', c.sys_scope, !owner)}</div>
     <div class="mf"><label>ข้อความถึงสมาชิก (ไม่บังคับ · สูงสุด 200 ตัวอักษร) <small style="color:var(--t3);font-weight:400">🌐 ระบบแปลให้ 9 ภาษาอัตโนมัติ (สมาชิกเห็นตามภาษาของตน · ไม่มีภาษานั้นแสดงอังกฤษ)</small></label><input id="wdc-msg" maxlength="200" value="${_esc(c.sys_msg)}" placeholder="เช่น ปิดปรับปรุงระบบ กลับมาเปิด 18:00" ${dis}></div>
     <div class="mf"><label>ปิดเป็นรายเครือข่าย (เฉพาะ Crypto)</label><div>${netBox}</div></div>
-    <div class="mf"><label>ประเทศที่จำกัด (คั่นด้วย , หรือขึ้นบรรทัดใหม่ — รหัส ISO หรือชื่อไทย/อังกฤษ)</label><textarea id="wdc-cty" rows="2" placeholder="เช่น US, KP, อิหร่าน" ${dis}>${_esc((c.countries||[]).join(', '))}</textarea></div>
+    <div class="mf"><label>ประเทศที่จำกัด (เลือกได้หลายประเทศ)</label>${_wdcCtyHtml(c.countries, !owner)}</div>
     <div class="mf"><label>ถ้าสมาชิกไม่มีข้อมูลประเทศ (ใช้เมื่อมีรายการประเทศที่จำกัด)</label>
       <select id="wdc-cty-empty" ${dis}><option value="allow" ${c.country_empty==='allow'?'selected':''}>อนุญาตให้ถอนได้</option><option value="block" ${c.country_empty==='block'?'selected':''}>ปฏิเสธการถอน</option></select></div>
     <div class="mf"><label>เหตุผล (บังคับ — บันทึกใน AdminLog)</label><textarea id="wdc-reason" rows="2" placeholder="อย่างน้อย 5 ตัวอักษร" ${dis}></textarea></div>
@@ -2912,7 +2968,7 @@ async function doWdControlSave() {
   const scope  = document.getElementById('wdc-scope')?.value || 'none';
   const msg    = (document.getElementById('wdc-msg')?.value||'').trim();
   const nets   = ['BSC','TRC','SOL'].filter(n=>document.getElementById('wdc-net-'+n)?.checked);
-  const cty    = (document.getElementById('wdc-cty')?.value||'').trim();
+  const cty    = _wdcCtyValue();
   const empty  = document.getElementById('wdc-cty-empty')?.value || 'allow';
   const hold   = !!document.getElementById('wdc-hold')?.checked;
   const reason = (document.getElementById('wdc-reason')?.value||'').trim();

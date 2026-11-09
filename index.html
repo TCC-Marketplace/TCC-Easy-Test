@@ -19209,7 +19209,11 @@ function renderWdPolicyBox() {
     sub.style.color = isClosed ? 'var(--r)' : '';
   });
   if (!box) return;
-  const conds = [1, 2, 3, 4, 5, 6, 7].map(i => '<li>' + _wdEsc(tccT('wd_c' + i)) + '</li>').join('');
+  // [WD-COND] เงื่อนไข/ข้อความสถานะที่แอดมินแก้ (packed 9 ภาษา → tccPickI18n ตามภาษาสมาชิก) · ไม่มี = ค่ามาตรฐาน wd_c1..wd_c7 / wd_open_ok
+  const wc = p && p.conditions;
+  const customConds = (wc && Array.isArray(wc.items)) ? wc.items.map(x => tccPickI18n(x)).filter(Boolean) : [];
+  const condTexts = customConds.length ? customConds : [1, 2, 3, 4, 5, 6, 7].map(i => tccT('wd_c' + i));
+  const conds = condTexts.map(t => '<li>' + _wdEsc(t) + '</li>').join('');
   let status = '', note = '', closed = false;
   if (p) {
     const iC = !p.internal.open, cC = !p.crypto.open;
@@ -19217,7 +19221,7 @@ function renderWdPolicyBox() {
       closed = true;
       const txt = []; [p.internal, p.crypto].forEach(s => { const t = wdSideText(s); if (t && txt.indexOf(t) < 0) txt.push(t); });
       status = txt.join(' · ');
-    } else status = (iC || cC) ? tccT('wd_open_partial') : tccT('wd_open_ok');
+    } else status = (iC || cC) ? tccT('wd_open_partial') : ((wc && wc.status && tccPickI18n(wc.status)) || tccT('wd_open_ok')); // [WD-COND]
     note = tccPickI18n((iC ? p.internal.msg : '') || (cC ? p.crypto.msg : '') || p.internal.msg || p.crypto.msg || ''); // [I18N-9]
   }
   const wasOpen = !!(box.querySelector('details') && box.querySelector('details').open); // คงสถานะพับ/ขยายเมื่อรีเฟรชนโยบาย

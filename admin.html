@@ -1142,11 +1142,12 @@ tr:hover td{background:var(--bgh)}
         </div>
         <div class="card">
           <div class="ctitle">🔑 ระดับสิทธิ์ (บังคับที่เซิร์ฟเวอร์ GAS ทุก request)</div>
-          <div class="dr"><div class="dk">L4 Owner</div><div class="dv" style="text-align:left;font-size:11px">ทุกอย่าง รวมจัดการแอดมิน · System/Reserve · AdminLog · Force Liquidate · repair/audit</div></div>
-          <div class="dr"><div class="dk">L3 Finance</div><div class="dv" style="text-align:left;font-size:11px">อนุมัติ/ปฏิเสธฝาก-ถอน · ปรับยอด (เพดานต่อครั้ง ถ้าเกินต้อง owner) · ดู Commission</div></div>
-          <div class="dr"><div class="dk">L2 Ops/Trading</div><div class="dv" style="text-align:left;font-size:11px">ดูระบบเทรดครบ · ยกเลิกคำสั่ง · เปลี่ยน contract mode · อนุมัติ renewal · เปลี่ยนสถานะสมาชิก</div></div>
-          <div class="dr"><div class="dk">L1 Support</div><div class="dv" style="text-align:left;font-size:11px">ดูข้อมูลสมาชิกแบบ mask · ส่งข้อความ · โน้ตเคส · ไม่มีสิทธิ์แตะเงิน/สถานะ/Export</div></div>
-          <div style="font-size:10px;color:var(--t3);margin-top:8px">เปลี่ยนสิทธิ์ตัวเองไม่ได้ · ต้องเหลือ owner อย่างน้อย 1 คน · การระงับ/เปลี่ยนสิทธิ์มีผลทันทีทุก request (token เดิมใช้ต่อไม่ได้)</div>
+          <div class="dr"><div class="dk">L4 Owner</div><div class="dv" style="text-align:left;font-size:11px">ทุกอย่าง รวมจัดการแอดมิน/กำหนด Role · <b>ระงับ/เปิดการถอนทั้งระบบ</b> (ขอบเขต/เครือข่าย/ประเทศ) · <b>แก้เงื่อนไขการถอน</b> (AI แปล 9 ภาษา) · System/Reserve · AdminLog · Raw Sheet · แก้/ลบ ธุรกรรม-Position-Order · Force Liquidate / Force Complete Withdrawal · แจกกำไร · จัดการทีม · repair/audit</div></div>
+          <div class="dr"><div class="dk">L3 Finance</div><div class="dv" style="text-align:left;font-size:11px">ดูข้อมูลสมาชิกครบ (ไม่ mask) · อนุมัติ/ปฏิเสธฝาก-ถอน · แก้ไขรายการฝากที่ค้าง · ปรับยอดสมาชิก (ไม่เกิน 1,000 USDT ต่อครั้ง · เกินต้อง owner) · ดู Commission/ทีม · <b>ระงับ/เปิดการถอนรายบุคคล</b> + พักรายการถอนที่ค้าง + ทดสอบการบังคับใช้ · ดูหน้าควบคุมการถอนได้ (ระงับทั้งระบบ/แก้เงื่อนไข = owner เท่านั้น)</div></div>
+          <div class="dr"><div class="dk">L2 Ops/Trading</div><div class="dv" style="text-align:left;font-size:11px">ดูระบบเทรดครบ + Request Log/Funding Balance · ยกเลิกคำสั่ง · เปลี่ยน contract mode · อนุมัติ renewal · เปลี่ยนสถานะ verified ของสมาชิก · ไม่มีสิทธิ์แตะเงิน/ระงับการถอน</div></div>
+          <div class="dr"><div class="dk">L1 Support</div><div class="dv" style="text-align:left;font-size:11px">ดูข้อมูลสมาชิกแบบ mask · ดู Transactions ได้เฉพาะรายสมาชิก (ไม่เกิน 100 แถว) · ส่งข้อความ · โน้ตเคส · ไม่มีสิทธิ์แตะเงิน/สถานะ/Export/ระงับการถอน</div></div>
+          <div class="dr"><div class="dk">เงื่อนไขเข้าระบบ</div><div class="dv" style="text-align:left;font-size:11px">อีเมลต้องสมัครและได้รับ <b>Approved</b> และไม่ถูก <b>Locked</b> · รหัสผ่านผิดได้ไม่เกิน 4 ครั้ง (ครั้งที่ 5 ล็อกบัญชี) · OTP อายุ 5 นาที · ต้องยืนยัน OTP ใหม่เมื่อเกิน 30 วันนับจากเข้าสู่ระบบล่าสุด · token หน้า Admin อายุ 12 ชม. หมดแล้วต้อง login ใหม่ · แก้เมนูถามตอบ = owner หรือบัญชีที่เปิดสวิตช์ KbEdit รายคน</div></div>
+          <div style="font-size:10px;color:var(--t3);margin-top:8px">เปลี่ยนสิทธิ์ตัวเองไม่ได้ · ต้องเหลือ owner อย่างน้อย 1 คน · Role ว่าง = L1 Support (ถ้าไม่มี owner ในชีต ทุกบัญชีที่ Approved เป็น owner ชั่วคราวจนกว่าจะกำหนด) · การระงับ/เปลี่ยนสิทธิ์มีผลทันทีทุก request (token เดิมใช้ต่อไม่ได้)</div>
         </div>
       </div>
 
@@ -1712,41 +1713,76 @@ async function gasWrite(action, data={}) {
   }
 }
 
-async function loadAll() {
-  toast('🔄 กำลังโหลดข้อมูล...','');
-  // [v4.0] โหลดเฉพาะ action ที่ role นี้มีสิทธิ์ (ข้อมูลที่ไม่มีสิทธิ์ = ว่าง ไม่ยิงให้ GAS ปฏิเสธ/บันทึก adminDenied รัวๆ)
-  _denied = new Set();
-  const C = (a,p)=> can(a) ? gasAdminCall(a,p) : (_denied.add(a), Promise.resolve(null));
+// ══════════════════════════════════════════
+//  LOAD ALL — [PERF-LOAD] โหลด 2 เฟส + auto-refresh แบบเบา
+//   • เฟส 1 (แกนหลัก: members/deposits/withdrawals/txlog/positions/orders/earn/stats/futures) → วาดหน้าจอทันที
+//   • เฟส 2 (ข้อมูลหนัก/เปลี่ยนช้า: history/funding/referrals/team/loans/coins/trades/ledger/reqlog) → วาดซ้ำเมื่อมาถึง
+//   • auto-refresh (30 วิ): ไม่ซ้อนกัน · ข้ามเมื่อแท็บถูกซ่อน/เปิด modal · ไม่มี toast · ชุดหนักรีเฟรชทุก ~2.5 นาที · members ทุก ~1.5 นาที
+//   • วาดใหม่เฉพาะเมื่อข้อมูลเปลี่ยนจริง (เทียบ hash) และเฉพาะหน้าที่เปิดอยู่ → ไม่กระพริบ · หน้าอื่นวาดตอนกดเข้า (go())
+//   • ปุ่มรีเฟรชด้วยมือ/หลังทำรายการ = โหลดครบทุกชุดเหมือนเดิม
+// ══════════════════════════════════════════
+let _loadBusy = false, _autoTick = 0, _lastLoadAt = 0; const _sigs = {};
+function _sigOf(v) { try { const s = JSON.stringify(v); let h = 0; for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0; return s.length + ':' + h; } catch (e) { return 'x' + Math.random(); } }
+function _loadUpd(key, res, fn) {   // ใส่ข้อมูลเข้า D.* เฉพาะเมื่อมาจริงและต่างจากรอบก่อน — คืน true ถ้ามีการเปลี่ยน
+  const d = res && res.value && res.value.data; if (!d) return false;
+  const sg = _sigOf(d); if (_sigs[key] === sg) return false;
+  _sigs[key] = sg; fn(d); return true;
+}
+const _PANEL_RENDER = { deposits:()=>rdep(), withdrawals:()=>rwd(), txlog:()=>rtx(), members:()=>rmem(), positions:()=>{rpos();updatePosHead();}, earncontracts:()=>rec(), revenue:()=>rrv(), fundingfee:()=>rff(), team:()=>rteam(), system:()=>rsystem() };
+function _renderLoaded(opts) {      // opts.all = วาดทุกหน้า (โหลดมือ/เฟส 2) · ไม่ใช่ = เฉพาะหน้าที่เปิดอยู่
+  buildRevenue(); populateDynamicFilters(); renderDashboard();
+  if (opts.all) { rdep(); rwd(); rtx(); rmem(); rpos(); updatePosHead(); rec(); rrv(); rff(); rteam(); rsystem(); }
+  else { const id = (document.querySelector('.panel.on')||{}).id; const k = id ? id.slice(2) : ''; if (_PANEL_RENDER[k]) _PANEL_RENDER[k](); }
+  updateBadges(); updateDashStats();
+}
+async function loadAll(silent) {
+  silent = silent === true;
+  if (_loadBusy) { if (!silent) toast('⏳ กำลังโหลดข้อมูลอยู่ รอสักครู่...',''); return; }
+  if (silent && (document.hidden || document.getElementById('mOv')?.classList.contains('on') || document.getElementById('cfOv')?.classList.contains('on'))) return;
+  _loadBusy = true;
   try {
-    // โหลดทุก API พร้อมกัน — members + ข้อมูลอื่นๆ ทั้งหมดในคราวเดียว (ไม่มี race condition)
-    const [memRes, deps, wds, txs, pos, posH, ords, ec, fund, refs, team, sysStats, fPos, fOrd, lns, sCoins, trd, cled, rlog] =
-      await Promise.allSettled([
-        C('adminGetMembers', { limit: 5000 }),
-        C('adminGetDeposits', { status: 'all' }),
-        C('adminGetWithdrawals', { status: 'all' }),
-        (_role==='support' ? Promise.resolve(null) : C('adminGetTransactions', { limit: 1000 })), // L1 ดูได้เฉพาะรายสมาชิก (ต้องมี uid)
-        C('adminGetOpenPositions'),
-        C('adminGetPositionHistory'),
-        C('adminGetOpenOrders'),
-        C('adminGetEarnContracts'),
-        C('adminGetFunding'),
-        C('adminGetReferrals'),
-        C('adminGetTeamList'),
-        C('adminGetSystemStats'),
-        C('adminGetFuturesPositions'),
-        C('adminGetFuturesOrders'),
-        C('adminGetLoans'),
-        C('adminGetSpotCoins'),
-        C('adminGetTrades', { limit: 1000 }),   // [v4.2] Trades (position_id / contract_id)
-        C('adminGetCommissionLedger', { limit: 2000 }),   // [v4.2] finance / owner
-        C('adminGetRequestLog', { limit: 500 }),          // [v4.2] ops / owner
-      ]);
+    let tick = 0; if (silent) tick = ++_autoTick;
+    if (!silent) Object.keys(_sigs).forEach(k => delete _sigs[k]);   // โหลดมือ/หลังทำรายการ = บังคับเขียนทับ D.* ด้วยข้อมูลจาก GAS เสมอ (กันค่าที่แก้ฝั่งเว็บค้าง)
+    const heavy = !silent || tick % 5 === 0;       // ชุดหนัก
+    const memNow = !silent || tick % 3 === 0 || heavy;   // members (หนักสุด)
+    if (!silent) toast('🔄 กำลังโหลดข้อมูล...','');
+    // [v4.0] โหลดเฉพาะ action ที่ role นี้มีสิทธิ์ (ข้อมูลที่ไม่มีสิทธิ์ = ว่าง ไม่ยิงให้ GAS ปฏิเสธ/บันทึก adminDenied รัวๆ)
+    _denied = new Set();
+    const C = (a,p,on=true)=> { if (!can(a)) { _denied.add(a); return Promise.resolve(null); } return on ? gasAdminCall(a,p) : Promise.resolve(null); };
+    // สร้างเฟส 1 ก่อนเฟส 2 → ตัวคุมคิว (_GAS_MAX_PAR) ยิงแกนหลักก่อนเสมอ
+    const p1 = [
+      C('adminGetMembers', { limit: 5000 }, memNow),
+      C('adminGetDeposits', { status: 'all' }),
+      C('adminGetWithdrawals', { status: 'all' }),
+      (_role==='support' ? Promise.resolve(null) : C('adminGetTransactions', { limit: 1000 })), // L1 ดูได้เฉพาะรายสมาชิก (ต้องมี uid)
+      C('adminGetOpenPositions'),
+      C('adminGetOpenOrders'),
+      C('adminGetEarnContracts'),
+      C('adminGetSystemStats'),
+      C('adminGetFuturesPositions'),
+      C('adminGetFuturesOrders'),
+    ];
+    const p2 = [
+      C('adminGetPositionHistory', undefined, heavy),
+      C('adminGetFunding', undefined, heavy),
+      C('adminGetReferrals', undefined, heavy),
+      C('adminGetTeamList', undefined, heavy),
+      C('adminGetLoans', undefined, heavy),
+      C('adminGetSpotCoins', undefined, heavy),
+      C('adminGetTrades', { limit: 1000 }, heavy),         // [v4.2] Trades (position_id / contract_id)
+      C('adminGetCommissionLedger', { limit: 2000 }, heavy), // [v4.2] finance / owner
+      C('adminGetRequestLog', { limit: 500 }, heavy),        // [v4.2] ops / owner
+    ];
+    const settled = (ps) => Promise.allSettled(ps);
 
-    // map members (PascalCase legacy fields)
-    const memRows = memRes.value?.data?.rows || [];
-    const memTotal = memRes.value?.data?.total;
-    if (memTotal > memRows.length) toast('⚠️ โหลดสมาชิกได้ '+fnumInt(memRows.length)+' จาก '+fnumInt(memTotal)+' — ตัวเลขสรุปอาจไม่ครบ','er');
-    D.members = memRows.map(m => ({
+    // ───────── เฟส 1: แกนหลัก ─────────
+    const [memRes, deps, wds, txs, pos, ords, ec, sysStats, fPos, fOrd] = await settled(p1);
+    let ch = false;
+    ch = _loadUpd('members', memRes, (d) => {
+      const memRows = d.rows || [];
+      const memTotal = d.total;
+      if (memTotal > memRows.length) toast('⚠️ โหลดสมาชิกได้ '+fnumInt(memRows.length)+' จาก '+fnumInt(memTotal)+' — ตัวเลขสรุปอาจไม่ครบ','er');
+      D.members = memRows.map(m => ({
       BNB_ID:           m.uid,
       Name:             m.name,
       Team:             m.team,
@@ -1772,51 +1808,60 @@ async function loadAll() {
       _email:           m.email,
       _hasUsersRow:     m._has_users_row,
     }));
-
-    if (deps.value?.data)  D.deposits    = (deps.value.data||[]).map(x=>({...(x), _src: x._source || 'manual'}));
-    if (wds.value?.data)   D.withdrawals = (wds.value.data||[]).map(x=>({_src:'gas',...x}));
+    }) || ch;
+    ch = _loadUpd('deposits', deps, d => { D.deposits = (d||[]).map(x=>({...(x), _src: x._source || 'manual'})); }) || ch;
+    ch = _loadUpd('withdrawals', wds, d => { D.withdrawals = (d||[]).map(x=>({_src:'gas',...x})); }) || ch;
     if (wds.value && typeof wds.value.bot_auto_run === 'boolean') BOT_AUTO_RUN = wds.value.bot_auto_run; // [W7]
-    if (txs.value?.data)   D.txlog       = txs.value.data;
-    if (pos.value?.data)   D.positions   = pos.value.data;
-    if (posH.value?.data)  D.posHistory  = posH.value.data;
-    if (ords.value?.data)  D.orders      = ords.value.data;
-    if (ec.value?.data)    D.earnContracts = ec.value.data;
-    if (fund.value?.data)  D.funding     = fund.value.data;
-    if (refs.value?.data)  D.referrals   = refs.value.data;
-    if (team.value?.data)     D.teamList    = team.value.data;
-    if (sysStats.value?.data) D.systemStats = sysStats.value.data;
-    if (fPos.value?.data)   D.futPos    = fPos.value.data;
-    if (fOrd.value?.data)   D.futOrd    = fOrd.value.data;
-    if (lns.value?.data)    D.loans     = lns.value.data;
-    if (sCoins.value?.data) D.spotCoins = sCoins.value.data;
-    if (trd.value?.data)    D.trades    = trd.value.data;
-    if (cled.value?.data)   D.ledger    = cled.value.data;
-    if (rlog.value?.data)   D.reqLog    = rlog.value.data;
+    ch = _loadUpd('txlog', txs, d => { D.txlog = d; }) || ch;
+    ch = _loadUpd('positions', pos, d => { D.positions = d; }) || ch;
+    ch = _loadUpd('orders', ords, d => { D.orders = d; }) || ch;
+    ch = _loadUpd('earn', ec, d => { D.earnContracts = d; }) || ch;
+    ch = _loadUpd('sysStats', sysStats, d => { D.systemStats = d; }) || ch;
+    ch = _loadUpd('futPos', fPos, d => { D.futPos = d; }) || ch;
+    ch = _loadUpd('futOrd', fOrd, d => { D.futOrd = d; }) || ch;
+    const posErr = pos.status === 'rejected' || !pos.value?.data;
+    const ordErr = ords.status === 'rejected' || !ords.value?.data;
+    // วาดหน้าจอทันทีเมื่อแกนหลักมาถึง (โหลดมือ = วาดทุกหน้า · auto = เฉพาะหน้าที่เปิด และเฉพาะเมื่อข้อมูลเปลี่ยน)
+    if (!silent || ch) _renderLoaded({ all: !silent });
+    if (!silent) toast('⏳ โหลดข้อมูลหลักแล้ว กำลังโหลดส่วนที่เหลือ...','');
 
-    // ── ตรวจ GAS call ล้มเหลวสำหรับ positions/orders — แจ้งเตือนทันที ──
-    const posErr  = pos.status  === 'rejected' || !pos.value?.data;
-    const posHErr = posH.status === 'rejected' || !posH.value?.data;
-    const ordErr  = ords.status === 'rejected' || !ords.value?.data;
+    // ───────── เฟส 2: ข้อมูลหนัก/เปลี่ยนช้า ─────────
+    const [posH, fund, refs, team, lns, sCoins, trd, cled, rlog] = await settled(p2);
+    let ch2 = false;
+    ch2 = _loadUpd('posHistory', posH, d => { D.posHistory = d; }) || ch2;
+    ch2 = _loadUpd('funding', fund, d => { D.funding = d; }) || ch2;
+    ch2 = _loadUpd('referrals', refs, d => { D.referrals = d; }) || ch2;
+    ch2 = _loadUpd('teamList', team, d => { D.teamList = d; }) || ch2;
+    ch2 = _loadUpd('loans', lns, d => { D.loans = d; }) || ch2;
+    ch2 = _loadUpd('spotCoins', sCoins, d => { D.spotCoins = d; }) || ch2;
+    ch2 = _loadUpd('trades', trd, d => { D.trades = d; }) || ch2;
+    ch2 = _loadUpd('ledger', cled, d => { D.ledger = d; }) || ch2;
+    ch2 = _loadUpd('reqLog', rlog, d => { D.reqLog = d; }) || ch2;
+
+    // ── ตรวจ GAS call ล้มเหลวสำหรับ positions/orders — แจ้งเตือนทันที (เฉพาะชุดที่ขอจริงรอบนี้) ──
+    const posHErr = heavy && (posH.status === 'rejected' || !posH.value?.data);
     if (posErr || posHErr || ordErr) {
       const failed = [posErr && 'OpenPositions', posHErr && 'PositionHistory', ordErr && 'OpenOrders'].filter(Boolean).join(', ');
       console.warn('[Admin] positions/orders load failed:', failed,
         { pos: pos.reason || pos.value, posH: posH.reason || posH.value, ords: ords.reason || ords.value });
       toast('⚠️ โหลด Positions/Orders ล้มเหลว (' + failed + ') — ค้นหาอาจไม่แสดงผล', 'er');
     }
-
+    // mark price (Binance) ไม่บล็อกการวาด — มาถึงทีหลังค่อยวาดหน้าสรุปซ้ำ (Unrealized PnL ของ Revenue/Dashboard)
+    const _mk0 = MARK.ts;
+    const mkP = ensureMarkPrices().then(() => { if (MARK.ts !== _mk0) { buildRevenue(); renderDashboard(); updateDashStats(); } });   // [FIX-DASH v1]
+    if (!silent || ch2) _renderLoaded({ all: !silent });
+    mkP.catch(()=>{});
+    _lastLoadAt = Date.now();
+    if (!silent) toast('✅ โหลดข้อมูลสำเร็จ','ok');
   } catch(e) {
     console.warn('[Admin] loadAll error:', e.message);
-    toast('⚠️ โหลดข้อมูลผิดพลาด: '+e.message,'er');
+    if (!silent) toast('⚠️ โหลดข้อมูลผิดพลาด: '+e.message,'er');
+  } finally {
+    _loadBusy = false;
   }
-
-  await ensureMarkPrices();   // [FIX-DASH v1] Unrealized PnL ของหน้า Revenue/Dashboard ใช้ mark price สดชุดเดียวกับหน้า Positions
-  buildRevenue();
-  populateDynamicFilters();
-  renderDashboard();
-  rdep(); rwd(); rtx(); rmem(); rpos(); updatePosHead(); rec(); rrv(); rff(); rteam(); rsystem();
-  updateBadges(); updateDashStats();
-  toast('✅ โหลดข้อมูลสำเร็จ','ok');
 }
+// กลับมาเปิดแท็บหลังซ่อนนาน → รีเฟรชเงียบ 1 ครั้ง
+document.addEventListener('visibilitychange', () => { if (!document.hidden && _lastLoadAt && Date.now() - _lastLoadAt > 60000) loadAll(true); });
 
 // ══════════════════════════════════════════
 //  DYNAMIC FILTER POPULATION
@@ -5341,7 +5386,7 @@ function startClock() {
 // Auto refresh every 30s
 function startAuto() {
   clearInterval(_autoTimer);
-  _autoTimer=setInterval(loadAll, 30000);
+  _autoTimer=setInterval(()=>loadAll(true), 30000);   // [PERF-LOAD] เงียบ ไม่ซ้อน ไม่ toast
 }
 
 // Mobile

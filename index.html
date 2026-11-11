@@ -13098,7 +13098,7 @@ function updatePositionsPNL() {
     const totalUnrealized = S.positions.reduce((s, p) => s + (p.pnl || 0), 0);
     const totalMarginUsed = S.positions.reduce((s, p) => s + (p.margin || 0), 0);
     // [v50 FIX] Margin Balance = walletBal + marginUsed (รวม margin ที่ใช้เปิดออเดอร์)
-    const walletBal = earnContracts.reduce((s, c) => s + (c.currentBalance || 0), 0);
+    const walletBal = _earnLiveContracts().reduce((s, c) => s + (c.currentBalance || 0), 0); // [vx12-FIX-CLOSED-BAL]
     const marginBal = walletBal + totalMarginUsed;
     const fmt2 = v => v.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const fmtSign = v => (v >= 0 ? '+' : '') + fmt2(v);
@@ -18703,6 +18703,13 @@ function renderSpotBalanceList() {
 // ══════════════════════════════════════════
 //  OVERVIEW ACCOUNT BALANCE SYNC
 // ══════════════════════════════════════════
+// [vx12-FIX-CLOSED-BAL] สัญญา status='closed' (redeem แล้ว) ยังค้างอยู่ใน earnContracts พร้อม current_balance เดิมจาก Sheet
+// → ห้ามนับรวมเป็นยอด Earn/Futures/Overview (renderEarnContracts กรอง closed อยู่แล้ว — helper นี้ทำให้ทุกจุดรวมยอดตรงกัน)
+function _earnLiveContracts() {
+  return (typeof earnContracts !== 'undefined' && Array.isArray(earnContracts))
+    ? earnContracts.filter(c => c && c.status !== 'closed') : [];
+}
+
 function updateOverviewBalances() {
   // [FIX-3] ถ้า loadDashboard ยังไม่เสร็จ → แสดง loading indicator แทน 0.00
   // ป้องกันผู้ใช้เห็น "0.00 USDT" ก่อนข้อมูลจริงมา
@@ -18730,12 +18737,12 @@ function updateOverviewBalances() {
 
   // Futures Margin Balance = sum(earnContracts currentBalance) - totalUnrealized
   const totalUnrealized = S.positions.reduce((s, p) => s + (p.pnl || 0), 0);
-  const earnWalletBal   = earnContracts.reduce((s, c) => s + (c.currentBalance || 0), 0);
+  const earnWalletBal   = _earnLiveContracts().reduce((s, c) => s + (c.currentBalance || 0), 0); // [vx12-FIX-CLOSED-BAL]
   const futuresUsdt     = earnWalletBal - totalUnrealized; // Futures Margin Balance
   const futuresUsd      = futuresUsdt;
 
   // Earn row: same as wallet balance (for display in the Earn row)
-  const earnUsdt = earnContracts.reduce((s, c) => s + (c.currentBalance || 0), 0);
+  const earnUsdt = _earnLiveContracts().reduce((s, c) => s + (c.currentBalance || 0), 0); // [vx12-FIX-CLOSED-BAL]
 
   // Funding (synced from GAS via loadDashboard / updateLocalBalance)
   const fundingUsdt = fundingWalletBalance;
@@ -24187,7 +24194,7 @@ function tfGetWalletBalance(walletId) {
                        ? (parseFloat(FUTD.status.futures_balance) || 0)
                        : 0;
     case 'earn': {
-      const total = earnContracts.reduce((s,c) => s + (c.currentBalance||0), 0);
+      const total = _earnLiveContracts().reduce((s,c) => s + (c.currentBalance||0), 0); // [vx12-FIX-CLOSED-BAL]
       return parseFloat(total.toFixed(8));
     }
     case 'funding':  return fundingWalletBalance;
@@ -24358,7 +24365,7 @@ if (TF.from === 'earn' || TF.to === 'earn') { showToast(tccT('sys_earn_no_transf
   } else if (TF.from === 'earn') {
     // Deduct proportionally from earn contracts
     let remaining = amt;
-    for (const c of earnContracts) {
+    for (const c of _earnLiveContracts()) { // [vx12-FIX-CLOSED-BAL] ไม่หักจากสัญญา closed
       if (remaining <= 0) break;
       const take = Math.min(c.currentBalance, remaining);
       c.currentBalance -= take;
@@ -27603,7 +27610,7 @@ function renderAstFuturesTab() {
   // [v2.47-FD FIX-UNDEF-B] filter(Boolean) ป้องกัน undefined เข้า syncContractBalance
   earnContracts.filter(Boolean).forEach(c => { syncContractBalance(c); });
   // Wallet Balance = sum of all earnContracts currentBalance (staked + realized + unrealized - margin used)
-  const walletBal   = earnContracts.filter(Boolean).reduce((s, c) => s + (c.currentBalance || 0), 0);
+  const walletBal   = _earnLiveContracts().reduce((s, c) => s + (c.currentBalance || 0), 0); // [vx12-FIX-CLOSED-BAL]
   // [v50 FIX] Margin Balance = Wallet Balance + Margin Used (เหมือน Binance: รวมเงินที่ใช้วาง margin ด้วย)
   // currentBalance = staked + realized - marginUsed + unrealized  →  marginBal = walletBal + marginUsed
   const marginBal   = walletBal + totalMarginUsed;
@@ -30136,7 +30143,7 @@ function _homeInit() {
 function _hmRefreshBalance() {
   // [v9.1 FIX] คำนวณ total โดยตรงจาก live state ไม่ผ่าน DOM (กัน race condition)
   const _earnBal    = (typeof earnContracts !== 'undefined')
-    ? earnContracts.reduce((s, c) => s + (c.currentBalance || 0), 0) : 0;
+    ? _earnLiveContracts().reduce((s, c) => s + (c.currentBalance || 0), 0) : 0; // [vx12-FIX-CLOSED-BAL]
   const _fundingBal = (typeof fundingWalletBalance !== 'undefined') ? (fundingWalletBalance || 0) : 0;
   // [vx3 FIX-SPOT-B] _spotBal = getSpotTotalUSDT() รวม mainWalletBalance อยู่แล้ว
   // เดิม: _mainBal + _spotBal → นับ mainWalletBalance 2 รอบ (double-count)
@@ -47292,7 +47299,7 @@ function futdUpdateCandleCountdown() {
       const unrealized = positions.reduce((s, p) => s + (p.pnl || 0), 0);
       const marginBal  = (() => {
         if (typeof earnContracts === 'undefined') return 0;
-        const wb = earnContracts.filter(Boolean).reduce((s,c)=>s+(c.currentBalance||0),0);
+        const wb = _earnLiveContracts().reduce((s,c)=>s+(c.currentBalance||0),0); // [vx12-FIX-CLOSED-BAL]
         const mu = positions.reduce((s,p)=>s+(p.margin||0),0);
         return wb + mu;
       })();

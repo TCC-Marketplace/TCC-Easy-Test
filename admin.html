@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <!-- [WD-SUSP] 2026-11-09: ควบคุมการถอน (ระบบ/ประเภท/เครือข่าย/ประเทศ + รายสมาชิก) — ใช้คู่กับ GAS_tcc_Admin_main_nv2 + GAS_tcc_main_nv2 -->
+<!-- [COIN-USDT-LIVE] 2026-11-16: มูลค่าเหรียญเป็น USDT สีเขียว เรียลไทม์จาก Binance Spot (WebSocket + fallback โพลล์) -->
 <!-- [SPOT-COINS-UI] 2026-11-16: แสดงยอดเหรียญรายตัว (SpotCoinBalances) ใน modal สมาชิก + หน้ารายละเอียดสมาชิก · ป้าย Spot → Spot (legacy) -->
 <html lang="th">
 <head>
@@ -1363,14 +1364,110 @@ const _AUTH_NOTOKEN = ['adminSignup','adminLogin','adminVerifyOtp','adminRequest
 let _expiredShown = false;
 function _esc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // [SPOT-COINS-UI 2026-11-16] ยอดเหรียญรายตัว (SpotCoinBalances: SOL/BNB/TRX/...) — Users.spot_balance เป็นคอลัมน์ legacy ว่างเสมอ จึงต้องแสดงจากชีตนี้
+// [COIN-USDT-LIVE 2026-11-16] แสดงมูลค่าเป็น USDT (สีเขียว) ตามราคาตลาด Binance Spot แบบเรียลไทม์
+//   WebSocket miniTicker (~1 วินาที) · ถ้า WS ต่อไม่ได้ → โพลล์ REST ทุก 3 วินาที แล้วลองต่อ WS ใหม่ทุก 15 วินาที
+//   หยุดเองเมื่อ modal/การ์ดถูกปิด (ไม่มี .coin-live ใน DOM) · เหรียญที่ไม่มีคู่ XXXUSDT บน Binance แสดง "—" ไม่เอาไปรวม
+const COINPX = { map:{}, ws:null, key:'', poll:null, retry:null, state:'off' };
+const _coinNeeded = () => !!document.querySelector('.coin-live');
+function _coinList(){
+  const s = new Set();
+  document.querySelectorAll('.coin-live [data-coin]').forEach(el=>{
+    const c = String(el.getAttribute('data-coin')||'').toUpperCase();
+    if (c && c !== 'USDT') s.add(c);
+  });
+  return [...s].sort();
+}
+const _fmtUsdt = v => v >= 1 ? v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : v.toFixed(4);
+function coinPxPaint(){
+  const stTxt = {live:'● LIVE', poll:'● อัปเดตทุก 3 วินาที', off:'○ ออฟไลน์'}[COINPX.state] || '';
+  document.querySelectorAll('.coin-live').forEach(box=>{
+    let total = 0, priced = 0, miss = 0;
+    box.querySelectorAll('[data-coin]').forEach(el=>{
+      const c = String(el.getAttribute('data-coin')||'').toUpperCase();
+      const bal = parseFloat(el.getAttribute('data-bal')) || 0;
+      const px = c === 'USDT' ? 1 : COINPX.map[c];
+      const out = el.querySelector('.cv-val');
+      if (!(px > 0)) { miss++; if (out) out.textContent = '≈ — USDT'; return; }
+      const v = bal * px; total += v; priced++;
+      if (out) out.textContent = '≈ ' + _fmtUsdt(v) + ' USDT';
+      el.title = c + ' @ ' + px + ' USDT';
+    });
+    const t = box.querySelector('.cv-total');
+    if (t) t.textContent = priced ? ('≈ ' + _fmtUsdt(total) + ' USDT' + (miss ? ' (ไม่รวม ' + miss + ' เหรียญที่ไม่มีราคา)' : '')) : '— USDT';
+    const st = box.querySelector('.cv-status');
+    if (st) { st.textContent = stTxt; st.style.color = COINPX.state === 'live' ? 'var(--g)' : 'var(--t3)'; }
+  });
+}
+async function _coinFetchOnce(coins){
+  await Promise.all(coins.map(async c=>{
+    try {
+      const ctrl = new AbortController(); const tm = setTimeout(()=>ctrl.abort(), 4000);
+      const r = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=' + encodeURIComponent(c + 'USDT'), { signal: ctrl.signal });
+      clearTimeout(tm);
+      if (r.ok) { const j = await r.json(); const p = parseFloat(j.price); if (p > 0) COINPX.map[c] = p; }
+    } catch(e) { /* ไม่มีราคา/เน็ตหลุด → ใช้ราคาล่าสุดที่มี */ }
+  }));
+  coinPxPaint();
+}
+function _coinStopAll(){
+  if (COINPX.ws) { try { COINPX.ws.onclose = null; COINPX.ws.close(); } catch(e){} COINPX.ws = null; }
+  clearInterval(COINPX.poll); COINPX.poll = null;
+  clearTimeout(COINPX.retry); COINPX.retry = null;
+  COINPX.key = ''; COINPX.state = 'off';
+}
+function _coinStartPoll(){
+  if (COINPX.poll) return;
+  COINPX.state = 'poll';
+  COINPX.poll = setInterval(()=>{ if (!_coinNeeded()) { _coinStopAll(); return; } _coinFetchOnce(_coinList()); }, 3000);
+  coinPxPaint();
+}
+function _coinConnect(coins){
+  try {
+    const ws = new WebSocket('wss://stream.binance.com:9443/stream?streams=' + coins.map(c=>c.toLowerCase() + 'usdt@miniTicker').join('/'));
+    COINPX.ws = ws;
+    ws.onopen = () => { clearInterval(COINPX.poll); COINPX.poll = null; COINPX.state = 'live'; coinPxPaint(); };
+    ws.onmessage = ev => {
+      if (!_coinNeeded()) { _coinStopAll(); return; }
+      try {
+        const d = JSON.parse(ev.data).data; const sym = d && d.s; const p = parseFloat(d && d.c);
+        if (sym && /USDT$/.test(sym) && p > 0) { COINPX.map[sym.slice(0, -4)] = p; coinPxPaint(); }
+      } catch(e){}
+    };
+    ws.onclose = () => {
+      if (COINPX.ws !== ws) return;
+      COINPX.ws = null;
+      if (!_coinNeeded()) { _coinStopAll(); return; }
+      _coinStartPoll();
+      COINPX.retry = setTimeout(()=>{ if (_coinNeeded() && !COINPX.ws) _coinConnect(_coinList()); }, 15000);
+    };
+    ws.onerror = () => { try { ws.close(); } catch(e){} };
+  } catch(e) { _coinStartPoll(); }
+}
+function coinPxEnsure(){
+  if (!_coinNeeded()) { _coinStopAll(); return; }
+  coinPxPaint();
+  const coins = _coinList();
+  if (!coins.length) return; // มีแต่ USDT — ไม่ต้องใช้ราคา
+  const key = coins.join(',');
+  if (COINPX.key === key && (COINPX.ws || COINPX.poll)) return;
+  _coinStopAll(); COINPX.key = key;
+  _coinFetchOnce(coins); // ราคาแรกทันที ไม่ต้องรอ WS
+  _coinConnect(coins);
+}
 function _coinBalHtml(rows, cols){
   const list = (rows||[]).filter(c => (parseFloat(c.balance)||0) !== 0);
   const fmt  = n => (parseFloat(n)||0).toFixed(8).replace(/\.?0+$/,'') || '0';
-  return `<div style="margin-top:8px"><div style="font-size:11px;color:var(--t2);margin-bottom:6px">🪙 ยอดเหรียญ (SpotCoinBalances)</div>`
-    + (list.length
-        ? `<div style="display:grid;grid-template-columns:repeat(${cols||4},1fr);gap:8px">${list.map(c=>`<div class="sc" style="margin:0"><div class="sc-lbl">${_esc(String(c.coin||'').toUpperCase())}</div><div class="sc-val" style="font-size:13px">${fmt(c.balance)}</div></div>`).join('')}</div>`
-        : `<div style="color:var(--t3);font-size:11px">ไม่มียอดเหรียญ</div>`)
-    + `</div>`;
+  const title = `<div style="font-size:11px;color:var(--t2)">🪙 ยอดเหรียญ (SpotCoinBalances)</div>`;
+  if (!list.length) return `<div style="margin-top:8px"><div style="margin-bottom:6px">${title}</div><div style="color:var(--t3);font-size:11px">ไม่มียอดเหรียญ</div></div>`;
+  setTimeout(coinPxEnsure, 60); // หลังจาก HTML ถูกใส่ลง DOM แล้ว
+  return `<div class="coin-live" style="margin-top:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">${title}<div class="cv-status" style="font-size:10px;color:var(--t3)"></div></div>
+    <div style="display:grid;grid-template-columns:repeat(${cols||3},1fr);gap:8px">${list.map(c=>{
+      const coin = String(c.coin||'').toUpperCase(), bal = parseFloat(c.balance)||0;
+      return `<div class="sc" data-coin="${_esc(coin)}" data-bal="${bal}" style="margin:0"><div class="sc-lbl">${_esc(coin)}</div><div class="sc-val" style="font-size:13px">${fmt(bal)}</div><div class="cv-val" style="font-size:11px;font-weight:700;color:var(--g);margin-top:2px">≈ — USDT</div></div>`;
+    }).join('')}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)"><span style="font-size:11px;color:var(--t2)">รวมมูลค่าเหรียญ</span><span class="cv-total" style="font-size:13px;font-weight:700;color:var(--g)">— USDT</span></div>
+  </div>`;
 }
 function can(action){ return _perms.indexOf('*')>-1 || _perms.indexOf(action)>-1 || action==='adminWhoAmI'; }
 function _clearSession(){
@@ -2717,7 +2814,7 @@ async function vMem(bid) {
   const commBal    = det ? det.commission_balance : (m._commissionBal||0);
   // [SPOT-COINS-UI] ยอดเหรียญรายตัว: ใช้ spot_coins จาก adminGetMemberDetail · fallback = D.spotCoins (โหลดจาก adminGetSpotCoins)
   const coinRows   = det ? (det.spot_coins || []) : (D.spotCoins||[]).filter(c=>String(c.uid)===String(bid));
-  const coinBlock  = _coinBalHtml(coinRows, 4);
+  const coinBlock  = _coinBalHtml(coinRows, 3);
 
   modal(`👤 ${m.Name}`,`
     <div class="dr"><div class="dk">BNB ID</div><div class="dv" style="color:var(--gold)">${m.BNB_ID}</div></div>

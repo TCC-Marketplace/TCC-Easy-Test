@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <!-- [WD-SUSP] 2026-11-09: ควบคุมการถอน (ระบบ/ประเภท/เครือข่าย/ประเทศ + รายสมาชิก) — ใช้คู่กับ GAS_tcc_Admin_main_nv2 + GAS_tcc_main_nv2 -->
+<!-- [SPOT-COINS-UI] 2026-11-16: แสดงยอดเหรียญรายตัว (SpotCoinBalances) ใน modal สมาชิก + หน้ารายละเอียดสมาชิก · ป้าย Spot → Spot (legacy) -->
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -1361,6 +1362,16 @@ const _ROLE_MENUS = {
 const _AUTH_NOTOKEN = ['adminSignup','adminLogin','adminVerifyOtp','adminRequestUnlock','adminUnlock','adminChangePassword','ping'];
 let _expiredShown = false;
 function _esc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// [SPOT-COINS-UI 2026-11-16] ยอดเหรียญรายตัว (SpotCoinBalances: SOL/BNB/TRX/...) — Users.spot_balance เป็นคอลัมน์ legacy ว่างเสมอ จึงต้องแสดงจากชีตนี้
+function _coinBalHtml(rows, cols){
+  const list = (rows||[]).filter(c => (parseFloat(c.balance)||0) !== 0);
+  const fmt  = n => (parseFloat(n)||0).toFixed(8).replace(/\.?0+$/,'') || '0';
+  return `<div style="margin-top:8px"><div style="font-size:11px;color:var(--t2);margin-bottom:6px">🪙 ยอดเหรียญ (SpotCoinBalances)</div>`
+    + (list.length
+        ? `<div style="display:grid;grid-template-columns:repeat(${cols||4},1fr);gap:8px">${list.map(c=>`<div class="sc" style="margin:0"><div class="sc-lbl">${_esc(String(c.coin||'').toUpperCase())}</div><div class="sc-val" style="font-size:13px">${fmt(c.balance)}</div></div>`).join('')}</div>`
+        : `<div style="color:var(--t3);font-size:11px">ไม่มียอดเหรียญ</div>`)
+    + `</div>`;
+}
 function can(action){ return _perms.indexOf('*')>-1 || _perms.indexOf(action)>-1 || action==='adminWhoAmI'; }
 function _clearSession(){
   _adminToken=''; _role=''; _perms=[];
@@ -2704,6 +2715,9 @@ async function vMem(bid) {
   const futBal     = det ? det.futures_balance : (m._futBal||0);
   const fundingBal = det ? det.funding_balance : (m._fundingBal||0);
   const commBal    = det ? det.commission_balance : (m._commissionBal||0);
+  // [SPOT-COINS-UI] ยอดเหรียญรายตัว: ใช้ spot_coins จาก adminGetMemberDetail · fallback = D.spotCoins (โหลดจาก adminGetSpotCoins)
+  const coinRows   = det ? (det.spot_coins || []) : (D.spotCoins||[]).filter(c=>String(c.uid)===String(bid));
+  const coinBlock  = _coinBalHtml(coinRows, 4);
 
   modal(`👤 ${m.Name}`,`
     <div class="dr"><div class="dk">BNB ID</div><div class="dv" style="color:var(--gold)">${m.BNB_ID}</div></div>
@@ -2726,11 +2740,12 @@ async function vMem(bid) {
         <div class="sc" style="margin:0"><div class="sc-lbl">Main Balance</div><div class="sc-val" style="font-size:16px">${fnum(mainBal)}</div></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
-        <div class="sc" style="margin:0"><div class="sc-lbl">Spot</div><div class="sc-val" style="font-size:13px">${fnum(spotBal)}</div></div>
+        <div class="sc" style="margin:0"><div class="sc-lbl" title="คอลัมน์ Users.spot_balance (legacy) — ยอดเหรียญจริงดูที่ 🪙 ด้านล่าง">Spot (legacy)</div><div class="sc-val" style="font-size:13px">${fnum(spotBal)}</div></div>
         <div class="sc" style="margin:0"><div class="sc-lbl">Futures</div><div class="sc-val" style="font-size:13px">${fnum(futBal)}</div></div>
         <div class="sc" style="margin:0"><div class="sc-lbl">Funding</div><div class="sc-val" style="font-size:13px">${fnum(fundingBal)}</div></div>
         <div class="sc" style="margin:0"><div class="sc-lbl">Commission</div><div class="sc-val" style="font-size:13px">${fnum(commBal)}</div></div>
       </div>
+      ${coinBlock}
     </div>
     <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -4293,11 +4308,12 @@ function renderFullProfile(det, highlightContractId) {
       <div class="dr"><div class="dk">Referrer</div><div class="dv">${det.referrer_id||'—'}</div></div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px">
         <div class="sc" style="margin:0"><div class="sc-lbl">Main</div><div class="sc-val" style="font-size:14px">${fnum(det.main_balance)}</div></div>
-        <div class="sc" style="margin:0"><div class="sc-lbl">Spot</div><div class="sc-val" style="font-size:14px">${fnum(det.spot_balance)}</div></div>
+        <div class="sc" style="margin:0"><div class="sc-lbl" title="Users.spot_balance (legacy)">Spot (legacy)</div><div class="sc-val" style="font-size:14px">${fnum(det.spot_balance)}</div></div>
         <div class="sc" style="margin:0"><div class="sc-lbl">Futures</div><div class="sc-val" style="font-size:14px">${fnum(det.futures_balance)}</div></div>
         <div class="sc" style="margin:0"><div class="sc-lbl">Funding</div><div class="sc-val" style="font-size:14px">${fnum(det.funding_balance)}</div></div>
         <div class="sc" style="margin:0"><div class="sc-lbl">Commission</div><div class="sc-val" style="font-size:14px">${fnum(det.commission_balance)}</div></div>
       </div>
+      ${_coinBalHtml(det.spot_coins, 5)}
     </div>`;
 
   const contracts = det.earn_contracts || [];

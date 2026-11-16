@@ -636,7 +636,8 @@ async function dbCallRaw(action, data = {}) {
 // Session cache — เก็บ response ดิบจาก GAS ต่อ uid/teamName เพื่อลด round-trip
 const SS_TTL = 5 * 60 * 1000; // 5 นาที — ข้อมูลคอมมิชชั่นเปลี่ยนได้บ่อยกว่า team/member profile
 function ssSet(k,d){try{sessionStorage.setItem(k,JSON.stringify({d,t:Date.now()}));}catch(e){}}
-function ssGet(k){try{const r=sessionStorage.getItem(k);if(!r)return null;const o=JSON.parse(r);if(Date.now()-o.t>SS_TTL){sessionStorage.removeItem(k);return null;}return o.d;}catch(e){return null;}}
+function ssGet(k){try{const r=sessionStorage.getItem(k);if(!r)return null;const o=JSON.parse(r);if(Date.now()-o.t>SS_TTL)return null;return o.d;}catch(e){return null;}}   // [PERF-REFRESH2] ไม่ลบรายการหมดอายุ — ssGetAny ใช้แสดงทันทีระหว่างรอข้อมูลสด
+function ssGetAny(k){try{const r=sessionStorage.getItem(k);if(!r)return null;return JSON.parse(r).d;}catch(e){return null;}}
 function ssClear(k){try{if(k)sessionStorage.removeItem(k);else Object.keys(sessionStorage).filter(x=>x.startsWith('tcc2_')).forEach(x=>sessionStorage.removeItem(x));}catch(e){}}
 
 // ── State ที่ tcS5* ใช้ ──────────────────────────────────────────
@@ -1030,6 +1031,7 @@ function tcS5Team(teamName){
   // ── โหลดข้อมูลครั้งแรกที่เปิดแท็บนี้ ────────────────────────────
   if(!window._teamLoadedFor || window._teamLoadedFor !== teamName){
     window._teamLoadedFor = teamName;
+    if(!TEAM_SUMMARY){const _c=ssGetAny('tcc2_teamsum_'+teamName);if(_c)TEAM_SUMMARY=_c;}   // [PERF-REFRESH2] แสดงของเดิมทันที แล้วรีเฟรชเบื้องหลัง
     loadTeamSummary(teamName, true).then(()=>{ if(_tcDashTab === 'team') tcRender(); }).catch(e=>{
       tccNotif && tccNotif('error',tccT('m2.errTeam'), e.message);
     });
@@ -1116,6 +1118,7 @@ function tcS5Members(teamName){
   // ── โหลดข้อมูลครั้งแรกที่เปิดแท็บนี้ ────────────────────────────
   if(!window._membersLoadedFor || window._membersLoadedFor !== teamName){
     window._membersLoadedFor = teamName;
+    if(!TEAM_MEMBERS){const _c=ssGetAny('tcc2_teammem_'+teamName);if(_c)TEAM_MEMBERS=_c;}   // [PERF-REFRESH2]
     loadTeamMembers(teamName, true).then(()=>{ if(_tcDashTab === 'members') tcRender(); }).catch(e=>{
       tccNotif && tccNotif('error',tccT('m2.errMembers'), e.message);
     });
@@ -1303,6 +1306,7 @@ function tcS5Referral(myId){
   const _refDashWasNullOnEnter = !REFERRAL_DASH;
   if(!window._refTabLoadedFor || window._refTabLoadedFor !== myId){
     window._refTabLoadedFor = myId;
+    if(!REFERRAL_DASH){const _c=ssGetAny('tcc2_ref_'+myId);if(_c)REFERRAL_DASH=_c;}   // [PERF-REFRESH2]
     loadReferralDashboard(myId, true).then(()=>{
       if(_refDashWasNullOnEnter && _tcDashTab === 'referral') tcRender();
     }).catch(e=>{
@@ -1540,7 +1544,20 @@ async function initDashboard(uid) {
   _uidLbl0.removeAttribute('data-i18n');   // [I18N] กัน tccApplyLang เขียนทับ UID/username ด้วยข้อความ "กำลังโหลด"
   _uidLbl0.textContent = 'UID: ' + uid; // จะอัปเดต username หลังโหลดสำเร็จ
   const root = document.getElementById('dash-root');
-  root.innerHTML = '<div class="loading-wrap"><div class="spin"></div><div class="loading-lbl">'+tccT('m2.loadingData')+'</div></div>';
+  // [PERF-REFRESH3] มีข้อมูลที่เคยโหลดไว้ (sessionStorage tcc2_dash_<uid>) → แสดงทันที แล้วโหลดใหม่เบื้องหลัง (เดิมหมุน "กำลังโหลดข้อมูล..." ทุกครั้งที่เปิด)
+  let _hasCache = false;
+  try {
+    const _c = ssGetAny('tcc2_dash_' + uid);
+    if (_c && _c.member && _c.member.uid && _c.realizedPnl && _c.ledger) {
+      MEMBER_DASH = _c; TC.member = _c.member; window._personalLoadedFor = uid;
+      const _l0 = document.getElementById('dashUidLabel');
+      if (_l0 && _c.member.username) _l0.textContent = _c.member.username + ' · UID: ' + uid;
+      root.innerHTML = tcS5();
+      window._dashRender = function() { root.innerHTML = tcS5(); };
+      _hasCache = true;
+    }
+  } catch (_e) { _hasCache = false; }
+  if (!_hasCache) root.innerHTML = '<div class="loading-wrap"><div class="spin"></div><div class="loading-lbl">'+tccT('m2.loadingData')+'</div></div>';
 
   try {
     // [v2-NEW] โหลด profile + balance จาก GAS โดยตรง (ไม่ใช่ MEMBERS.find จาก DB1/Worker)
@@ -1569,6 +1586,7 @@ async function initDashboard(uid) {
     window._dashRender = function() { root.innerHTML = tcS5(); };
 
   } catch(e) {
+    if (_hasCache) { console.warn('[member2] refresh failed, keeping cached view:', e && e.message); return; }   // [PERF-REFRESH3] โหลดสดไม่สำเร็จ → คงข้อมูลเดิมไว้แทนหน้า error
     root.innerHTML = `<div class="loading-wrap">
       <div style="font-size:40px;margin-bottom:12px">❌</div>
       <div style="font-size:14px;color:var(--r)">${tccT('m2.errLoad')}</div>

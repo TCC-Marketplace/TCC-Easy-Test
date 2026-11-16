@@ -1,3 +1,9 @@
+<!-- [SYNC-V1_14] (2026-11-15) ปรับส่วนแสดงผล/ระบบของ Easy_Old ให้ตรงกับต้นแบบ index_tcc_main_nv4_V1_14 — "ไม่รวมชั้น D1" และไม่เปลี่ยน SCRIPT_URL/ADMIN_SCRIPT_URL · ค้นด้วยแท็กในโค้ด
+     [A1] Today's PNL = การเปลี่ยนแปลงจริงของวัน (v1.4/v1.5 · _aftdTodayChg/_aftdDay*) · [A2] เก็บสถานะข้ามรีเฟรช (PERF-PNL-PERSIST · v1.4-AFTD-HYDRATE · V1_11-DIRECT/CPOS-HYDRATE)
+     [A3] จำหน้า/แท็บหลังรีเฟรช (FIX-REFRESH-VIEW v1_13 · FIX-REFRESH-CONTRACT v1_14 · สคริปต์ tccViewState ท้ายไฟล์) · [A4] Margin Ratio / Liq Price (V1_9 · V1_10 · _futdResolveLiq/_futdMarginRatio)
+     [A5] ประวัติ Liquidation (V1_12) · [A6] เปิด/ปิด Direct แบบเร็ว (vx20-OPTIMISTIC-OPEN · V1_8) · [A7] Contract pre-check + rollback merge (vx20-CONTRACT-PRECHECK · vx20-MERGE-ROLLBACK)
+     [A8] แสดงผลทันทีจาก cache (PERF-DASH · PERF-COMM · PERF-REFRESH*) · [A9] ผูก token กับ uid (AUTH-BIND v1.6)
+     ไม่แตะ: ชั้น D1 (TCC_D1_URL/_d1*/_D1_*) · SCRIPT_URL/ADMIN_SCRIPT_URL · CSS · i18n · GAS ที่ใช้คู่กัน: GAS_tcc_main_nv4_V1_11.gs (ขั้นต่ำ V1_9) — ตรวจแล้วครบทุก action และฟิลด์ที่ HTML นี้ใช้ (today_carry · tzOffsetMin · liq per-symbol · snapshot ตอนเปิด/ปิด · Cross ไม่ cap ขาดทุน) · ห้ามใช้ GAS_Easy_Old (v2.76) คู่กับไฟล์นี้ — ไม่มีฟิลด์/พฤติกรรมเหล่านี้ · ต้อง Deploy → New version ให้ deployment ที่ SCRIPT_URL ชี้อยู่ก่อนใช้งาน -->
 <!-- [v8.4-RZPNL] (2026-10-07) Futures → Direct → Positions → Realized PNL ใช้งานได้จริง · ใช้คู่กับ GAS_easy_TCC_v6_2_RZPNL.gs (deploy GAS ก่อน HTML แล้วรัน repairFuturesRealizedPnl 1 ครั้ง) — ค้นด้วยแท็ก "v8.4-RZPNL"
      สาเหตุ: GAS ไม่เคยสะสม realized_pnl ลงแถว position ตอนปิดบางส่วน (ค่า 0 ตลอด) + futdPosRealizedPnl ถือ 0 เป็นค่าจริงจึงไม่ไปอ่านจาก Trade History · แถวชั่วคราวใช้ coin 'BTCUSDT' แต่ตัวจับเทียบกับ 'BTC' → ไม่เคย match · กดแถว Realized PNL ได้แค่ Toast
      แก้: (1) futdPosRealizedPnl: ใช้ p.realized_pnl จาก GAS ถ้าไม่ใช่ 0 → ยอดรวมจาก TRADES ที่ดึงตอนเปิดรายละเอียด → Trade History (จับด้วย positionId ตรงตัว, กันนับซ้ำ, normalize ชื่อเหรียญ)
@@ -6844,7 +6850,7 @@ details[open]>.wdp-sum::after{transform:rotate(-135deg);margin-top:3px}
         <span id="aftd-margin-bal">0.00</span><span class="unit">USDT</span>
       </div>
       <div class="aft-usd ast-hideable" id="aftd-margin-usd">≈ $0.00</div>
-      <div class="aft-pnl-today" onclick="openFuturesPnlPanel('direct')" style="cursor:pointer"><span data-i18n="today_pnl">Today's PNL</span> &nbsp;<span id="aftd-today-pnl" style="color:var(--g)">+$0.00 (+0.00%)</span> ›</div>
+      <div class="aft-pnl-today" onclick="openFuturesPnlPanel('direct')" style="cursor:pointer"><span data-i18n="today_pnl">Today's PNL</span> &nbsp;<span id="aftd-today-pnl" style="color:var(--t2)">—</span> ›</div>
       <div class="aft-stats-row">
         <div class="aft-stat">
           <div>Wallet Balance (USDT)</div>
@@ -12917,6 +12923,9 @@ function _cpsTrimCloseOrdersFor(posId, remainSize) {
 // (รอให้ S.coinPrices stabilize ก่อน) — ยืดเป็น 25 วินาที
 const TPSL_GRACE_MS = 30000; // 30 วินาที (เท่ากับ GAS isTpslReady)
 function isTpslReady(p) {
+  // [V1_11-CPOS-HYDRATE] position ที่วาดจาก snapshot (ยังไม่ได้รับการยืนยันจาก GAS) ห้าม trigger TP/SL ฝั่ง client — กัน GAS ช้า (>30 วิ) แล้วปิดตาม TP/SL เก่า
+  //   (_hyd ถูกลบเมื่อ loadOfflineState แทนที่ด้วยข้อมูลจริงจาก GAS ทั้งก้อน)
+  if (p && p._hyd) return false;
   return !p._tpslSetAt || (Date.now() - p._tpslSetAt) > TPSL_GRACE_MS;
 }
 
@@ -14284,6 +14293,36 @@ if (_bad) { showToast(tccTF(side === 'long' ? 'sys_tpsl_bad_long' : 'sys_tpsl_ba
   }
 }
 
+// [vx20-MERGE-ROLLBACK] GAS ปฏิเสธ order ที่ merge เข้า position เดิม → หักส่วนที่เพิ่มออก (size/margin/entry/lev/TP-SL) แทนที่จะปล่อยค้าง
+//   หักเป็น "ส่วนต่าง" ไม่ restore snapshot ทั้งก้อน (กัน overwrite สิ่งที่เปลี่ยนระหว่างรอ เช่น ปิดบางส่วน/แก้ TP-SL) · position ถูกปิด/ลดจนหมดไปแล้ว → ลบออก
+function _undoContractMerge(mu) {
+  if (!mu || typeof S === 'undefined' || !Array.isArray(S.positions)) return false;
+  const ex = S.positions.find(p => p.id === mu.posId);
+  if (!ex) return false;
+  const remain = parseFloat((ex.size - mu.addSize).toFixed(8));
+  if (remain <= 0.0001) {
+    S.positions = S.positions.filter(p => p.id !== ex.id);
+  } else {
+    const prevEntry = ((ex.entry * ex.size) - (mu.price * mu.addSize)) / remain;
+    if (isFinite(prevEntry) && prevEntry > 0) ex.entry = prevEntry;
+    ex.size   = remain;
+    ex.margin = Math.max(0, (parseFloat(ex.margin) || 0) - mu.addMargin);
+    if (mu.prevLev !== undefined) ex.lev = mu.prevLev;
+    if (mu.newTp && ex.tp === mu.newTp) ex.tp = mu.prevTp;   // คืนเฉพาะที่ order นี้เป็นคนตั้ง
+    if (mu.newSl && ex.sl === mu.newSl) ex.sl = mu.prevSl;
+    ex.liq = 0;   // recalcPositions() set จาก liq_price_map ใหม่
+  }
+  try {
+    const cc = (typeof earnContracts !== 'undefined') ? earnContracts.find(c => c.contractId === ex.earnContractId) : null;
+    if (cc && typeof _refreshAvbl === 'function') _refreshAvbl(cc);
+    if (typeof renderPositions === 'function') renderPositions();
+    if (typeof renderEarnContracts === 'function') renderEarnContracts();
+    if (typeof _updatePosBadge === 'function') _updatePosBadge();
+    if (typeof _liqAfterChange === 'function') _liqAfterChange(ex.earnContractId);   // ยืนยัน Liq/สถานะสัญญากับ GAS อีกครั้ง
+  } catch (e) { console.warn('[undoContractMerge]', e && e.message); }
+  return true;
+}
+
 // ══════════════════════════════════════════════════════════════
 //  _fillOrderToPosition — สร้าง / merge Position จาก order ที่ fill แล้ว
 // ══════════════════════════════════════════════════════════════
@@ -14329,6 +14368,13 @@ function _fillOrderToPosition(order) {
   );
 
   if (existing) {
+    // [vx20-MERGE-ROLLBACK] จำค่าก่อน merge ไว้คืนเมื่อ GAS ปฏิเสธ (rollback เดิมลบตาม id ของ logOpen = id ใหม่ ไม่ตรง position เดิม → merge ไม่ถูกคืน)
+    const _undoId = _genUniqueId();
+    window._openMergeUndo = window._openMergeUndo || {};
+    window._openMergeUndo[_undoId] = {
+      posId: existing.id, addSize: amt, addMargin: margin, price: price,
+      prevLev: existing.lev, prevTp: existing.tp, prevSl: existing.sl, newTp: tp, newSl: sl
+    };
     const totalSize    = existing.size + amt;
     const avgEntry     = (existing.entry * existing.size + price * amt) / totalSize;
     const newMarginTot = existing.margin + margin;
@@ -14348,7 +14394,7 @@ function _fillOrderToPosition(order) {
     if (tp) existing.tp = tp;
     if (sl) existing.sl = sl;
     const _logOpenP = (typeof HIST !== 'undefined')
-      ? HIST.logOpen({...existing, size: amt, entry: price, lev: _orderLev, id: _genUniqueId(), fillOrderId: order.id}) // [FIX-LIMITFILL-DOUBLECOUNT] บอก GAS ว่า position นี้มาจาก order ไหน · [v4.12-MERGE-LEV] lev = ของ order ใหม่ (ไม่ใช่ lev หลัง merge)
+      ? HIST.logOpen({...existing, size: amt, entry: price, lev: _orderLev, id: _undoId, fillOrderId: order.id}) // [FIX-LIMITFILL-DOUBLECOUNT] บอก GAS ว่า position นี้มาจาก order ไหน · [vx20-MERGE-ROLLBACK] id = _undoId (ผูกกับ window._openMergeUndo) · [v4.12-MERGE-LEV] lev = ของ order ใหม่ (ไม่ใช่ lev หลัง merge)
       : null;
     // [BUGFIX] ดึง liq_price_map ใหม่หลัง logOpen เขียนเสร็จ — กัน "Liq. Price" โชว์ "—" ค้าง
     _refreshLiqAfterLogOpen(_logOpenP);
@@ -17328,6 +17374,8 @@ async function _astRefreshBalanceIfStale() {
   if (typeof USER_PROFILE === 'undefined') return;
   const uid = USER_PROFILE.uid;
   if (!uid) return;
+  // [PERF-REFRESH 2026-11-13] มี getDashboard เต็มกำลังโหลดอยู่ (boot/รีเฟรช) → ไม่ยิงซ้อน (GAS ตอบทีละคำขอ ซ้อนแล้วช้าทุกตัว)
+  if (typeof _dashFullInflight !== 'undefined' && _dashFullInflight > 0) return;
   _astRefreshInFlight = true; // [FIX-POLL-LOCK] ล็อก
   const cacheKey = 'dash_' + uid;
 
@@ -17632,7 +17680,45 @@ async function _commFetchWithRetry(action, data, cacheKey, ttl) {
   }
 }
 
-async function astRenderCommissionTab() {
+// [PERF-COMM 2026-11-13] ใช้ข้อมูล dash/ref (จาก GAS หรือ cache) อัปเดต state ของ Commission tab — แยกออกมาเพื่อใช้ซ้ำทั้งตอน seed จาก cache และตอนได้ข้อมูลสด
+function _astApplyCommData(dash, ref) {
+  if (dash && dash.member) {
+    commissionBalance = parseFloat(dash.member.commissionBalance) || 0;
+    astCommIsLeader = !!dash.member.isLeader;
+  }
+  // [NEW v3] เก็บ realizedPnl + ledger (จาก response getMemberDashboard เดิม) ไว้ให้ astCommRenderWidget()
+  // คำนวณการ์ดสรุป/donut/ตารางเอง ฝั่ง client — ไม่ยิง action ใหม่
+  if (dash) {
+    astCommRows = [
+      ...(Array.isArray(dash.realizedPnl) ? dash.realizedPnl : []).map(r => ({ date: r.date, type: 'Realized PNL', amount: parseFloat(r.amount) || 0, note: r.note || '' })),
+      // [FIX v3.1] กรอง CommissionWithdraw ออก — เป็น internal transfer entry ไม่ใช่ income
+      // GAS v2.32 กรองให้แล้ว แต่ filter ซ้ำฝั่ง client เป็น defense-in-depth
+      // [DETAIL v5] เก็บ contractId/sourceUid/note ต่อ (GAS ส่งมาอยู่แล้วจาก getMemberDashboard) — เดิม map ทิ้งไป
+      ...(Array.isArray(dash.ledger) ? dash.ledger : []).filter(r => r.type !== 'CommissionWithdraw').map(r => ({ date: r.date, type: r.type, amount: parseFloat(r.amount) || 0, contractId: r.contractId || '', sourceUid: r.sourceUid || '', note: r.note || '' })),
+    ];
+  }
+  if (ref && ref.referrer) {
+    commissionApprovedCount = ref.referrer.approvedCount || 0;
+    commissionMinApproved   = ref.referrer.minApprovedToWithdraw || 0;
+    commissionMinAmount     = ref.referrer.minAmountToWithdraw || 0;
+    commissionCanTransfer   = commissionApprovedCount >= commissionMinApproved;
+  }
+  // [NEW] เก็บ referredMembers ให้ Commission History overlay ใช้ได้โดยตรง
+  if (ref && Array.isArray(ref.referredMembers)) {
+    astCommHistRefMembers = ref.referredMembers;
+  }
+  // [v3.2 / GAS v2.33] commissionBalance มาจาก Ledger net โดยตรงแล้ว (single source of truth)
+  // safety net: ถ้า dash.member.commissionBalance ยังเป็น 0 แต่ summary.totalCommissionEarned มีค่า
+  // (GAS เก่า / cache ค้าง) → ใช้ summary แทน
+  if (commissionBalance <= 0 && dash && dash.summary) {
+    const netFromLedger = parseFloat(dash.summary.totalCommissionEarned) || 0;
+    if (netFromLedger > 0) commissionBalance = netFromLedger;
+  }
+}
+
+// opts.silent = true → โหลดเบื้องหลัง (preload ตอนเข้าแอป): ไม่ขึ้น toast / ไม่ตั้งสถานะ "ลองใหม่" ถ้าล้มเหลว
+async function astRenderCommissionTab(opts) {
+  const _silent = !!(opts && opts.silent === true);
   // [v3 PERF] ถ้ามีข้อมูล cache อยู่แล้ว → render ทันทีก่อน (instant display, no flicker)
   if (_commissionLoaded) {
     astUpdateCommissionDisplay();
@@ -17649,6 +17735,20 @@ async function astRenderCommissionTab() {
   const uid = (_sess && _sess.uid) ? String(_sess.uid).trim()
             : (typeof USER_PROFILE !== 'undefined' && USER_PROFILE ? USER_PROFILE.uid : '');
   if (!uid) { astUpdateCommissionDisplay(); return; }
+
+  // [PERF-COMM 2026-11-13] cache-first: ยังไม่เคยโหลดในรอบนี้ แต่มี cache เดิมใน localStorage (แม้หมดอายุ) → แสดงทันที
+  // แล้วค่อยรีเฟรชจาก GAS เบื้องหลัง (เดิมค้างที่ ⏳ จนกว่า GAS จะตอบ) · ถ้า GAS ล้ม ก็ยังมียอดล่าสุดที่เคยโหลดให้เห็น
+  if (!_commissionLoaded && !_commTabLoading) {
+    try {
+      const _sd = LS.get('commdash_' + uid), _sr = LS.get('commref_' + uid);
+      if (_sd && _sd.data && _sd.data.member) {
+        _astApplyCommData(_sd.data, _sr && _sr.data);
+        _commissionLoaded = true;
+        astUpdateCommissionDisplay();
+        astCommRenderWidget();
+      }
+    } catch (_e) { /* cache เสีย → โหลดสดตามปกติ */ }
+  }
 
   // [v3 PERF] Throttle: ถ้าโหลด uid เดิมภายใน 30 วินาที ให้ใช้ cache — ไม่ยิง GAS ซ้ำ
   const now = Date.now();
@@ -17679,43 +17779,12 @@ async function astRenderCommissionTab() {
     ]);
     _commTabLastUid = uid;
     _commTabLastMs  = Date.now();
-    if (dash && dash.member) {
-      commissionBalance = parseFloat(dash.member.commissionBalance) || 0;
-      astCommIsLeader = !!dash.member.isLeader;
-    }
-    // [NEW v3] เก็บ realizedPnl + ledger (จาก response getMemberDashboard เดิม) ไว้ให้ astCommRenderWidget()
-    // คำนวณการ์ดสรุป/donut/ตารางเอง ฝั่ง client — ไม่ยิง action ใหม่
-    if (dash) {
-      astCommRows = [
-        ...(Array.isArray(dash.realizedPnl) ? dash.realizedPnl : []).map(r => ({ date: r.date, type: 'Realized PNL', amount: parseFloat(r.amount) || 0, note: r.note || '' })),
-        // [FIX v3.1] กรอง CommissionWithdraw ออก — เป็น internal transfer entry ไม่ใช่ income
-        // GAS v2.32 กรองให้แล้ว แต่ filter ซ้ำฝั่ง client เป็น defense-in-depth
-        // [DETAIL v5] เก็บ contractId/sourceUid/note ต่อ (GAS ส่งมาอยู่แล้วจาก getMemberDashboard) — เดิม map ทิ้งไป
-        ...(Array.isArray(dash.ledger) ? dash.ledger : []).filter(r => r.type !== 'CommissionWithdraw').map(r => ({ date: r.date, type: r.type, amount: parseFloat(r.amount) || 0, contractId: r.contractId || '', sourceUid: r.sourceUid || '', note: r.note || '' })),
-      ];
-    }
-    if (ref && ref.referrer) {
-      commissionApprovedCount = ref.referrer.approvedCount || 0;
-      commissionMinApproved   = ref.referrer.minApprovedToWithdraw || 0;
-      commissionMinAmount     = ref.referrer.minAmountToWithdraw || 0;
-      commissionCanTransfer   = commissionApprovedCount >= commissionMinApproved;
-    }
-    // [NEW] เก็บ referredMembers ให้ Commission History overlay ใช้ได้โดยตรง
-    if (ref && Array.isArray(ref.referredMembers)) {
-      astCommHistRefMembers = ref.referredMembers;
-    }
-    // [v3.2 / GAS v2.33] commissionBalance มาจาก Ledger net โดยตรงแล้ว (single source of truth)
-    // safety net: ถ้า dash.member.commissionBalance ยังเป็น 0 แต่ summary.totalCommissionEarned มีค่า
-    // (GAS เก่า / cache ค้าง) → ใช้ summary แทน
-    if (commissionBalance <= 0 && dash && dash.summary) {
-      const netFromLedger = parseFloat(dash.summary.totalCommissionEarned) || 0;
-      if (netFromLedger > 0) commissionBalance = netFromLedger;
-    }
+    _astApplyCommData(dash, ref); // [PERF-COMM] logic เดิมย้ายไปฟังก์ชันกลาง
     _commissionLoaded = true;
     _commTabFailed = false; // [FIX] โหลดสำเร็จ → เคลียร์สถานะ error เดิม (ถ้ามี)
   } catch (e) {
     console.warn('[astRenderCommissionTab]', e);
-    if (!_commissionLoaded) { _commTabFailed = true; showToast(tccT('toast_commission_load_fail')); }
+    if (!_commissionLoaded && !_silent) { _commTabFailed = true; showToast(tccT('toast_commission_load_fail')); } // [PERF-COMM] preload เบื้องหลังไม่ขึ้น toast
   } finally {
     _commTabLoading = false; // ปลดล็อคเสมอ ไม่ว่า success หรือ error
   }
@@ -18801,7 +18870,7 @@ function updateOverviewBalances() {
   // [vx11-OVW-DIRECT-TOTAL] + PNL ของ Futures-Direct (Realized วันนี้ + Unrealized) ; ส่วน Contract ยังเป็น Unrealized เหมือนเดิม
   const pnlEl = document.getElementById('astPnlVal');
   if (pnlEl) {
-    const todayPnl = totalUnrealized + _dx.todayRz + _dx.upnl;
+    const todayPnl = totalUnrealized + _dx.todayChg;   // [v1.5-TODAY-CHG] เดิม todayRz + upnl (Unrealized ทั้งก้อน)
     const pnlSign = todayPnl >= 0 ? '+' : '-';
     const pnlAbs  = Math.abs(todayPnl);
     const basis   = total - todayPnl; // มูลค่าก่อนรวม PNL วันนี้ (Contract + Direct) ใช้เป็นฐานคิด %
@@ -20053,7 +20122,7 @@ document.getElementById('ast-overlay-send-confirm')?.addEventListener('click', f
 
 // ── State ──
 let earnContracts = []; // array of contract objects
-let selectedEarnContractId = null;
+let selectedEarnContractId = null; let _earnSelUserPicked = false; // [FIX-REFRESH-CONTRACT v1_14] ประกาศคู่กัน กัน TDZ
 let earnCreatePlan = { days: 15, yield: 0.3333 };
 let claimTargetId = null;
 let claimMode = 'all'; // 'all' | 'trade' | 'apt'
@@ -20104,11 +20173,15 @@ function setDirectWalletBalance(v, ts, onlyIfUnknown) {
 function _ovwDirectStats() {
   let bal = parseFloat(window._directWalletBalance);
   if (!isFinite(bal)) bal = 0;
-  let upnl = 0, todayRz = 0;
+  let upnl = 0, todayRz = 0, todayChg = 0, _ps = [], _carry = [];
   try {
     let ps = (typeof AFTD !== 'undefined' && AFTD && AFTD.positions) ? AFTD.positions : [];
-    if (!ps.length && typeof AFTD !== 'undefined' && AFTD && AFTD.cache && AFTD.cache.at > 0 && AFTD.cache.status && Array.isArray(AFTD.cache.status.positions)) ps = AFTD.cache.status.positions;
+    // [v1.4-AFTD-HYDRATE] หลังรีเฟรชยังไม่มี cache ใน memory → ลองอ่านสถานะที่เก็บไว้ (Est. Total Value/Today's PNL รวม Direct ทันที ไม่ต้องรอ prefetch)
+    if (!ps.length && typeof AFTD !== 'undefined' && AFTD && !AFTD.cache && typeof _aftdHydrate === 'function' && typeof _futdCurrentUid === 'function') _aftdHydrate(_futdCurrentUid());
+    if (!ps.length && typeof AFTD !== 'undefined' && AFTD && AFTD.cache && (AFTD.cache.at > 0 || AFTD.cache.hyd) && AFTD.cache.status && Array.isArray(AFTD.cache.status.positions)) ps = AFTD.cache.status.positions;
     ps.forEach(p => { upnl += _aftdPosPnl(p, _aftdPosMark(p)); });
+    _ps = ps;
+    _carry = (AFTD && Array.isArray(AFTD.todayCarry) && AFTD.positions && AFTD.positions.length) ? AFTD.todayCarry : ((AFTD && AFTD.cache && AFTD.cache.status && Array.isArray(AFTD.cache.status.today_carry)) ? AFTD.cache.status.today_carry : (AFTD && Array.isArray(AFTD.todayCarry) ? AFTD.todayCarry : []));
   } catch (e) { upnl = 0; }
   if (!isFinite(upnl)) upnl = 0;
   try {
@@ -20117,7 +20190,9 @@ function _ovwDirectStats() {
     else if (typeof AFTD !== 'undefined' && AFTD && AFTD.cache && AFTD.cache.status) todayRz = parseFloat(AFTD.cache.status.today_realized_pnl) || 0;
   } catch (e) { todayRz = 0; }
   if (!isFinite(todayRz)) todayRz = 0;
-  return { bal: bal, upnl: upnl, todayRz: todayRz };
+  // [v1.5-TODAY-CHG] todayChg = การเปลี่ยนแปลงจริงของวันนี้ (ใช้กับ Today's PNL) · upnl เต็มยังใช้กับ Est. Total Value เหมือนเดิม
+  try { todayChg = _aftdTodayChg(_ps, _carry, todayRz).total; } catch (e) { todayChg = todayRz + upnl; }
+  return { bal: bal, upnl: upnl, todayRz: todayRz, todayChg: todayChg };
 }
 // [FIX-3] flag: true หลัง loadDashboard ได้รับข้อมูลจาก GAS ครั้งแรก
 // ใช้กัน updateOverviewBalances/renderEarnContracts แสดง 0.00 / "ยังไม่มีสัญญา" ก่อนข้อมูลพร้อม
@@ -20742,16 +20817,30 @@ function updateEarnDropdown() {
   }).join('');
 
   // Auto-select if only one active (หรือ selectedEarnContractId ยังไม่ได้ set หรือ contract ที่เลือกอยู่กลาย frozen)
-  if (!selectedEarnContractId) {
-    const firstActive = active.find(c => c.status === 'active');
-    if (firstActive) selectEarnContract(firstActive.contractId);
+  // [FIX-REFRESH-CONTRACT v1_14] เดิม: selectedEarnContractId อยู่ใน memory อย่างเดียว → รีเฟรชแล้วเป็น null → เลือก "active ตัวแรก"
+  //   ซึ่งอาจเป็นคนละสัญญากับที่เปิดไว้/ที่มี Position → ตารางว่าง ("ไม่มี Position ในสัญญา …")
+  //   ใหม่: (1) สัญญาที่ผู้ใช้เลือกไว้ล่าสุด (จำต่อ uid ใน localStorage) (2) สัญญาที่มี Position เปิดอยู่ (3) active ตัวแรก
+  //   และถ้ารอบแรกยังไม่มีสัญญาที่จำไว้ในรายการ (snapshot ยังโหลดไม่ครบ) → พอสัญญานั้นโผล่มา จะสลับกลับให้ตราบที่ผู้ใช้ยังไม่กดเลือกเองในรอบนี้
+  const _savedEc = _earnSelLoad();
+  const _savedActive = _savedEc ? active.find(c => c.contractId === _savedEc && c.status === 'active') : null;
+  if (!selectedEarnContractId || (_savedActive && !_earnSelUserPicked && selectedEarnContractId !== _savedEc)) {
+    let _pick = _savedActive || null;
+    if (!_pick && !selectedEarnContractId) {
+      try {
+        if (typeof S !== 'undefined' && S && Array.isArray(S.positions) && S.positions.length) {
+          _pick = active.find(c => c.status === 'active' && S.positions.some(p => p.earnContractId === c.contractId)) || null;
+        }
+      } catch (e) {}
+      if (!_pick) _pick = active.find(c => c.status === 'active') || null;
+    }
+    if (_pick) selectEarnContract(_pick.contractId, { auto: true });
   } else {
     // ถ้า contract ที่เลือกอยู่กลายเป็น frozen → ย้ายไป active ตัวแรก
     const selected = earnContracts.find(x => x.contractId === selectedEarnContractId);
     if (selected && selected.status === 'frozen') {
       const firstActive = active.find(c => c.status === 'active');
       if (firstActive) {
-        selectEarnContract(firstActive.contractId);
+        selectEarnContract(firstActive.contractId, { auto: true });
       } else {
         // ไม่มี active เลย → คง selectedEarnContractId ไว้ แต่แสดง frozen state
       }
@@ -20776,8 +20865,22 @@ function toggleEarnSelDD(e) {
   });
 })();
 
-function selectEarnContract(id) {
+// [FIX-REFRESH-CONTRACT v1_14] จำ "เลขที่สัญญาที่เลือกล่าสุด" ต่อ uid — คีย์ไม่ขึ้นต้น tcc_ จึงไม่โดน clearAllStaleCache/_clearSessionCache ล้าง
+function _earnSelKey() {
+  let u = '';
+  try {
+    const s = (typeof _lgLoadSession === 'function') ? _lgLoadSession() : null;
+    u = (s && s.uid) ? String(s.uid).trim() : ((typeof USER_PROFILE !== 'undefined' && USER_PROFILE && USER_PROFILE.uid) ? String(USER_PROFILE.uid).trim() : '');
+  } catch (e) {}
+  return u ? ('selEarnCtr_' + u) : '';
+}
+function _earnSelLoad() { try { const k = _earnSelKey(); return k ? (localStorage.getItem(k) || '') : ''; } catch (e) { return ''; } }
+function _earnSelSave(id) { try { const k = _earnSelKey(); if (k && id) localStorage.setItem(k, String(id)); } catch (e) {} }
+
+function selectEarnContract(id, opts) {
   selectedEarnContractId = id;
+  // ผู้ใช้เลือกเอง (ไม่ใช่ auto-select ตอนโหลด) → จำไว้ให้รอดการรีเฟรช
+  if (!(opts && opts.auto)) { _earnSelUserPicked = true; _earnSelSave(id); }
   const c = earnContracts.find(x => x.contractId === id);
   const dd = document.getElementById('earnSelDD');
   if (dd) dd.classList.remove('open');
@@ -22281,6 +22384,7 @@ async function checkCanOpenPosition(earnContractId) {
       // [FIX-DD3a] เพิ่ม trading_realized_loss + apt_yield_accrued เพื่อให้ showEarnDetail อ่านได้
       window._contractDDMap = window._contractDDMap || {};
       window._contractDDMap[earnContractId] = {
+        _ts:                   Date.now(), // [vx20-CONTRACT-PRECHECK] เวลาที่ได้สถานะสดจาก GAS — placeOrder ข้ามการรอ getContractStatus ได้ถ้าไม่เกิน 30 วิ
         isFrozen:              !!st.isFrozen,
         isWarning:             !!st.isWarning,
         isMatured:             !!st.isMatured, // [FIX-GAP-1] เก็บไว้ให้ UI อื่นอ่านค่าสดชุดเดียวกัน
@@ -22382,8 +22486,10 @@ async function _refreshContractLiqMap(earnContractId, opts) {
     // [FIX-SYNC-3b] เพิ่ม avail_margin / margin_cap / isMarginBlocked ใน _contractDDMap
     // [FIX-DD3b] เพิ่ม trading_realized_loss + apt_yield_accrued
     window._contractDDMap[earnContractId] = {
+      _ts:                   Date.now(), // [vx20-CONTRACT-PRECHECK] สถานะสดจาก GAS (หลัง commit เปิด/ปิด) — ใช้เป็น cache ของ pre-check ได้ 30 วิ
       isFrozen:              !!st.isFrozen,
       isWarning:             !!st.isWarning,
+      isMatured:             !!st.isMatured, // [vx20-CONTRACT-PRECHECK] pre-check ต้องใช้ครบชุดเดียวกับ checkCanOpenPosition
       drawdown_pct:          st.drawdown_pct,
       avail_margin:          st.avail_margin,
       trade_avail_margin:    (st.trade_avail_margin !== undefined ? st.trade_avail_margin : st.avail_margin),
@@ -22522,15 +22628,38 @@ function _liqAfterChange(earnContractId, commitPromise) {
   if (commitPromise && typeof commitPromise.then === 'function') commitPromise.then(go, go); else go();
 }
 
+// [vx20-CONTRACT-PRECHECK] pre-check จาก cache (_contractDDMap) แทนการรอ getContractStatus (+2–5 วิ ทุกครั้งที่เปิด)
+//   คืน true = อนุญาต (cache สด ≤30 วิ และไม่ติด frozen/matured/วงเงินเต็ม) · false = ผู้ใช้กดยกเลิก confirm เตือน DD · null = ใช้ไม่ได้ → ผู้เรียกรอ checkCanOpenPosition แบบเดิม
+//   cache ใช้ "อนุญาต" เท่านั้น: ติด frozen/matured/วงเงินเต็ม → null → เส้นทางเดิมดึงสถานะสดแล้วแจ้ง toast ข้อความเดิม · confirm() เตือน DD เก็บไว้ (ข้อความเดิม)
+//   GAS logPositionWithGuard ยังตรวจ frozen/matured/margin cap/per-order cap ซ้ำใต้ lock เสมอ → cache เก่าผิดพลาดก็ไม่ทะลุ (โดน reject → rollback)
+const _PRECHECK_TTL_MS = 30000;
+function _checkCanOpenFromCache(earnContractId) {
+  try {
+    if (!earnContractId) return null;
+    if (!(USER_PROFILE && USER_PROFILE.uid)) return null;
+    const m = window._contractDDMap && window._contractDDMap[earnContractId];
+    if (!m || !m._ts || (Date.now() - m._ts) > _PRECHECK_TTL_MS) return null;
+    if (m.isFrozen || m.isMatured) return null;
+    if (m.margin_cap !== undefined && m.isMarginBlocked) return null;
+    if (m.isWarning) {
+      if (!confirm(tccTF('sys_dd_confirm', {dd: (m.drawdown_pct || '—')}))) return false;
+    }
+    return true;
+  } catch (e) { return null; }
+}
+
 // ── [v8] placeOrder — async guard wrapper ──────────────────────────────────
 async function placeOrder(side) {
   _setBtnLoading(side, true);
   try {
     const c = (typeof _getSelectedContract === 'function') ? _getSelectedContract() : null;
     const contractId = c ? c.contractId : (typeof selectedEarnContractId !== 'undefined' ? selectedEarnContractId : null);
-    const canOpen = await checkCanOpenPosition(contractId);
+    let canOpen = _checkCanOpenFromCache(contractId);   // [vx20-CONTRACT-PRECHECK] cache สด → ไม่รอ GAS
+    if (canOpen === null) canOpen = await checkCanOpenPosition(contractId);
     if (!canOpen) return;
     _placeOrderCore(side);
+    // [vx20-CONTRACT-PRECHECK] เปิดแล้ว margin ของสัญญาเปลี่ยน → cache นี้ไม่ใช่ค่าสดอีกต่อไป (ออเดอร์ถัดไปรอ GAS จนกว่า _refreshContractLiqMap หลัง commit จะประทับเวลาใหม่)
+    try { const _mm = window._contractDDMap && window._contractDDMap[contractId]; if (_mm) _mm._ts = 0; } catch (_e) {}
     // sync balance + drawdown หลัง place order
     if (c) {
       syncContractBalance(c);
@@ -24511,7 +24640,13 @@ function tfShowCoinDDHint() {
   try { _returnPage = sessionStorage.getItem('_returnFromWhale'); } catch(e) {}
   try { _returnAstTab = sessionStorage.getItem('_returnAstTab'); } catch(e) {}
   const _hash = window.location.hash.replace('#', '');
-  const _skipTarget = _returnPage || _hash;
+  // [FIX-REFRESH-VIEW v1_13] จำ "หน้า + แท็บ" ลง sessionStorage 'tcc_view_state' (ดูสคริปต์ท้ายไฟล์ tccViewState)
+  //   รีเฟรช/F5/pull-to-refresh แล้ว hash ถูกกินหรือไม่มี (เช่น Futures Contract/Direct, แท็บย่อย Home/Spot/Markets)
+  //   → ใช้ค่าที่จำไว้เสริม · hash (หน้า/แท็บ Assets) ยังมาก่อนเสมอ · อายุ ≤ 12 ชม. · ไม่ใช้ถ้าเป็นหน้า login
+  let _savedView = null;
+  try { _savedView = JSON.parse(sessionStorage.getItem('tcc_view_state') || 'null'); } catch(e) {}
+  if (_savedView && (!_savedView.page || _savedView.page === 'login' || (Date.now() - (_savedView.t || 0)) > 12 * 3600 * 1000)) _savedView = null;
+  const _skipTarget = _returnPage || _hash || (_savedView && _savedView.page) || '';
 
   if (_skipTarget) {
     try { sessionStorage.removeItem('_returnFromWhale'); } catch(e) {}
@@ -24519,6 +24654,8 @@ function tfShowCoinDDHint() {
     splash.classList.add('gone');
     _showPages();
     try { history.replaceState(null, '', window.location.pathname); } catch(e) {}
+    // [SYNC-URL] คงพฤติกรรม URL ตาม Easy_Old: ล้าง ?query/#hash ตอนบูต (hash/แท็บที่จะกู้คืนอ่านเก็บไว้ใน _hash/_savedView ก่อนบรรทัดนี้แล้ว)
+    // [FIX-REFRESH-VIEW v1_13] ระหว่างกู้คืนตั้ง _navIsBack=true ให้ navTo/astSwitchTab ใช้ replaceState แทน push (history ไม่โตทุกครั้งที่รีเฟรช)
     // [FIX-BLACK-HASH-REFRESH] hash ที่ navTo()/astSwitchTab() pushState ไว้มี 2 รูปแบบ:
     //   '#assets' (หน้า) และ '#assets__<subtab>' (หน้า + แท็บย่อยของ Assets)
     //   เดิมส่ง hash ดิบเข้า navTo() → '#assets__futures-a' ไม่มี #page-assets__futures-a → จอดำ
@@ -24544,10 +24681,27 @@ function tfShowCoinDDHint() {
         return !!(el && el.classList.contains('page'));
       };
       let _pg = _skipPage, _sub = _skipSubTab;
+      // [FIX-REFRESH-VIEW v1_13] กันหน้าผิดสถานะ: มี session แต่ hash ค้าง #login → เข้าแอป · ไม่มี session แต่ hash เป็นหน้าอื่น → login
+      if (_pg === 'login' && _hasSession()) { _pg = _skipFallback; _sub = null; }
+      else if (_pg !== 'login' && !_hasSession()) { _pg = 'login'; _sub = null; }
       if (!_pageExists(_pg)) {
         console.warn('[initSplash] hash page not found:', _skipTarget, '→ fallback', _skipFallback);
         _pg = _skipFallback; _sub = null;
       }
+      // [FIX-REFRESH-VIEW v1_13] แท็บ Assets ที่จำไว้ (กรณี hash หาย) · view-state ใช้ได้เฉพาะเมื่อหน้าตรงกัน
+      const _sv = (_savedView && _savedView.page === _pg) ? _savedView : null;
+      if (!_sub && _sv && _pg === 'assets' && _sv.ast) _sub = _sv.ast;
+      // ระหว่างกู้คืน: ไม่ pushState (replace แทน) และไม่นับเป็น "ผู้ใช้กดเปลี่ยนหน้า"
+      window._tccRestoring = true;
+      let _navWas = false; try { _navWas = !!_navIsBack; _navIsBack = true; } catch(e) {}
+      let _doneOnce = false;
+      const _restoreDone = () => {
+        if (_doneOnce) return; _doneOnce = true;
+        try { _navIsBack = _navWas; } catch(e) {}
+        window._tccRestoring = false;
+        window._tccViewReady = true;
+      };
+      setTimeout(_restoreDone, 2500); // safety: กัน flag ค้างถ้ามี exception
       try {
         if (typeof navTo === 'function') navTo(_pg);
       } catch(e) {
@@ -24566,17 +24720,24 @@ function tfShowCoinDDHint() {
         } catch(e3) {}
       }
       // rAF ซ้อนอีก 1 ชั้น — รอ navTo render assets page เสร็จก่อนค่อย switch sub-tab
-      if (_sub && _pg === 'assets') {
-        requestAnimationFrame(() => {
-          // [FIX-BLACK-HASH-REFRESH-2] astSwitchTab() ลบ .active ออกจากทุก .ast-page ก่อนเสมอ ถ้าชื่อแท็บจาก hash
-          //   ไม่มีอยู่จริง (เช่น #assets__foo) เนื้อหาในหน้า Assets จะว่างเปล่า → ตรวจก่อนสลับ ถ้าไม่มีให้อยู่ที่แท็บเริ่มต้น
-          if (!document.getElementById('ast-page-' + _sub)) {
-            console.warn('[initSplash] assets sub-tab not found:', _sub, '→ keep default tab');
-            return;
+      requestAnimationFrame(() => {
+        try {
+          if (_sub && _pg === 'assets') {
+            // [FIX-BLACK-HASH-REFRESH-2] astSwitchTab() ลบ .active ออกจากทุก .ast-page ก่อนเสมอ ถ้าชื่อแท็บจาก hash
+            //   ไม่มีอยู่จริง (เช่น #assets__foo) เนื้อหาในหน้า Assets จะว่างเปล่า → ตรวจก่อนสลับ ถ้าไม่มีให้อยู่ที่แท็บเริ่มต้น
+            if (!document.getElementById('ast-page-' + _sub)) {
+              console.warn('[initSplash] assets sub-tab not found:', _sub, '→ keep default tab');
+              _sub = null;
+            } else if (typeof astSwitchTabByName === 'function') {
+              astSwitchTabByName(_sub);
+            }
           }
-          if (typeof astSwitchTabByName === 'function') astSwitchTabByName(_sub);
-        });
-      }
+          // [FIX-REFRESH-VIEW v1_13] แท็บลึกกว่านั้น: Futures Contract/Direct · Assets→Futures Contract/Direct · แท็บย่อยของหน้า
+          if (typeof window.tccApplyView === 'function') window.tccApplyView(_sv, _pg, _sub);
+        } catch(e) { console.warn('[initSplash] restore inner view failed:', e && e.message); }
+        // ปลด flag ทันที (retry ของแท็บย่อยใช้ _tccInnerRestoring แยกต่างหาก) → ผู้ใช้กดเปลี่ยนหน้าเองหลังบูตจะถูกจำ/นับตามปกติ
+        _restoreDone();
+      });
     });
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _runSkipNav, { once: true });
     else _runSkipNav();
@@ -30184,7 +30345,7 @@ function _hmRefreshBalance() {
   })();
   // [vx5-FIX-DASH-DIRECT] รวม Futures-Direct unrealized PNL (จาก AFTD.positions) ด้วย
   const unrealizedDirect = _dxH.upnl;   // [vx11-OVW-DIRECT-TOTAL] ใช้ค่าเดียวกับที่รวมใน total ด้านบน (สูตรเดียวกับ Assets → Direct)
-  const pnl = unrealized + todayRealized + todayRealizedDirect + unrealizedDirect;
+  const pnl = unrealized + todayRealized + (_dxH.todayChg !== undefined ? _dxH.todayChg : (todayRealizedDirect + unrealizedDirect));   // [v1.5-TODAY-CHG] Direct = การเปลี่ยนแปลงจริงของวันนี้
 
   const hmTotal = document.getElementById('hm-total');
   const hmUsd   = document.getElementById('hm-usd');
@@ -33155,10 +33316,22 @@ function _dropWriteQueueIfIdle() {
   }
   try { localStorage.removeItem('tcc__write_queue'); } catch(e) {}
 }
-function _clearSessionCache(uid) {
+function _clearSessionCache(uid, keepOwnDisplay) {
   if (!uid) return;
+  // [PERF-REFRESH3] ตอนเปิดแอป/กดรีเฟรช (keepOwnDisplay=true) เก็บ cache สำหรับ "แสดงผลทันที" ของ uid ปัจจุบันไว้
+  //   (dash_ = ยอดเงิน/โปรไฟล์ · commdash_/commref_ = คอมมิชชั่น) — เดิมลบทิ้งทุกครั้ง ทำให้ยอดเงินเป็น 0.00 และ Balances ว่าง
+  //   จนกว่า GAS (ช้า) จะตอบ · ข้อมูลสดยังถูกดึงและทับเสมอ · logout / สลับ user ยังล้างหมดเหมือนเดิม (keepOwnDisplay ไม่ถูกส่ง)
+  const _keep = keepOwnDisplay ? ['tcc_dash_' + uid, 'tcc_commdash_' + uid, 'tcc_commref_' + uid] : [];
+  // [PERF-PNL-PERSIST] ข้อมูล PNL/Direct ที่เก็บไว้: เก็บของ uid นี้ตอนเปิดแอป/รีเฟรช · logout (ไม่ keepOwnDisplay) หรือของ uid อื่น → ลบ
+  try {
+    Object.keys(localStorage).forEach(k => {
+      if (!k.startsWith('tcc_pnlc_')) return;
+      const own = k.indexOf('_' + uid + '_') > -1 || k.endsWith('_' + uid);
+      if (!own || !keepOwnDisplay) localStorage.removeItem(k);
+    });
+  } catch (e) {}
   SESSION_CACHE_KEYS.forEach(prefix => {
-    try { localStorage.removeItem('tcc_' + prefix + uid); } catch(e) {}
+    try { if (!_keep.includes('tcc_' + prefix + uid)) localStorage.removeItem('tcc_' + prefix + uid); } catch(e) {}
   });
   // [v9 FIX] กวาด cache ตกค้างจาก uid อื่น/รอบก่อนด้วย — กัน contract/position/dashboard cache ซ้ำซ้อน
   // ที่ไม่ใช่ของ uid ปัจจุบันแต่ยังหลงเหลืออยู่ใน localStorage (เช่น สลับ account บนเครื่องเดียวกัน)
@@ -33166,7 +33339,7 @@ function _clearSessionCache(uid) {
     Object.keys(localStorage).forEach(k => {
       if (!k.startsWith('tcc_')) return;
       const isStaleDataCache = SESSION_CACHE_KEYS.some(prefix => k.startsWith('tcc_' + prefix));
-      if (isStaleDataCache) localStorage.removeItem(k);
+      if (isStaleDataCache && !_keep.includes(k)) localStorage.removeItem(k);
     });
   } catch(e) {}
   // reset first-load flags → _mergeIntoHIST จะ replace แทน append ในการโหลดครั้งต่อไป
@@ -33217,7 +33390,7 @@ const LS = {
   getIfFresh(key) {
     const v = LS.get(key);
     if (!v) return null;
-    if (v._exp && v._exp < Date.now()) { LS.del(key); return null; }
+    if (v._exp && v._exp < Date.now()) return null;   // [PERF-REFRESH2] ไม่ลบ cache ที่หมดอายุทิ้ง — ให้ LS.get() ยังแสดงข้อมูลเดิมระหว่างรอข้อมูลสด (เดิมรีเฟรชรอบสองเจอ cache ว่าง → โหลดใหม่หมด) · ที่เต็มจะถูก LS.evictOld() เก็บเอง
     return v;
   },
 };
@@ -33383,7 +33556,25 @@ function fdpToday(mode) {
   const v = FDP.today[mode];
   return (typeof v === 'number' && isFinite(v)) ? v : null;
 }
-function fdpInvalidate() { FDP.today = { contract: null, direct: null }; FDP.todayDate = ''; FDP.months = {}; }
+// [PERF-PNL-PERSIST] เก็บข้อมูลหน้า Futures PNL / Direct ลงเครื่อง (แยกตาม uid) → รีเฟรช/เปิดแอปใหม่แล้วขึ้นข้อมูลเดิมทันที (at=0 = ถือว่าเก่า → ดึงสดจาก GAS ทับเบื้องหลังเสมอ)
+//   action เหล่านี้ (getFuturesDailyPnl / getFuturesPnlStats / getFuturesAccountSummary) อ่านจาก GAS เสมอ — ที่เก็บนี้เป็นแค่สำเนาไว้แสดงผลทันที
+const _PNL_P_PREFIX = 'tcc_pnlc_';
+function _pnlPSet(key, obj) { try { const s = JSON.stringify({ v: obj, ts: Date.now() }); if (s.length > 900000) return; localStorage.setItem(_PNL_P_PREFIX + key, s); } catch (e) {} }
+function _pnlPGet(key) { try { const r = localStorage.getItem(_PNL_P_PREFIX + key); if (!r) return null; const o = JSON.parse(r); return (o && o.v) || null; } catch (e) { return null; } }
+// [v1.4-FDP-INVALIDATE] ลบเฉพาะ "เดือนปัจจุบัน" (key ลงท้าย |YYYY-M) — เดิมลบทุกเดือนทุกครั้งที่เปิด/ปิด position ทั้งที่การปิดกระทบได้แค่เดือนปัจจุบัน → ปฏิทินเดือนก่อน ๆ ต้องโหลดใหม่ทุกครั้ง/ว่างหลังรีเฟรช
+function _pnlPDropFdp() { try { const u = '_' + _fdpUid() + '_'; const _d = new Date(), tail = '|' + _d.getFullYear() + '-' + (_d.getMonth() + 1); Object.keys(localStorage).forEach(k => { if (k.startsWith(_PNL_P_PREFIX + 'fdpm_') && k.indexOf(u) > -1 && k.endsWith(tail)) localStorage.removeItem(k); }); } catch (e) {} }
+function fdpInvalidate() {
+  FDP.today = { contract: null, direct: null }; FDP.todayDate = '';
+  // หลังเขียน (ปิด/เปิด position) ข้อมูลเดือนปัจจุบันไม่ถูกต้องแล้ว → ลบ · เดือนก่อนหน้าเปลี่ยนไม่ได้ → เก็บไว้
+  try {
+    const _d = new Date(), cy = _d.getFullYear(), cm = _d.getMonth() + 1, keep = {};
+    Object.keys(FDP.months).forEach(k => { const m = /\|(\d+)-(\d+)$/.exec(k); if (m && !(Number(m[1]) === cy && Number(m[2]) === cm)) keep[k] = FDP.months[k]; });
+    FDP.months = keep;
+  } catch (e) { FDP.months = {}; }
+  _pnlPDropFdp();
+  // สถิติ 7D/30D/1Y (FSTAT) รวมรายการที่เพิ่งปิดด้วย → ทำให้ค่าในหน่วยความจำหมดอายุ (at=0) ให้เปิดหน้า PNL ครั้งถัดไปดึงสด (เดิม cache 30 วิ ยังเป็นค่าก่อนปิด)
+  try { ['contract', 'direct'].forEach(m => { if (FSTAT[m]) FSTAT[m].at = 0; }); } catch (e) {}
+}
 function _fdpApplyDash(dash) {
   const t = dash && dash.fut_daily_today;
   if (!t) return;
@@ -33394,7 +33585,12 @@ function _fdpApplyDash(dash) {
   // sync AFTD ให้ Dashboard/Direct panel ได้ค่าเดียวกันโดยไม่ต้องรอผู้ใช้เปิดหน้า Direct
   try { if (typeof AFTD !== 'undefined' && FDP.today.direct !== null) AFTD.todayRealizedPnl = FDP.today.direct; } catch (e) {}
 }
-function fdpGetMonth(mode, year, mon) { return FDP.months[mode + '|' + year + '-' + mon] || null; }
+function fdpGetMonth(mode, year, mon) {
+  const k = mode + '|' + year + '-' + mon;
+  let c = FDP.months[k];
+  if (!c) { const p = _pnlPGet('fdpm_' + _fdpUid() + '_' + k); if (p && p.days) { p.at = 0; FDP.months[k] = p; c = p; } }   // [PERF-PNL-PERSIST] ใช้ของเดิมแสดงทันที (at=0 → ผู้เรียกจะดึงสดทับ)
+  return c || null;
+}
 async function fdpLoadMonth(mode, year, mon, force) {
   const key = mode + '|' + year + '-' + mon;
   const c = FDP.months[key];
@@ -33408,6 +33604,7 @@ async function fdpLoadMonth(mode, year, mon, force) {
       Object.keys((r && r.days) || {}).forEach(k => { days[Number(k)] = Number(r.days[k]) || 0; });
       const e = { days, today: Number(r && r.today) || 0, total: Number(r && r.total) || 0, at: Date.now() };
       FDP.months[key] = e;
+      _pnlPSet('fdpm_' + uid + '_' + key, e);
       return e;
     })
     .catch(err => { console.warn('[fdpLoadMonth] fail:', err && err.message); return null; })
@@ -33422,6 +33619,9 @@ async function fdpLoadMonth(mode, year, mon, force) {
 // (ที่ getDashboard จำกัดไว้ 100/80 รายการ) — แสดงผลได้สูงสุด 6 เดือน ถ้ามีมากกว่านั้นให้ดาวน์โหลด Excel แทน
 // ═══════════════════════════════════════════════════════════════════════
 const FSTAT = { contract: null, direct: null, inflight: {} };
+function fstatHydrate(mode) {   // [PERF-PNL-PERSIST] ยังไม่มีใน memory → ใช้ที่เก็บไว้ (at=0 → fstatLoad จะดึงสดทับ)
+  try { if (FSTAT[mode]) return; const p = _pnlPGet('fstat_' + _fdpUid() + '_' + mode); if (p) { p.at = 0; FSTAT[mode] = p; } } catch (e) {}
+}
 async function fstatLoad(mode, force) {
   const c = FSTAT[mode];
   if (!force && c && (Date.now() - c.at) < 30000) return c;
@@ -33429,7 +33629,7 @@ async function fstatLoad(mode, force) {
   const uid = _fdpUid();
   if (!uid) return null;
   FSTAT.inflight[mode] = dbCallRaw('getFuturesPnlStats', { uid, mode, days: 365, tzOffsetMin: _fdpTz() })
-    .then(r => { const e = Object.assign({}, r, { at: Date.now() }); FSTAT[mode] = e; return e; })
+    .then(r => { const e = Object.assign({}, r, { at: Date.now() }); FSTAT[mode] = e; _pnlPSet('fstat_' + uid + '_' + mode, e); return e; })
     .catch(err => { console.warn('[fstatLoad] fail:', err && err.message); return null; })
     .finally(() => { delete FSTAT.inflight[mode]; });
   return FSTAT.inflight[mode];
@@ -33604,9 +33804,36 @@ function dbCallRaw(action, data = {}) {
 // ══════════════════════════════════════════════════════════════════
 function _tccSessRead() { try { const r = localStorage.getItem('tcc_login_session'); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
 function _tccSessWrite(o) { try { localStorage.setItem('tcc_login_session', JSON.stringify(o)); } catch (e) {} }
+// [AUTH-BIND v1.6] uid ที่อยู่ใน token (อ่าน payload เฉยๆ ไม่ตรวจลายเซ็น — ฝั่ง GAS/Worker ตรวจเอง) · ใช้กัน token ของบัญชีเก่าติดมากับ session ของบัญชีใหม่
+function _tccTokenUid(t) {
+  try {
+    let p = String(t || '').split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
+    while (p.length % 4) p += '=';
+    const j = JSON.parse(atob(p));
+    return j && j.u ? String(j.u).trim() : '';
+  } catch (e) { return ''; }
+}
+function _tccTokenMatchesUid(s) {
+  const tu = _tccTokenUid(s && s.token);
+  return !tu || !s || !s.uid || tu.toLowerCase() === String(s.uid).trim().toLowerCase();   // อ่านไม่ออก = ไม่ขัดขวาง (พฤติกรรมเดิม)
+}
+// ตรวจสถานะ session จาก Console: tccAuthDiag() — ไม่เปิดเผย token เต็ม
+window.tccAuthDiag = function () {
+  const s = _tccSessRead() || {}, now = Date.now();
+  let wk = null; try { wk = JSON.parse(sessionStorage.getItem('tcc_member') || 'null'); } catch (e) {}
+  return {
+    session_uid: s.uid || null, has_passHash: !!s.passHash, has_token: !!s.token,
+    token_uid: s.token ? (_tccTokenUid(s.token) || '(อ่านไม่ได้)') : null, token_matches_session: s.token ? _tccTokenMatchesUid(s) : null,
+    token_expires_in_min: s.tokenExp ? Math.round((s.tokenExp - now) / 60000) : null,
+    remember_me: _lgGetRemember(), saved_age_min: s.savedAt ? Math.round((now - s.savedAt) / 60000) : null,
+    worker_token_present: !!(wk && wk.token), worker_token_expires_in_min: wk && wk.exp ? Math.round((wk.exp - now) / 60000) : null,
+    worker_token_uid: wk ? wk.bnbId : null, profile_uid: (typeof USER_PROFILE !== 'undefined' && USER_PROFILE) ? USER_PROFILE.uid : null,
+  };
+};
 function _tccGetToken() {
   const s = _tccSessRead();
   if (!s || !s.token) return '';
+  if (!_tccTokenMatchesUid(s)) return '';   // [AUTH-BIND] token ไม่ใช่ของ uid ใน session → ถือว่าไม่มี → ขอใหม่ (ไม่ส่ง token ผิดบัญชีไป GAS/Worker)
   if (s.tokenExp && Date.now() >= s.tokenExp - 60000) return ''; // ใกล้หมดอายุ (<1 นาที) → ขอใหม่
   return s.token;
 }
@@ -33619,27 +33846,32 @@ function _tccSessionLost() {
   try { if (typeof showToast === 'function') showToast(tccT('wk_session_exp')); } catch (e) {}
   try { _lgClearSession(); } catch (e) {}
 }
-let _tccEnsureP = null;
+let _tccEnsureP = null, _tccEnsureUid = '';
 // [PROXY v1] ยืนยันตัวตนให้ GAS ด้วย member token ของ Worker (workerToken) — GAS ถาม Worker แบบ server-to-server
 //            เซสชันเก่าที่ยังเก็บ passHash ใช้ทางเดิมต่อได้ (GAS ตรวจกับ Worker ด้วย hash เดิม)
 function _tccEnsureSession(force, workerToken) {
   if (!force && _tccGetToken()) return Promise.resolve(true);
-  if (_tccEnsureP) return _tccEnsureP; // request พร้อมกันตอน boot ใช้ promise เดียว
+  { const _s0 = _tccSessRead(); if (_tccEnsureP && _tccEnsureUid === String((_s0 && _s0.uid) || '').trim().toLowerCase()) return _tccEnsureP; }   // [AUTH-BIND] ใช้ promise ร่วมเฉพาะ uid เดียวกัน (สลับบัญชีระหว่างรอ = ห้ามใช้ผลของบัญชีเก่า)
+  // request พร้อมกันตอน boot ใช้ promise เดียว
   const s = _tccSessRead();
   const wt = workerToken || (typeof tcWkToken === 'function' ? tcWkToken() : '');
   if (!s || !s.uid || (!s.passHash && !wt)) return Promise.resolve(false);
   let remember = false; try { remember = localStorage.getItem('tcc_remember_me') === '1'; } catch (e) {}
   const _issueData = wt ? { uid: s.uid, workerToken: wt, remember } : { uid: s.uid, passHash: s.passHash, remember };
+  _tccEnsureUid = String(s.uid).trim().toLowerCase();
+  const _forUid = _tccEnsureUid;
   _tccEnsureP = _dbCallRawOnce('issueSession', _issueData)
     .then(r => {
       if (!r || !r.token) return false;
       const cur = _tccSessRead() || s;
+      if (String(cur.uid || '').trim().toLowerCase() !== _forUid) { console.warn('[auth] ทิ้ง token ที่ออกให้บัญชีเก่า (สลับบัญชีระหว่างรอ)'); return false; }   // [AUTH-BIND]
+      { const tu = _tccTokenUid(r.token); if (tu && tu.toLowerCase() !== _forUid) { console.warn('[auth] token ที่ได้ไม่ตรง uid ที่ขอ — ไม่บันทึก'); return false; } }
       cur.token = r.token; cur.tokenExp = r.exp_ms || 0;
       _tccSessWrite(cur);
       return true;
     })
     .catch(e => { console.warn('[auth] issueSession failed:', e && e.message); return false; })
-    .finally(() => { _tccEnsureP = null; });
+    .finally(() => { if (_tccEnsureUid === _forUid) _tccEnsureP = null; });
   return _tccEnsureP;
 }
 
@@ -34021,7 +34253,48 @@ function _invalidateDashCache() {
 // ══════════════════════════════════════════════════════════════════
 
 // ── Dashboard (Read) ──────────────────────────────────────────────
-async function loadDashboard() {
+// [PERF-DASH 2026-11-13] opts.cacheFirst = true (ใช้ตอนเปิดแอป/boot เท่านั้น):
+//   มี cache 'dash_<uid>' ใน localStorage (แม้หมดอายุ) → แสดงยอด/ข้อมูลจาก cache ทันที แล้วดึง GAS เบื้องหลังมาทับเมื่อได้ข้อมูลสด
+//   ไม่มี cache → ทำงานเหมือนเดิม (รอ GAS) · การเรียกอื่นทั้งหมด (หลังเทรด/โอน/รีเฟรช) ไม่ส่ง opts → GAS-first เหมือนเดิมทุกประการ
+//   ข้อมูลจาก cache ถูกประมวลผลแบบ "ไม่สด" (_dashFresh=false) → ตัวกันข้อมูลเก่าเดิม (setDirectWalletBalance ฯลฯ) ทำงานตามปกติ
+// [PERF-REFRESH 2026-11-13] ตัวนับ getDashboard เต็มที่กำลังโหลด + เวลาที่โหลดเต็มเสร็จล่าสุด — ให้ poll/ปุ่มรีเฟรชไม่ยิง getDashboard (หนักสุด) ซ้อนกัน
+let _dashFullInflight = 0;
+let _lastFullDashMs = 0;
+let _dashFullP = null;
+function _loadDashFull() {
+  // [PERF-REFRESH2] กดรีเฟรชซ้ำตอนรอบก่อนยังโหลด GAS เต็มอยู่ → ใช้ promise เดิม (ไม่ต่อคิว getDashboard ซ้อนใน GAS ที่ตอบทีละคำขอ)
+  if (_dashFullP) return _dashFullP;
+  _dashFullInflight++;
+  _dashFullP = _loadDashboardImpl(null).finally(() => { _dashFullInflight = Math.max(0, _dashFullInflight - 1); _lastFullDashMs = Date.now(); _dashFullP = null; });
+  return _dashFullP;
+}
+// opts.cacheFirst = true (boot / ปุ่มรีเฟรช): แสดงจาก cache (แม้หมดอายุ) ทันที → GAS getDashboard เต็มทำเบื้องหลัง
+// opts.fast = true (ปุ่มรีเฟรช): มี cache แสดงอยู่แล้ว → รอ GAS เต็มสูงสุด 4 วิ แล้วคืนปุ่มรีเฟรช · GAS ทำต่อเบื้องหลังและอัปเดตหน้าจอเอง
+// ไม่ส่ง opts = GAS-first เหมือนเดิมทุกประการ (ใช้หลังเทรด/โอน)
+async function loadDashboard(opts) {
+  if (opts && opts.cacheFirst === true) {
+    let _cd = null;
+    try {
+      const _s0 = (typeof _lgLoadSession === 'function') ? _lgLoadSession() : null;
+      const _u0 = (_s0 && _s0.uid) ? String(_s0.uid).trim() : USER_PROFILE.uid;
+      const _c0 = LS.get('dash_' + _u0);
+      if (_c0 && _c0.data && _c0.data.user) _cd = _c0.data;
+    } catch (_e) { _cd = null; }
+    if (_cd) { try { await _loadDashboardImpl(_cd); } catch (_e) { console.warn('[loadDashboard] cache render error:', _e && _e.message); } }
+    // GAS เต็มเริ่มทันทีเบื้องหลัง · ผลสดจะทับยอดจาก cache เมื่อมาถึง
+    const _full = _loadDashFull();
+    if (opts.fast === true) {
+      _full.catch(() => {});
+      // [PERF-REFRESH2] หน้าจอแสดง cache อยู่แล้ว → ไม่ต้องรอ GAS เต็มจนจบ
+      //   รอสูงสุด 4 วิ แล้วคืนปุ่มรีเฟรช · GAS เต็มทำต่อเบื้องหลังและอัปเดตหน้าจอเองเมื่อเสร็จ
+      if (_cd) { await Promise.race([_full.catch(() => {}), new Promise(r => setTimeout(r, 4000))]); return _cd; }
+    }
+    return _full;
+  }
+  return _loadDashFull();
+}
+
+async function _loadDashboardImpl(_injected) {
   // [FIX dashboard-uid] USER_PROFILE.uid อาจยังเป็นค่า hardcode default
   // ถ้า loadDashboard ถูกเรียกก่อน autoLoginFromMembers ทำงานเสร็จ
   // → อ่าน uid จาก session โดยตรงก่อน (เหมือน loadOfflineState)
@@ -34034,6 +34307,10 @@ async function loadDashboard() {
   let dash = null;
   const _dashT0 = Date.now();  // [vx10-OVW-DIRECT] เวลาเริ่มอ่าน (ใช้กันข้อมูลเก่าทับ)
   let _dashFresh = false;      // true = ได้ข้อมูลสดจาก GAS (ไม่ใช่ cache fallback)
+  if (_injected) {
+    // [PERF-DASH] โหมด cache-first รอบแรก: ใช้ข้อมูลจาก cache ไม่ยิง GAS (ไม่สด · ไม่เขียนทับ cache/TTL เดิม)
+    dash = _injected; _dashFresh = false;
+  } else
   try {
     dash = await dbCallRaw('getDashboard', { uid });
     _dashFresh = !!dash;
@@ -34747,6 +35024,13 @@ function _mapGasFutdLiquidation(r) {
   const rpnl    = parseFloat(r.realized_pnl) || 0;
   const margin  = parseFloat(r.margin)        || 0;
   const posSide = String(r.position_side || 'BOTH').toUpperCase();
+  // [V1_12-LIQ-MARGINLOST] mode จริงจากชีต (ว่าง = Isolated ตามที่ GAS ตีความ) · Cross ไม่ clamp ที่ margin (GAS V1_9 หักขาดทุนจริง)
+  const isCrossPos = String(r.mode || '').replace(/\s*\d+x\s*$/i,'').trim().toLowerCase() === 'cross';
+  // [V1_12-LIQ-PRICE-DIR] liq_price ในชีตผิดทิศทาง/ไม่มีค่า → '—' (Long: liq ต้อง < entry · Short: liq ต้อง > entry)
+  const _entryN = parseFloat(r.entry_price) || 0;
+  const _liqN   = parseFloat(r.liq_price)   || 0;
+  const _sideN  = String(r.side || 'long').toLowerCase();
+  const _liqOk  = _liqN > 0 && (_entryN <= 0 || (_sideN === 'short' ? _liqN > _entryN : _liqN < _entryN));
   return {
     id:           r.id,
     coin,  symbol: sym,
@@ -34756,8 +35040,11 @@ function _mapGasFutdLiquidation(r) {
     side:         (r.side || 'long').toLowerCase(),
     positionSide: posSide,
     avgEntry:     HIST.fmtPrice(r.entry_price),
-    liqPrice:     HIST.fmtPrice(r.liq_price),
-    marginLost:   (Math.abs(rpnl) > margin ? margin : Math.abs(rpnl)).toFixed(4),
+    liqPrice:     _liqOk ? HIST.fmtPrice(_liqN) : '—',   // [V1_12-LIQ-PRICE-DIR]
+    marginLost:   (isCrossPos
+                    ? (rpnl < 0 ? Math.abs(rpnl) : 0)                      // [V1_12-LIQ-MARGINLOST] Cross: ขาดทุนจริง
+                    : (Math.abs(rpnl) > margin ? margin : Math.abs(rpnl))  // Isolated: เหมือนเดิม
+                  ).toFixed(4),
     closed:       _isoToHistTime(r.closed_at),
     ts:           r.closed_at ? Date.parse(r.closed_at) : Date.now(),
     status:       'Liquidated',
@@ -35437,6 +35724,83 @@ function syncOpenOrdersToGAS() {
   } catch (e) { console.warn('[OfflineEngine] syncOpenOrders err:', e.message); }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  [V1_11-CPOS-HYDRATE] Futures → 📋 Contract: รีโหลดหน้าแล้ว Position ไม่หาย (snapshot → วาดทันที → GAS ทับ)
+//   • เก็บ:  หลัง getOpenPositions สำเร็จ + ทุก 30 วิ + ตอนปิด/ซ่อนหน้า (pagehide/visibilitychange) → localStorage  tcc_pnlc_cpos_<uid>
+//            (คำนำหน้า tcc_pnlc_ รอดการล้าง cache ตอนบูตของ uid นี้ · logout/สลับ user ลบทิ้งโดย _clearSessionCache เดิม)
+//   • ไม่เก็บถ้ารอบนี้ยังไม่เคย sync สำเร็จ (_cposSyncedUid ว่าง) — กัน state ว่าง/ครึ่งโหลดทับ snapshot ดี · ไม่เก็บตัวที่ยังเป็นของ snapshot (_hyd)
+//   • ใช้:   _cposHydrate() ตอน boot (หลัง syncOfflineEngine) เฉพาะเมื่อ S.positions ว่าง + snapshot อายุ ≤ 12 ชม. → วาด + ตั้ง grace lock 20 วิ
+//   • ทับ:   loadOfflineState แทนที่ position ที่ติด _hyd ด้วยข้อมูลจริงจาก GAS ทั้งก้อน (size/entry/lev/tp/sl อาจเปลี่ยนจากอุปกรณ์อื่น) · ตัวที่ไม่อยู่ใน GAS ถูกลบ
+//   • ปลอดภัย: _hyd → isTpslReady=false · ไม่เก็บ trailing · ไม่ hydrate Open Orders (syncOpenOrdersToGAS ส่ง S.openOrders กลับ GAS + _checkLimitOrderFill fill ฝั่ง client)
+//   • Liq: เก็บค่าล่าสุดจาก window._liqPriceMap ของ position เหล่านี้ไว้แสดงชั่วคราว (ใช้แสดงผลอย่างเดียว) — liq_price_map สดจาก GAS ทับเสมอ
+// ══════════════════════════════════════════════════════════════════════════════
+const _CPOS_MAX_AGE_MS = 12 * 3600 * 1000;   // snapshot เก่ากว่านี้ไม่ใช้
+var _cposSyncedUid = '';                       // uid ที่ getOpenPositions สำเร็จในรอบนี้ ('' = ยังไม่เคย)
+function _cposUid() {
+  try {
+    const s = (typeof _lgLoadSession === 'function') ? _lgLoadSession() : null;
+    return (s && s.uid) ? String(s.uid).trim() : '';
+  } catch (e) { return ''; }
+}
+function _cposSave() {
+  try {
+    if (typeof S === 'undefined' || !Array.isArray(S.positions)) return;
+    const uid = _cposUid();
+    if (!uid || !_cposSyncedUid || _cposSyncedUid !== uid) return;   // ยังไม่เคย sync สำเร็จ หรือ uid เปลี่ยน → ห้ามเขียนทับ
+    const pos = [];
+    S.positions.forEach(p => {
+      if (!p || !p.id || p._hyd) return;
+      if (p.status && !/^(active|partially closed)$/i.test(String(p.status))) return;
+      pos.push({
+        id: p.id, uid: p.uid, coin: p.coin, symbol: p.symbol, side: p.side, lev: p.lev,
+        entry: p.entry, size: p.size, margin: p.margin, tp: p.tp || null, sl: p.sl || null,
+        earnContractId: p.earnContractId || '', type: p.type, realized: p.realized || 0,
+        openedTs: p.openedTs, mode: p.mode,
+      });
+    });
+    const lm = window._liqPriceMap || {};
+    const liq = {};
+    pos.forEach(p => { if (lm[p.id] != null) liq[p.id] = lm[p.id]; });
+    _pnlPSet('cpos_' + uid, { pos: pos, liq: liq, at: Date.now() });
+  } catch (e) { /* best-effort */ }
+}
+function _cposHydrate() {
+  try {
+    if (typeof S === 'undefined' || !Array.isArray(S.positions) || S.positions.length) return false;   // มีข้อมูลในหน่วยความจำแล้ว — ไม่ทับ
+    const uid = _cposUid();
+    if (!uid) return false;
+    const v = _pnlPGet('cpos_' + uid);
+    if (!v || !Array.isArray(v.pos) || !v.pos.length) return false;
+    if (!((Date.now() - (v.at || 0)) <= _CPOS_MAX_AGE_MS)) return false;                              // เก่าเกิน 12 ชม. (หรือไม่มีเวลา) — ไม่ใช้
+    const now = Date.now();
+    v.pos.forEach(r => {
+      if (!r || !r.id) return;
+      S.positions.push({
+        id: r.id, uid: r.uid, coin: r.coin, symbol: r.symbol, side: r.side, lev: r.lev,
+        entry: r.entry, size: r.size, margin: r.margin, liq: 0, tp: r.tp || null, sl: r.sl || null,
+        earnContractId: r.earnContractId || '', status: 'Active', type: r.type || 'Market', realized: r.realized || 0,
+        pnl: 0, roi: 0, mark: r.entry, marginRatio: 0, openedTs: r.openedTs || now, mode: r.mode || 'Cross',
+        _tpslSetAt: now, _hyd: true,
+      });
+    });
+    if (!S.positions.length) return false;
+    if (v.liq && typeof v.liq === 'object') window._liqPriceMap = Object.assign({}, v.liq, window._liqPriceMap || {});   // ค่าสดที่มีอยู่แล้วชนะเสมอ
+    window._restoreGracePeriodUntil = Math.max(window._restoreGracePeriodUntil || 0, now + 20000);                       // lock แบบ timer (หมดเอง) กัน DD/Liquidation/funding
+    if (typeof renderPositions === 'function') renderPositions();
+    if (typeof updatePositionsPNL === 'function') updatePositionsPNL();
+    console.warn('[OfflineEngine] positions shown from saved snapshot:', S.positions.length, '— waiting for GAS to confirm');
+    return true;
+  } catch (e) {
+    console.warn('[OfflineEngine] hydrate positions fail (ignored):', e && e.message);
+    return false;
+  }
+}
+try {
+  window.addEventListener('pagehide', _cposSave);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _cposSave(); });
+  setInterval(_cposSave, 30000);
+} catch (e) { /* best-effort */ }
+
 /**
  * syncOfflineEngine — เรียกตอนเปิดแอป: ส่ง earnContracts + openOrders ไป GAS ครั้งเดียว
  */
@@ -35499,12 +35863,15 @@ async function _loadOfflineStateCore() {
                     : ((typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) ? USER_PROFILE.uid : '');
     if (!uid) {
       // [v7 FIX] ถ้า uid ยังไม่พร้อม retry หลัง 3 วิ แทนที่จะ skip ทิ้ง
+      window._losUidRetry = (window._losUidRetry || 0) + 1;
+      if (window._losUidRetry > 10) { console.warn('[OfflineEngine] loadOfflineState: ไม่มี session หลังลอง 10 ครั้ง — หยุด (ต้องเข้าสู่ระบบใหม่)'); return; }   // [AUTH-BIND] เดิมวนทุก 3 วิไม่รู้จบเมื่อ session ถูกล้าง
       console.warn('[OfflineEngine] loadOfflineState: uid not ready, retry in 3s...');
       setTimeout(() => {
         if (typeof loadOfflineState === 'function') loadOfflineState();
       }, 3000);
       return;
     }
+    window._losUidRetry = 0;
 
     // [v10 FIX] แจ้ง backend ว่า client กำลัง refresh — ป้องกัน race condition
     // backend ใช้ timestamp นี้เพื่อกัน stale GAS Engine ทับ state ใหม่
@@ -35518,7 +35885,7 @@ async function _loadOfflineStateCore() {
 
     // [SESSION CACHE] ล้าง history cache เก่าทุกครั้งที่เปิดแอพ/refresh
     // → บังคับดึงข้อมูลจาก GAS ใหม่เสมอ ไม่ใช้ cache เก่าค้างอยู่
-    if (typeof _clearSessionCache === 'function') _clearSessionCache(uid);
+    if (typeof _clearSessionCache === 'function') _clearSessionCache(uid, true);   // [PERF-REFRESH3] เก็บ cache ยอดเงิน/คอมมิชชั่นของ uid นี้ไว้แสดงทันที
 
     // ── helper: map GAS Position row → S.positions object ──
     // [v6 FIX] เพิ่ม: liq, type, realized, coin parse จาก symbol ทั้ง USDT/-PERP suffix
@@ -35681,6 +36048,11 @@ async function _loadOfflineStateCore() {
           const existing = localById[r.id];
           if (!existing) {
             S.positions.push(_mapGasPosition(r));
+          } else if (existing._hyd) {
+            // [V1_11-CPOS-HYDRATE] position ที่วาดจาก snapshot → แทนที่ด้วยข้อมูลจริงจาก GAS ทั้งก้อน (เดิมกิ่ง else ด้านล่างอัปเดตแค่ tp/sl/realized
+            //   ซึ่งไม่พอ เพราะ size/entry/lev/margin อาจเปลี่ยนจากอุปกรณ์อื่น) · _hyd หายไปพร้อมวัตถุเดิม → TP/SL ฝั่ง client กลับมาทำงานตามปกติหลัง grace
+            const _hi = S.positions.indexOf(existing);
+            if (_hi > -1) S.positions[_hi] = _mapGasPosition(r);
           } else {
             // [v17 FIX] เดิม comment บอกว่า "อัปเดต existing" แต่โค้ดจริงข้ามไปเฉยๆ
             // ทำให้ tp/sl ที่เปลี่ยนจาก server (เช่นตั้งใหม่จากอุปกรณ์อื่น/แอดมิน) ไม่เคย sync เข้า local เลย
@@ -35702,6 +36074,8 @@ async function _loadOfflineStateCore() {
         if (typeof renderPositions === 'function') renderPositions();
         if (typeof updatePositionsPNL === 'function') updatePositionsPNL();
         console.warn('[OfflineEngine] positions synced from GAS:', posList.length, '(local:', S.positions.length, ')');
+        _cposSyncedUid = String(uid).trim();   // [V1_11-CPOS-HYDRATE] รอบนี้ getOpenPositions สำเร็จแล้ว → เริ่มเก็บ snapshot ได้
+        _cposSave();
       }
     } catch(posErr) {
       console.warn('[OfflineEngine] loadPositions fail:', posErr.message);
@@ -36009,6 +36383,8 @@ async function _loadOfflineStateCore() {
       console.warn('[OfflineEngine] loadOpenOrders fail:', ooErr.message);
     }
 
+    _cposSave();   // [V1_11-CPOS-HYDRATE] เก็บอีกครั้งหลัง Liq map / Contract status มาครบ (ให้ snapshot มี Liq ล่าสุดด้วย)
+
   } catch (e) {
     console.warn('[OfflineEngine] loadOfflineState fail:', e.message);
   } finally {
@@ -36031,8 +36407,17 @@ HIST.logOpen = function(pos) {
   // ให้ rollback position ออกจาก S.positions ทันที ไม่รอให้ user refresh แล้วออเดอร์หาย
   // dbWrite จะ throw err ออกมาถ้าเป็น permanent error และแสดง toast ไปแล้ว
   const _savePromise = saveOpenPosition(pos);
+  // [vx20-MERGE-ROLLBACK] สำเร็จ = ล้าง undo ที่ผูกกับ id นี้ (ใช้ then 2 ทาง กัน unhandled rejection)
+  if (_savePromise && typeof _savePromise.then === 'function') {
+    _savePromise.then(() => { if (window._openMergeUndo) delete window._openMergeUndo[pos.id]; }, () => {});
+  }
   if (_savePromise && typeof _savePromise.catch === 'function') {
     _savePromise.catch(err => {
+      // [vx20-MERGE-ROLLBACK] order ที่ merge เข้า position เดิม → หักส่วนที่เพิ่มออก (id ของ logOpen ไม่อยู่ใน S.positions จึงไม่เข้า filter ด้านล่าง)
+      try {
+        const _mu = window._openMergeUndo && window._openMergeUndo[pos.id];
+        if (_mu) { delete window._openMergeUndo[pos.id]; _undoContractMerge(_mu); console.warn('[HIST.logOpen] ROLLBACK merge pos=' + _mu.posId + ' reason:', err && err.message); }
+      } catch (_muErr) { console.warn('[HIST.logOpen] ROLLBACK merge error:', _muErr && _muErr.message); }
       // rollback: เอา position นี้ออกจาก S.positions
       if (typeof S !== 'undefined' && Array.isArray(S.positions)) {
         const _before = S.positions.length;
@@ -36241,13 +36626,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // - [vx8-STAGGER] loadOfflineState เริ่มหลัง loadDashboard 300ms (ยังทำงานซ้อนกัน ไม่ใช่ sequential)
   //   เพื่อลดการยิง GAS หลาย call พร้อมกันในเสี้ยววินาทีแรกของ boot
   syncOfflineEngine(); // ส่ง local state → GAS (fire-and-forget)
+  _cposHydrate();      // [V1_11-CPOS-HYDRATE] วาด Position จาก snapshot ล่าสุดทันที (หลัง syncOfflineEngine — ซึ่งไม่อ่าน S.positions) แล้ว loadOfflineState ทับด้วยข้อมูลจริง
 
   (async () => {
     const [_dashSettled, _offlineSettled] = await Promise.allSettled([
       // loadDashboard — ดึง balance/profile/earnContracts/tradeHistory จาก GAS
       (async () => {
         try {
-          const dash = await loadDashboard();
+          const dash = await loadDashboard({ cacheFirst: true }); // [PERF-DASH] boot: แสดงจาก cache ก่อน แล้วรีเฟรชสดเบื้องหลัง
           console.warn('[DB] Dashboard ready | Queue:', QUEUE._q.length, 'pending');
           // render earnContracts ทันทีที่ dashboard เสร็จ ไม่รอ loadOfflineState ทั้งก้อน
           if (typeof renderEarnContracts === 'function') renderEarnContracts();
@@ -36270,6 +36656,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     console.warn('[DB] Boot complete — dashboard:', _dashSettled.status,
       '| offline:', _offlineSettled.status);
+    // [PERF-COMM 2026-11-13] preload ข้อมูล Commission เบื้องหลังหลัง boot เสร็จ — ผู้ใช้เปิดแท็บ Commission แล้วเห็นข้อมูลทันที
+    // (silent = ไม่ขึ้น toast ถ้าล้มเหลว · มี guard _commTabLoading/throttle ในฟังก์ชันอยู่แล้ว)
+    setTimeout(() => {
+      try { if (typeof astRenderCommissionTab === 'function') astRenderCommissionTab({ silent: true }); } catch (_e) {}
+    }, 1500);
   })();
 
   setTimeout(snapshotPortfolio, 5000);
@@ -37775,8 +38166,18 @@ function clearAllStaleCache() {
         const isSessionData = (typeof SESSION_CACHE_KEYS !== 'undefined') &&
           SESSION_CACHE_KEYS.some(prefix => k.startsWith('tcc_' + prefix));
         const isExpired = v && v._exp && v._exp < now;
+        // [PERF-REFRESH 2026-11-13] cache ยอด/Commission: ไม่ลบ แต่ทำเครื่องหมายหมดอายุ (_exp=1) → getIfFresh/dbRead ยังบังคับดึงใหม่ตามเจตนาเดิม
+        //   แต่ LS.get() ยังอ่านได้ → หน้าจอแสดงข้อมูลเดิมทันทีระหว่างรอข้อมูลสด (ไม่ขึ้น 0.00/⏳)
+        if (isSessionData && v && typeof v === 'object' && /^tcc_(dash_|commdash_|commref_)/.test(k)) {
+          v._exp = 1; localStorage.setItem(k, JSON.stringify(v));
+          return;
+        }
         if (isSessionData || isExpired) localStorage.removeItem(k);
-      } catch { localStorage.removeItem(k); }
+      } catch {
+        // [FIX-REFRESH2] เดิมลบทุกคีย์ tcc_* ที่ไม่ใช่ JSON → ค่าธรรมดาอย่าง tcc_lang (ภาษา) / tcc_cid (รหัสเครื่อง) ถูกลบทุกครั้งที่กดรีเฟรช
+        //   ลบเฉพาะคีย์ที่เป็น cache ของเรา (SESSION_CACHE_KEYS) ที่ JSON เสีย
+        try { if (typeof SESSION_CACHE_KEYS !== 'undefined' && SESSION_CACHE_KEYS.some(prefix => k.startsWith('tcc_' + prefix))) localStorage.removeItem(k); } catch (_e) {}
+      }
     });
     // [FIX-RECOVERY] ลอง flush คำสั่งค้าง — [FIX-QUEUE-KEEP-PENDING] ลบสำเนา write queue เฉพาะเมื่อคิวว่างจริง
     _dropWriteQueueIfIdle();
@@ -37816,6 +38217,8 @@ async function softRefreshCurrentPage() {
   _softRefreshStartedAt = now;
   _softRefreshing = true;
   const _runId = ++_softRefreshRunId;
+  // [FIX-REFRESH-VIEW v1_13] จำหน้า/แท็บก่อนรีเฟรช — ถ้าระหว่างรีเฟรชมีโค้ดใดเด้งหน้า/แท็บ (ไม่ใช่ผู้ใช้กดเอง) จะพากลับมาที่เดิม
+  const _viewSnap = (typeof window.tccViewSnapshot === 'function') ? window.tccViewSnapshot() : null;
   const fab = document.getElementById('fabRefresh');
   if (fab) fab.classList.add('spinning');
 
@@ -37837,7 +38240,7 @@ async function softRefreshCurrentPage() {
     //   - loadOpenPositionsWithDD ต้องรันหลัง loadOfflineState (ใช้ earnContracts/positions ที่เพิ่ง sync) → ต่อท้ายสายเดียวกัน
     //   - fetchAllMids ยิง Hyperliquid ไม่เกี่ยวกับ GAS → ขนานได้เลย
     const _tDash = (async () => {
-      if (typeof loadDashboard === 'function') await loadDashboard();
+      if (typeof loadDashboard === 'function') await loadDashboard({ cacheFirst: true, fast: true }); // [PERF-REFRESH] แสดงจาก cache ทันที · GAS เต็มทำเบื้องหลัง
     })();
     const _tOffline = (async () => {
       await new Promise(r => setTimeout(r, 300));
@@ -37876,7 +38279,8 @@ async function softRefreshCurrentPage() {
         break;
       case 'assets':
         if (typeof updateOverviewBalances === 'function') updateOverviewBalances();
-        if (typeof _astRefreshBalanceIfStale === 'function') await _astRefreshBalanceIfStale(true);
+        // [PERF-REFRESH] loadDashboard ข้างบนโหลดยอด/ประวัติให้แล้ว — เดิมยิง getDashboard เต็มซ้ำอีกรอบ (ต่อคิว) ทำให้ช้าเป็นสองเท่า · ข้ามถ้ากำลังโหลดอยู่/เพิ่งโหลดเสร็จ
+        if (typeof _astRefreshBalanceIfStale === 'function' && _dashFullInflight === 0 && (Date.now() - _lastFullDashMs) > 15000) await _astRefreshBalanceIfStale(true);
         if (typeof astUpdateTime === 'function') astUpdateTime();
         if (typeof renderEarnContracts === 'function') renderEarnContracts();
         break;
@@ -37915,6 +38319,7 @@ async function softRefreshCurrentPage() {
     if (_runId === _softRefreshRunId) {
       _softRefreshing = false;
       if (fab) fab.classList.remove('spinning');
+      try { if (_viewSnap && typeof window.tccViewRestoreIfMoved === 'function') window.tccViewRestoreIfMoved(_viewSnap, now); } catch (e) {}
     }
   }
 }
@@ -41201,6 +41606,7 @@ const AFTD = {
   positions: [],         // positions ล่าสุดจาก getFuturesAccountStatus
   mode: 'contract',      // ตรวจว่าแสดง direct sub-tab อยู่ไหม
   pricePollTimer: null,  // [v2.72-FIX-AFTD-POLL] price poll แยกสำหรับ Assets → Direct
+  todayCarry: null,      // [v1.5-TODAY-CHG] position ที่เปิดก่อนเที่ยงคืนแล้วปิดวันนี้ (จาก GAS today_carry)
   todayRealizedPnl: 0,   // [v2.74-FIX-F2] realized PNL วันนี้จาก GAS (อัปเดตตอน aftdRefreshDirectSummary)
   marginBalance: 0,      // [v2.74-FIX-F2] futures_balance สำหรับคำนวณ % วันนี้ PNL
   // [vx10-AFTD-CACHE] cache ผลล่าสุดของ getFuturesAccountSummary (ในหน่วยความจำ เฉพาะ session — ไม่เขียน localStorage
@@ -41208,6 +41614,7 @@ const AFTD = {
   cache: null,           // { uid, at, startedAt, status } ; at=0 = หมดอายุ (invalidate)
   inflight: null,        // promise ของ request ที่กำลังบินอยู่ (กันยิงซ้อน)
   freshMs: 15000,        // อายุ cache ที่ถือว่า "สด" — ยังอยู่ในช่วงนี้ = ไม่ยิง GAS ซ้ำตอนสลับแท็บ
+  loaded: false,         // [v1.4-DIRECT-TODAY] true หลังวาดข้อมูล Direct จริงครั้งแรก (จาก GAS หรือจากที่เก็บไว้) — ก่อนหน้านั้น Today's PNL แสดง "—" ไม่ใช่ +$0.00 (+0.00%)
 };
 
 /** [vx10-AFTD-PNL] แหล่งราคา mark เดียวของ Assets → Direct (ทั้งตัวเลขหัวข้อและการ์ดใช้ฟังก์ชันเดียวกัน)
@@ -41218,11 +41625,194 @@ function _aftdPosMark(p) {
       || (typeof S    !== 'undefined' && S.coinPrices && parseFloat(S.coinPrices[coin]))
       || parseFloat(p.mark) || 0;
 }
+/** [v1.5-MR-FIX] Cross equity สด = futures_balance + Σ unrealized (position Cross ทั้งหมด ที่ราคา mark ปัจจุบัน)
+ *  เดิม Margin Ratio ใช้ cross_equity จาก GAS (ณ เวลาที่ดึง) หรือ futures_balance เฉย ๆ (ไม่รวม unrealized → 3.63%) แล้วถ้า equity ≤ 0 ตั้งเป็น 0.00% (ผิด: ควรเป็น 100%) */
+/** [V1_10-MR-BASE] ฐานเงิน (futures_balance จาก GAS · ไม่รวม unrealized) สำหรับ Margin Ratio — หาตามลำดับ:
+ *  1) FUTD.status.futures_balance (เปิดแท็บ Futures → Direct แล้ว)
+ *  2) AFTD.cache.status.futures_balance (Assets → Futures-Direct · ผลล่าสุดจาก GAS หรือที่เก็บไว้)
+ *  3) AFTD.baseMarginBal (ค่าเดียวกันที่ _aftdApplyStatus เก็บไว้)
+ *  ไม่เจอเลย → NaN (ผู้เรียกแสดง "—" ไม่เดา)
+ *  เดิม: เปิด Assets ตรง ๆ → FUTD.status = null → ฐาน = 0 → equity = 0 + unrealized (ติดลบ) ≤ 0 → แสดง 100.0% ผิด */
+function _futdCrossBase(st) {
+  let b = parseFloat(st && st.futures_balance);
+  if (isFinite(b)) return b;
+  try {
+    if (typeof AFTD !== 'undefined') {
+      b = parseFloat(AFTD.cache && AFTD.cache.status && AFTD.cache.status.futures_balance);
+      if (isFinite(b)) return b;
+      if (AFTD.loaded && typeof AFTD.baseMarginBal === 'number' && isFinite(AFTD.baseMarginBal)) return AFTD.baseMarginBal;
+    }
+  } catch (e) {}
+  return NaN;
+}
+function _futdCrossEquityLive(st, positions, fallbackBal) {
+  let base = _futdCrossBase(st);
+  if (!isFinite(base)) { const fb = parseFloat(fallbackBal); if (isFinite(fb)) base = fb; }   // [V1_10-MR-BASE] ไม่มี fallback = ไม่รู้ฐาน
+  if (!isFinite(base)) return NaN;
+  const ps = (st && Array.isArray(st.positions) && st.positions.length) ? st.positions : (positions || []);
+  let up = 0;
+  ps.forEach(pp => { if (String(pp.mode || 'isolated').toLowerCase() === 'cross') up += _aftdPosPnl(pp, _aftdPosMark(pp)); });
+  return base + up;
+}
+
+// [V1_9-LIQ-RESOLVE] ตัวกลางหา Liq. Price ของ Direct position — ใช้ร่วมกันทุกจุด (การ์ดใน Futures / รายการ Direct / Margin sheet / TP-SL sheet)
+//   1) GAS liq_price_map (SSOT)  2) Cross: _futdClientCrossLiq (per-symbol, mirror GAS V1_8) — ไม่มีค่า = ไม่มีราคา Liq → 0 (แสดง "—")
+//      ⚠ ห้ามตกไปสูตร Isolated / ค่า Sheet สำหรับ Cross (เป็น placeholder สูตร Isolated → เคยแสดง ETH Short Cross 150x = 1,908.6258 ใกล้ entry ผิด ๆ)
+//   3) Isolated: entry ∓ margin/size ± mmr×entry  4) ค่า Sheet
+function _futdResolveLiq(p, liqMap, positions) {
+  const mode   = String(p.mode || 'isolated').toLowerCase();
+  const entryP = parseFloat(p.entry_price) || 0;
+  const size   = parseFloat(p.size)        || 0;
+  const margin = parseFloat(p.margin)      || 0;
+  const side   = String(p.side || '').toLowerCase();
+  const raw    = (liqMap && liqMap[p.id] !== undefined) ? parseFloat(liqMap[p.id]) : null;
+  if (raw !== null && raw > 0) return raw;                       // 1) GAS SSOT
+  if (mode === 'cross') {
+    if (!(entryP > 0 && size > 0)) return 0;
+    const st  = FUTD.status || {};
+    const all = (st.positions && st.positions.length) ? st.positions : (positions || []);
+    const v   = _futdClientCrossLiq(p.id, all, parseFloat(st.futures_balance), 0.005);
+    if (!(v > 0)) return 0;
+    // sanity เหมือน GAS: ถ้าไม่ใช่ Hedge pair ต้องอยู่ฝั่งถูกทิศ (Long < entry · Short > entry) ไม่งั้นไม่แสดง
+    const sym   = String(p.symbol || '');
+    const grp   = all.filter(pp => String(pp.symbol || '') === sym && String(pp.mode || '').toLowerCase() === 'cross');
+    const hedge = grp.some(pp => String(pp.side || '').toLowerCase() === 'long') && grp.some(pp => String(pp.side || '').toLowerCase() === 'short');
+    if (!hedge && ((side === 'long' && v >= entryP) || (side === 'short' && v <= entryP))) return 0;
+    return v;
+  }
+  if (entryP > 0 && size > 0 && margin > 0) {                    // 3) Isolated
+    const mmr = 0.005;
+    return side === 'long' ? (entryP - margin / size + mmr * entryP) : (entryP + margin / size - mmr * entryP);
+  }
+  return parseFloat(p.liq_price) || 0;                           // 4) Sheet
+}
+
+// [V1_9-MR-LIVE] Margin Ratio (Binance) = Maintenance Margin / Margin Balance × 100 — คำนวณจากราคา mark สดทุกครั้ง (100% ⇔ ถึงราคา Liq)
+//   Cross:    Σ(mmr × mark × size) ของ Cross ทั้งบัญชี / cross_equity (futures_balance + Σ unrealized Cross)
+//   Isolated: mmr × mark × size / (margin + unrealized ของ position นี้)
+//   เดิม: ใช้ total_maintenance_margin จาก GAS (entry, รวม Isolated, snapshot) และ element ไม่มี id → ค่าค้างไม่ขยับตาม PNL
+function _futdMarginRatio(p, positions) {
+  const st  = FUTD.status || {};
+  const mmr = 0.005;
+  const mode = String(p.mode || 'isolated').toLowerCase();
+  const markOf = pp => _aftdPosMark(pp) || parseFloat(pp.entry_price) || 0;
+  if (mode !== 'cross') {
+    const ep = parseFloat(p.entry_price) || 0, sz = parseFloat(p.size) || 0, mg = parseFloat(p.margin) || 0;
+    if (!(mg > 0 && sz > 0)) return 0;
+    const mk = markOf(p);
+    const up = String(p.side || '').toLowerCase() === 'long' ? (mk - ep) * sz : (ep - mk) * sz;
+    const eq = mg + up;
+    return eq > 0 ? Math.min(100, (mmr * mk * sz / eq) * 100) : 100;
+  }
+  const ps = (st.positions && st.positions.length) ? st.positions : (positions || []);
+  let maint = 0;
+  ps.forEach(pp => {
+    if (String(pp.mode || 'isolated').toLowerCase() !== 'cross') return;
+    const sz = parseFloat(pp.size) || 0;
+    if (sz > 0) maint += mmr * markOf(pp) * sz;
+  });
+  const eq = _futdCrossEquityLive(st, positions);              // [V1_10-MR-BASE] ไม่ส่ง fallback 0 แล้ว
+  if (!isFinite(eq)) return NaN;                               // ไม่รู้ฐานเงิน = ไม่รู้ค่า → ผู้เรียกแสดง "—" (ห้ามเดาเป็น 100%)
+  return eq > 0 ? Math.min(100, (maint / eq) * 100) : 100;     // equity ≤ 0 (ฐานเงินรู้แล้ว) = ถึงจุด Liquidate → 100%
+}
+/** [V1_10-MR-FMT] helper แสดง Margin Ratio ร่วมกันทุกจุด (Assets + Futures) — mr เป็น NaN = ไม่มีค่า → "—" / สีเทา / แถบ 0 */
+function _futdMrColor(mr) { return !isFinite(mr) ? 'var(--t2)' : mr < 50 ? 'var(--g)' : mr < 80 ? 'var(--y)' : 'var(--r)'; }
+function _futdMrTxt(mr, d) { return isFinite(mr) ? mr.toFixed(d == null ? 2 : d) + '%' : '—'; }
+function _futdMrLit(mr)    { return isFinite(mr) ? Math.max(1, Math.min(4, Math.ceil(mr / 25))) : 0; }
 function _aftdPosPnl(p, markP) {
   const entryP = parseFloat(p.entry_price) || 0;
   const size   = parseFloat(p.size) || 0;
   if (!markP || !entryP || !size) return 0;
   return p.side === 'long' ? (markP - entryP) * size : (entryP - markP) * size;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// [v1.5-TODAY-CHG] Today's PNL ของ Futures-Direct = "การเปลี่ยนแปลงจริงของวันนี้"
+//   เดิม  = Realized วันนี้ + Unrealized ทั้งก้อน (position ที่ถือข้ามคืนถูกนับกำไร/ขาดทุนของเมื่อวานเข้าวันนี้ → เช่น -144%)
+//   ใหม่  = Σ ต่อ position:  ราคาปัจจุบัน/ราคาปิด − ราคาอ้างอิงต้นวัน   (เปิดวันนี้ → ราคา entry · เปิดก่อนเที่ยงคืน → ราคา ณ เที่ยงคืนท้องถิ่น)
+//   ส่วนที่เปิดก่อนเที่ยงคืนแล้ว "ปิดวันนี้" (status.today_carry จาก GAS) → หักส่วนที่ขยับไปแล้วก่อนเที่ยงคืนออกจาก Realized
+//   ราคา ณ เที่ยงคืน: Hyperliquid candleSnapshot 1m (แหล่งเดียวกับราคา mark) · เก็บใน localStorage ต่อวัน — ยังไม่มีราคา = pending (แสดง "—" ไม่เดา)
+//   ค่านี้ใช้เฉพาะ Today's PNL · Est. Total Value / Unrealized / Margin / Liq ยังใช้ค่าเต็มเหมือนเดิม
+// ═══════════════════════════════════════════════════════════════════════
+const _AFTD_DAYOPEN_KEY = 'tcc_aftd_dayopen_v1';
+const _aftdDay = { key: '', px: {}, busy: {}, failAt: {} };
+function _aftdDayStartMs() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
+function _aftdDayLoad() {
+  const k = _fdpLocalDate();
+  if (_aftdDay.key === k) return;
+  _aftdDay.key = k; _aftdDay.px = {}; _aftdDay.busy = {}; _aftdDay.failAt = {};
+  try { const o = JSON.parse(localStorage.getItem(_AFTD_DAYOPEN_KEY) || 'null'); if (o && o.k === k && o.px && typeof o.px === 'object') _aftdDay.px = o.px; } catch (e) {}
+}
+function _aftdDaySave() { try { localStorage.setItem(_AFTD_DAYOPEN_KEY, JSON.stringify({ k: _aftdDay.key, px: _aftdDay.px })); } catch (e) {} }
+/** ราคา ณ เที่ยงคืนท้องถิ่นของ coin: open ของแท่ง 1m แรกที่ t >= เที่ยงคืน · ไม่มีแท่ง (ตลาดเพิ่งเปิด) → null */
+async function _aftdDayFetchOne(coin) {
+  const st = _aftdDayStartMs();
+  const d = await hlPost({ type: 'candleSnapshot', req: { coin: _wsCoinName(coin), interval: '1m', startTime: st - 3 * 60000, endTime: st + 10 * 60000 }, ..._dexParam(coin) });
+  if (!Array.isArray(d) || !d.length) return null;
+  const sorted = d.slice().sort((a, b) => (a.t || 0) - (b.t || 0));
+  const after = sorted.find(c => (c.t || 0) >= st);
+  const px = parseFloat(after ? after.o : sorted[sorted.length - 1].c);
+  return px > 0 ? px : null;
+}
+/** ขอราคาต้นวันของ coin ที่ยังไม่มี (ไม่ซ้อน · ล้มเหลวลองใหม่ได้ทุก 60 วิ) แล้ววาด Today's PNL ใหม่ */
+function _aftdDayEnsure(coins) {
+  _aftdDayLoad();
+  const key = _aftdDay.key;
+  (coins || []).forEach(coin => {
+    if (!coin || _aftdDay.px[coin] > 0 || _aftdDay.busy[coin]) return;
+    if (Date.now() - (_aftdDay.failAt[coin] || 0) < 60000) return;
+    _aftdDay.busy[coin] = true;
+    _aftdDayFetchOne(coin).then(px => {
+      if (_aftdDay.key !== key) return;   // ข้ามวันระหว่างรอ
+      if (px > 0) { _aftdDay.px[coin] = px; _aftdDaySave(); } else _aftdDay.failAt[coin] = Date.now();
+    }).catch(() => { _aftdDay.failAt[coin] = Date.now(); }).then(() => {
+      delete _aftdDay.busy[coin];
+      try { if (_aftdDay.px[coin] > 0) { if (typeof aftdUpdateUnrealizedPnl === 'function') aftdUpdateUnrealizedPnl(); if (typeof updateOverviewBalances === 'function') updateOverviewBalances(); } } catch (e) {}
+    });
+  });
+}
+/** @returns {{total:number, up:number, rz:number, pending:boolean}}
+ *  ps = position Direct ที่เปิดอยู่ · carry = status.today_carry · todayRz = Realized วันนี้ (FDP/GAS) */
+function _aftdTodayChg(ps, carry, todayRz) {
+  _aftdDayLoad();
+  const dayStart = _aftdDayStartMs(), need = [];
+  let up = 0, adj = 0, pending = false;
+  (ps || []).forEach(p => {
+    const coin = String(p.symbol || '').replace('USDT', '');
+    const mark = _aftdPosMark(p), size = parseFloat(p.size) || 0, entry = parseFloat(p.entry_price) || 0;
+    if (!mark || !entry || !size) return;
+    const oms = p.opened_at ? new Date(p.opened_at).getTime() : NaN;
+    let ref = entry;
+    if (!isNaN(oms) && oms < dayStart) {
+      const dp = _aftdDay.px[coin];
+      if (dp > 0) ref = dp; else { pending = true; need.push(coin); return; }
+    }
+    up += String(p.side).toLowerCase() === 'long' ? (mark - ref) * size : (ref - mark) * size;
+  });
+  (Array.isArray(carry) ? carry : []).forEach(c => {
+    const coin = String(c.symbol || '').replace('USDT', '');
+    const dp = _aftdDay.px[coin], entry = parseFloat(c.entry_price) || 0, size = parseFloat(c.size) || 0;
+    if (!entry || !size) return;
+    if (!(dp > 0)) { pending = true; need.push(coin); return; }
+    adj += String(c.side).toLowerCase() === 'long' ? (dp - entry) * size : (entry - dp) * size;   // ส่วนที่ขยับไปแล้วก่อนเที่ยงคืน
+  });
+  if (need.length) _aftdDayEnsure(need);
+  const rz = (parseFloat(todayRz) || 0) - adj;
+  const total = rz + up;
+  return { total: isFinite(total) ? total : 0, up: up, rz: rz, pending: pending };
+}
+/** % ของ Today's PNL = เทียบกับ equity ต้นวัน (balance + unrealized ตอนนี้ − PNL วันนี้) · ฐาน ≤ 0 → null (แสดงเฉพาะจำนวนเงิน) */
+function _aftdTodayPct(todayTotal, balance, upnlFull) {
+  const base = (parseFloat(balance) || 0) + (parseFloat(upnlFull) || 0) - todayTotal;
+  return base > 0 ? (todayTotal / base) * 100 : null;
+}
+/** carry ปัจจุบัน: จาก status ที่เพิ่งวาด → ไม่มีก็จาก cache/ที่เก็บไว้ */
+function _aftdCarryNow() {
+  try {
+    if (Array.isArray(AFTD.todayCarry)) return AFTD.todayCarry;
+    if (AFTD.cache && AFTD.cache.status && Array.isArray(AFTD.cache.status.today_carry)) return AFTD.cache.status.today_carry;
+  } catch (e) {}
+  return [];
 }
 
 /** [v2.71-AFTD-REALTIME] คำนวณและอัปเดต Unrealized PNL ใน Assets → Futures-Direct
@@ -41256,6 +41846,11 @@ function aftdUpdateUnrealizedPnl() {
     if (mEl) mEl.textContent = fmtPosPx(markP); // [vx13-POS-PX]
     const nEl = document.getElementById('aftd-notional-' + p.id);
     if (nEl) nEl.textContent = '(≈$' + (size * (markP || entryP)).toFixed(2) + ')';
+    // [V1_9-MR-LIVE] Margin Ratio ขยับตามราคาสดทุก tick · [V1_10-MR-FMT] ทศนิยม 2 ตำแหน่ง · ไม่มีฐานเงิน = "—" · [V1_10-MR-DUP] ตัด aftd-mrl- (แถวข้อความซ้ำ) ออก
+    const _mr  = _futdMarginRatio(p, _positions);
+    const _mrC = _futdMrColor(_mr);
+    const _mrE = document.getElementById('aftd-mr-' + p.id);  if (_mrE) { _mrE.textContent = _futdMrTxt(_mr); _mrE.style.color = _mrC; }
+    const _mrB = document.getElementById('aftd-mrb-' + p.id); if (_mrB) { _mrB.style.width = (isFinite(_mr) ? _mr.toFixed(2) : '0') + '%'; _mrB.style.background = _mrC; }
   });
 
   const _upnlEl = document.getElementById('aftd-unrealized-pnl');
@@ -41278,18 +41873,26 @@ function aftdUpdateUnrealizedPnl() {
 
   // [v2.74-FIX-F2] อัปเดต Today's PNL ทุก price tick (realtime)
   // = today_realized_pnl (จาก GAS, เก็บไว้ใน AFTD.todayRealizedPnl) + unrealized ปัจจุบัน
+  // [v1.5-TODAY-CHG] Today's PNL = การเปลี่ยนแปลงจริงของวันนี้ (ไม่ใช่ Unrealized ทั้งก้อน) — ดูคำอธิบายที่ _aftdTodayChg
   const _todayRz    = (typeof AFTD !== 'undefined' && AFTD.todayRealizedPnl) ? parseFloat(AFTD.todayRealizedPnl) : 0;
-  const _todayTotal = _todayRz + _upnl;
+  const _chg        = _aftdTodayChg(_positions, _aftdCarryNow(), _todayRz);
+  const _todayTotal = _chg.total;
   const _todayEl    = document.getElementById('aftd-today-pnl');
-  if (_todayEl) {
-    // ใช้ _mbal จาก AFTD.marginBalance (เก็บตอน _aftdApplyStatus) เพื่อคำนวณ %
-    const _mbal    = (typeof AFTD !== 'undefined' && AFTD.marginBalance) ? parseFloat(AFTD.marginBalance) : 0;
-    const _todayPct = _mbal > 0 ? ((_todayTotal / _mbal) * 100) : 0;
-    // [vx5-FIX-PNL] format: '+$X.XX (+X.XX%)' / '-$X.XX (-X.XX%)' ตรงกับ Contract tab
-    const _signD = _todayTotal >= 0 ? '+' : '-';
-    const _pctSignD = _todayPct >= 0 ? '+' : '';
-    _todayEl.textContent = _signD + '$' + _fmt2(Math.abs(_todayTotal)) + ' (' + _pctSignD + _todayPct.toFixed(2) + '%)';
-    _todayEl.style.color = _todayTotal >= 0 ? 'var(--g)' : 'var(--r)';
+  // ยังไม่เคยวาดข้อมูล Direct จริง (AFTD.loaded=false) หรือยังไม่มีราคาต้นวัน (pending) → คง "—" ไม่แสดงเลขที่เดา
+  if (_todayEl && AFTD.loaded) {
+    if (_chg.pending) {
+      _todayEl.textContent = '—'; _todayEl.style.color = 'var(--t2)';
+    } else {
+      const _mbal    = (typeof AFTD !== 'undefined' && AFTD.marginBalance) ? parseFloat(AFTD.marginBalance) : 0;
+      const _signD   = _todayTotal >= 0 ? '+' : '-';
+      const _todayPct = _aftdTodayPct(_todayTotal, _mbal, _upnl);
+      if (_todayPct !== null) {
+        _todayEl.textContent = _signD + '$' + _fmt2(Math.abs(_todayTotal)) + ' (' + (_todayPct >= 0 ? '+' : '') + _todayPct.toFixed(2) + '%)';
+      } else {
+        _todayEl.textContent = _signD + '$' + _fmt2(Math.abs(_todayTotal));   // ฐาน % ≤ 0 → แสดงเฉพาะจำนวนเงิน
+      }
+      _todayEl.style.color = _todayTotal >= 0 ? 'var(--g)' : 'var(--r)';
+    }
   }
 }
 
@@ -41391,7 +41994,7 @@ async function _futdFetchAccountStatusSplit(uid, opts) {
   const _fresh = !!(opts && opts.fresh);
   // [v4.13-DIRECT-FRESH] ลำดับของ liq map: ผลของ request เก่ากลับมาช้ากว่าใหม่ → ไม่ทับ (เดิมทับตามลำดับที่มาถึง)
   const _seq = (FUTD._liqSeq = (FUTD._liqSeq || 0) + 1);
-  const status = await dbCallRaw('getFuturesAccountSummary', _fresh ? { uid, _fresh: true } : { uid });
+  const status = await dbCallRaw('getFuturesAccountSummary', _fresh ? { uid, tzOffsetMin: _fdpTz(), _fresh: true } : { uid, tzOffsetMin: _fdpTz() });   // [v1.5-TODAY-CHG] tz → GAS หาเที่ยงคืนของผู้ใช้เพื่อส่ง today_carry
   if (status.has_cross) {
     dbCallRaw('getFuturesLiqMap', _fresh ? { uid, _fresh: true } : { uid }).then(liq => {
       if (!liq) return;
@@ -41406,8 +42009,18 @@ async function _futdFetchAccountStatusSplit(uid, opts) {
           AFTD.cache.status.liq_price_map            = status.liq_price_map;
           AFTD.cache.status.cross_equity             = status.cross_equity;
           AFTD.cache.status.total_maintenance_margin = status.total_maintenance_margin;
+          if (!AFTD.cache.hyd) _pnlPSet('aftd_' + AFTD.cache.uid, Object.assign({}, AFTD.cache.status, { _day: _fdpLocalDate() }));   // [v1.4-AFTD-HYDRATE] เก็บ Liq map ที่เพิ่งมาถึงด้วย (ไม่งั้นหลังรีเฟรชต้องใช้สูตรฝั่ง client ชั่วคราว)
         }
       } catch (_e) {}
+      // [v1.4-LIQ-WARN] getFuturesLiqMap ตอบแล้วแต่ map ว่าง ทั้งที่มี cross position = ผิดปกติจริง (sanity filter ของ GAS ตัดทิ้ง / ราคาไม่มา) → เตือนตรงนี้
+      //   (เดิมเตือนที่ผล Summary ซึ่ง GAS ตั้งใจส่ง liq_price_map ว่างเสมอ → ขึ้น ⚠ ทุกครั้งที่โหลดแม้ปกติ)
+      try {
+        const _lm = status.liq_price_map || {};
+        if (Object.keys(_lm).length === 0) {
+          const _cx = (status.positions || []).filter(p => String(p.mode || '').toLowerCase() === 'cross').length;
+          if (_cx > 0) console.warn('[getFuturesLiqMap] liq_price_map ว่างทั้งที่มี cross position ' + _cx + ' ตัว — GAS sanity filter ตัดค่าทิ้ง/ไม่มีราคา → ใช้สูตรฝั่ง client ชั่วคราว (ตรวจ GAS diagFuturesLiquidation)');
+        }
+      } catch (_w) {}
       if (typeof FUTD !== 'undefined' && FUTD.status && FUTD.status.uid === status.uid) {
         FUTD.status.liq_price_map            = liq.liq_price_map || {};
         FUTD.status.cross_equity             = liq.cross_equity;
@@ -41440,7 +42053,25 @@ function aftdStoreStatus(uid, status, t0) {
   const prev = AFTD.cache;
   if (prev && prev.uid === uid && (prev.startedAt || 0) > t0) return; // มี cache ที่เริ่มอ่านทีหลัง (ใหม่กว่า) อยู่แล้ว
   AFTD.cache = { uid: uid, at: Date.now(), startedAt: t0, status: Object.assign({}, status) };
+  _pnlPSet('aftd_' + uid, Object.assign({}, status, { _day: _fdpLocalDate() }));   // [PERF-PNL-PERSIST] · [v1.4-AFTD-HYDRATE] ประทับวัน (local) ไว้ตัดสินว่า today_realized_pnl ยังเป็นของวันนี้หรือไม่
   try { setDirectWalletBalance(status.futures_balance, t0); } catch (e) {} // [vx10-OVW-DIRECT] sync แถว Overview
+}
+
+/** [v1.4-AFTD-HYDRATE] ดึงสถานะ Direct ที่เก็บไว้ (localStorage, แยก uid) ขึ้นมาเป็น AFTD.cache (at=0 → revalidate กับ GAS เสมอ · hyd=true → ใช้แสดงผลได้)
+ *  ข้ามวัน (หรือแถวเก่าที่ไม่มีตราวัน): today_realized_pnl ของวันก่อนต้องไม่ถูกนับเป็นของวันนี้ → ตั้ง 0 ชั่วคราว จนกว่า FDP/GAS จะส่งค่าจริงตอน revalidate
+ *  คืน AFTD.cache หรือ null — ไม่ throw */
+function _aftdHydrate(uid) {
+  try {
+    if (!uid) return null;
+    if (AFTD.cache && AFTD.cache.uid === uid && AFTD.cache.status) return AFTD.cache;
+    const ps = _pnlPGet('aftd_' + uid);
+    if (!ps || !Array.isArray(ps.positions)) return null;
+    const st = Object.assign({}, ps);
+    if (st._day !== _fdpLocalDate()) { st.today_realized_pnl = 0; st.today_carry = []; }   // [v1.5-TODAY-CHG] carry ของเมื่อวานใช้ไม่ได้
+    delete st._day;
+    AFTD.cache = { uid: uid, at: 0, startedAt: 0, hyd: true, status: st };
+    return AFTD.cache;
+  } catch (e) { return null; }
 }
 
 /** fetch แบบ in-flight เดียว (ทุกคนที่เรียกพร้อมกันใช้ promise เดียวกัน) แล้วเก็บลง cache */
@@ -41501,10 +42132,12 @@ function _aftdApplyStatus(status) {
   // [v2.74-FIX-F2] Today's Realized PNL — อ่านจาก GAS/FDP ที่คำนวณไว้แล้ว (รวมกับ unrealized ใน aftdUpdateUnrealizedPnl)
   const _todayRz = (typeof fdpToday === 'function' && fdpToday('direct') !== null) ? fdpToday('direct') : (parseFloat(status.today_realized_pnl) || 0); // [vx6-DAILY-PNL]
   AFTD.todayRealizedPnl = _todayRz;
+  AFTD.todayCarry = Array.isArray(status.today_carry) ? status.today_carry : [];   // [v1.5-TODAY-CHG] GAS เก่า (ไม่มี today_carry) = [] → ไม่หัก
 
   // Position / Order counts
   _set('aftd-pos-count',   _positions.length);
   _set('aftd-order-count', (status.orders || []).length);
+  AFTD.loaded = true; // [v1.4-DIRECT-TODAY]
 
   aftdRenderDirectPosList(_positions, status.liq_price_map || {});
   // [FIX-AFTD-PNL] Unrealized PNL (หัวข้อ + การ์ด) คำนวณจาก live price จุดเดียว — ไม่ใช้ p.pnl ของ GAS (เก็บค่า ณ ตอน open)
@@ -41521,6 +42154,9 @@ async function aftdRefreshDirectSummary(opts) {
   const uid = _futdCurrentUid();
   if (!uid) return;
   const reqAt = Date.now();
+  // [PERF-PNL-PERSIST] เปิดแอป/รีเฟรชใหม่ → ยังไม่มี cache ใน memory → ใช้ที่เก็บไว้แสดงทันที (at=0 → revalidate เสมอ)
+  // [v1.4-AFTD-HYDRATE] ย้ายไป _aftdHydrate (ตัด today_realized_pnl ของวันก่อนทิ้ง)
+  if (!(AFTD.cache && AFTD.cache.uid === uid && AFTD.cache.status)) _aftdHydrate(uid);
   const c = AFTD.cache;
   const hasCache = !!(c && c.uid === uid && c.status);
 
@@ -41620,38 +42256,9 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
     const entryP = parseFloat(p.entry_price) || 0;
     const size   = parseFloat(p.size)        || 0;
     const margin = parseFloat(p.margin)      || 0;
-    // [FIX-AFTD-LIQ] Priority เหมือน futdRenderPositions ทุกประการ:
-    // 1) GAS liq_price_map (SSOT)
-    // 2a) Cross: _futdClientCrossLiq (mirror สูตร Binance Cross — รองรับ Hedge+One-way)
-    //     [KEY FIX] เดิมขาด branch นี้ → ตกลงไปใช้ Isolated formula ผิด → liq ผิดไกล
-    // 2b) Isolated: per-position formula (entry ± margin/size ± mmr×entry)
-    // 3) Sheet liq_price fallback สุดท้าย
-    const _mmrA    = 0.005;
-    const posMode  = String(p.mode || 'isolated').toLowerCase();
-    const _liqRawA = _liqMap[p.id] !== undefined ? parseFloat(_liqMap[p.id]) : null;
-    let liqP;
-    if (_liqRawA !== null && _liqRawA > 0) {
-      // priority 1: GAS SSOT
-      liqP = _liqRawA;
-    } else if (posMode === 'cross' && entryP > 0 && size > 0) {
-      // priority 2a: Cross client fallback — เหมือน futdRenderPositions
-      // ใช้ cross_equity (futures_balance + unrealizedPnL Cross) เพื่อ hedge offset ถูกต้อง
-      const _allPos = (FUTD.status && FUTD.status.positions) || positions;
-      const _equity = parseFloat((FUTD.status || {}).cross_equity)
-                   || parseFloat((FUTD.status || {}).futures_balance) || 0;
-      const _cLiq   = (typeof _futdClientCrossLiq === 'function')
-                    ? _futdClientCrossLiq(p.id, _allPos, _equity, _mmrA)
-                    : 0;
-      liqP = _cLiq > 0 ? _cLiq : (parseFloat(p.liq_price) || 0);
-    } else if (entryP > 0 && size > 0 && margin > 0) {
-      // priority 2b: Isolated per-position formula
-      liqP = p.side === 'long'
-        ? (entryP - margin / size + _mmrA * entryP)
-        : (entryP + margin / size - _mmrA * entryP);
-    } else {
-      // priority 3: Sheet liq_price
-      liqP = parseFloat(p.liq_price) || 0;
-    }
+    // [V1_9-LIQ-RESOLVE] ใช้ตัวกลางเดียวกับการ์ดใน Futures (GAS SSOT → Cross client per-symbol → Isolated)
+    const posMode = String(p.mode || 'isolated').toLowerCase();
+    const liqP    = _futdResolveLiq(p, _liqMap, positions);
     // [FIX-AFTD-MARK] ใช้ fallback chain: FUTD.prices → S.coinPrices → p.mark
     // FUTD.prices ว่างถ้า Direct tab ยังไม่ถูก init → ใช้ S.coinPrices (Contract/Spot WS) แทน
     const markP  = (FUTD.prices && FUTD.prices[coin])
@@ -41665,30 +42272,9 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
     const upnlColor = upnl >= 0 ? 'var(--g)' : 'var(--r)';
     const roiPct    = margin > 0 ? ((upnl / margin) * 100) : 0;
 
-    // [v2.64-MARGIN-RATIO] Binance Official: Margin Ratio = Maintenance Margin / Margin Balance × 100%
-    //   Isolated: maintMargin(pos) / margin(pos)
-    //   Cross:    total_maintenance_margin(account) / cross_equity
-    // posMode declared above (ในส่วน liq calculation) — ไม่ต้อง redeclare
-    const _mmrAft = 0.005;
-    let mrPctGlobal = 0;
-    if (posMode === 'isolated') {
-      const maintMargin = _mmrAft * entryP * size;
-      mrPctGlobal = margin > 0 ? Math.min(100, (maintMargin / margin) * 100) : 0;
-    } else {
-      // Cross (Binance Official): total_maintenance_margin / cross_equity
-      const _stAft  = FUTD.status || {};
-      const crossEqAft = parseFloat(_stAft.cross_equity) || bal || 0;
-      let totalMaintAft = parseFloat(_stAft.total_maintenance_margin);
-      if (!totalMaintAft || isNaN(totalMaintAft)) {
-        totalMaintAft = (_stAft.positions || positions).reduce((s, pp) => {
-          const ep = parseFloat(pp.entry_price) || 0;
-          const sz = parseFloat(pp.size) || 0;
-          return (ep > 0 && sz > 0) ? s + _mmrAft * ep * sz : s;
-        }, 0);
-      }
-      mrPctGlobal = crossEqAft > 0 ? Math.min(100, (totalMaintAft / crossEqAft) * 100) : 0;
-    }
-    const mrColor   = mrPctGlobal < 50 ? 'var(--g)' : mrPctGlobal < 80 ? 'var(--y)' : 'var(--r)';
+    // [V1_9-MR-LIVE] Margin Ratio ที่ราคา mark สด (ดู _futdMarginRatio) · [V1_10-MR-BASE] ฐานเงินอ่านจาก AFTD ได้แม้ FUTD.status ยังเป็น null
+    const mrPctGlobal = _futdMarginRatio(p, positions);
+    const mrColor   = _futdMrColor(mrPctGlobal);
 
     const tp = parseFloat(p.tp) || 0;
     const sl = parseFloat(p.sl) || 0;
@@ -41717,7 +42303,7 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
       <div class="futd-pos-detail">
         <div>Size (${coin})<b>${size}</b></div>
         <div>Margin (USDT)<b>${margin.toFixed(2)} <span style="font-size:9px;color:var(--t3)" id="aftd-notional-${p.id}">(≈$${(size * (markP || entryP)).toFixed(2)})</span></b></div>
-        <div>Margin Ratio<b style="color:${mrColor}">${mrPctGlobal.toFixed(1)}%</b></div>
+        <div>Margin Ratio<b id="aftd-mr-${p.id}" style="color:${mrColor}">${_futdMrTxt(mrPctGlobal)}</b></div>
       </div>
       <div class="futd-pos-detail2">
         <div>Avg Entry<b>${fmtPosPx(entryP)}</b></div>
@@ -41725,8 +42311,7 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
         <div>Liq. Price<b style="color:var(--r)">${liqStr}</b></div>
       </div>
       <div class="futd-mr-bar-wrap">
-        <div class="futd-mr-label"><span>Margin Ratio</span><span style="color:${mrColor}">${mrPctGlobal.toFixed(1)}%</span></div>
-        <div class="futd-mr-bar-bg"><div class="futd-mr-bar-fill" style="width:${mrPctGlobal.toFixed(1)}%;background:${mrColor}"></div></div>
+        <div class="futd-mr-bar-bg"><div class="futd-mr-bar-fill" id="aftd-mrb-${p.id}" style="width:${isFinite(mrPctGlobal) ? mrPctGlobal.toFixed(2) : '0'}%;background:${mrColor}"></div></div>
       </div>
       <div class="futd-pos-tpsl-row" style="display:flex;gap:6px;margin-bottom:8px">${tpChip}${slChip}</div>
       <div class="futd-pos-actions" onclick="event.stopPropagation()">
@@ -41802,6 +42387,35 @@ function _futdCurrentUid() {
 }
 
 // ── Init / Stop ──────────────────────────────────────────────────
+/** [V1_11-DIRECT-HYDRATE] รีโหลดหน้า/เปิดแท็บ Direct แล้วข้อมูลไม่หาย: ยังไม่มี FUTD.status (ยังไม่เคยดึงสดในรอบนี้) → ใช้ snapshot ล่าสุดของ uid นี้
+ *  (aftd_<uid> ที่ aftdStoreStatus เก็บไว้ทุกครั้งที่ดึงสำเร็จ — ตัวเดียวกับที่ Assets → Direct ใช้ผ่าน _aftdHydrate · ข้ามวัน = ตัด today_realized_pnl ให้แล้ว)
+ *  วาด Balance / Position / Order ทันที แล้ว futdRefreshAccountStatus() ดึงสดจาก GAS มาทับตามปกติ
+ *  ไม่ตั้ง FUTD._statusSyncedAt → optimistic open (ต้องสด ≤ 60 วิ) และ carry cross_equity (≤ 90 วิ) ยังไม่ทำงานจนกว่าข้อมูลสดจะมา
+ *  GAS ล้ม → catch เดิมของ futdRefreshAccountStatus วาดจาก FUTD.status นี้ + แถบเตือน · คืน true เมื่อ hydrate สำเร็จ */
+function _futdHydrateStatus() {
+  if (FUTD.status) return false;                                   // มีข้อมูลในรอบนี้แล้ว (เคยดึงสด/เคย hydrate) — ไม่ทับ
+  const uid = _futdCurrentUid();
+  if (!uid) return false;
+  const c   = (typeof _aftdHydrate === 'function') ? _aftdHydrate(uid) : null;
+  const src = c && c.status;
+  if (!src || !Array.isArray(src.positions)) return false;
+  if (src.uid !== undefined && String(src.uid).toLowerCase() !== String(uid).toLowerCase()) return false;
+  const st = Object.assign({}, src, {
+    positions: src.positions.map(p => Object.assign({}, p)),
+    orders:    (Array.isArray(src.orders) ? src.orders : []).map(o => Object.assign({}, o)),
+    _hyd: true,
+  });
+  FUTD.status = st;
+  try { if (typeof futdUpdateBalanceBar === 'function') futdUpdateBalanceBar(st); } catch (e) {}
+  futdRenderPositions(st.positions);
+  futdRenderOrders(st.orders);
+  const cntPos = document.getElementById('futdCntPos');
+  const cntOrd = document.getElementById('futdCntOrd');
+  if (cntPos) cntPos.textContent = st.positions.length || 0;
+  if (cntOrd) cntOrd.textContent = st.orders.length    || 0;
+  return true;
+}
+
 /** เรียกตอนเข้าหน้า Futures-Direct (จาก navTo) */
 function futdInit() {
   // [v2.50] Init new layout elements
@@ -41836,6 +42450,7 @@ function futdInit() {
     if (_amtUnitEl && FUTD.amtUnit !== 'USDT') { FUTD.amtUnit = _initCoin; _amtUnitEl.textContent = _initCoin; }
   }
 
+  try { _futdHydrateStatus(); } catch (e) { console.warn('[futdInit] hydrate snapshot fail (ignored):', e && e.message); }   // [V1_11-DIRECT-HYDRATE] วาดค่าเดิมก่อน แล้วดึงสดทับ
   futdRefreshAccountStatus();
   futdRefreshPrice();
   futdStopPolling();
@@ -42790,6 +43405,265 @@ function futdUpdateBalanceBar(status) {
   try { futdUpdateAvblLive(status); } catch (e) {}
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// [vx20-OPTIMISTIC-OPEN] Direct → Open (Market): วาด position ใหม่ทันที ไม่รอ GAS (เฉพาะเคส "เปิดใหม่" เท่านั้น)
+//   • เงื่อนไข (ไม่ผ่านข้อใด = ใช้เส้นทางเดิม await openFuturesPosition ทุกบรรทัด → merge / net / flip / error ตอบจาก GAS เหมือนเดิม):
+//       status โหลดแล้วและสดไม่เกิน 60 วิ · ไม่มี position symbol เดียวกันอยู่ในเครื่อง (กัน merge/net) · Avbl ในเครื่อง ≥ margin ·
+//       margin ≥ 1 USDT · ไม่มีรายการปิด/ปิดบางส่วนค้างอยู่ (GAS อาจยังเห็น position เดิมเป็น Active)
+//   • client สร้าง id (fpos_...) ส่งให้ GAS (GAS รับ data.id อยู่แล้ว) → poll ที่ตอบมีแถวเดียวกันจะไม่ถูกวาดซ้ำ
+//   • poll ที่ยิงก่อน GAS เขียนเสร็จจะไม่ลบ position นี้ (FUTD._openingIds — แนวเดียวกับ _closingIds) · GAS ปฏิเสธ → ลบออก + คืน margin
+//   • ไม่เพิ่มจำนวน request: หลังเปิดสำเร็จรวม refresh เป็นครั้งเดียว (debounce 5 วิ) · ไม่แตะสูตรเงิน/สูตร liq (Liq ใช้ client fallback เดิมจนกว่า Liq map จาก GAS จะมา)
+// ══════════════════════════════════════════════════════════════════════════════
+function _futdRefreshDebounced(ms) {
+  // [V1_8-REFRESH-ONCE] refresh หลังเปิด/ปิดมี "ชุดเดียว" (Summary + Liq map): futdRefreshAccountStatus เก็บผลลง AFTD.cache อยู่แล้ว (aftdStoreStatus)
+  //   → ธงนี้ให้ futdRefreshAccountStatus วาด Assets→Direct / Overview จาก cache ก้อนเดียวกันนั้นต่อ (maxAge — ไม่ยิง GAS เพิ่ม) แทนการยิง aftdRefreshDirectSummary() ซ้ำอีกชุดทันทีหลังปิด
+  FUTD._aftdSyncAfterRefresh = true;
+  if (FUTD._refDebT) clearTimeout(FUTD._refDebT);
+  FUTD._refDebT = setTimeout(() => { FUTD._refDebT = null; futdRefreshAccountStatus(); }, ms || 5000);
+}
+
+function _futdNewPosId() {
+  let r = '';
+  try { r = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ''; } catch (e) {}
+  if (!r) r = Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  return 'fpos_' + String(r).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40);
+}
+
+function _futdOptOpenEligible(uid, symbol, margin) {
+  try {
+    const st = FUTD.status;
+    if (!st || !Array.isArray(st.positions)) return false;
+    if (st.uid !== undefined && String(st.uid).toLowerCase() !== String(uid).toLowerCase()) return false;
+    if (!FUTD._statusSyncedAt || (Date.now() - FUTD._statusSyncedAt) > 60000) return false;   // ข้อมูลเก่า → รอ GAS ตามเดิม
+    if (!(margin >= 1)) return false;                                                         // ต่ำกว่าขั้นต่ำ → ให้ GAS ตอบข้อความเดิม
+    const avail = parseFloat(st.avail_margin);
+    if (!isFinite(avail) || margin > avail) return false;                                     // Avbl ไม่พอ/ไม่รู้ → รอ GAS ตามเดิม
+    if (st.positions.some(p => String(p.symbol || '').toUpperCase() === symbol)) return false; // มี position symbol เดียวกัน → merge/net → รอ response
+    if (Object.keys(FUTD._closingIds || {}).length) return false;                              // กำลังปิดอยู่ — GAS อาจยังเห็นเป็น Active
+    const _rd = FUTD._reducing || {};
+    if (Object.keys(_rd).some(k => _rd[k] && _rd[k].busy)) return false;
+    return true;
+  } catch (e) { return false; }
+}
+
+// cross: ตัด Liq เก่าของ cross position ที่มีอยู่ → futdRenderPositions คำนวณใหม่ด้วย client formula (รวม position ใหม่) · snapshot โครงเดียวกับ _futdLiqAfterCloseLocal (restore ด้วย _futdLiqRestore)
+function _futdLiqAfterOpenLocal(newPos) {
+  const st = FUTD.status;
+  if (!st || !newPos) return null;
+  const snap = { st: st, map: st.liq_price_map, hadCe: Object.prototype.hasOwnProperty.call(st, 'cross_equity'), ce: st.cross_equity, newMap: undefined, newCe: undefined };
+  try {
+    if (String(newPos.mode || '').toLowerCase() === 'cross') {
+      const oldMap = st.liq_price_map || {};
+      const crossIds = {};
+      (st.positions || []).forEach(p => { if (String(p.mode || '').toLowerCase() === 'cross') crossIds[String(p.id)] = true; });
+      const newMap = {};
+      Object.keys(oldMap).forEach(id => { if (!crossIds[id]) newMap[id] = oldMap[id]; });
+      st.liq_price_map = newMap;
+      snap.newMap = newMap;
+    }
+  } catch (e) { console.warn('[futdLiqAfterOpenLocal]', e && e.message); }
+  return snap;
+}
+
+// ลบ position optimistic ออกจาก local (GAS ปฏิเสธ / ตอบไม่ตรง) + คืน margin ; ใช้ array ใหม่ (filter) ไม่ splice
+function _futdOptimisticOpenDrop(id) {
+  const rec = FUTD._openingIds && FUTD._openingIds[id];
+  if (FUTD._openingIds) delete FUTD._openingIds[id];
+  const st = FUTD.status;
+  if (!st) return rec;
+  const list = st.positions || [];
+  const cur  = list.find(p => p.id === id);
+  if (cur) {
+    const m = parseFloat(cur.margin) || (rec ? rec.margin : 0) || 0;
+    st.positions    = list.filter(p => p.id !== id);
+    st.margin_used  = Math.max(0, (parseFloat(st.margin_used) || 0) - m);
+    st.avail_margin = (parseFloat(st.avail_margin) || 0) + m;
+  }
+  if (rec && rec.liqSnap) _futdLiqRestore(rec.liqSnap);
+  _futdOptimisticSync();
+  return rec;
+}
+
+// ส่ง GAS เบื้องหลัง (ไม่ reject — จัดการ error เองทั้งหมด)
+async function _futdOptimisticOpenCommit(id, payload) {
+  let res;
+  try {
+    res = await dbCallRaw('openFuturesPosition', payload);
+  } catch (e) {
+    _futdOptimisticOpenDrop(id);
+    showToast('❌ ' + ((e && e.message) || tccT('sys_open_pos_fail')));
+    // Timeout ตอบไม่ได้ว่า GAS เขียนแล้วหรือยัง → sync สถานะจริงเร็วๆ (เหมือน rollback ฝั่งปิด)
+    setTimeout(() => { futdRefreshAccountStatus(); }, 1500);
+    return;
+  }
+  const rec = FUTD._openingIds && FUTD._openingIds[id];
+  const act = (res || {}).action;
+  if (act === 'new' && String((res || {}).id) === id) {
+    if (rec) { rec.committed = true; rec.until = Date.now() + 20000; }   // คงไว้ 20s กัน poll ที่ยิงก่อนเขียนแต่ตอบช้าลบ position
+    // เติมค่าจริงจาก GAS ลง position ที่วาดไว้ (ปกติเท่าเดิม — GAS คำนวณ margin สูตรเดียวกัน)
+    try {
+      const st = FUTD.status, cur = rec && rec.pos;
+      if (st && cur && (st.positions || []).includes(cur)) {
+        const gm = parseFloat(res.margin);
+        if (isFinite(gm) && gm > 0 && Math.abs(gm - (parseFloat(cur.margin) || 0)) > 1e-8) {
+          const d = gm - (parseFloat(cur.margin) || 0);
+          st.margin_used  = Math.max(0, (parseFloat(st.margin_used) || 0) + d);
+          st.avail_margin = Math.max(0, (parseFloat(st.avail_margin) || 0) - d);
+          cur.margin = gm; rec.margin = gm;
+        }
+        const gl = parseFloat(res.liq_price);
+        if (isFinite(gl) && gl > 0) cur.liq_price = gl;   // fallback ชั้นสุดท้ายของ render (liq_price_map จาก GAS ยังมาก่อนเสมอ)
+        _futdOptimisticSync();
+      }
+    } catch (e) { console.warn('[futdOptimisticOpen] fill', e && e.message); }
+    showToast(tccT('sys_open_ok') + (FUTD.hedgeMode ? ' [Hedge: ' + (payload.position_side || '') + ']' : ''));
+    _futdRefreshDebounced(5000);   // รวม refresh เป็นครั้งเดียว — ดึง Summary + Liq map จริงจาก GAS
+    return;
+  }
+  // GAS ตอบไม่ใช่ "position ใหม่ id เดิม" (race: มี position ที่ client ไม่รู้ → merge/net) → ทิ้ง optimistic แล้วดึงของจริงทันที
+  _futdOptimisticOpenDrop(id);
+  let _msg = tccT('sys_open_ok') + (FUTD.hedgeMode ? ' [Hedge: ' + (payload.position_side || '') + ']' : '');
+  const _pn = ((res || {}).realized_pnl >= 0 ? '+' : '') + (parseFloat((res || {}).realized_pnl) || 0).toFixed(2);
+  if (act === 'netted_reduce')     _msg = tccTF('sys_net_reduce', {rem: (parseFloat(res.remaining_size) || 0), pnl: _pn});
+  else if (act === 'netted_close') _msg = tccTF('sys_net_close', {pnl: _pn});
+  else if (act === 'netted_flip')  _msg = tccTF('sys_net_flip', {pnl: _pn});
+  showToast(_msg);
+  futdRefreshAccountStatus();
+}
+
+// คืน op (truthy) ถ้าวาด optimistic แล้วส่ง GAS เบื้องหลัง ; คืน null = ไม่เข้าเงื่อนไข → ผู้เรียกใช้เส้นทางเดิม
+function _futdOptimisticOpenBegin(uid, payload) {
+  const symbol = String(payload.symbol || '').toUpperCase();
+  const side   = String(payload.side || '').toLowerCase();
+  const lev    = parseFloat(payload.lev) || 1;
+  const size   = parseFloat(payload.size) || 0;
+  const price  = parseFloat(payload.entry_price) || 0;
+  if (!symbol || (side !== 'long' && side !== 'short') || !(size > 0) || !(price > 0) || !(lev > 0)) return null;
+  const margin = parseFloat(((price * size) / lev).toFixed(8));   // สูตรเดียวกับ GAS openFuturesPosition
+  if (!_futdOptOpenEligible(uid, symbol, margin)) return null;
+
+  const id   = _futdNewPosId();
+  const mode = String(payload.mode || 'cross').toLowerCase();
+  const pos = {
+    id: id, uid: uid, symbol: symbol, mode: mode, side: side, lev: lev,
+    entry_price: price, exit_price: 0, size: size, margin: margin, liq_price: 0,
+    realized_pnl: 0, roi: 0, avg_close: 0, status: 'Active',
+    opened_at: new Date().toISOString(), tp: payload.tp || '', sl: payload.sl || '',
+    position_side: payload.position_side || 'BOTH', is_liquidated: ''
+  };
+  const st = FUTD.status;
+  const liqSnap = _futdLiqAfterOpenLocal(pos);
+  FUTD._openingIds = FUTD._openingIds || {};
+  FUTD._openingIds[id] = { pos: pos, margin: margin, liqSnap: liqSnap, committed: false, until: Date.now() + 90000 };
+  st.positions    = (st.positions || []).concat([pos]);   // array ใหม่ — ไม่แก้ array ที่ผู้อื่นอาจวนลูปอยู่
+  st.margin_used  = (parseFloat(st.margin_used) || 0) + margin;
+  st.avail_margin = Math.max(0, (parseFloat(st.avail_margin) || 0) - margin);
+  _futdOptimisticSync();
+
+  const p = _futdOptimisticOpenCommit(id, Object.assign({}, payload, { id: id }));
+  FUTD._openPendingP = p;
+  p.then(() => { if (FUTD._openPendingP === p) FUTD._openPendingP = null; });
+  return { id: id };
+}
+
+// [V1_8-OPEN-SNAPSHOT] เคสที่ "ไม่เข้า" optimistic (merge / net / flip / status เก่า) ยังต้องรอ response ตามเดิม — แต่พอ response มา GAS ส่ง snapshot ของ position กลับมาแล้ว
+//   (merge = entry/size/margin ที่รวมแล้ว · new/flip = position ใหม่ครบฟิลด์ · net-reduce = remaining_size · net-close = realized_pnl)
+//   → ปรับ FUTD.status ในเครื่องทันที แล้ววาด แทนการรอ Summary รอบถัดไปอีก 2–3 วิ ก่อนที่ position จะขึ้นจอ
+//   • ไม่เดา: ข้อมูลไม่ครบ / ไม่เจอ position ในเครื่อง → คืน false (ไม่แตะอะไร) · futdRefreshAccountStatus() ที่ผู้เรียกยิงต่อทันที (จำนวนครั้งเท่าเดิม) เป็นตัวยืนยันค่าจริงเสมอ
+//     และถ้ามี poll บินอยู่ก่อนหน้า ผลของ poll นั้นถูกทิ้ง (v4.13-DIRECT-FRESH: _astDirty) จึงไม่ย้อนค่าเก่ากลับมา
+//   • ไม่แตะสูตรเงิน: margin ที่เหลือหลัง net-reduce ใช้สัดส่วนเดียวกับ GAS (margin × remaining/oldSize) · Liq ตัด entry เก่าให้ client formula คิดใหม่ (ชุดเดียวกับ optimistic open/close)
+function _futdApplyOpenResult(res, payload) {
+  try {
+    const st = FUTD.status;
+    if (!st || !res || !payload || !Array.isArray(st.positions)) return false;
+    if (st.uid !== undefined && String(st.uid).toLowerCase() !== String(payload.uid).toLowerCase()) return false;
+    const act = res.action;
+    const num = v => { const n = parseFloat(v); return isFinite(n) ? n : NaN; };
+    const exitPx = num(payload.entry_price);   // GAS ใช้ราคา order เป็น exit ของส่วนที่ net
+    const bumpMargin = d => {                  // d > 0 = จอง margin เพิ่ม · d < 0 = คืน
+      st.margin_used  = Math.max(0, (parseFloat(st.margin_used) || 0) + d);
+      st.avail_margin = Math.max(0, (parseFloat(st.avail_margin) || 0) - d);
+    };
+    const bookPnl = p => {                     // realized pnl เข้า balance (avail = balance − margin_used)
+      if (!isFinite(p)) return;
+      st.futures_balance = (parseFloat(st.futures_balance) || 0) + p;
+      st.avail_margin    = Math.max(0, (parseFloat(st.avail_margin) || 0) + p);
+      try { setDirectWalletBalance(st.futures_balance); } catch (_e) {}
+    };
+    const dropLiqId = id => {                  // ตัด Liq เก่าของ position นี้ออกจาก map → render ตกไป formula ฝั่ง client
+      const m = st.liq_price_map;
+      if (m && m[id] !== undefined) { const m2 = Object.assign({}, m); delete m2[id]; st.liq_price_map = m2; }
+    };
+    const buildNew = () => ({
+      id: String(res.id), uid: payload.uid, symbol: String(res.symbol || payload.symbol).toUpperCase(),
+      mode: String(res.mode || payload.mode || 'cross').toLowerCase(), side: String(res.side || payload.side).toLowerCase(),
+      lev: num(res.lev) > 0 ? num(res.lev) : (parseFloat(payload.lev) || 1),
+      entry_price: num(res.entry_price), exit_price: 0, size: num(res.size), margin: num(res.margin),
+      liq_price: num(res.liq_price) > 0 ? num(res.liq_price) : 0,
+      realized_pnl: 0, roi: 0, avg_close: 0, status: 'Active',
+      opened_at: res.opened_at || new Date().toISOString(), tp: res.tp || '', sl: res.sl || '',
+      position_side: res.position_side || payload.position_side || 'BOTH', is_liquidated: ''
+    });
+    const newOk = p => p.size > 0 && p.entry_price > 0 && p.margin > 0 && p.id && p.id !== 'undefined';
+
+    if (act === 'new') {
+      if (st.positions.some(p => p.id === String(res.id))) return false;
+      const np = buildNew();
+      if (!newOk(np)) return false;
+      _futdLiqAfterOpenLocal(np);
+      st.positions = st.positions.concat([np]);
+      bumpMargin(np.margin);
+    } else if (act === 'merged') {
+      const cur = st.positions.find(p => p.id === String(res.id));
+      const gs = num(res.size), ge = num(res.entry_price), gm = num(res.margin);
+      if (!cur || !(gs > 0 && ge > 0 && gm > 0)) return false;
+      const next = Object.assign({}, cur, { size: gs, entry_price: ge, margin: gm });
+      if (num(res.lev) > 0) next.lev = num(res.lev);
+      if (res.tp !== undefined && res.tp !== '') next.tp = res.tp;
+      if (res.sl !== undefined && res.sl !== '') next.sl = res.sl;
+      if (num(res.liq_price) > 0) next.liq_price = num(res.liq_price);   // fallback ชั้นสุดท้ายของ render (liq_price_map จาก GAS มาก่อนเสมอเมื่อมี)
+      _futdLiqAfterOpenLocal(next);   // Cross: ทุกตัวขึ้นกับ position ที่โตขึ้น → ตัด Liq เก่าของ Cross ทั้งหมด
+      dropLiqId(next.id);             // Isolated: ของ position นี้เปลี่ยนตาม entry/margin ใหม่
+      st.positions = st.positions.map(p => p.id === next.id ? next : p);
+      bumpMargin(gm - (parseFloat(cur.margin) || 0));
+    } else if (act === 'netted_reduce') {
+      const cur = st.positions.find(p => p.id === String(res.id));
+      const rs = num(res.remaining_size), oldSz = cur ? num(cur.size) : NaN;
+      if (!cur || !(rs > 0) || !(oldSz > 0) || !(rs < oldSz)) return false;
+      const oldM = parseFloat(cur.margin) || 0, rm = +(oldM * (rs / oldSz)).toFixed(8), rz = num(res.realized_pnl);
+      const next = Object.assign({}, cur, { size: rs, margin: rm });
+      if (isFinite(rz)) next.realized_pnl = +((parseFloat(cur.realized_pnl) || 0) + rz).toFixed(8);
+      st.positions = st.positions.map(p => p.id === next.id ? next : p);
+      _futdLiqAfterCloseLocal(cur, oldSz - rs, exitPx);
+      bumpMargin(rm - oldM);
+      bookPnl(rz);
+    } else if (act === 'netted_close' || act === 'netted_flip') {
+      const oldId = String(act === 'netted_flip' ? res.closed_id : res.id);
+      const cur = st.positions.find(p => p.id === oldId);
+      if (!cur) return false;
+      let np = null;
+      if (act === 'netted_flip') { np = buildNew(); if (!newOk(np)) return false; }
+      const oldM = parseFloat(cur.margin) || 0, rz = num(res.realized_pnl);
+      st.positions = st.positions.filter(p => p.id !== oldId);
+      _futdLiqAfterCloseLocal(cur, parseFloat(cur.size) || 0, exitPx);
+      bumpMargin(-oldM);
+      bookPnl(rz);
+      if (np) {
+        _futdLiqAfterOpenLocal(np);
+        st.positions = st.positions.concat([np]);
+        bumpMargin(np.margin);
+      }
+    } else {
+      return false;
+    }
+    _futdOptimisticSync();
+    return true;
+  } catch (e) {
+    console.warn('[futdApplyOpenResult]', e && e.message);
+    return false;
+  }
+}
+
 // ── futdPlaceOrder: ส่ง order ตรง Hyperliquid (Open หรือ Close) ─
 // [v2.57 FIX-A] เพิ่ม double-submit guard: disable ปุ่มทันทีที่กด, คืนใน finally
 // ป้องกัน user กดซ้ำขณะ await dbCallRaw ยังทำงานอยู่ (mirror ของ _setBtnLoading ใน Contract tab)
@@ -42847,6 +43721,7 @@ async function futdPlaceOrder(side) {
     ? (side === 'long' ? 'LONG' : 'SHORT')
     : 'BOTH';
 
+  let _optDone = false;   // [vx20-OPTIMISTIC-OPEN] true = วาด position ทันทีแล้ว GAS ยืนยันเบื้องหลัง (ไม่ยิง refresh ซ้ำตรงนี้)
   _futdSetBtnLoading(side, true);
   try {
     // ── [v2.70-LIMIT-FIX] แยก path Limit vs Market ──────────────────────────────────────
@@ -42906,7 +43781,25 @@ async function futdPlaceOrder(side) {
 
     } else {
       // ── Market Order: เปิด Position ทันที (openFuturesPosition เหมือนเดิม) ──
-      const _res = await dbCallRaw('openFuturesPosition', {
+      // [vx20-OPTIMISTIC-OPEN] มี optimistic open ค้างอยู่ → รอให้จบก่อน (กันสองคำสั่งชนกันที่ GAS แล้ว merge ผิดลำดับ) · ไม่เข้าเงื่อนไข "เปิดใหม่" = เส้นทางเดิมด้านล่างทุกบรรทัด
+      if (FUTD._openPendingP) { try { await FUTD._openPendingP; } catch (_e) {} }
+      const _optOp = _futdOptimisticOpenBegin(uid, {
+        symbol:        FUTD.symbolCoin + 'USDT',
+        side,
+        lev:           FUTD.lev,
+        size,
+        entry_price:   FUTD.lastPrice,
+        mode:          FUTD.marginMode || 'cross',
+        order_type:    'Market',
+        tp:            tp || '',
+        sl:            sl || '',
+        hedge_mode:    FUTD.hedgeMode,
+        position_side: _positionSide,
+      });
+      if (_optOp) {
+        _optDone = true;   // position ขึ้นจอแล้ว · toast สำเร็จ/ล้มเหลวมาจาก _futdOptimisticOpenCommit
+      } else {
+      const _openPayload = {
         uid,
         symbol:        FUTD.symbolCoin + 'USDT',
         side,
@@ -42919,7 +43812,10 @@ async function futdPlaceOrder(side) {
         sl:            sl || '',
         hedge_mode:    FUTD.hedgeMode,       // [v2.63-HEDGE]
         position_side: _positionSide,        // [v2.63-HEDGE] 'BOTH'|'LONG'|'SHORT'
-      });
+      };
+      const _res = await dbCallRaw('openFuturesPosition', _openPayload);
+      // [V1_8-OPEN-SNAPSHOT] merge / net / flip (ไม่เข้า optimistic): วาดจาก snapshot ใน response ทันที ไม่รอ Summary · futdRefreshAccountStatus() ท้ายฟังก์ชันยืนยันค่าจริงตามเดิม
+      _futdApplyOpenResult(_res, _openPayload);
       // [v2.68-NET] แสดงผลลัพธ์ตามจริง (netting / flip / new)
       const _act = (_res || {}).action;
       let _msg = tccT('sys_open_ok') + (FUTD.hedgeMode ? ' [Hedge: ' + _positionSide + ']' : '');
@@ -42931,6 +43827,7 @@ async function futdPlaceOrder(side) {
         _msg = tccTF('sys_net_flip', {pnl: ((_res.realized_pnl >= 0 ? '+' : '') + (parseFloat(_res.realized_pnl) || 0).toFixed(2))});
       }
       showToast(_msg);
+      }
     }
     // ── clear form fields (ทั้ง Limit และ Market) ──────────────────────────────────────
     const inp = document.getElementById('futd-size');
@@ -42940,7 +43837,7 @@ async function futdPlaceOrder(side) {
     const slInp = document.getElementById('futd-sl');
     if (slInp) slInp.value = '';
     futdSetSlider(0);
-    futdRefreshAccountStatus();
+    if (!_optDone) futdRefreshAccountStatus();   // [vx20-OPTIMISTIC-OPEN] optimistic → refresh ครั้งเดียว (debounce) หลัง GAS ยืนยัน
   } catch (e) {
     showToast('❌ ' + (e.message || tccT('sys_order_submit_fail')));
   } finally {
@@ -43116,20 +44013,8 @@ async function futdRefreshAccountStatus() {
     // FUTD.status.futures_balance/cross_equity เป็น fallback ตอน GAS timeout (ดู catch ด้านล่าง)
     FUTD._statusSyncedAt = Date.now();
 
-    // [v2.59-LIQ] debug log: แสดงเฉพาะเมื่อ liq_price_map ว่างและมี cross position (ลด noise)
-    const _liqEntries = Object.keys(status.liq_price_map || {}).length;
-    const _crossCount = (status.positions || []).filter(p => String(p.mode||'').toLowerCase() === 'cross').length;
-    if (_crossCount > 0 && _liqEntries === 0) {
-      // warn ครั้งแรกเท่านั้น (ทุก 10 poll) ไม่ spam ทุก poll
-      FUTD._liqWarnCount = (FUTD._liqWarnCount || 0) + 1;
-      if (FUTD._liqWarnCount === 1 || FUTD._liqWarnCount % 10 === 0) {
-        console.warn('[futdRefreshAccountStatus] liq_price_map entries:', _liqEntries,
-                     '| cross positions:', _crossCount,
-                     '⚠️ liq_price_map empty — client fallback active');
-      }
-    } else if (_crossCount > 0 && _liqEntries > 0) {
-      FUTD._liqWarnCount = 0; // reset เมื่อ GAS ส่งมาแล้ว
-    }
+    // [v1.4-LIQ-WARN] เดิม warn ตรงนี้เมื่อ liq_price_map ว่าง — แต่ getFuturesAccountSummary ส่ง map ว่างโดยออกแบบ (Liq มากับ getFuturesLiqMap ทีหลัง)
+    //   จึงขึ้น "⚠️ client fallback active" ทุกครั้งที่โหลดแม้ระบบปกติ · ย้ายไปเตือนเมื่อ getFuturesLiqMap ตอบแล้วยังว่างจริง (ใน _futdFetchAccountStatusSplit)
 
     // [v2.50] อัปเดต Balance bar ใหม่
     if (typeof futdUpdateBalanceBar === 'function') futdUpdateBalanceBar(status);
@@ -43197,12 +44082,35 @@ async function futdRefreshAccountStatus() {
         }
       });
     }
+    // [vx20-OPTIMISTIC-OPEN] position ที่เพิ่งเปิดแบบ optimistic: server ยังไม่เห็น (poll ยิงก่อน GAS เขียนเสร็จ) → คงไว้ + นับ margin ;
+    //   server เห็นแล้ว → ใช้ของ server (ไม่ push ซ้ำ) ; หมดเวลาและ server ไม่มี → ไม่มีจริง ปล่อยตาม server
+    const _opn = FUTD._openingIds || {};
+    Object.keys(_opn).forEach(oid => {
+      const o = _opn[oid];
+      if (!o) { delete _opn[oid]; return; }
+      if (_incomingFinal.some(sp => sp.id === oid)) { if (o.committed) delete _opn[oid]; return; }
+      if (Date.now() > o.until) { delete _opn[oid]; return; }
+      _incomingFinal.push(o.pos);
+      status.margin_used  = (parseFloat(status.margin_used)  || 0) + o.margin;
+      status.avail_margin = Math.max(0, (parseFloat(status.avail_margin) || 0) - o.margin);
+    });
     status.positions = _incomingFinal;
     FUTD.status = status;
     // [vx12-AVBL-LIVE] status เพิ่งถูกปรับ (ตัด position ที่กำลังปิด + คืน margin) → คำนวณ Avbl live ใหม่จากค่าที่ถูกต้อง
     try { futdUpdateAvblLive(); } catch (_e) {}
     // [vx10-AFTD-CACHE] ข้อมูลชุดเดียวกับ Assets→Direct — เก็บลง cache + sync ยอดแถว Overview (ไม่ต้องยิง GAS ซ้ำเมื่อสลับไปหน้านั้น)
     try { aftdStoreStatus(uid, status, _astT0); } catch (_e) {}
+    // [V1_8-REFRESH-ONCE] refresh ที่มาจาก _futdRefreshDebounced (หลังเปิด/ปิด) → sync หน้า Assets→Direct + Overview จาก cache ที่เพิ่งเก็บ (maxAge = ไม่ยิง GAS ซ้ำ)
+    //   ธงถูกตั้งเฉพาะหลังเปิด/ปิด — poll 15 วิปกติไม่แตะ · ถ้ารอบนี้ล้ม (catch) ธงค้างไว้ → รอบสำเร็จถัดไป (poll) ค่อย sync
+    if (FUTD._aftdSyncAfterRefresh) {
+      FUTD._aftdSyncAfterRefresh = false;
+      try {
+        if (typeof aftdRefreshDirectSummary === 'function') {
+          const _aftdP = aftdRefreshDirectSummary({ maxAge: 20000 });
+          if (_aftdP && typeof _aftdP.catch === 'function') _aftdP.catch(() => {});
+        }
+      } catch (_e) {}
+    }
 
     futdRenderPositions(status.positions || []);
     futdRenderOrders(status.orders || []);
@@ -43264,7 +44172,8 @@ async function futdRefreshAccountStatus() {
       if (_posEl) {
         const _warn = document.createElement('div');
         _warn.style.cssText = 'font-size:10px;color:var(--y);text-align:center;padding:4px 8px;opacity:.75';
-        _warn.textContent = _age <= STALE_MS
+        // [V1_11-DIRECT-HYDRATE] ข้อมูลจาก snapshot (ยังไม่เคย sync สำเร็จในรอบนี้) _age = Infinity → ใช้ข้อความ cache แทน "Infinity s"
+        _warn.textContent = (_age <= STALE_MS || !isFinite(_age))
           ? tccT('sys_stale_cache')
           : tccTF('sys_stale_old', {s: Math.round(_age / 1000)});
         _posEl.insertBefore(_warn, _posEl.firstChild);
@@ -43325,74 +44234,40 @@ async function futdRefreshAccountStatus() {
 //            fallback → futures_balance ถ้า GAS ยังไม่ส่ง cross_equity
 //
 // [v2.64 KEY FIX] เพิ่ม Hedge Mode branch — mirror GAS hedgeLiqMap (v2.65)
-function _futdClientCrossLiq(targetId, allPositions, equity, mmr) {
-  // กรองเฉพาะ Active cross positions
+function _futdClientCrossLiq(targetId, allPositions, wb, mmr) {
+  // [V1_9-LIQ-PERSYM] mirror GAS V1_8 (_calcCrossLiqPerSymbol_): แก้สมการเฉพาะ symbol ของ position นี้ · symbol อื่นล็อกที่ราคา mark สด
+  //   E_other = WB + Σ_other upnl(mark) − Σ_other mmr×mark×sz        liq = (Σ_g d×EP×sz − E_other) / (Σ_g d×sz − mmr×Σ_g sz)
+  //   g = ทุก Cross position ของ symbol เดียวกัน (รวม Hedge Long+Short) · d = +1 Long / −1 Short · พารามิเตอร์ที่ 3 = WB (futures_balance) ไม่ใช่ cross_equity
+  //   เดิม: รวมทุก symbol ในสมการเดียว (ราคา P ตัวเดียว) + ไม่มีเทอม entry×size → ผิดเมื่อมีหลาย position/symbol
+  //   ไม่มีราคา mark ครบทุก Cross position → คืน 0 (ไม่เดา · ใช้ค่า GAS แทน) · ไม่มีราคา Liq (liq ≤ 0) → 0
   const crossPos = (allPositions || []).filter(p => {
     const s = String(p.status || '').toLowerCase();
     const m = String(p.mode   || '').toLowerCase();
     return m === 'cross' && (s === 'active' || s === 'partially closed' || !s);
   });
-  if (!crossPos.length) return 0;
-
-  const ce = parseFloat(equity) || 0;
-
-  // ── ตรวจ target ก่อน ──
   const target = crossPos.find(p => p.id === targetId);
   if (!target) return 0;
-
-  const tEp    = parseFloat(target.entry_price) || 0;
-  const tSz    = parseFloat(target.size)        || 0;
-  const tSide  = String(target.side || '').toLowerCase();
-  if (tEp <= 0 || tSz <= 0) return 0;
-
-  // [v2.65-LIQ FIX-LIQ-SYMHEDGE] mirror ของ GAS: ตรวจ hedge pair จากทิศทางจริง (p.side)
-  // บน symbol เดียวกัน แทน position_side tag — ครอบคลุมทั้ง Hedge Mode (tag LONG/SHORT)
-  // และกรณี One-way (tag 'BOTH' ทั้งคู่) ที่มี Long+Short เปิดพร้อมกันบน symbol เดียวกัน
-  // ถ้า symbol นี้ไม่มีทิศทางตรงข้าม → ปล่อยผ่านลงไปใช้สูตร ONE-WAY ด้านล่างตามเดิม
-  {
-    const sym = String(target.symbol || '');
-    const group = crossPos.filter(p => String(p.symbol || '') === sym);
-    const hasLong  = group.some(p => String(p.side || '').toLowerCase() === 'long');
-    const hasShort = group.some(p => String(p.side || '').toLowerCase() === 'short');
-    if (hasLong && hasShort) {
-      let sumLongEPS = 0, sumShortEPS = 0, szLong = 0, szShort = 0;
-      group.forEach(p => {
-        const ep = parseFloat(p.entry_price) || 0;
-        const sz = parseFloat(p.size) || 0;
-        if (String(p.side || '').toLowerCase() === 'long') { sumLongEPS += ep * sz; szLong  += sz; }
-        else                                                { sumShortEPS += ep * sz; szShort += sz; }
-      });
-      // liq = (CE − sumLongEPS + sumShortEPS) / (szLong×(mmr−1) + szShort×(mmr+1))
-      const num = ce - sumLongEPS + sumShortEPS;
-      const den = szLong * (mmr - 1) + szShort * (mmr + 1);
-      if (den !== 0 && isFinite(num / den)) {
-        const liqVal = num / den;
-        return liqVal > 0 ? liqVal : 0;
-      }
-      return 0; // hedge pair เจอแต่คำนวณไม่ได้ (den=0/NaN) — ไม่ fallback ไป ONE-WAY เพราะทิศทางไม่ใช่ one-way แล้ว
-    }
+  const W = parseFloat(wb);
+  if (!isFinite(W)) return 0;
+  const tSym = String(target.symbol || '');
+  let U = 0, M = 0, uT = 0, mT = 0, sumDEPS = 0, sumD = 0, sumSz = 0;
+  for (let i = 0; i < crossPos.length; i++) {
+    const p  = crossPos[i];
+    const ep = parseFloat(p.entry_price) || 0;
+    const sz = parseFloat(p.size) || 0;
+    if (ep <= 0 || sz <= 0) continue;
+    const mk = _aftdPosMark(p);
+    if (!(mk > 0)) return 0;
+    const d = String(p.side || '').toLowerCase() === 'long' ? 1 : -1;
+    const u = d * (mk - ep) * sz, m = mmr * mk * sz;
+    U += u; M += m;
+    if (String(p.symbol || '') === tSym) { uT += u; mT += m; sumDEPS += d * ep * sz; sumD += d * sz; sumSz += sz; }
   }
-
-  // ── [ONE-WAY MODE] ไม่มีทิศทางตรงข้ามบน symbol นี้ ──
-  // sumAll = Σ(dir × entry × size) ของ one-way positions เท่านั้น
-  let sumAll = 0;
-  crossPos.filter(p => String(p.position_side || 'BOTH').toUpperCase() === 'BOTH').forEach(p => {
-    const ep  = parseFloat(p.entry_price) || 0;
-    const sz  = parseFloat(p.size)        || 0;
-    const dir = String(p.side || '').toLowerCase() === 'long' ? 1 : -1;
-    sumAll += dir * ep * sz;
-  });
-
-  const tDir      = tSide === 'long' ? 1 : -1;
-  const sumOthers = sumAll - (tDir * tEp * tSz);
-  const numerator = ce - sumOthers;    // [v2.65] ใช้ crossEquity โดยตรง (ไม่หัก mmr×EP×sz)
-  let liqRaw;
-  if (tDir === 1) {
-    liqRaw = numerator / (tSz * (1 - mmr));
-  } else {
-    liqRaw = numerator / (tSz * (1 + mmr));
-  }
-  return (isFinite(liqRaw) && liqRaw > 0) ? liqRaw : 0;
+  const eOther = W + (U - uT) - (M - mT);
+  const den = sumD - mmr * sumSz;
+  if (Math.abs(den) < 1e-12) return 0;
+  const liq = (sumDEPS - eOther) / den;
+  return (isFinite(liq) && liq > 0) ? liq : 0;
 }
 
 /* [vx18-POS-CARD2] helper: สลับหน่วย Size (coin ↔ USDT) + Realized PNL ราย Position (Direct) */
@@ -43577,41 +44452,9 @@ function futdRenderPositions(positions) {
     const size      = parseFloat(p.size) || 0;
     const margin    = parseFloat(p.margin) || 0;
     const posMode   = String(p.mode || 'isolated').toLowerCase();
-    // [v2.64-LIQ] ลำดับความสำคัญของ liq_price (Binance Official):
-    // 1) GAS liq_price_map (SSOT — คำนวณโดย GAS getFuturesAccountStatus v2.65)
-    //    Hedge Cross:  liq = (crossEquity − sumLongEPS + sumShortEPS) / (szL×(mmr−1) + szS×(mmr+1))
-    //    One-way Cross: liq = (crossEquity − sumOthers) / (size × (1∓mmr))
-    //    Isolated:     liq = entry × (1 ∓ 1/lev ± mmr)
-    // 2a) Cross fallback: _futdClientCrossLiq (v2.64) — mirror GAS สูตร Binance
-    //     รองรับทั้ง Hedge Mode และ One-way Mode
-    //     ใช้ cross_equity จาก GAS; fallback → futures_balance
-    // 2b) Isolated fallback: entry − margin/size ± mmr×entry
-    // 3) p.liq_price จาก Sheet — fallback สุดท้าย
-    const _liqMap = (FUTD.status && FUTD.status.liq_price_map) || {};
-    const _mmr    = 0.005;
-    const _liqRaw = _liqMap[p.id] !== undefined ? parseFloat(_liqMap[p.id]) : null;
-    let liqP;
-    if (_liqRaw !== null && _liqRaw > 0) {
-      // priority 1: GAS SSOT
-      liqP = _liqRaw;
-    } else if (posMode === 'cross' && entryP > 0 && size > 0) {
-      // priority 2a: Cross client fallback — ใช้ cross_equity เพื่อ hedge offset ถูกต้อง
-      // [v2.60-LIQ KEY FIX] cross_equity = futures_balance + unrealizedPnL(Cross) จาก GAS
-      // การใช้ cross_equity แทน futures_balance ทำให้ wbLoss และ liq_price ตรงกับ GAS
-      const _allPos  = (FUTD.status && FUTD.status.positions) || positions;
-      const _equity  = parseFloat((FUTD.status || {}).cross_equity)
-                    || parseFloat((FUTD.status || {}).futures_balance) || 0;
-      const _cLiq    = _futdClientCrossLiq(p.id, _allPos, _equity, _mmr);
-      liqP = _cLiq > 0 ? _cLiq : (parseFloat(p.liq_price) || 0);
-    } else if (entryP > 0 && size > 0 && margin > 0) {
-      // priority 2b: Isolated per-position formula
-      liqP = p.side === 'long'
-        ? (entryP - margin / size + _mmr * entryP)
-        : (entryP + margin / size - _mmr * entryP);
-    } else {
-      // priority 3: Sheet liq_price
-      liqP = parseFloat(p.liq_price) || 0;
-    }
+    // [V1_9-LIQ-RESOLVE] Liq. Price: GAS liq_price_map (SSOT) → Cross client per-symbol → Isolated (ดู _futdResolveLiq)
+    //   เดิม: Cross ที่ GAS ไม่มีค่าตกไป p.liq_price ใน Sheet (placeholder สูตร Isolated) → Liq ใกล้ entry ผิด ๆ
+    const liqP = _futdResolveLiq(p, (FUTD.status && FUTD.status.liq_price_map) || {}, positions);
     const markP     = FUTD.prices[coin] || 0;
 
     // Unrealized PnL
@@ -43624,36 +44467,9 @@ function futdRenderPositions(positions) {
     const upnlColor = upnl >= 0 ? 'var(--g)' : 'var(--r)';
     const roiPct    = margin > 0 ? ((upnl / margin) * 100) : 0;
 
-    // [v2.64-MARGIN-RATIO] Binance Official: Margin Ratio = Maintenance Margin / Margin Balance × 100%
-    //   Isolated: maintMargin(pos) / margin(pos)  — per-position
-    //   Cross:    total_maintenance_margin(account) / cross_equity  — รวมบัญชี
-    //     total_maintenance_margin = Σ(mmr × entry_i × size_i)  คำนวณโดย GAS v2.66
-    //     cross_equity = futures_balance + Σ unrealizedPnL(Cross)
-    //     fallback: Σ(mmr × entry_i × size_i) คำนวณ client-side ถ้า GAS ยังไม่ส่ง
-    // posMode declared above — ไม่ต้อง redeclare
-    const _mmrMr = 0.005;
-    let mrPct = 0;
-    if (posMode === 'isolated') {
-      // Isolated: maintenance_margin / margin ของ position นี้
-      const maintMargin = _mmrMr * entryP * size;
-      mrPct = margin > 0 ? Math.min(100, (maintMargin / margin) * 100) : 0;
-    } else {
-      // Cross (Binance Official): total_maintenance_margin / cross_equity
-      const _st = FUTD.status || {};
-      const crossEq = parseFloat(_st.cross_equity) || parseFloat(_st.futures_balance) || 0;
-      // ใช้ total_maintenance_margin ที่ GAS คำนวณไว้ (v2.66) ถ้ามี
-      // fallback: คำนวณ client-side จาก positions ที่ render อยู่
-      let totalMaint = parseFloat(_st.total_maintenance_margin);
-      if (!totalMaint || isNaN(totalMaint)) {
-        totalMaint = (_st.positions || positions).reduce((s, pp) => {
-          const ep = parseFloat(pp.entry_price) || 0;
-          const sz = parseFloat(pp.size) || 0;
-          return (ep > 0 && sz > 0) ? s + _mmrMr * ep * sz : s;
-        }, 0);
-      }
-      mrPct = crossEq > 0 ? Math.min(100, (totalMaint / crossEq) * 100) : 0;
-    }
-    const mrColor    = mrPct < 50 ? 'var(--g)' : mrPct < 80 ? 'var(--y)' : 'var(--r)';
+    // [V1_9-MR-LIVE] Margin Ratio ที่ราคา mark สด — ดู _futdMarginRatio (เดิม: maintenance ที่ entry + total_maintenance_margin รวม Isolated + ค่าไม่ขยับตาม tick)
+    const mrPct = _futdMarginRatio(p, positions);
+    const mrColor    = _futdMrColor(mrPct);   // [V1_10-MR-FMT]
 
     // TP/SL chips
     const tp = parseFloat(p.tp) || 0;
@@ -43688,8 +44504,8 @@ function futdRenderPositions(positions) {
 
     // [vx17-POS-CARD] layout ใหม่ตาม tcc_futures.html — คง id/onclick เดิมทั้งหมด (futdUpdatePnlCards ใช้ futd-upnl/roi/mark)
     const _L        = p.side === 'long';
-    const _litN     = Math.max(1, Math.min(4, Math.ceil(mrPct / 25)));
-    const _riskBars = `<span class="futd-pc-risk">${[0,1,2,3].map(i => `<i style="${i < _litN ? 'background:' + mrColor : ''}"></i>`).join('')}</span>`;
+    const _litN     = _futdMrLit(mrPct);   // [V1_10-MR-FMT] เดิม Math.max(1, Math.min(4, Math.ceil(mrPct / 25)))
+    const _riskBars = `<span class="futd-pc-risk" id="futd-risk-${p.id}">${[0,1,2,3].map(i => `<i style="${i < _litN ? 'background:' + mrColor : ''}"></i>`).join('')}</span>`;
     const _modeTxt  = posMode === 'isolated' ? 'Isolated' : 'Cross';
     const _mgnTxt   = (Math.floor(margin * 100 + 1e-6) / 100).toFixed(2);
     const _isUsdt   = !!(FUTD.sizeUnit && FUTD.sizeUnit[p.id] === 'usdt');
@@ -43704,7 +44520,7 @@ function futdRenderPositions(positions) {
       <div class="futd-pc-g3">
         <div><span class="futd-pc-dot">Size (${_szUnit}) </span><button class="futd-pc-swap" onclick="futdTogglePosUnit('${p.id}')" aria-label="swap unit">${_FUTD_SVG_SWAP}</button><b id="futd-sz-${p.id}">${_szTxt}</b></div>
         <div><span>Margin (USDT)</span><b>${_mgnTxt}</b></div>
-        <div><span class="futd-pc-dot">Margin Ratio</span><b style="color:${mrColor}">${mrPct.toFixed(2)}%</b></div>
+        <div><span class="futd-pc-dot">Margin Ratio</span><b id="futd-mr-${p.id}" style="color:${mrColor}">${_futdMrTxt(mrPct)}</b></div>
         <div><span class="futd-pc-dot">Entry Price (USDT)</span><b>${fmtPosPx(entryP)}</b></div>
         <div><span class="futd-pc-dot">Mark Price (USDT)</span><b id="futd-mark-${p.id}">${markStr}</b></div>
         <div><span class="futd-pc-dot">Liq. Price (USDT)</span><b style="color:var(--r)">${liqStr}</b></div>
@@ -43746,6 +44562,16 @@ function futdUpdatePnlCards() {
     if (markEl) { markEl.textContent = fmtPosPx(markP); } // [vx13-POS-PX]
     const szEl = document.getElementById('futd-sz-' + p.id);   // [vx18-POS-CARD2] Size หน่วย USDT ขยับตาม mark
     if (szEl && FUTD.sizeUnit && FUTD.sizeUnit[p.id] === 'usdt') szEl.textContent = futdFmtUsdt(size * markP);
+  });
+  // [V1_9-MR-LIVE] Margin Ratio + แถบความเสี่ยง ขยับตามราคาสดทุก tick (เดิมค้างค่าจาก render ล่าสุด)
+  positions.forEach(p => {
+    const mrEl = document.getElementById('futd-mr-' + p.id);
+    if (!mrEl) return;
+    const mr  = _futdMarginRatio(p, positions);
+    const mrC = _futdMrColor(mr);   // [V1_10-MR-FMT]
+    mrEl.textContent = _futdMrTxt(mr); mrEl.style.color = mrC;
+    const rk = document.getElementById('futd-risk-' + p.id);
+    if (rk) { const n = _futdMrLit(mr); Array.from(rk.children).forEach((el, i) => { el.style.background = i < n ? mrC : ''; }); }
   });
   // [vx12-AVBL-LIVE] Avbl ขยับตาม PnL ทุก tick เดียวกับการ์ด Position
   futdUpdateAvblLive();
@@ -43950,15 +44776,8 @@ function futdOpenMarginSheet(posId) {
   const size   = parseFloat(pos.size) || 0;
   const margin = parseFloat(pos.margin) || 0;
   const avail  = parseFloat((FUTD.status || {}).avail_margin) || 0;
-  // [v2.57 FIX-LIQ] ใช้ formula เดียวกับ futdRenderPositions
-  const _mmrMg    = 0.005;
-  const _liqMapMg = (FUTD.status && FUTD.status.liq_price_map) || {};
-  const _liqCalcMg = pos.side === 'long'
-    ? (entryP - margin / size + _mmrMg * entryP)
-    : (entryP + margin / size - _mmrMg * entryP);
-  const _liqRawMg  = _liqMapMg[pos.id] !== undefined ? parseFloat(_liqMapMg[pos.id]) : null;
-  const liqP = (_liqRawMg !== null && _liqRawMg > 0) ? _liqRawMg
-             : (entryP > 0 && size > 0 && margin > 0 ? _liqCalcMg : parseFloat(pos.liq_price) || 0);
+  // [V1_9-LIQ-RESOLVE] ใช้ตัวกลางเดียวกับการ์ด (เดิม Cross ที่ GAS ไม่มีค่าตกไปสูตร Isolated)
+  const liqP = _futdResolveLiq(pos, (FUTD.status && FUTD.status.liq_price_map) || {}, (FUTD.status || {}).positions || []);
 
   // ค่า effective lev ปัจจุบัน
   const effLev = (entryP > 0 && size > 0 && margin > 0)
@@ -44234,18 +45053,11 @@ async function futdCloseposition(posId, closeSize) {
   _futdLogCloseToHist(pos, exitPrice, result || {});
 
   showToast(tccT('sys_pos_closed_ok'));
-  futdRefreshAccountStatus();
+  _futdRefreshDebounced(5000);   // [vx20-OPTIMISTIC-OPEN] รวม refresh หลังปิด/เปิดเป็นครั้งเดียว (debounce 5 วิ) — ปิดทีละหลายรายการ (Close All) ไม่ยิงซ้ำรายละครั้ง
 
-  // [v2.74-FIX-F2] sync Assets → Futures-Direct หลังปิด position
-  // เดิม: ไม่เคยเรียก aftdRefreshDirectSummary() → AFTD.positions ค้างข้อมูลเก่า
-  //       + AFTD.todayRealizedPnl ไม่รับค่า realized PnL ใหม่ → Today's PNL ไม่ขยับ
-  // แก้:  refresh AFTD state ทันทีหลัง GAS confirm ปิด position สำเร็จ
-  //       ใช้ setTimeout 0 เพื่อไม่บล็อก futdRefreshAccountStatus ที่เพิ่งยิงไป
-  if (typeof aftdRefreshDirectSummary === 'function') {
-    setTimeout(() => {
-      aftdRefreshDirectSummary();
-    }, 0);
-  }
+  // [v2.74-FIX-F2] sync Assets → Futures-Direct หลังปิด position (AFTD.positions / Today's PNL / Overview)
+  // [V1_8-REFRESH-ONCE] เดิมยิง aftdRefreshDirectSummary() ซ้ำทันทีทุกครั้งที่ปิด (บังคับดึงสด = Summary + Liq map อีกชุด และอาจดึงซ้ำอีกรอบ — Close All N รายการ = N ชุด)
+  //   ใหม่: _futdRefreshDebounced ตั้งธง → futdRefreshAccountStatus (ชุดเดียว) วาด AFTD/Overview จาก cache ที่เพิ่งเก็บ · ถ้าผู้ใช้อยู่หน้า Assets→Direct อยู่ dbCallRaw ยิง refresh ให้เองอยู่แล้ว (หลังเขียนสำเร็จ)
 }
 
 /**
@@ -44372,8 +45184,11 @@ async function _futdClosePartial(pos, closeSize) {
   // คงค่า override 20s กัน poll ที่ยิงก่อนปิดแต่ตอบช้า แล้วเลิก
   setTimeout(() => { const r = FUTD._reducing && FUTD._reducing[posId]; if (r && !r.busy) delete FUTD._reducing[posId]; }, 20000);
 
-  futdRefreshAccountStatus();
-  if (typeof aftdRefreshDirectSummary === 'function') setTimeout(() => { aftdRefreshDirectSummary(); }, 0);
+  // [V1_8-REFRESH-ONCE] ปิดบางส่วนก็รวม refresh เป็นชุดเดียว (debounce 5 วิ) เหมือนปิดเต็ม — เดิมยิง futdRefreshAccountStatus + aftdRefreshDirectSummary ทันที (2 ชุด)
+  //   override ของ _reducing คงอยู่ 20 วิ → poll ที่ตอบ size เก่าในช่วงรอ 5 วิไม่ทำให้ size เด้งกลับ
+  //   'skipped' / ผลที่ไม่รู้จัก (ไม่ได้ปิดจริง · position อาจถูกปิดจากที่อื่น) → ไม่เดา ดึงจริงทันทีเหมือนเดิม (ธง AFTD ยังตั้งไว้ → sync ต่อให้)
+  if (act === 'reduced' || act === 'closed') _futdRefreshDebounced(5000);
+  else { FUTD._aftdSyncAfterRefresh = true; futdRefreshAccountStatus(); }
 }
 
 // ── [v2.63-CLOSE-CONFIRM] futd Close Position Confirm ──────────────────────
@@ -44536,11 +45351,14 @@ function _futdLogCloseToHist(pos, exitPrice, result) {
     // 4. futdLiquidationHistory — เฉพาะกรณีถูก Liquidate
     if (isLiq) {
       if (!HIST.futdLiquidationHistory) HIST.futdLiquidationHistory = [];
+      // [V1_12-LIQ-MARGINLOST/PRICE-DIR] กฎเดียวกับ _mapGasFutdLiquidation (Cross = ขาดทุนจริง · Liq. Price ผิดทิศทาง = '—')
+      const _isCrossL = String(pos.mode || '').trim().toLowerCase() === 'cross';
+      const _liqDirOk = liqPrice > 0 && (entryP <= 0 || (side === 'short' ? liqPrice > entryP : liqPrice < entryP));
       HIST.futdLiquidationHistory.unshift({
         id: HIST.genId(), coin: sym, symbol: sym, badge: 'Direct',
         mode: modeStr, side, lev, positionSide: posSide,
-        avgEntry: fmtEntry, liqPrice: liqPrice > 0 ? HIST.fmtPrice(liqPrice) : '—',
-        marginLost: Math.abs(rpnl) > margin ? margin.toFixed(4) : Math.abs(rpnl).toFixed(4),
+        avgEntry: fmtEntry, liqPrice: _liqDirOk ? HIST.fmtPrice(liqPrice) : '—',
+        marginLost: _isCrossL ? (rpnl < 0 ? Math.abs(rpnl) : 0).toFixed(4) : (Math.abs(rpnl) > margin ? margin.toFixed(4) : Math.abs(rpnl).toFixed(4)),
         closed: fmtTs, ts: now, status: 'Liquidated',
       });
     }
@@ -44731,15 +45549,8 @@ function futdOpenTpslSheet(posId) {
   const margin = parseFloat(pos.margin) || 0;
   const tp     = parseFloat(pos.tp) || 0;
   const sl     = parseFloat(pos.sl) || 0;
-  // [v2.57 FIX-LIQ] ใช้ formula เดียวกับ futdRenderPositions
-  const _liqMapTs  = (FUTD.status && FUTD.status.liq_price_map) || {};
-  const _mmrTs     = 0.005;
-  const _liqCalcTs = pos.side === 'long'
-    ? (entryP - margin / size + _mmrTs * entryP)
-    : (entryP + margin / size - _mmrTs * entryP);
-  const _liqRawTs  = _liqMapTs[pos.id] !== undefined ? parseFloat(_liqMapTs[pos.id]) : null;
-  const liqP = (_liqRawTs !== null && _liqRawTs > 0) ? _liqRawTs
-             : (entryP > 0 && size > 0 && margin > 0 ? _liqCalcTs : parseFloat(pos.liq_price) || 0);
+  // [V1_9-LIQ-RESOLVE] ใช้ตัวกลางเดียวกับการ์ด (เดิม Cross ที่ GAS ไม่มีค่าตกไปสูตร Isolated)
+  const liqP = _futdResolveLiq(pos, (FUTD.status && FUTD.status.liq_price_map) || {}, (FUTD.status || {}).positions || []);
 
   // Populate info header
   const symEl = document.getElementById('futdTpslSym');
@@ -47434,8 +48245,9 @@ function futdUpdateCandleCountdown() {
         if (!markP||!entryP||!size) return s;
         return s + (p.side==='long' ? (markP-entryP)*size : (entryP-markP)*size);
       }, 0);
-      const _todayTotal = _todayRz + _upnl;
-      const _todayPct   = _mbal > 0 ? (_todayTotal / _mbal) * 100 : 0;
+      const _chgP       = _aftdTodayChg(_positions, _aftdCarryNow(), _todayRz);   // [v1.5-TODAY-CHG]
+      const _todayTotal = _chgP.total;
+      const _todayPct   = _aftdTodayPct(_todayTotal, _mbal, _upnl) || 0;
 
       const detail = _positions.map(p => {
         const coin   = (p.symbol||'').replace('USDT','');
@@ -47831,6 +48643,7 @@ function futdUpdateCandleCountdown() {
     const body = _fEl('fpnlBody'); if (body) body.scrollTop = 0;
 
     overlay.classList.add('fpnl-open');
+    try { fstatHydrate('contract'); fstatHydrate('direct'); } catch (e) {}   // [PERF-PNL-PERSIST]
     _fpnlRenderAll();
   };
 
@@ -50259,5 +51072,154 @@ function fit(){
 })();
 </script>
 
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   [FIX-REFRESH-VIEW v1_13] tccViewState — จำ "หน้า + แท็บ" ให้รอดการรีเฟรช
+   · เก็บใน sessionStorage 'tcc_view_state' (เฉพาะแท็บเบราว์เซอร์นี้ · รอดทั้ง F5 / pull-to-refresh / reload)
+   · เก็บ: page · แท็บ Assets · Futures Contract/Direct · Assets→Futures Contract/Direct · แท็บย่อยที่กด (Home/Markets/Spot/Direct ฯลฯ)
+   · ใช้ตอนบูต (initSplash → tccApplyView) และกันปุ่ม 🔄 (softRefreshCurrentPage) ไม่ให้เด้งหน้า/แท็บ
+   ══════════════════════════════════════════════════════════════════════ */
+(function tccViewState() {
+  var KEY = 'tcc_view_state';
+  var INNER_FNS = ['_hmSetTab','_hmMktTab','_hmSubTab','setMktCat','setMktSub','switchSpTab','futdSwitchSubTab','mytSwitchTab','astSpotSegTab','astCommHistSwitchTab'];
+  var st = { page:'', ast:'', fut:'', aft:'', inner:{}, t:0 };
+  try { var o = JSON.parse(sessionStorage.getItem(KEY) || 'null'); if (o && typeof o === 'object') { st = Object.assign(st, o); if (!st.inner) st.inner = {}; } } catch (e) {}
+  window._tccLastUserNavAt = 0;
+
+  function ctxKey(page, ast) { return page === 'assets' ? ('assets:' + (ast || 'overview')) : page; }
+  function snapshot() {
+    var s = { page:'', ast:'', fut:'', aft:'' };
+    try { s.page = (typeof currentPage !== 'undefined') ? currentPage : ''; } catch (e) {}
+    try { s.ast  = (typeof astCurrentTab !== 'undefined') ? astCurrentTab : ''; } catch (e) {}
+    try { s.fut  = (typeof _futActiveTab !== 'undefined') ? _futActiveTab : ''; } catch (e) {}
+    try { s.aft  = (typeof AFTD !== 'undefined' && AFTD) ? AFTD.mode : ''; } catch (e) {}
+    return s;
+  }
+  function save() {
+    // ยังกู้คืนไม่เสร็จ → ห้ามเขียนทับด้วยค่า default
+    if (!window._tccViewReady || window._tccRestoring) return;
+    var s = snapshot();
+    if (!s.page) return;
+    st.page = s.page; st.ast = s.ast; st.fut = s.fut; st.aft = s.aft; st.t = Date.now();
+    try { sessionStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+  }
+  window.tccViewSave = save;
+  window.tccViewSnapshot = snapshot;
+
+  // ── wrapper: ทุกครั้งที่เปลี่ยนหน้า/แท็บ → จำทันที + ติดเวลา "ผู้ใช้เปลี่ยนเอง" ──
+  function wrap(name) {
+    var orig = window[name];
+    if (typeof orig !== 'function' || orig.__tccWrapped) return;
+    var w = function () {
+      var wasRestoring = !!window._tccRestoring;
+      if (!wasRestoring) window._tccLastUserNavAt = Date.now();
+      var r;
+      try { r = orig.apply(this, arguments); }
+      finally {
+        // เส้นทางบูตปกติ (ไม่มี hash/state) — navTo ครั้งแรกทำให้พร้อมจำได้
+        if (!wasRestoring && name === 'navTo') window._tccViewReady = true;
+        try { save(); } catch (e) {}
+      }
+      return r;
+    };
+    w.__tccWrapped = true;
+    window[name] = w;
+  }
+  ['navTo', 'astSwitchTab', 'futSwitchTab', 'aftSetMode'].forEach(wrap);
+
+  // ── แท็บย่อย: จับจาก onclick ของ element ที่กด (ไม่ต้องรู้ว่าฟังก์ชันอยู่ scope ไหน) ──
+  document.addEventListener('click', function (ev) {
+    if (window._tccRestoring || window._tccInnerRestoring) return;
+    try {
+      var el = ev.target && ev.target.closest ? ev.target.closest('[onclick]') : null;
+      if (!el) return;
+      var oc = el.getAttribute('onclick') || '';
+      var m = /^\s*([A-Za-z_$][\w$]*)\s*\(/.exec(oc);
+      if (!m || INNER_FNS.indexOf(m[1]) < 0) return;
+      var page = (typeof currentPage !== 'undefined') ? currentPage : '';
+      var ast = (typeof astCurrentTab !== 'undefined') ? astCurrentTab : '';
+      st.inner[ctxKey(page, ast) + '|' + m[1]] = { oc: oc, tx: (el.textContent || '').trim().slice(0, 60) };
+      setTimeout(save, 0);
+    } catch (e) {}
+  }, true);
+
+  // ── กู้คืนแท็บลึกหลัง navTo/astSwitchTab ตอนบูต ──
+  function findInner(rec) {
+    var list = document.querySelectorAll('[onclick]');
+    for (var i = 0; i < list.length; i++) {
+      var e = list[i];
+      if (e.getAttribute('onclick') === rec.oc && (e.textContent || '').trim().slice(0, 60) === rec.tx) return e;
+    }
+    return null;
+  }
+  function applyInner(sv, pg, sub, startedAt) {
+    var prefix = ctxKey(pg, sub || (sv && sv.ast)) + '|';
+    var keys = Object.keys((sv && sv.inner) || {}).filter(function (k) { return k.indexOf(prefix) === 0; });
+    if (!keys.length) return;
+    var delays = [0, 400, 1200, 2600], pending = keys.slice();
+    delays.forEach(function (d) {
+      setTimeout(function () {
+        if (!pending.length) return;
+        // ผู้ใช้กดเปลี่ยนหน้า/แท็บเองแล้วหลังบูต → เลิกกู้คืนส่วนที่เหลือ
+        if (window._tccLastUserNavAt > startedAt) { pending = []; return; }
+        var curPage = ''; try { curPage = currentPage; } catch (e) {}
+        if (curPage !== pg) { pending = []; return; }
+        pending = pending.filter(function (k) {
+          var el = findInner(sv.inner[k]);
+          if (!el) return true;               // ยังไม่ถูกสร้าง → ลองใหม่รอบถัดไป
+          window._tccInnerRestoring = true;
+          try { el.click(); } catch (e) {}
+          window._tccInnerRestoring = false;
+          return false;
+        });
+      }, d);
+    });
+  }
+  window.tccApplyView = function (sv, pg, sub) {
+    try {
+      if (!sv || sv.page !== pg) return;
+      if (pg === 'futures' && sv.fut === 'direct' && typeof futSwitchTab === 'function') futSwitchTab('direct');
+      if (pg === 'assets' && sub === 'futures-a' && sv.aft === 'direct' && typeof aftSetMode === 'function') aftSetMode('direct');
+      // Futures Direct → ย่อย Position/Orders/Bots อยู่ใต้ "futures" ctx
+      applyInner(sv, pg, sub, Date.now());
+    } catch (e) { console.warn('[tccApplyView]', e && e.message); }
+  };
+
+  // ── ใช้กับปุ่ม 🔄: ถ้าหน้า/แท็บหลุดระหว่างรีเฟรช (และผู้ใช้ไม่ได้กดเอง) → พากลับ ──
+  window.tccViewRestoreIfMoved = function (snap, startedAt) {
+    if (!snap || !snap.page) return;
+    if (window._tccLastUserNavAt > startedAt) return;     // ผู้ใช้ย้ายเองระหว่างรอ → ไม่แตะ
+    var now = snapshot();
+    if (now.page === snap.page && now.ast === snap.ast && now.fut === snap.fut && now.aft === snap.aft) return;
+    console.warn('[softRefresh] view moved during refresh → restoring', snap, now);
+    window._tccRestoring = true;
+    var navWas = false; try { navWas = !!_navIsBack; _navIsBack = true; } catch (e) {}
+    try {
+      if (now.page !== snap.page && typeof navTo === 'function') navTo(snap.page);
+      if (snap.page === 'assets' && snap.ast && typeof astSwitchTabByName === 'function' &&
+          (now.page !== 'assets' || now.ast !== snap.ast)) astSwitchTabByName(snap.ast);
+      if (snap.page === 'futures' && snap.fut && typeof futSwitchTab === 'function' &&
+          (now.page !== 'futures' || now.fut !== snap.fut)) futSwitchTab(snap.fut);
+      if (snap.page === 'assets' && snap.ast === 'futures-a' && snap.aft && typeof aftSetMode === 'function' &&
+          snapshot().aft !== snap.aft) aftSetMode(snap.aft);
+    } catch (e) { console.warn('[tccViewRestoreIfMoved]', e && e.message); }
+    finally {
+      try { _navIsBack = navWas; } catch (e) {}
+      window._tccRestoring = false;
+      save();
+    }
+  };
+
+  // ── จังหวะบันทึก: ก่อนปิด/รีเฟรช/ซ่อนหน้า + ทุก 2 วิ ──
+  window.addEventListener('pagehide', save);
+  window.addEventListener('beforeunload', save);
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') save(); });
+  setInterval(save, 2000);
+
+  // เส้นทางบูตที่ไม่ผ่าน navTo wrapper (เช่น splash ปกติเรียก navTo ก่อน wrap) — เผื่อไว้: เปิดให้จำได้หลัง 6 วิ ถ้ายังไม่มีการกู้คืน
+  setTimeout(function () { if (!window._tccRestoring) window._tccViewReady = true; }, 6000);
+})();
+</script>
 </body>
 </html>

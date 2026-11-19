@@ -1,3 +1,17 @@
+<!-- [SYNC-DIRECT-V5] (2026-11-19) อัปเดต Futures → Direct ให้ตรงกับ index_TCC_Trader_p_share_direct_v5 (รวมรอบแก้ v4.14 ถึง v4.18) · แก้เฉพาะ HTML · ไม่ต้องแก้/deploy GAS (ใช้ GAS เดิมของไฟล์นี้) · ไม่แตะ: SCRIPT_URL/ADMIN_SCRIPT_URL · ชั้น D1 · สูตร Liq ฝั่ง GAS · ค้นด้วย tag ในวงเล็บเหลี่ยม
+     [v4.14-DIRECT-SHARE] แชร์โพซิชั่น Direct ครบทุกจุด: การ์ดใน Futures→Direct (ไอคอนแชร์) · Assets→Futures-Direct (ปุ่ม Share) · My Trades→Direct Open (เฉพาะ Active) และ Position History · ประวัติ Liquidation
+         ฟังก์ชันใหม่: openDirectShareCard (ใช้ราคา mark ก่อน → ไม่มีให้ดึงราคาสด → ยังไม่ได้ราคา = ยกเลิก+toast ไม่แสดง PNL 0) · openFutdPosHistShareCard · openFutdLiqShareCard (PNL = −Margin Lost · Entry = Avg Entry · ป้ายราคา = Liq. Price) · _futdFindPosForShare · _scNum (แก้ parseFloat("1,234.56") ได้ 1)
+         _fillAndOpenShareCard(p, ctx) รองรับ ctx 'direct' · scSwitchTab ซ่อนแท็บ Contract เมื่อเป็น Direct · ป้าย FUTURES-DIRECT / FUTURES-CONTRACT ตาม ctx · Lev ที่เป็นตัวเลขล้วนต่อท้าย "x"
+     [v4.15-XYZ-PRICE] ราคา dex xyz (NVDA/หุ้น/โลหะ) ดึงเมื่อ "มีโพซิชั่นเหรียญ xyz" แม้เลือกเหรียญอื่นอยู่ (เดิมเปิด BTC แล้วราคา NVDA = 0 → PNL 0 · แชร์ได้ 0 · ปุ่ม Close หาราคาไม่เจอ) · ดึงซ้ำเมื่อเหรียญที่ต้องการไม่อยู่ใน dex หลัก · รวมราคาแบบ merge (xyz ชนะ) ไม่ล้าง map
+         ปุ่ม Close (ปิดเต็ม/บางส่วน) ใช้ _futdFetchMidFor เมื่อไม่มีราคา · การ์ดโพซิชั่นแสดง "—" เมื่อยังไม่มี mark (ไม่โชว์ +0.00)
+     [v4.15-DIRECT-COIN] สลับเหรียญแล้วข้อมูลเหรียญเก่าไม่ค้าง: _futdResetForCoin ล้างแท่งเทียน/Order Book/ticker/% เปลี่ยนแปลง/ป้ายกราฟ (เรียกใน futdSyncCoinFromTopbar · futdInit · futdOnSymbolChange) · FUTD.chart.candlesCoin + _futdCandlesFresh กันค่า -99.76% และกราฟ/OB ของเหรียญเก่า
+     [v4.16-COIN-SEARCH] ช่องค้นหาเหรียญใน dropdown BTCUSDT ▼ ใช้ได้ทั้ง Futures→Direct และ Futures→Contract (เดิมถูกแท็บบังด้วย z-index): .topbar.dd-open (z 300) + _initCoinDDLayer (MutationObserver) · Enter เลือกตัวแรก (coinDDPickFirst) · ปิด autocomplete/autocorrect
+     [v4.17-DIRECT-PXFEED] ราคา/PNL ของ "ทุกเหรียญที่ถือโพซิชั่น" ใน Direct ขยับสดไม่ว่าจะเปิดเหรียญไหน · สาเหตุเดิม: WebSocket ดูแลเฉพาะเหรียญที่เลือก ส่วนเหรียญอื่นได้ราคาจาก REST ทุก 15 วิผูกกับ FUTD.pollTimer ร่วมกับ GAS (GAS timeout → หยุด 60 วิ → ราคาเหรียญอื่นค้าง)
+         แก้: socket allMids แยก (dex หลัก + xyz) → _futdPxMerge/_futdPxScheduleApply (throttle ~4 ครั้ง/วิ → futdUpdatePnlCards + aftdUpdateUnrealizedPnl) · REST สำรอง _futdPxRest ทุก ~4 วิเมื่อ WS เงียบ · socket ค้าง >12 วิ/กลับเข้าหน้าจอ/BF Cache → เปิดใหม่ (_futdPxSync, futdStartPriceFeed, futdStopPriceFeed)
+         เปิด/ปิดตามหน้าที่ดู (futdInit · futdStopPolling · aftSetMode · futdRenderPositions · aftdRenderDirectPosList) · ทำงานเฉพาะเมื่อมีโพซิชั่น · เหรียญที่เลือกให้ trade tick ของ Order Book WS เป็นเจ้าของราคา (FUTD._tradeTs)
+     [v4.18-LIQ-FMT] Liq. Price ใน Direct (การ์ด Futures · รายการ Assets · Margin sheet · TP/SL sheet) ใช้ fmtPosPx เหมือน Entry/Mark (เดิม 4 หลักเสมอ เช่น 235,194.0088 → 235,194.01)
+     [v4.18-LIQ-CHART] เส้น Liq บนกราฟ Direct ใช้ _futdResolveLiq (GAS map → Cross per-symbol → Isolated) เหมือนการ์ด (เดิมอ่าน p.liq_price ดิบจากชีต ซึ่ง Cross เป็น placeholder สูตร Isolated)
+     ตรวจแล้ว (ไม่แก้): สูตร Cross Liq ของ GAS/หน้าเว็บตรงกับ Binance (Equity = Maintenance ที่ราคา Liq) · ข้อสังเกตค้าง: Cross ยังไม่หัก margin ของ Isolated · MMR 0.005 ฝังในหน้าเว็บ · Liq อัปเดตตามรอบ GAS ไม่ใช่ราคาสด -->
 <!-- [SYNC-V1_14] (2026-11-15) ปรับส่วนแสดงผล/ระบบของ Easy_Old ให้ตรงกับต้นแบบ index_tcc_main_nv4_V1_14 — "ไม่รวมชั้น D1" และไม่เปลี่ยน SCRIPT_URL/ADMIN_SCRIPT_URL · ค้นด้วยแท็กในโค้ด
      [A1] Today's PNL = การเปลี่ยนแปลงจริงของวัน (v1.4/v1.5 · _aftdTodayChg/_aftdDay*) · [A2] เก็บสถานะข้ามรีเฟรช (PERF-PNL-PERSIST · v1.4-AFTD-HYDRATE · V1_11-DIRECT/CPOS-HYDRATE)
      [A3] จำหน้า/แท็บหลังรีเฟรช (FIX-REFRESH-VIEW v1_13 · FIX-REFRESH-CONTRACT v1_14 · สคริปต์ tccViewState ท้ายไฟล์) · [A4] Margin Ratio / Liq Price (V1_9 · V1_10 · _futdResolveLiq/_futdMarginRatio)
@@ -4286,6 +4300,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 /* Coin selector dropdown */
 .coin-dropdown{position:absolute;top:44px;left:0;right:0;background:var(--bg3);border:1px solid var(--bl);border-radius:var(--rmd);z-index:200;max-height:320px;overflow-y:auto;display:none;box-shadow:0 4px 16px rgba(0,0,0,.4)}
 .coin-dropdown.open{display:block}
+/* [v4.16-COIN-SEARCH] แถบ Contract/Direct (.fut-tab-bar z-index:200) ทับ dropdown เหรียญ (อยู่ใน .topbar z-index:100) → ช่องค้นหาด้านบน dropdown ถูกบังมิดทั้ง 2 แท็บ
+   เปิด dropdown อยู่ให้ยก .topbar ขึ้นเหนือแถบแท็บ (class dd-open ถูกซิงก์จากสถานะ .open ของ #coinDD ไม่ว่าจะปิดจากจุดไหน) */
+.topbar.dd-open{z-index:300}
 .cd-item{padding:8px 12px;font-size:12px;font-family:var(--mono);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background .1s}
 .cd-item:hover{background:var(--bgh)}
 .cd-item .cd-price{color:var(--t2);font-size:11px}
@@ -5660,7 +5677,9 @@ details[open]>.wdp-sum::after{transform:rotate(-135deg);margin-top:3px}
   <div class="coin-dropdown" id="coinDD" style="max-height:320px">
     <div style="padding:6px 8px;position:sticky;top:0;background:var(--bg3);z-index:1;border-bottom:1px solid var(--bl)">
       <input id="coinDDSearch" type="text" placeholder="ค้นหาเหรียญ..." data-i18n-placeholder="search_coin" oninput="filterCoinDD(this.value)"
-        style="width:100%;background:var(--bg4);border:1px solid var(--bl);border-radius:4px;padding:5px 8px;font-size:12px;color:var(--t1);outline:none">
+        onkeydown="if(event.key==='Enter'){event.preventDefault();coinDDPickFirst();}"
+        autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go"
+        style="width:100%;box-sizing:border-box;background:var(--bg4);border:1px solid var(--bl);border-radius:4px;padding:6px 8px;font-size:13px;color:var(--t1);outline:none">
     </div>
     <div id="coinDDList"><div style="padding:10px 12px;font-size:11px;color:var(--t2)"><span data-i18n="loading">กำลังโหลด...</span></div></div>
   </div>
@@ -13677,6 +13696,25 @@ function toggleCoinDD() {
   }
 }
 
+/* [v4.16-COIN-SEARCH] กด Enter ในช่องค้นหา = เลือกเหรียญแรกในผลลัพธ์ (ใช้ได้ทั้งแท็บ Contract และ Direct เพราะ selectCoin ซิงก์ให้ทั้งคู่) */
+function coinDDPickFirst() {
+  const first = document.querySelector('#coinDDList .cd-item');
+  if (first) first.click();
+}
+
+/* [v4.16-COIN-SEARCH] ซิงก์ class dd-open บน .topbar ตามสถานะ .open ของ #coinDD — ปิดได้หลายจุด (เลือกเหรียญ / คลิกนอก / สลับหน้า) จึงใช้ observer แทนการแก้ทุกจุด */
+(function _initCoinDDLayer() {
+  const init = () => {
+    const dd = document.getElementById('coinDD');
+    if (!dd || dd._ddLayerBound) return;
+    dd._ddLayerBound = true;
+    const sync = () => { const tb = dd.closest('.topbar'); if (tb) tb.classList.toggle('dd-open', dd.classList.contains('open')); };
+    if (window.MutationObserver) new MutationObserver(sync).observe(dd, { attributes: true, attributeFilter: ['class'] });
+    sync();
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+
 // Load full perps list from Hyperliquid
 async function loadPerpList() {
   try {
@@ -15259,7 +15297,8 @@ function futdSyncCoinFromTopbar(coin) {
   // [v2.69-CHART-RACE] หยุด pollTimer เก่าก่อน load chart ใหม่
   // ป้องกัน pollTimer เก่าที่ยัง active อยู่ ยิง futdChartLoad ซ้อนกันระหว่าง fetch ใหม่
   if (FUTD_CHART.pollTimer) { clearInterval(FUTD_CHART.pollTimer); FUTD_CHART.pollTimer = null; }
-  FUTD.chart.candles = [];   // ล้างแท่งเทียนเก่าทันที ป้องกันกราฟค้างระหว่างโหลด
+  // [v4.15-DIRECT-COIN] ล้างแท่งเทียน/Order Book/ticker/ป้ายแถบกราฟล่างของเหรียญเก่าทันที (เดิมล้างแค่แท่งเทียน → ป้ายชื่อบนแถบกราฟค้างเป็นเหรียญเก่า)
+  _futdResetForCoin(coin);
   futdChartLoad();
   futdStartOrderBook();
   // [v2.51] re-fetch funding rate เมื่อเปลี่ยนเหรียญ
@@ -26539,6 +26578,7 @@ function _origMytRenderContent(tab){
         <div class="myt-item-header">
           <span class="myt-coin">${d.symbol||''}</span>
           <span class="myt-badge">${isPos?'Active':'Pending'}</span>${psBadge}
+          ${isPos ? `<span class="myt-share-ico" onclick="openDirectShareCard('${d.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></span>` : ''}
           <span class="myt-timestamp" style="margin-left:auto">${d.opened_at||d.created_at||''}</span>
         </div>
         <div class="myt-direction ${isCloseOrd ? (sideStr==='long'?'close-long':'close-short') : (sideStr==='long'?'open-long':'open-short')}">${isCloseOrd ? (sideStr==='long'?'Close Long':'Close Short') : (sideStr==='long'?'Open Long':'Open Short')} x${d.lev||''}</div>
@@ -26580,6 +26620,7 @@ function _origMytRenderContent(tab){
           <span class="myt-badge">${d.badge||'Direct'}</span>
           <span class="myt-lev-badge">${d.mode||''}</span>${liqBadge}
           <span style="margin-left:auto;font-size:12px;color:var(--t2)">${d.status||''}</span>
+          <span class="myt-share-ico" style="margin-left:8px;cursor:pointer" onclick="openFutdPosHistShareCard('${d.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></span>
         </div>
         <div class="myt-grid">
           <div class="myt-grid-item"><span class="myt-lbl">Realized PNL (USDT)</span><span class="myt-lbl" style="font-size:11px">ROI</span></div>
@@ -26646,6 +26687,7 @@ function _origMytRenderContent(tab){
           <span class="myt-badge" style="color:var(--r)">Liquidated</span>
           <span class="myt-lev-badge">${d.mode||''}</span>
           <span style="margin-left:auto;font-size:12px;color:var(--r)">Closed</span>
+          <span class="myt-share-ico" style="margin-left:8px;cursor:pointer" onclick="openFutdLiqShareCard('${d.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></span>
         </div>
         <div class="myt-row"><span class="myt-lbl">Avg. Entry Price</span><span class="myt-val">${d.avgEntry||'—'}</span></div>
         <div class="myt-row"><span class="myt-lbl">Liq. Price</span><span class="myt-val red">${d.liqPrice||'—'}</span></div>
@@ -28094,6 +28136,7 @@ let _sccContractData = {};
 function openContractPnlCard(contractId) {
   const c = earnContracts.find(x => x.contractId === contractId);
   if (!c) return;
+  _shareCtx = 'contract'; // [v4.14-DIRECT-SHARE] กัน ctx 'direct' ค้างจากการเปิดครั้งก่อน
   syncContractBalance(c);
 
   const cPos = S.positions.filter(p => p.earnContractId === contractId);
@@ -29623,6 +29666,9 @@ function scSwitchTab(tab) {
   document.getElementById('scPnlCard').style.display      = tab === 'pnl'      ? '' : 'none';
   const cc = document.getElementById('scContractCard');
   if (cc) cc.style.display = tab === 'contract' ? '' : 'none';
+  // [v4.14-DIRECT-SHARE] แท็บ "Contract" เป็นการ์ดสรุปสัญญา Earn — ไม่เกี่ยวกับ Direct → ซ่อนเมื่ออยู่โหมด Direct
+  const ctTab = document.getElementById('scTab-contract');
+  if (ctTab) ctTab.style.display = (_shareCtx === 'direct' && tab !== 'contract') ? 'none' : '';
   if (tab === 'pnl') setTimeout(scDrawPnlChart, 80);
   if (tab === 'contract') setTimeout(scDrawContractChart, 80);
 }
@@ -29720,9 +29766,16 @@ function openPosHistShareCard(posId) {
   _fillAndOpenShareCard(p);
 }
 
-function _fillAndOpenShareCard(p) {
-  _shareCtx = 'contract'; // [v4.13-LABEL] HIST.positionHistory = ฝั่ง Contract
-  const pnlVal = parseFloat(p.realizedPnl || 0);
+/* [v4.14-DIRECT-SHARE] แปลงค่าที่ฟอร์แมตมีคอมมา ("1,234.5600") เป็นตัวเลข — parseFloat ตรง ๆ จะหยุดที่คอมมา (ได้ 1) */
+function _scNum(v) {
+  const n = parseFloat(String(v == null ? 0 : v).replace(/,/g, ''));
+  return isFinite(n) ? n : 0;
+}
+
+function _fillAndOpenShareCard(p, ctx) {
+  // [v4.14-DIRECT-SHARE] ctx: 'contract' (ค่าเริ่มต้น · HIST.positionHistory) | 'direct' (HIST.futdPositionHistory)
+  _shareCtx = ctx === 'direct' ? 'direct' : 'contract'; // [v4.13-LABEL]
+  const pnlVal = _scNum(p.realizedPnl);
   const isPos  = pnlVal >= 0;
   const dt     = (p.closed && p.closed !== '—') ? p.closed : (p.opened || new Date().toISOString().replace('T',' ').substring(0,19));
 
@@ -29741,6 +29794,7 @@ function _fillAndOpenShareCard(p) {
 
   /* Leverage — ดึงจาก mode string เช่น "Cross 150x" หรือ "Isolated 20x" */
   let levTxt = p.lev || p.leverage || '';
+  if (levTxt !== '' && /^\d+(\.\d+)?$/.test(String(levTxt))) levTxt = levTxt + 'x'; // [v4.14-DIRECT-SHARE] Direct เก็บ lev เป็นตัวเลขล้วน → เติม x
   if (!levTxt) {
     const m = (p.mode || p.badge || '').match(/(\d+x)/i);
     levTxt = m ? m[1] : '—';
@@ -29770,6 +29824,93 @@ function _fillAndOpenShareCard(p) {
   _scCurrentTab = 'trade';
   scSwitchTab('trade');
   document.getElementById('shareCardOverlay').classList.add('active');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   [v4.14-DIRECT-SHARE] Share Card ของ ⚡ Direct (รายโพซิชั่น)
+   จุดเรียก: Futures→Direct (futdRenderPositions) · Assets→Futures-Direct (aftdRenderDirectPosList)
+             My Trades→Direct Active (futd-open-orders) · My Trades→Direct Position History
+   ใช้การ์ด/ปุ่ม Download · Share-LINE · QR · Referral ชุดเดียวกับ Contract — ต่างที่ป้าย FUTURES-DIRECT (_shareCtx='direct')
+   ══════════════════════════════════════════════════════════════ */
+function _futdFindPosForShare(posId) {
+  const id = String(posId);
+  const pools = [];
+  try { if (typeof FUTD !== 'undefined' && FUTD.status && Array.isArray(FUTD.status.positions)) pools.push(FUTD.status.positions); } catch (e) {}
+  try { if (typeof AFTD !== 'undefined' && AFTD.cache && AFTD.cache.status && Array.isArray(AFTD.cache.status.positions)) pools.push(AFTD.cache.status.positions); } catch (e) {}
+  for (const arr of pools) {
+    const f = arr.find(x => String(x.id) === id);
+    if (f) return f;
+  }
+  return null;
+}
+
+/* โพซิชั่น Direct ที่ยังเปิดอยู่ — PNL คำนวณจากราคา mark สด (แหล่งเดียวกับการ์ดในหน้า) */
+async function openDirectShareCard(posId) {
+  const p = _futdFindPosForShare(posId);
+  if (!p) { showToast(tccT('toast_no_position_data'), 'error'); return; }
+
+  const coin   = String(p.symbol || '').replace(/USDT$/i, '');
+  const entryP = parseFloat(p.entry_price) || 0;
+  // [v4.15-XYZ-PRICE] ไม่มีราคา mark สด (เช่น NVDA/เหรียญ xyz ขณะเปิดหน้าเหรียญอื่น) → ดึงเอง · ไม่ได้จริง ๆ = ไม่เปิดการ์ด (เดิมใช้ entry แทน → PNL 0.00 ผิดจริง)
+  let markP = _aftdPosMark(p);
+  if (!(markP > 0)) markP = await _futdFetchMidFor(coin);
+  if (!(markP > 0)) { showToast(tccT('sys_no_price_retry')); return; }
+  _shareCtx = 'direct';
+  const pnlVal = _aftdPosPnl(p, markP);
+  const isPos  = pnlVal >= 0;
+  const side   = String(p.side || 'long').toLowerCase();
+  const lev    = parseFloat(p.lev);
+
+  document.getElementById('sctUname').textContent  = SHARE_PROFILE.username;
+  document.getElementById('sctDt').textContent     = new Date().toISOString().replace('T', ' ').substring(0, 19);
+  document.getElementById('sctSymbol').textContent = (coin || '—') + 'USDT Perpetual';
+  const sideEl = document.getElementById('sctSide');
+  sideEl.textContent = side === 'long' ? 'Long' : 'Short';
+  sideEl.className   = side === 'long' ? 'sct-badge-long' : 'sct-badge-short';
+  document.getElementById('sctLev').textContent    = isFinite(lev) && lev > 0 ? lev + 'x' : '—';
+  const pnlEl = document.getElementById('sctPnl');
+  pnlEl.className = 'sct-pnl ' + (isPos ? 'pos' : 'neg');
+  pnlEl.innerHTML = (isPos ? '+' : '') + fmtM(pnlVal) + ' <span class="unit">USDT</span>';
+  document.getElementById('sctEntry').textContent    = fmtPosPx(entryP);
+  document.getElementById('sctPriceLbl').textContent = 'Last Price';
+  document.getElementById('sctPrice').textContent    = fmtPosPx(markP);
+
+  _scSetAvatar();
+  document.getElementById('sctBrandName').textContent = SHARE_PROFILE.brandName;
+  document.getElementById('sctBrandSub').textContent  = _shareBrandSub();
+  document.getElementById('sctRefCode').textContent   = SHARE_PROFILE.refCode;
+  scGenQR('sctQr', SHARE_PROFILE.refUrl);
+
+  _scFillPnlCardDefaults();
+  _scCurrentTab = 'trade';
+  scSwitchTab('trade');
+  document.getElementById('shareCardOverlay').classList.add('active');
+}
+
+/* โพซิชั่น Direct ที่ปิดแล้ว (HIST.futdPositionHistory) — ใช้ตัวเติมการ์ดเดียวกับ Contract History */
+function openFutdPosHistShareCard(posId) {
+  const list = (typeof HIST !== 'undefined' && HIST.futdPositionHistory) ? HIST.futdPositionHistory : [];
+  const p = list.find(x => String(x.id) === String(posId));
+  if (!p) { showToast(tccT('toast_no_position_data'), 'error'); return; }
+  _fillAndOpenShareCard(p, 'direct');
+}
+
+/* [v4.15-DIRECT-LIQ-SHARE] My Trades → Direct → Liquidation History
+   รายการเดียวกับที่ Position History ก็แชร์ได้อยู่แล้ว (ป้าย LIQ) — จึงให้แชร์ได้จากแท็บนี้ด้วยเพื่อให้ทุกหน้าที่แสดงโพซิชั่นที่ปิดแล้วทำงานเหมือนกัน
+   การ์ด: PNL = −Margin Lost · Entry = Avg. Entry · ป้ายราคาล่าง = Liq. Price */
+function openFutdLiqShareCard(posId) {
+  const list = (typeof HIST !== 'undefined' && HIST.futdLiquidationHistory) ? HIST.futdLiquidationHistory : [];
+  const d = list.find(x => String(x.id) === String(posId));
+  if (!d) { showToast(tccT('toast_no_position_data'), 'error'); return; }
+  const lost = _scNum(d.marginLost);
+  _fillAndOpenShareCard({
+    coin: d.coin || d.symbol, symbol: d.symbol, side: d.side, lev: d.lev, mode: d.mode,
+    realizedPnl: lost > 0 ? -lost : 0,
+    avgEntry: d.avgEntry, avgClose: d.liqPrice,
+    closed: d.closed,
+  }, 'direct');
+  const lbl = document.getElementById('sctPriceLbl');
+  if (lbl) lbl.textContent = 'Liq. Price';
 }
 
 /* ── Open PNL Share Card (standalone) ── */
@@ -41971,8 +42112,11 @@ function aftSetMode(mode) {
     if (typeof futdStartOrderBook === 'function' && !FUTD.obWs) {
       futdStartOrderBook();
     }
+    // [v4.17-DIRECT-PXFEED] ราคาสดทุกเหรียญที่ถือ (WS allMids) — Assets→Direct ใช้ FUTD.prices ชุดเดียวกัน
+    if (typeof futdStartPriceFeed === 'function') futdStartPriceFeed();
   } else {
     _aftdStopPricePoll();
+    if (typeof _futdPxSync === 'function') _futdPxSync();   // [v4.17-DIRECT-PXFEED] ไม่ต้องใช้แล้ว (ไม่ได้ดู Direct) → ปิดเอง
     // หยุด OB WS ที่ start เพราะ Assets Direct เพื่อไม่ใช้ bandwidth เกิน
     // (ถ้า Futures Direct tab เปิดอยู่ FUTD.pollTimer !== null → ไม่หยุด)
     if (typeof FUTD !== 'undefined' && FUTD.obWs && FUTD.pollTimer === null) {
@@ -42233,6 +42377,7 @@ function aftdPrefetchDirect() {
 }
 
 function aftdRenderDirectPosList(positions, liqPriceMap) {
+  try { setTimeout(_futdPxSync, 50); } catch (e) {}   // [v4.17-DIRECT-PXFEED] มี/ไม่มี position เปลี่ยน → เปิด/ปิดตัวป้อนราคา
   const el = document.getElementById('astFutDirectPosList');
   if (!el) return;
   if (!positions.length) {
@@ -42286,7 +42431,7 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
       : `<span class="futd-tpsl-chip none">SL: —</span>`;
 
     const markStr = fmtPosPx(markP); // [vx13-POS-PX]
-    const liqStr  = liqP  > 0 ? liqP.toLocaleString('en',{maximumFractionDigits:4})  : '—';
+    const liqStr  = liqP  > 0 ? fmtPosPx(liqP)  : '—';   // [v4.18-LIQ-FMT] ทศนิยมตามช่วงราคาเดียวกับ Entry/Mark (เดิม 4 หลักเสมอ → 235,194.0088)
     const goDirect = `navTo('futures');requestAnimationFrame(()=>futSwitchTab('direct'))`;
 
     return `<div class="futd-pos-row" style="margin:8px 12px" onclick="${goDirect}">
@@ -42318,6 +42463,7 @@ function aftdRenderDirectPosList(positions, liqPriceMap) {
         <div class="futd-btn-sm" onclick="${goDirect}">Leverage</div>
         <div class="futd-btn-sm warn" onclick="${goDirect}">TP/SL</div>
         <div class="futd-btn-sm danger" onclick="${goDirect}">Close</div>
+        <div class="futd-btn-sm" style="color:var(--y);border-color:rgba(240,185,11,.4)" onclick="openDirectShareCard('${p.id}')">Share</div>
       </div>
     </div>`;
   }).join('');
@@ -42334,6 +42480,7 @@ const FUTD = {
   lastPrice: 0,            // ราคาล่าสุดของเหรียญที่เลือก
   prices: {},              // map coin → price สำหรับทุก position ที่เปิดอยู่
   pollTimer: null,
+  _pxWs: null, _pxTimer: null, _pxStamp: {},   // [v4.17-DIRECT-PXFEED] allMids feed ของทุกเหรียญที่ถือโพซิชั่น
   _astInFlight: false,     // [v2.52 FIX-POLL-LOCK] in-flight guard สำหรับ futdRefreshAccountStatus
   _astDirty: false,        // [v4.13-DIRECT-FRESH] มีคำสั่ง refresh (หลังเปิด/ปิด) เข้ามาระหว่าง in-flight → ทิ้งผลที่กำลังรอ แล้วดึงใหม่ทันที
   status: null,            // ผลล่าสุดจาก getFuturesAccountStatus
@@ -42443,6 +42590,7 @@ function futdInit() {
   const _initCoin = (typeof S !== 'undefined' && S.coin) ? S.coin : null;
   if (_initCoin && _initCoin !== FUTD.symbolCoin) {
     FUTD.symbolCoin = _initCoin;
+    _futdResetForCoin(_initCoin);   // [v4.15-DIRECT-COIN] ล้างแท่งเทียน/Order Book/ticker ของเหรียญเก่า — เดิมค้างจน candle ใหม่โหลดเสร็จ (หรือค้างถาวรถ้าโหลดไม่สำเร็จ)
     // sync unit labels ทันที (ก่อน render ใดๆ)
     const _unitEl    = document.getElementById('futdObAmtUnit');
     const _amtUnitEl = document.getElementById('futdAmtUnit');
@@ -42484,9 +42632,12 @@ function futdInit() {
     // [FIX-POLL-LOCK] in-flight guard — skip ถ้า request ก่อนยังไม่เสร็จ
     if (!FUTD._astInFlight) futdRefreshAccountStatus();
   }, 15000);
+  // [v4.17-DIRECT-PXFEED] ราคาสดของทุกเหรียญที่ถือโพซิชั่น — แยกจาก pollTimer/GAS (หยุดนิ่งไม่ได้แม้ GAS timeout)
+  futdStartPriceFeed();
 }
 
 function futdStopPolling() {
+  futdStopPriceFeed();   // [v4.17-DIRECT-PXFEED]
   if (FUTD.pollTimer) { clearInterval(FUTD.pollTimer); FUTD.pollTimer = null; }
   // [v2.51] หยุด Funding timer ด้วย
   if (FUTD.fundingTimer) { clearInterval(FUTD.fundingTimer); FUTD.fundingTimer = null; }
@@ -43053,7 +43204,7 @@ function futdStartOrderBook() {
             const mid = (bids[0].p + asks[0].p) / 2;
             FUTD.lastPrice = mid;
             // อัปเดต last candle ด้วย OB mid (fallback path)
-            if (FUTD.chart && FUTD.chart.candles.length) {
+            if (_futdCandlesFresh()) {   // [v4.15-DIRECT-COIN]
               const _lc = FUTD.chart.candles[FUTD.chart.candles.length - 1];
               _lc.c = mid;
               if (mid > _lc.h) _lc.h = mid;
@@ -43105,12 +43256,13 @@ function futdStartOrderBook() {
           }
 
           // อัปเดต lastPrice จาก trade (แม่นยำกว่า mid price จาก OB)
+          FUTD._tradeTs = Date.now();   // [v4.17-DIRECT-PXFEED] allMids feed ให้ทางแก่ trade tick ของเหรียญที่เลือก
           FUTD.lastPrice = tradePrice;
           if (!FUTD.prices) FUTD.prices = {};
           FUTD.prices[tradeCoin] = tradePrice;
 
           // [FIX-RT] อัปเดต last candle close/high/low ด้วย trade price — เหมือน Contract updateChart()
-          if (FUTD.chart && FUTD.chart.candles.length) {
+          if (_futdCandlesFresh()) {   // [v4.15-DIRECT-COIN]
             const last = FUTD.chart.candles[FUTD.chart.candles.length - 1];
             const lastC = parseFloat(last.c || last.close) || 0;
             if (lastC > 0) {
@@ -43847,7 +43999,9 @@ async function futdPlaceOrder(side) {
 
 // ── Form helpers ─────────────────────────────────────────────────
 function futdOnSymbolChange() {
+  const _prevCoin = FUTD.symbolCoin;
   FUTD.symbolCoin = document.getElementById('futd-symbol')?.value || FUTD.symbolCoin;
+  if (FUTD.symbolCoin !== _prevCoin) _futdResetForCoin(FUTD.symbolCoin);   // [v4.15-DIRECT-COIN]
   futdRefreshPrice();
   futdChartLoad();
   // รีสตาร์ท OB WebSocket ด้วย coin ใหม่
@@ -43875,26 +44029,279 @@ function futdSetSide(side) {
 }
 
 // ── Price ────────────────────────────────────────────────────────
+/* ══════════════════════════════════════════════════════════════
+   [v4.15-DIRECT-COIN] ตัวช่วยราคา/สถานะต่อเหรียญของ Direct
+   ══════════════════════════════════════════════════════════════ */
+/** เหรียญ (ไม่มี USDT) ของโพซิชั่น Direct ที่ถืออยู่ — จาก FUTD.status และ cache ของ Assets→Direct */
+function _futdPositionCoins() {
+  const set = new Set();
+  const add = arr => (Array.isArray(arr) ? arr : []).forEach(p => {
+    const c = String((p && p.symbol) || '').replace('USDT', '');
+    if (c) set.add(c);
+  });
+  try { if (typeof FUTD !== 'undefined' && FUTD.status) add(FUTD.status.positions); } catch (e) {}
+  try {
+    if (typeof AFTD !== 'undefined') {
+      add(AFTD.positions);
+      add(AFTD.cache && AFTD.cache.status && AFTD.cache.status.positions);
+    }
+  } catch (e) {}
+  return [...set];
+}
+
+/** ดึงราคา mid ของเหรียญเดียว (ลอง dex หลักก่อน → ไม่เจอ/เป็นเหรียญ xyz ค่อยลอง dex xyz) แล้วเก็บลง FUTD.prices · ไม่เจอ = 0 */
+async function _futdFetchMidFor(coin) {
+  const pick = mids => {
+    if (!mids || typeof mids !== 'object') return 0;
+    const k = Object.keys(mids).find(x => (x.includes(':') ? x.split(':').pop() : x) === coin);
+    const v = k ? parseFloat(mids[k]) : 0;
+    return v > 0 ? v : 0;
+  };
+  let px = 0;
+  try {
+    const metalFirst = (typeof _isMetalCoin === 'function') && _isMetalCoin(coin);
+    const order = metalFirst ? [METAL_DEX, null] : [null, METAL_DEX];
+    for (const dex of order) {
+      px = pick(await hlPost(dex ? { type: 'allMids', dex } : { type: 'allMids' }, 1));
+      if (px > 0) break;
+    }
+  } catch (e) { /* คืน 0 */ }
+  if (px > 0) { if (!FUTD.prices) FUTD.prices = {}; FUTD.prices[coin] = px; }
+  return px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   [v4.17-DIRECT-PXFEED] ตัวป้อนราคาสดของ "ทุกเหรียญที่มีโพซิชั่น" ใน Direct
+   สาเหตุเดิม: WebSocket (Order Book/trades) ของ Direct ดูแลเฉพาะ "เหรียญที่เลือกอยู่" เท่านั้น
+     เหรียญอื่นที่ถือโพซิชั่นอยู่ (เช่น เปิด BTC แต่ถือ NVDA / เปิด NVDA แต่ถือ BTC) ได้ราคาจาก REST ทุก 15 วิ
+     ผ่าน FUTD.pollTimer ตัวเดียวกับการดึงสถานะบัญชีจาก GAS → ถ้า GAS timeout ระบบหยุด pollTimer 60 วิ
+     (futdRefreshAccountStatus backoff) ราคาเหรียญอื่นจึงหยุดนิ่งทั้งหมด · และ hlPost ต้องต่อคิวร่วมกับคำขอหนักอื่น
+   แก้: socket allMids แยกต่างหาก (dex หลัก + dex xyz) → ราคาเหรียญอื่นขยับทุกบล็อก ไม่ผูกกับ pollTimer/GAS
+        + REST สำรองทุก ~4 วิ เฉพาะเมื่อ WS เงียบ + ตรวจ socket ค้าง (zombie) หลังพักหน้าจอ/BF Cache
+   ══════════════════════════════════════════════════════════════ */
+/** ต้องมีตัวป้อนราคาสดหรือไม่: ล็อกอินแล้ว และกำลังดู Futures→Direct หรือ Assets→Futures-Direct */
+function _futdPxWanted() {
+  try {
+    if (!_futdCurrentUid()) return false;
+    const onFutd = (currentPage === 'futures') && (typeof _futActiveTab !== 'undefined') && _futActiveTab === 'direct';
+    const onAftd = (currentPage === 'assets') && (typeof AFTD !== 'undefined') && AFTD.mode === 'direct';
+    return !!(onFutd || onAftd);
+  } catch (e) { return false; }
+}
+
+/** รวมราคา allMids เข้า FUTD.prices — คืนจำนวนเหรียญที่อัปเดต
+ *  กฎเดียวกับ futdRefreshPrice: เหรียญที่ลงทะเบียนเป็น xyz → ราคา dex xyz ชนะ · ข้าม spot (@123) */
+function _futdPxMerge(mids, fromXyz, force) {
+  if (!mids || typeof mids !== 'object') return 0;
+  if (!FUTD.prices) FUTD.prices = {};
+  if (!FUTD._pxStamp) FUTD._pxStamp = {};
+  const now = Date.now();
+  const sel = FUTD.symbolCoin;
+  // เหรียญที่เลือกอยู่: ถ้า Order Book WS ส่ง trade มาใน 3 วิล่าสุด ให้ WS นั้นเป็นเจ้าของราคา (กันค่ากระโดดสลับ trade/mid)
+  const selOwnedByOb = !force && !!(FUTD.obWs && FUTD.obWs.readyState === 1) && (now - (FUTD._tradeTs || 0) < 3000);
+  let n = 0;
+  for (const k in mids) {
+    if (k.charAt(0) === '@') continue;
+    const pref = k.indexOf(':') > 0;
+    const nk = pref ? k.split(':').pop() : k;
+    const v = parseFloat(mids[k]);
+    if (!(v > 0)) continue;
+    if (selOwnedByOb && nk === sel) continue;
+    if (fromXyz || pref) {
+      if (!(_isMetalCoin(nk) || !FUTD.prices[nk])) continue;
+    } else if (_isMetalCoin(nk)) {
+      continue;   // เหรียญ xyz ใช้ราคาจาก dex xyz เท่านั้น
+    }
+    FUTD.prices[nk] = v;
+    FUTD._pxStamp[nk] = now;
+    n++;
+  }
+  return n;
+}
+
+/** วาดตัวเลขที่เกี่ยวกับราคาใหม่ (throttle ~4 ครั้ง/วิ) — การ์ด Position ของ Direct + Assets→Direct */
+function _futdPxScheduleApply() {
+  if (FUTD._pxApplyT) return;
+  FUTD._pxApplyT = setTimeout(() => {
+    FUTD._pxApplyT = null;
+    try {
+      const sp = FUTD.prices && FUTD.prices[FUTD.symbolCoin];
+      if (sp > 0 && !(FUTD.obWs && (Date.now() - (FUTD._tradeTs || 0) < 3000))) {
+        const tk = document.getElementById('futd-tk-mark');
+        if (tk) tk.textContent = fmtP(sp);
+      }
+      if (FUTD.status) futdUpdatePnlCards();
+      if (currentPage === 'assets' && typeof AFTD !== 'undefined' && AFTD.mode === 'direct' &&
+          AFTD.positions && AFTD.positions.length) aftdUpdateUnrealizedPnl();
+    } catch (e) { console.warn('[_futdPxApply]', e && e.message); }
+  }, 250);
+}
+
+/** REST สำรอง: ดึง allMids (dex หลัก + xyz เมื่อจำเป็น) ผ่านเส้นทางแยกจาก pollTimer */
+async function _futdPxRest() {
+  if (FUTD._pxRestBusy) return;
+  FUTD._pxRestBusy = true;
+  try {
+    const coins = _futdPositionCoins();
+    const needMetal = coins.some(c => _isMetalCoin(c));
+    const arr = [ hlPost({ type: 'allMids' }, 1) ];
+    if (needMetal) arr.push(hlPost({ type: 'allMids', dex: METAL_DEX }, 1).catch(() => null));
+    let [mids, metalMids] = await Promise.all(arr);
+    // XYZ_COINS ยังไม่รู้จักเหรียญที่ถืออยู่ (รายการยังโหลดไม่เสร็จ) แต่ dex หลักไม่มีราคาเหรียญนั้น → ลอง dex xyz
+    if (!needMetal && mids && typeof mids === 'object' && coins.some(c => mids[c] === undefined)) {
+      metalMids = await hlPost({ type: 'allMids', dex: METAL_DEX }, 1).catch(() => null);
+    }
+    const a = _futdPxMerge(mids, false, true);
+    const b = _futdPxMerge(metalMids, true, true);
+    if (a + b > 0) _futdPxScheduleApply();
+  } catch (e) { /* รอบหน้าลองใหม่ */ }
+  finally { FUTD._pxRestBusy = false; }
+}
+
+function _futdPxCloseWs() {
+  if (FUTD._pxPingT) { clearInterval(FUTD._pxPingT); FUTD._pxPingT = null; }
+  if (FUTD._pxReconnT) { clearTimeout(FUTD._pxReconnT); FUTD._pxReconnT = null; }
+  const ws = FUTD._pxWs;
+  FUTD._pxWs = null;
+  if (ws) { try { ws.close(); } catch (e) {} }
+}
+
+function _futdPxOpenWs() {
+  if (FUTD._pxWs) return;
+  let ws;
+  try { ws = new WebSocket('wss://api.hyperliquid.xyz/ws'); } catch (e) { return; }
+  FUTD._pxWs = ws;
+  FUTD._pxOpenAt = Date.now();
+  ws.onopen = () => {
+    if (FUTD._pxWs !== ws) { try { ws.close(); } catch (e) {} return; }
+    try {
+      ws.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'allMids' } }));
+      ws.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'allMids', dex: METAL_DEX } }));
+    } catch (e) {}
+  };
+  ws.onmessage = (evt) => {
+    if (FUTD._pxWs !== ws) return;
+    try {
+      const d = JSON.parse(evt.data);
+      if (d.channel !== 'allMids' || !d.data || !d.data.mids) return;
+      FUTD._pxLastWs = Date.now();
+      if (_futdPxMerge(d.data.mids, false, false) > 0) _futdPxScheduleApply();
+    } catch (e) { /* ignore */ }
+  };
+  // heartbeat เหมือน Order Book WS — กัน server ตัด idle connection
+  if (FUTD._pxPingT) clearInterval(FUTD._pxPingT);
+  const pt = FUTD._pxPingT = setInterval(() => {
+    if (FUTD._pxWs !== ws) { clearInterval(pt); return; }
+    if (ws.readyState === WebSocket.OPEN) { try { ws.send(JSON.stringify({ method: 'ping' })); } catch (e) {} }
+  }, 20000);
+  ws.onerror = () => {};
+  ws.onclose = () => {
+    if (FUTD._pxWs !== ws) return;     // ถูกแทนที่/ปิดโดยตั้งใจแล้ว
+    FUTD._pxWs = null;
+    if (FUTD._pxPingT) { clearInterval(FUTD._pxPingT); FUTD._pxPingT = null; }
+    if (_futdPxWanted() && !FUTD._pxReconnT) {
+      FUTD._pxReconnT = setTimeout(() => { FUTD._pxReconnT = null; _futdPxSync(); }, 1500);
+    }
+  };
+}
+
+/** ตรวจสถานะตัวป้อนราคา (เรียกจาก timer 4 วิ + ทุกครั้งที่วาดรายการ Position):
+ *  ไม่ต้องใช้ → ปิด · ไม่มี position → ปิด socket · มี position → เปิด socket + REST สำรองถ้าเหรียญใดเงียบ */
+function _futdPxSync() {
+  try {
+    if (!_futdPxWanted()) { futdStopPriceFeed(); return; }
+    if (!FUTD._pxTimer) FUTD._pxTimer = setInterval(_futdPxSync, 4000);
+    const coins = _futdPositionCoins();
+    if (!coins.length) { _futdPxCloseWs(); return; }
+    const now = Date.now();
+    // socket ค้าง (OPEN แต่ไม่มีข้อมูลเกิน 12 วิ) หรือยังไม่เคยได้ข้อมูลหลังเปิดเกิน 12 วิ → เปิดใหม่
+    const ws = FUTD._pxWs;
+    if (ws && (now - Math.max(FUTD._pxLastWs || 0, FUTD._pxOpenAt || 0)) > 12000) _futdPxCloseWs();
+    if (!FUTD._pxWs && !FUTD._pxReconnT) _futdPxOpenWs();
+    if (document.hidden) return;
+    const obLive = !!(FUTD.obWs && FUTD.obWs.readyState === 1 && (now - (FUTD._tradeTs || 0) < 3000));
+    const stale = coins.some(c => {
+      if (c === FUTD.symbolCoin && obLive) return false;
+      const t = FUTD._pxStamp && FUTD._pxStamp[c];
+      return !(t && now - t < 5000) || !(FUTD.prices && FUTD.prices[c] > 0);
+    });
+    if (stale) _futdPxRest();
+  } catch (e) { console.warn('[_futdPxSync]', e && e.message); }
+}
+function futdStartPriceFeed() { _futdPxSync(); }
+function futdStopPriceFeed() {
+  if (FUTD._pxTimer) { clearInterval(FUTD._pxTimer); FUTD._pxTimer = null; }
+  if (FUTD._pxApplyT) { clearTimeout(FUTD._pxApplyT); FUTD._pxApplyT = null; }
+  _futdPxCloseWs();
+}
+// กลับเข้าหน้าจอ/BF Cache restore: socket มักค้างเงียบ → เปิดใหม่ + ดึง REST ทันที
+(function _futdPxResume() {
+  const resume = () => {
+    try {
+      if (typeof FUTD === 'undefined' || !_futdPxWanted()) return;
+      _futdPxCloseWs();
+      _futdPxSync();
+      _futdPxRest();
+    } catch (e) {}
+  };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resume(); });
+  window.addEventListener('pageshow', e => { if (e.persisted) resume(); });
+})();
+
+/** แท่งเทียนใน FUTD.chart เป็นของเหรียญที่เลือกอยู่จริงหรือไม่ (กันตัวเลขเหรียญเก่าปนเมื่อสลับเหรียญ) */
+function _futdCandlesFresh() {
+  return !!(FUTD.chart && FUTD.chart.candles && FUTD.chart.candles.length && FUTD.chart.candlesCoin === FUTD.symbolCoin);
+}
+
+/** ล้างข้อมูลของเหรียญเก่าทั้งหมดเมื่อสลับเหรียญ (แท่งเทียน · Order Book · ticker · แถบกราฟล่าง) แล้ววาดของเหรียญใหม่ตามมา */
+function _futdResetForCoin(coin) {
+  try {
+    FUTD.chart.candles = [];
+    FUTD.chart.candlesCoin = null;
+    FUTD.chart.viewStart = null;
+    FUTD.lastPrice = 0;
+    FUTD.bids = [];
+    FUTD.asks = [];
+    FUTD._prevMidPrice = 0;
+    const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    ['futd-tk-mark', 'futd-tk-high', 'futd-tk-low', 'futd-tk-vol', 'futdObMidPrice', 'futdObMarkPrice'].forEach(id => setTxt(id, '—'));
+    ['futdAskList', 'futdBidList'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+    const chg = document.getElementById('futdCollapsedChg');
+    if (chg) { chg.textContent = '—'; chg.className = 'tb-chg'; }
+    setTxt('futdChartHdrSym', (coin || FUTD.symbolCoin) + 'USDT');
+  } catch (e) { console.warn('[_futdResetForCoin]', e && e.message); }
+}
+
 /** ดึงราคาทุกเหรียญที่ต้องการ (form symbol + ทุก position ที่เปิดอยู่) */
 async function futdRefreshPrice() {
   try {
-    // [v2.69-METAL-PRICE v2] ดึง metalMids เฉพาะเมื่ออยู่ใน metal coin
-    // การดึง dex:xyz ทุก poll แม้อยู่ใน BTC ทำให้ queue หนักขึ้น + โอกาส 500 chain สูงขึ้น
-    // → futdChartDraw ไม่ถูกเรียก → กราฟค้าง
-    const _curIsMetal = (typeof _isMetalCoin === 'function') && _isMetalCoin(FUTD.symbolCoin);
+    // [v4.15-XYZ-PRICE] ราคา dex xyz (NVDA/หุ้น/โลหะ) ต้องดึงเมื่อ "เหรียญที่เลือก" หรือ "โพซิชั่นที่ถืออยู่" เป็นเหรียญ xyz
+    //   เดิมดึงเฉพาะเมื่อเหรียญที่เลือกเป็น xyz (กัน queue หนัก) → เปิด BTC อยู่ ราคา NVDA หายหมด:
+    //   การ์ดโพซิชั่น PNL=0 · การ์ดแชร์ได้ 0 · ปุ่ม Close หาราคาไม่เจอ
+    //   ยังดึงเฉพาะเมื่อ "จำเป็น" เหมือนเจตนาเดิม (v2.69-METAL-PRICE v2) — ไม่มีเหรียญ xyz ในมือ = ไม่ยิง dex xyz
+    const _posCoins  = _futdPositionCoins();
+    const _needMetal = (typeof _isMetalCoin === 'function') &&
+                       (_isMetalCoin(FUTD.symbolCoin) || _posCoins.some(c => _isMetalCoin(c)));
     const fetchArr = [ hlPost({ type: 'allMids' }) ];
-    if (_curIsMetal) fetchArr.push(hlPost({ type: 'allMids', dex: METAL_DEX }).catch(() => null));
-    const [mids, metalMids] = await Promise.all(fetchArr);
-    // เก็บราคาทุกเหรียญใน map
-    FUTD.prices = {};
-    Object.keys(mids).forEach(k => { FUTD.prices[k] = parseFloat(mids[k]) || 0; });
-    // merge metal prices เฉพาะเมื่อดึงมา
-    if (metalMids) {
+    if (_needMetal) fetchArr.push(hlPost({ type: 'allMids', dex: METAL_DEX }).catch(() => null));
+    let [mids, metalMids] = await Promise.all(fetchArr);
+    // [v4.15-XYZ-PRICE] XYZ_COINS ยังไม่รู้จักเหรียญนี้ (list ยังโหลดไม่เสร็จ) แต่เหรียญที่ต้องใช้ไม่อยู่ใน dex หลัก → ลอง dex xyz อีกครั้ง
+    if (!_needMetal && mids && typeof mids === 'object') {
+      const _want = _posCoins.concat([FUTD.symbolCoin]);
+      if (_want.some(c => c && mids[c] === undefined)) {
+        metalMids = await hlPost({ type: 'allMids', dex: METAL_DEX }).catch(() => null);
+      }
+    }
+    // [v4.15-XYZ-PRICE] merge ทับของเดิม (ไม่ล้าง map ทิ้ง) — รอบที่ดึง dex xyz ไม่สำเร็จจะยังมีราคารอบก่อนให้ใช้
+    if (!FUTD.prices) FUTD.prices = {};
+    Object.keys(mids).forEach(k => { const v = parseFloat(mids[k]) || 0; if (v > 0) FUTD.prices[k] = v; });
+    if (metalMids && typeof metalMids === 'object') {
       Object.keys(metalMids).forEach(k => {
         const normK = k.includes(':') ? k.split(':').pop() : k;
-        if (!FUTD.prices[normK] || FUTD.prices[normK] === 0) {
-          FUTD.prices[normK] = parseFloat(metalMids[k]) || 0;
-        }
+        const v = parseFloat(metalMids[k]) || 0;
+        if (!(v > 0)) return;
+        // เหรียญที่ลงทะเบียนเป็น xyz → ราคา dex xyz ชนะ (เหมือน _aftdPriceTick / _wsCoinName) · ชื่อซ้ำกับ dex หลัก = คงของ dex หลัก
+        if (_isMetalCoin(normK) || !FUTD.prices[normK]) FUTD.prices[normK] = v;
       });
     }
 
@@ -43907,7 +44314,7 @@ async function futdRefreshPrice() {
     if (tkMark && price > 0) tkMark.textContent = fmtP(price);
 
     // [PATCH] Mirror price change % to collapsed header (เหมือน Contract updateTopBar → futCollapsedChg)
-    if (price > 0 && FUTD.chart.candles.length) {
+    if (price > 0 && _futdCandlesFresh()) {   // [v4.15-DIRECT-COIN] แท่งเทียนต้องเป็นของเหรียญนี้ (กัน -99.76% จากแท่งเหรียญเก่า)
       const baseC = FUTD.chart.candles[0];
       const baseP = parseFloat(baseC.o || baseC.open) || price;
       const chgPct = baseP ? ((price - baseP) / baseP * 100) : 0;
@@ -43937,7 +44344,7 @@ async function futdRefreshPrice() {
     }
 
     // [FIX-11] วาดกราฟหลังได้ราคาใหม่ — ผ่าน RAF throttle ป้องกัน draw ซ้ำทุก 1s poll
-    if (FUTD.chart.candles.length) {
+    if (_futdCandlesFresh()) {   // [v4.15-DIRECT-COIN] ไม่เขียนราคาเหรียญใหม่ทับแท่งสุดท้ายของเหรียญเก่า
       const _lc2 = FUTD.chart.candles[FUTD.chart.candles.length - 1];
       if (price > 0) {
         _lc2.c = price;
@@ -44426,6 +44833,7 @@ function futdRzRender(p, items, mode, totalOverride) {
 }
 
 function futdRenderPositions(positions) {
+  try { setTimeout(_futdPxSync, 50); } catch (e) {}   // [v4.17-DIRECT-PXFEED] มี/ไม่มี position เปลี่ยน → เปิด/ปิดตัวป้อนราคา
   const el = document.getElementById('futd-positions-list');
   if (!el) return;
 
@@ -44464,7 +44872,8 @@ function futdRenderPositions(positions) {
         ? (markP - entryP) * size
         : (entryP - markP) * size;
     }
-    const upnlColor = upnl >= 0 ? 'var(--g)' : 'var(--r)';
+    const _noMark   = !(markP > 0);   // [v4.15-XYZ-PRICE] ยังไม่มีราคา mark → แสดง "—" ไม่ใช่ +0.00 (กันเข้าใจผิดว่ากำไรเป็นศูนย์)
+    const upnlColor = _noMark ? 'var(--t2)' : (upnl >= 0 ? 'var(--g)' : 'var(--r)');
     const roiPct    = margin > 0 ? ((upnl / margin) * 100) : 0;
 
     // [V1_9-MR-LIVE] Margin Ratio ที่ราคา mark สด — ดู _futdMarginRatio (เดิม: maintenance ที่ entry + total_maintenance_margin รวม Isolated + ค่าไม่ขยับตาม tick)
@@ -44490,7 +44899,7 @@ function futdRenderPositions(positions) {
       : '';
 
     const markStr = fmtPosPx(markP); // [vx13-POS-PX]
-    const liqStr  = liqP  > 0 ? liqP.toLocaleString('en',{maximumFractionDigits:4})  : '—';
+    const liqStr  = liqP  > 0 ? fmtPosPx(liqP)  : '—';   // [v4.18-LIQ-FMT] ทศนิยมตามช่วงราคาเดียวกับ Entry/Mark (เดิม 4 หลักเสมอ → 235,194.0088)
 
     // [v2.53] mode badge
     const modeBadge = posMode === 'isolated'
@@ -44514,9 +44923,9 @@ function futdRenderPositions(positions) {
     const _rz       = futdPosRealizedPnl(p, coin);
     const _rzColor  = _rz > 0 ? 'var(--g)' : _rz < 0 ? 'var(--r)' : 'var(--t2)';
     return `<div class="futd-pos-row futd-pc" id="futd-pos-${p.id}">
-      <div class="futd-pc-h"><span class="futd-pc-badge ${_L ? 'L' : 'S'}">${_L ? 'L' : 'S'}</span>${p.symbol}<span class="futd-pc-tag">Perp</span><span class="futd-pc-tag" style="cursor:pointer" onclick="futdAdjLeverage('${p.id}')">${_modeTxt} ${p.lev}x</span>${hedgeBadge}${_riskBars}</div>
+      <div class="futd-pc-h"><span class="futd-pc-badge ${_L ? 'L' : 'S'}">${_L ? 'L' : 'S'}</span>${p.symbol}<span class="futd-pc-tag">Perp</span><span class="futd-pc-tag" style="cursor:pointer" onclick="futdAdjLeverage('${p.id}')">${_modeTxt} ${p.lev}x</span>${hedgeBadge}${_riskBars}<span class="pc-share" onclick="event.stopPropagation();openDirectShareCard('${p.id}')" aria-label="share"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></span></div>
       <div class="futd-pc-prow"><span class="futd-pc-dot">PNL (USDT)</span><span class="futd-pc-dot">ROI</span></div>
-      <div class="futd-pc-prow" style="margin-top:2px"><span class="futd-pc-big" style="color:${upnlColor}" id="futd-upnl-${p.id}">${upnl >= 0 ? '+' : ''}${upnl.toFixed(2)}</span><span class="futd-pc-big" style="color:${upnlColor}" id="futd-roi-${p.id}">${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(2)}%</span></div>
+      <div class="futd-pc-prow" style="margin-top:2px"><span class="futd-pc-big" style="color:${upnlColor}" id="futd-upnl-${p.id}">${_noMark ? '—' : (upnl >= 0 ? '+' : '') + upnl.toFixed(2)}</span><span class="futd-pc-big" style="color:${upnlColor}" id="futd-roi-${p.id}">${_noMark ? '—' : (roiPct >= 0 ? '+' : '') + roiPct.toFixed(2) + '%'}</span></div>
       <div class="futd-pc-g3">
         <div><span class="futd-pc-dot">Size (${_szUnit}) </span><button class="futd-pc-swap" onclick="futdTogglePosUnit('${p.id}')" aria-label="swap unit">${_FUTD_SVG_SWAP}</button><b id="futd-sz-${p.id}">${_szTxt}</b></div>
         <div><span>Margin (USDT)</span><b>${_mgnTxt}</b></div>
@@ -44791,7 +45200,7 @@ function futdOpenMarginSheet(posId) {
     ` <span style="background:${pos.side==='long'?'rgba(14,203,129,.15)':'rgba(246,70,93,.15)'};color:${pos.side==='long'?'var(--g)':'var(--r)'};font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">${pos.side === 'long' ? 'LONG' : 'SHORT'} ${pos.lev}x ISO</span>`;
 
   setTxt('futdMgCurMargin', margin.toFixed(2) + ' USDT');
-  setTxt('futdMgLiq',       liqP > 0 ? liqP.toLocaleString('en', { maximumFractionDigits: 4 }) : '—');
+  setTxt('futdMgLiq',       liqP > 0 ? fmtPosPx(liqP) : '—');   // [v4.18-LIQ-FMT]
   setTxt('futdMgAvail',     avail.toFixed(2) + ' USDT');
   setTxt('futdMgEffLev',    effLev + 'x');
 
@@ -44991,8 +45400,7 @@ async function futdCloseposition(posId, closeSize) {
   let exitPrice = FUTD.prices[coin] || 0;
   try {
     if (!exitPrice) {
-      const mids = await hlPost({ type: 'allMids' });
-      exitPrice = parseFloat(mids[coin]) || 0;
+      exitPrice = await _futdFetchMidFor(coin);   // [v4.15-XYZ-PRICE] เดิมดึงแต่ dex หลัก → ปิดโพซิชั่น NVDA/หุ้น/โลหะขณะเปิดเหรียญอื่นไม่ได้ (ไม่พบราคา)
     }
   } catch (e) {
     showToast('❌ ' + (e.message || tccT('sys_close_pos_fail')));
@@ -45080,8 +45488,7 @@ async function _futdClosePartial(pos, closeSize) {
   let exitPrice = FUTD.prices[coin] || 0;
   try {
     if (!exitPrice) {
-      const mids = await hlPost({ type: 'allMids' });
-      exitPrice = parseFloat(mids[coin]) || 0;
+      exitPrice = await _futdFetchMidFor(coin);   // [v4.15-XYZ-PRICE] รองรับเหรียญ dex xyz
     }
   } catch (e) {
     showToast('❌ ' + (e.message || tccT('sys_close_pos_fail')));
@@ -45557,7 +45964,7 @@ function futdOpenTpslSheet(posId) {
   if (symEl) symEl.innerHTML = `${pos.symbol} <span style="background:${pos.side==='long'?'rgba(14,203,129,.15)':'rgba(246,70,93,.15)'};color:${pos.side==='long'?'var(--g)':'var(--r)'};font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">${pos.side === 'long' ? 'LONG' : 'SHORT'} ${pos.lev}x</span>`;
 
   const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  const liqStr = liqP > 0 ? liqP.toLocaleString('en',{maximumFractionDigits:4}) : '—';
+  const liqStr = liqP > 0 ? fmtPosPx(liqP) : '—';   // [v4.18-LIQ-FMT]
   setTxt('futdTpslEntry',         entryP > 0 ? entryP.toLocaleString('en',{maximumFractionDigits:4}) : '—');
   setTxt('futdTpslMark',          markP  > 0 ? markP.toLocaleString('en',{maximumFractionDigits:4})  : '—');
   setTxt('futdTpslLiq',           liqStr);
@@ -46300,7 +46707,7 @@ function futdChartInit() {
               || (typeof S !== 'undefined' && S.coinPrices && parseFloat(S.coinPrices[FUTD.symbolCoin]))
               || (FUTD.lastPrice > 0 ? FUTD.lastPrice : 0)
               || 0;
-      if (mp > 0 && FUTD.chart.candles.length) {
+      if (mp > 0 && _futdCandlesFresh()) {   // [v4.15-DIRECT-COIN] แท่งเทียนต้องเป็นของเหรียญที่เลือก
         const last = FUTD.chart.candles[FUTD.chart.candles.length - 1];
         const lastC = parseFloat(last.c || last.close) || 0;
         // อัปเดต close + high/low ของ candle ปัจจุบันด้วยราคาล่าสุด (live wick)
@@ -46412,7 +46819,7 @@ async function futdFetchMoreCandlesBefore() {
       ..._dexParam(coin)
     });
     const older = _parseCandles(d);
-    if (older.length) {
+    if (older.length && coin === FUTD.symbolCoin && FUTD.chart.candlesCoin === coin) {   // [v4.15-DIRECT-COIN] สลับเหรียญระหว่างรอ → ทิ้งผล ไม่ปนแท่งต่างเหรียญ
       // Prepend + deduplicate by t + cap total (เหมือน fetchMoreCandlesBefore)
       const merged = [...older, ...FUTD.chart.candles];
       const seen   = new Set();
@@ -46813,6 +47220,7 @@ async function futdChartLoad() {
       // [PATCH-v2.69-FIX] ผ่าน _parseCandles() เสมอ เพื่อให้ทุก field เป็น number
       // (raw Hyperliquid response มี string fields → .toFixed() crash ใน crosshair/tooltip → กราฟค้าง)
       const _fresh = Array.isArray(d) ? _parseCandles(d) : [];
+      FUTD.chart.candlesCoin = _loadCoin;   // [v4.15-DIRECT-COIN] ระบุว่าแท่งเทียนชุดนี้เป็นของเหรียญไหน (ดู _futdCandlesFresh)
       // [FIX-POLL-BOUNCE] Preserve viewStart เมื่อ poll replace array ใหม่ทั้งหมด
       // ปัญหา: poll ทำ candles = _fresh → array reference ใหม่ → viewStart (index เก่า) offset
       // → กราฟเด้งกลับ live edge แล้ว snap กลับ null ทุกรอบ poll
@@ -47253,7 +47661,9 @@ function futdChartDraw() {
     }
 
     // ── [FIX-7] Liq. Price line (เพิ่มใหม่ใน Direct — เหมือน Contract) ──
-    const liqP = parseFloat(p.liq_price || p.liq) || 0;
+    // [v4.18-LIQ-CHART] ใช้ Liq ตัวเดียวกับการ์ด (GAS map → Cross per-symbol → Isolated) — เดิมอ่าน p.liq_price ดิบจากชีต (Cross = placeholder สูตร Isolated) เส้นกราฟจึงไม่ตรงตัวเลขบนการ์ด
+    let liqP = 0;
+    try { liqP = _futdResolveLiq(p, (FUTD.status && FUTD.status.liq_price_map) || {}, futdPositions) || 0; } catch (e) { liqP = 0; }
     if (liqP > 0) {
       const ly = scY(liqP);
       if (ly >= PAD_T - 2 && ly <= H - PAD_B + 2) {

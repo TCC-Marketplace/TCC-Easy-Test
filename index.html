@@ -1,3 +1,5 @@
+<!-- [v4.20-SHARE-QR] (2026-11-19) QR บนการ์ดแชร์ (Trade/PNL/Contract) → ลิงก์สมัครแนะนำสมาชิกจริงของระบบ https://tradercafeclubthai.tradercafeclub.workers.dev/?ref=<UID>&lang=<ภาษาปัจจุบัน>#register (รูปแบบเดียวกับ Dashboard) · สร้างใหม่ทุกครั้งที่เปิดการ์ด
+     สแกนง่ายขึ้น: ระดับ M (เดิม H) · เรนเดอร์ 320px แล้วย่อ · กล่อง 76px พื้นขาว + ขอบขาว (quiet zone) · ฟังก์ชัน: _scRefUrl · scGenQR (ค้นด้วย tag [v4.20-SHARE-QR]) · ไม่แตะ: รูปโปรไฟล์ · โลโก้จางกลางการ์ด -->
 <!-- [v4.19-SHARE-AVATAR] (2026-11-19) การ์ดแชร์ (Trade + Contract): รูปวงกลมมุมซ้ายบนใช้รูปโปรไฟล์สมาชิก (USER_PROFILE.avatar) แทนโลโก้ระบบ · ไม่มีรูป/โหลดรูปไม่ได้ = ใช้โลโก้ระบบเดิม · แก้เฉพาะ HTML ไม่ต้องแก้/deploy GAS
      สาเหตุเดิม: loadDashboard โหลด avatar_url ลง USER_PROFILE แต่ไม่ sync ไป SHARE_PROFILE → การ์ดตกไปใช้โลโก้หลังรีเฟรช · รูปจากโดเมนอื่น (ImgBB) แปลงเป็น data URL ก่อนวาง กัน canvas tainted ตอน Download/Share
      ฟังก์ชัน: _scAvatarUrl · _scAvatarToDataUrl · _scApplyAvatar · _scRefreshAvatars · _scAvatarReady (ค้นด้วย tag [v4.19-SHARE-AVATAR]) · ไม่แตะ: โลโก้จางกลางการ์ด (.sct-bg-logo/.scc-bg-logo/.scp-bg-logo) · เลย์เอาต์/สี/QR/ปุ่ม -->
@@ -3544,7 +3546,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px
 .sct-ref{text-align:right}
 .sct-ref-lbl{font-size:9px;color:#6b6b8a}
 .sct-ref-code{font-size:11px;color:#a0a0c0;font-family:'IBM Plex Mono',monospace;font-weight:600;margin-top:2px}
-.sct-qr-wrap{width:56px;height:56px}
+.sct-qr-wrap{width:76px;height:76px;box-sizing:border-box;padding:4px;background:#fff;border-radius:6px;flex-shrink:0;line-height:0} /* [v4.20-SHARE-QR] พื้นขาว+ขอบขาว = quiet zone ให้สแกนได้บนการ์ดพื้นเข้ม */
+.sct-qr-wrap img,.sct-qr-wrap canvas{display:block;width:100%!important;height:100%!important}
 /* ── PNL CARD ── */
 #scPnlCard{
   background:linear-gradient(160deg,#11121e 0%,#0d0e1a 100%);
@@ -29642,13 +29645,27 @@ function tccFallbackSVG(){
   }, 0);
 })();
 
-/* ── QR generator helper ── */
+/* ── QR / Referral — [v4.20-SHARE-QR] ──
+   ลิงก์เดียวกับ Dashboard "ลิงก์แนะนำของคุณ": https://tradercafeclubthai.tradercafeclub.workers.dev/?ref=<UID>&lang=<ภาษาปัจจุบัน>#register
+   (เดิมตกไป https://tradercafeclub.com/ref/TCC-xxxxx หรือค่า qr จาก GAS ซึ่งไม่ใช่ลิงก์สมัคร → สแกนแล้วเข้าหน้าสมัครไม่ได้) */
+const SHARE_REF_BASE = 'https://tradercafeclubthai.tradercafeclub.workers.dev/';
+function _scRefUrl() {
+  let uid = '', lg = 'th';
+  try { uid = String((typeof USER_PROFILE !== 'undefined' && USER_PROFILE.uid) || '').trim(); } catch (e) {}
+  try { lg = String((typeof window.tccGetLang === 'function' && window.tccGetLang()) || 'th').toLowerCase(); } catch (e) {}
+  if (!/^[a-z]{2,3}$/.test(lg)) lg = 'th';
+  return SHARE_REF_BASE + '?' + (uid ? 'ref=' + encodeURIComponent(uid) + '&' : '') + 'lang=' + lg + '#register';
+}
+
+/* ── QR generator helper ──
+   ระดับ M (เดิม H: URL ยาวแล้วโมดูลถี่เกินไป) · เรนเดอร์ 320px แล้วย่อด้วย CSS (ตอนแคป scale 3 ยังคมชัด) */
 function scGenQR(containerId, url) {
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = '';
+  try { url = _scRefUrl() || url; } catch (e) {}      // ใช้ลิงก์สมัครจริงเสมอ (พารามิเตอร์ url = ค่าสำรอง)
   if (typeof QRCode !== 'undefined') {
-    new QRCode(el, { text: url, width: 56, height: 56, correctLevel: QRCode.CorrectLevel.H });
+    new QRCode(el, { text: url, width: 320, height: 320, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
   }
 }
 
@@ -33142,12 +33159,8 @@ function _syncProfileToShare() {
   // refCode = USER_PROFILE.uid (ใช้เป็น referral code)
   if (USER_PROFILE.uid) {
     SHARE_PROFILE.refCode = 'TCC-' + String(USER_PROFILE.uid).padStart(5, '0');
-    // refUrl: ใช้ qrCode จาก GAS ถ้ามี มิฉะนั้น build จาก uid
-    if (USER_PROFILE.qrCode && USER_PROFILE.qrCode.startsWith('http')) {
-      SHARE_PROFILE.refUrl = USER_PROFILE.qrCode;
-    } else {
-      SHARE_PROFILE.refUrl = 'https://tradercafeclub.com/ref/' + SHARE_PROFILE.refCode;
-    }
+    // [v4.20-SHARE-QR] refUrl = ลิงก์สมัครแนะนำจริงของระบบ (?ref=<uid>&lang=..#register) — ไม่ใช้ค่า qr จาก GAS / tradercafeclub.com/ref เดิมแล้ว
+    try { SHARE_PROFILE.refUrl = _scRefUrl(); } catch (e) {}
   }
 }
 

@@ -1,3 +1,6 @@
+<!-- [v4.19-SHARE-AVATAR] (2026-11-19) การ์ดแชร์ (Trade + Contract): รูปวงกลมมุมซ้ายบนใช้รูปโปรไฟล์สมาชิก (USER_PROFILE.avatar) แทนโลโก้ระบบ · ไม่มีรูป/โหลดรูปไม่ได้ = ใช้โลโก้ระบบเดิม · แก้เฉพาะ HTML ไม่ต้องแก้/deploy GAS
+     สาเหตุเดิม: loadDashboard โหลด avatar_url ลง USER_PROFILE แต่ไม่ sync ไป SHARE_PROFILE → การ์ดตกไปใช้โลโก้หลังรีเฟรช · รูปจากโดเมนอื่น (ImgBB) แปลงเป็น data URL ก่อนวาง กัน canvas tainted ตอน Download/Share
+     ฟังก์ชัน: _scAvatarUrl · _scAvatarToDataUrl · _scApplyAvatar · _scRefreshAvatars · _scAvatarReady (ค้นด้วย tag [v4.19-SHARE-AVATAR]) · ไม่แตะ: โลโก้จางกลางการ์ด (.sct-bg-logo/.scc-bg-logo/.scp-bg-logo) · เลย์เอาต์/สี/QR/ปุ่ม -->
 <!-- [SYNC-DIRECT-V5] (2026-11-19) อัปเดต Futures → Direct ให้ตรงกับ index_TCC_Trader_p_share_direct_v5 (รวมรอบแก้ v4.14 ถึง v4.18) · แก้เฉพาะ HTML · ไม่ต้องแก้/deploy GAS (ใช้ GAS เดิมของไฟล์นี้) · ไม่แตะ: SCRIPT_URL/ADMIN_SCRIPT_URL · ชั้น D1 · สูตร Liq ฝั่ง GAS · ค้นด้วย tag ในวงเล็บเหลี่ยม
      [v4.14-DIRECT-SHARE] แชร์โพซิชั่น Direct ครบทุกจุด: การ์ดใน Futures→Direct (ไอคอนแชร์) · Assets→Futures-Direct (ปุ่ม Share) · My Trades→Direct Open (เฉพาะ Active) และ Position History · ประวัติ Liquidation
          ฟังก์ชันใหม่: openDirectShareCard (ใช้ราคา mark ก่อน → ไม่มีให้ดึงราคาสด → ยังไม่ได้ราคา = ยกเลิก+toast ไม่แสดง PNL 0) · openFutdPosHistShareCard · openFutdLiqShareCard (PNL = −Margin Lost · Entry = Avg Entry · ป้ายราคา = Liq. Price) · _futdFindPosForShare · _scNum (แก้ parseFloat("1,234.56") ได้ 1)
@@ -28241,13 +28244,8 @@ function _setSccTxt(id, val) {
 }
 
 function _sccSetAvatar() {
-  const avEl = document.getElementById('sccAvatar');
-  if (!avEl) return;
-  if (SHARE_PROFILE.avatar) {
-    avEl.innerHTML = `<img src="${SHARE_PROFILE.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-  } else {
-    avEl.innerHTML = `<img src="${TCC_LOGO_IMG}" alt="TCC" style="width:100%;height:100%;object-fit:cover;border-radius:50%;filter:brightness(1.1) contrast(1.05);">`;
-  }
+  // [v4.19-SHARE-AVATAR] ใช้ตัวเดียวกับการ์ด Trade — รูปโปรไฟล์ → ไม่มีใช้โลโก้ระบบ
+  _scRefreshAvatars();
 }
 
 /* ── Contract PNL chart ── */
@@ -29959,19 +29957,90 @@ function closeShareCard() {
   if (bar) bar.style.transform = 'translateY(100%)';
 }
 
-/* ── Avatar helper — โลโก้แทนตัวอักษรถ้าไม่มี avatar ── */
-function _scSetAvatar() {
-  const avEl = document.getElementById('sctAvatar');
-  if (!avEl) return;
-  if (SHARE_PROFILE.avatar) {
-    avEl.innerHTML = `<img src="${SHARE_PROFILE.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-  } else {
-    // ใช้โลโก้ bull+bear วงกลม (base64 ที่ฝังไว้)
-    avEl.innerHTML = `<img src="${TCC_LOGO_IMG}" alt="TCC"
-      style="width:100%;height:100%;object-fit:cover;border-radius:50%;
-             filter:brightness(1.1) contrast(1.05);">`;
-  }
+/* ── Avatar helper — [v4.19-SHARE-AVATAR] รูปโปรไฟล์สมาชิก · ไม่มี/โหลดไม่ได้ = โลโก้ระบบ ──
+   ใช้ USER_PROFILE.avatar เป็นแหล่งหลัก (fallback SHARE_PROFILE.avatar) อ่านตอนเปิดการ์ดทุกครั้ง ไม่พึ่งการ sync
+   รูปจากโดเมนอื่นแปลงเป็น data URL ก่อน (กัน html2canvas ติด CORS/tainted canvas) · แปลงไม่ได้ → โลโก้ ไม่ปล่อยวงกลมว่าง */
+const _scAvatarCache = {};      // url → dataURL (เก็บเฉพาะที่แปลงสำเร็จ)
+let _scAvatarPending = null;    // Promise ของการแปลงรูปล่าสุด — _scCapture รอก่อนแคปภาพ
+
+function _scAvatarUrl() {
+  let u = '';
+  try { u = (typeof USER_PROFILE !== 'undefined' && USER_PROFILE.avatar) || SHARE_PROFILE.avatar || ''; } catch (e) {}
+  u = String(u || '').trim();
+  return (/^(https?:)?\/\//i.test(u) || /^data:image\//i.test(u)) ? u : '';
 }
+
+function _scAvatarToDataUrl(url) {
+  if (!url) return Promise.resolve('');
+  if (/^data:image\//i.test(url)) return Promise.resolve(url);
+  if (_scAvatarCache[url]) return Promise.resolve(_scAvatarCache[url]);
+  const viaFetch = () => fetch(url, { mode: 'cors', cache: 'force-cache' })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+    .then(b => {
+      if (!b || String(b.type || '').indexOf('image/') !== 0) throw new Error('not image');
+      return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
+    });
+  const viaImg = () => new Promise((res, rej) => {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      try {
+        const w = im.naturalWidth || 0, h = im.naturalHeight || 0;
+        if (!w || !h) return rej(new Error('empty'));
+        const k = Math.min(1, 512 / Math.max(w, h));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        res(c.toDataURL('image/png'));
+      } catch (e) { rej(e); }
+    };
+    im.onerror = () => rej(new Error('img error'));
+    im.src = url;
+  });
+  const timeout = new Promise(res => setTimeout(() => res(''), 6000));
+  return Promise.race([viaFetch().catch(viaImg).catch(() => ''), timeout]).then(d => {
+    d = /^data:image\//i.test(d || '') ? d : '';
+    if (d) _scAvatarCache[url] = d;
+    return d;
+  });
+}
+
+/* วางรูปลงวงกลม (el) — สร้าง <img> ด้วย DOM API (ไม่ฝัง URL ลง innerHTML) */
+function _scApplyAvatar(avEl) {
+  if (!avEl) return Promise.resolve();
+  const put = (src, isLogo) => {
+    avEl.textContent = '';
+    const im = document.createElement('img');
+    im.alt = isLogo ? 'TCC' : '';
+    im.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;' + (isLogo ? 'filter:brightness(1.1) contrast(1.05);' : '');
+    im.onerror = () => { if (!isLogo) put(TCC_LOGO_IMG, true); };
+    im.src = src;
+    avEl.appendChild(im);
+  };
+  const url = _scAvatarUrl();
+  if (!url) { avEl._scTok = ''; put(TCC_LOGO_IMG, true); return Promise.resolve(); }   // ไม่มีรูปโปรไฟล์ → โลโก้ระบบ
+  if (/^data:image\//i.test(url)) { avEl._scTok = url; put(url, false); return Promise.resolve(); }
+  if (_scAvatarCache[url]) { avEl._scTok = url; put(_scAvatarCache[url], false); return Promise.resolve(); }
+  avEl._scTok = url;
+  put(url, false);                       // โชว์รูปบนหน้าจอทันที (ก่อนแปลง) — ตอนแคปภาพจะรอให้แปลงเสร็จก่อน
+  return _scAvatarToDataUrl(url).then(d => {
+    if (avEl._scTok !== url) return;     // เปิดการ์ดใหม่/เปลี่ยนรูประหว่างรอ → ไม่ทับ
+    if (d) put(d, false); else put(TCC_LOGO_IMG, true);   // แปลงไม่ได้ → โลโก้ (กัน tainted canvas / วงกลมว่าง)
+  });
+}
+
+function _scRefreshAvatars() {
+  // วงกลมมุมซ้ายบนของการ์ด Trade (#sctAvatar) และ Contract (#sccAvatar) — ใช้ชุดเดียวกันเสมอ
+  _scAvatarPending = Promise.all([
+    _scApplyAvatar(document.getElementById('sctAvatar')),
+    _scApplyAvatar(document.getElementById('sccAvatar')),
+  ]).catch(() => {});
+  return _scAvatarPending;
+}
+
+function _scAvatarReady() { return _scAvatarPending || Promise.resolve(); }
+
+function _scSetAvatar() { _scRefreshAvatars(); }
 
 /* ── Progress Action Bar (Download / Share feedback) ── */
 function _scShowActionBar(msg, type) {
@@ -30043,6 +30112,7 @@ const SC_CARD_W = 390;  // px — ความกว้างมาตรฐา�
 const SC_CARD_H = 620;  // px — ความสูงมาตรฐาน
 
 async function _scCapture(card) {
+  try { await _scAvatarReady(); } catch (e) {}   // [v4.19-SHARE-AVATAR] รอรูปโปรไฟล์เป็น data URL ก่อนแคป
   const bgMap = {
     'scTradeCard':    '#0a0a12',
     'scPnlCard':      '#0d0e1a',
@@ -33065,7 +33135,9 @@ function setActiveUID(uid) {
 function _syncProfileToShare() {
   if (typeof SHARE_PROFILE === 'undefined') return;
   // [FIX-SHARE-SYNC] sync ครบทุก field: avatar + username + refCode + refUrl
-  if (USER_PROFILE.avatar)   SHARE_PROFILE.avatar   = USER_PROFILE.avatar;
+  // [v4.19-SHARE-AVATAR] sync ตามค่าจริงเสมอ (ไม่มีรูป = null → การ์ดใช้โลโก้ระบบ) + เตรียม data URL ไว้ล่วงหน้า
+  SHARE_PROFILE.avatar = USER_PROFILE.avatar || null;
+  try { const _u = _scAvatarUrl(); if (_u) _scAvatarToDataUrl(_u); } catch (e) {}
   if (USER_PROFILE.username) SHARE_PROFILE.username  = USER_PROFILE.username;
   // refCode = USER_PROFILE.uid (ใช้เป็น referral code)
   if (USER_PROFILE.uid) {
@@ -34515,6 +34587,7 @@ async function _loadDashboardImpl(_injected) {
     // เดิม — เพื่อให้หน้า Account Info (ai-avatar) และ Verification Center (vf-avatar) ได้รับ
     // avatar_url ที่เพิ่งโหลดมาจาก GAS ด้วย ไม่ใช่แค่หน้า Profile หลักกับ topbar เท่านั้น
     if (typeof _syncAllProfilePages === 'function') _syncAllProfilePages();
+    if (typeof _syncProfileToShare === 'function') _syncProfileToShare();   // [v4.19-SHARE-AVATAR] avatar_url จาก GAS → การ์ดแชร์
     if (typeof updateSysWalletDisplay === 'function') updateSysWalletDisplay();
     // [FIX-1] ได้ยอดจาก getDashboard แล้ว → อัปเดต Overview/Spot ทันที ไม่รอ Admin GAS
     window._dashboardReady = true;
